@@ -16,16 +16,76 @@ export interface TextConfig {
   text: string;
 }
 
-export type TileStateValue = string | string[];
-export type TileStateDefinition = Record<string, TileStateValue>;
-export type TileStates = Record<string, TileStateDefinition>;
+// ============================================================================
+// Group-based state system
+// ============================================================================
 
+/**
+ * A state variant provides additional CSS properties that override or extend the base state.
+ */
+export interface StateVariant {
+  [key: string]: string;
+}
+
+/**
+ * A state definition within a group. It has a base set of CSS properties and
+ * optional variants (like "blinking" for signals).
+ */
+export interface GroupState {
+  /** Base CSS properties for this state */
+  base: Record<string, string>;
+  /** Optional variants that extend/override the base */
+  variants?: Record<string, Record<string, string>>;
+}
+
+/**
+ * A state group represents a category of related states (e.g., "signal", "occupation").
+ */
+export interface StateGroup {
+  /** The available states in this group */
+  states: Record<string, GroupState>;
+  /** The default state name for this group */
+  defaultState: string;
+  /** The default variant name for this group */
+  defaultVariant: string;
+  /** Human-readable label for the group (used in UI) */
+  label: string;
+}
+
+/**
+ * Global registry of all state groups.
+ * Components reference these groups by key.
+ */
+export type StateGroupRegistry = Record<string, StateGroup>;
+
+/**
+ * Component state configuration.
+ * For each group the component uses, specify which states are available
+ * and optionally override defaults.
+ */
+export interface ComponentGroups {
+  [groupKey: string]: {
+    /** List of state names from this group that the component supports */
+    states: string[];
+    /** Optional default state (overrides group default) */
+    defaultState?: string;
+    /** Optional default variant (overrides group default) */
+    defaultVariant?: string;
+  };
+}
+
+/**
+ * TileData with group-based state configuration.
+ */
 export interface TileData {
   component: React.ComponentType<React.SVGProps<SVGSVGElement>>;
   space: Space;
   usedSpace: [number, number][];
   traversable: false | TraversableStateMap;
-  states?: TileStates;
+  /** Group-based state configuration */
+  groups?: ComponentGroups;
+  /** Static styles that are always applied */
+  staticStyles?: Record<string, string>;
   texts?: Record<string, TextConfig>;
 }
 
@@ -33,9 +93,14 @@ export type TileCatalog = Record<string, TileData>;
 
 interface ClientProps {
   tiles: TileCatalog;
-  globalStates?: TileStates;
+  /** Global state group registry */
+  stateGroups: StateGroupRegistry;
   tileSize?: number;
 }
+
+// ============================================================================
+// Helper functions
+// ============================================================================
 
 function getClosestEdgePoint(
     coordStr: string,
@@ -71,6 +136,7 @@ function camelCase(str: string): string {
 
 function parseCssString(cssString: string): CSSProperties {
   const styles: Record<string, string> = {};
+  if (!cssString) return styles;
   cssString.split(';').forEach((rule) => {
     const trimmed = rule.trim();
     if (!trimmed) return;
@@ -84,116 +150,206 @@ function parseCssString(cssString: string): CSSProperties {
   return styles as CSSProperties;
 }
 
-function normalizeStateNames(input: TileStateValue | undefined): string[] {
-  if (!input) return [];
-  if (Array.isArray(input)) return input;
-  return input.split(/\s+/).filter(Boolean);
-}
-
-function findStateDefinition(
-    name: string,
-    localStates: TileStates = {},
-    globalStates: TileStates = {}
-): TileStateDefinition | undefined {
-  if (localStates[name]) return localStates[name];
-  if (globalStates[name]) return globalStates[name];
-
-  const nameWithS = name.endsWith('S') ? name : `${name}S`;
-  if (localStates[nameWithS]) return localStates[nameWithS];
-  if (globalStates[nameWithS]) return globalStates[nameWithS];
-
-  return undefined;
-}
-
-function resolveStateDefinition(
+/**
+ * Resolve the CSS properties for a given group, state, and variant.
+ */
+function resolveGroupState(
+    group: StateGroup,
     stateName: string,
-    localStates: TileStates = {},
-    globalStates: TileStates = {},
-    visited: Set<string> = new Set()
+    variantName: string
 ): Record<string, string> {
-  const targetState = findStateDefinition(stateName, localStates, globalStates);
+  if (!group || !group.states) return {};
 
-  if (!targetState || visited.has(stateName)) {
-    return {};
+  const state = group.states[stateName];
+  if (!state) return {};
+
+  const result = { ...state.base };
+
+  if (state.variants && state.variants[variantName]) {
+    Object.assign(result, state.variants[variantName]);
   }
 
-  visited.add(stateName);
-
-  let merged: Record<string, string> = {};
-
-  if (targetState.states) {
-    const parentNames = normalizeStateNames(targetState.states as TileStateValue);
-    parentNames.forEach((parentName) => {
-      const parentResolved = resolveStateDefinition(
-          parentName,
-          localStates,
-          globalStates,
-          new Set(visited)
-      );
-      merged = { ...merged, ...parentResolved };
-    });
-  }
-
-  const ownProps = { ...targetState };
-  delete ownProps.states;
-
-  const stringProps: Record<string, string> = {};
-  Object.entries(ownProps).forEach(([k, v]) => {
-    if (typeof v === 'string') {
-      stringProps[k] = v;
-    }
-  });
-
-  return { ...merged, ...stringProps };
+  return result;
 }
 
 /**
- * Expands shorthand `states: "departureBlinking shuntActive"` into concrete state entries
- * that inherit from 'default' + the 'S'-suffixed global preset (e.g. "default departureBlinkingS").
+ * Resolve all CSS properties for a component based on selected group states.
  */
-function normalizeTileStates(rawStates?: TileStates): TileStates {
-  if (!rawStates) return {};
+function resolveComponentStyles(
+    tile: TileData,
+    groupSelections: Record<string, { state: string; variant: string }>,
+    stateGroups: StateGroupRegistry,
+): Record<string, string> {
+  let result: Record<string, string> = {};
 
-  const normalized: TileStates = {};
+  // Apply static styles first
+  if (tile.staticStyles) {
+    Object.assign(result, tile.staticStyles);
+  }
 
-  Object.entries(rawStates).forEach(([stateKey, stateDef]) => {
-    if (stateKey === 'states') {
-      const importedNames = normalizeStateNames(
-          stateDef as unknown as TileStateValue
-      );
-      importedNames.forEach((importedName) => {
-        const presetName = importedName.endsWith('S') ? importedName : `${importedName}S`;
-        normalized[importedName] = {
-          states: rawStates['default'] ? `default ${presetName}` : presetName,
-        };
-      });
-    } else {
-      normalized[stateKey] = stateDef;
+  // Resolve group-based states
+  if (tile.groups && stateGroups) {
+    for (const [groupKey, config] of Object.entries(tile.groups)) {
+      const group = stateGroups[groupKey];
+      if (!group) continue;
+
+      const selection = groupSelections[groupKey];
+      if (!selection) continue;
+
+      if (!config.states.includes(selection.state)) continue;
+
+      const resolved = resolveGroupState(group, selection.state, selection.variant);
+      Object.assign(result, resolved);
     }
-  });
+  }
 
-  return normalized;
+  return result;
 }
+
+/**
+ * Get all available states for a component's group.
+ */
+function getGroupStateOptions(
+    tile: TileData,
+    groupKey: string,
+    stateGroups: StateGroupRegistry
+): string[] {
+  if (!tile.groups || !tile.groups[groupKey]) return [];
+  const config = tile.groups[groupKey];
+  const group = stateGroups[groupKey];
+  if (!group || !group.states) return [];
+
+  return config.states.filter(state => group.states[state]);
+}
+
+/**
+ * Get all available variants for a component's group state.
+ */
+function getGroupVariantOptions(
+    tile: TileData,
+    groupKey: string,
+    stateName: string,
+    stateGroups: StateGroupRegistry
+): string[] {
+  if (!tile.groups || !tile.groups[groupKey]) return [];
+  const group = stateGroups[groupKey];
+  if (!group) return [];
+
+  const state = group.states[stateName];
+  if (!state) return [];
+
+  const variants = Object.keys(state.variants || {});
+  return ['normal', ...variants];
+}
+
+/**
+ * Get the default state and variant for a component's group.
+ */
+function getDefaultGroupSelection(
+    tile: TileData,
+    groupKey: string,
+    stateGroups: StateGroupRegistry
+): { state: string; variant: string } {
+  if (!tile.groups || !tile.groups[groupKey]) {
+    return { state: '', variant: '' };
+  }
+
+  const config = tile.groups[groupKey];
+  const group = stateGroups[groupKey];
+  if (!group) return { state: '', variant: '' };
+
+  const defaultState = config.defaultState || group.defaultState;
+  const defaultVariant = config.defaultVariant || group.defaultVariant;
+
+  if (!config.states.includes(defaultState)) {
+    return { state: config.states[0] || '', variant: defaultVariant };
+  }
+
+  return { state: defaultState, variant: defaultVariant };
+}
+
+// ============================================================================
+// Main Component
+// ============================================================================
 
 export default function TileCatalogViewerClient({
                                                   tiles,
-                                                  globalStates = {},
+                                                  stateGroups,
                                                   tileSize = 75,
                                                 }: ClientProps) {
-  const [selectedState, setSelectedState] = useState<Record<string, number>>({});
-  const [activeAssetStates, setActiveAssetStates] = useState<Record<string, string>>({});
+  const [groupSelections, setGroupSelections] = useState<
+      Record<string, Record<string, { state: string; variant: string }>>
+  >({});
+
   const [showBounds, setShowBounds] = useState(true);
-  const [textOverrides, setTextOverrides] = useState<Record<string, Record<string, Partial<TextConfig>>>>({});
+  const [textOverrides, setTextOverrides] = useState<
+      Record<string, Record<string, Partial<TextConfig>>>
+  >({});
 
-  const handleStateChange = (key: string, stateIdx: number) => {
-    setSelectedState((prev) => ({ ...prev, [key]: stateIdx }));
+  const [traversableSelections, setTraversableSelections] = useState<
+      Record<string, number>
+  >({});
+
+  const safeStateGroups = stateGroups || {};
+
+  const handleGroupStateChange = (
+      tileKey: string,
+      groupKey: string,
+      state: string
+  ) => {
+    setGroupSelections((prev) => {
+      const tileSelections = prev[tileKey] || {};
+      const current = tileSelections[groupKey] || { state: '', variant: '' };
+      const group = safeStateGroups[groupKey];
+      const defaultVariant = group?.defaultVariant || 'normal';
+      return {
+        ...prev,
+        [tileKey]: {
+          ...tileSelections,
+          [groupKey]: {
+            ...current,
+            state,
+            variant: current.variant || defaultVariant,
+          },
+        },
+      };
+    });
   };
 
-  const handleAssetStateChange = (key: string, stateName: string) => {
-    setActiveAssetStates((prev) => ({ ...prev, [key]: stateName }));
+  const handleGroupVariantChange = (
+      tileKey: string,
+      groupKey: string,
+      variant: string
+  ) => {
+    setGroupSelections((prev) => {
+      const tileSelections = prev[tileKey] || {};
+      const current = tileSelections[groupKey] || { state: '', variant: '' };
+      return {
+        ...prev,
+        [tileKey]: {
+          ...tileSelections,
+          [groupKey]: {
+            ...current,
+            variant,
+          },
+        },
+      };
+    });
   };
 
-  const handleTextOverride = (tileKey: string, textKey: string, field: keyof TextConfig, value: string) => {
+  const handleTraversableChange = (tileKey: string, stateIdx: number) => {
+    setTraversableSelections((prev) => ({
+      ...prev,
+      [tileKey]: stateIdx,
+    }));
+  };
+
+  const handleTextOverride = (
+      tileKey: string,
+      textKey: string,
+      field: keyof TextConfig,
+      value: string
+  ) => {
     setTextOverrides((prev) => ({
       ...prev,
       [tileKey]: {
@@ -205,6 +361,42 @@ export default function TileCatalogViewerClient({
       },
     }));
   };
+
+  // Initialize selections for a tile if not present
+  const getTileSelections = (tileKey: string, tile: TileData) => {
+    if (!groupSelections[tileKey]) {
+      const initial: Record<string, { state: string; variant: string }> = {};
+      if (tile.groups) {
+        for (const [groupKey] of Object.entries(tile.groups)) {
+          const defaultSelection = getDefaultGroupSelection(
+              tile,
+              groupKey,
+              safeStateGroups
+          );
+          if (defaultSelection.state) {
+            initial[groupKey] = defaultSelection;
+          }
+        }
+      }
+      setTimeout(() => {
+        setGroupSelections((prev) => ({
+          ...prev,
+          [tileKey]: initial,
+        }));
+      }, 0);
+      return initial;
+    }
+    return groupSelections[tileKey];
+  };
+
+  // If no tiles, show empty state
+  if (!tiles || Object.keys(tiles).length === 0) {
+    return (
+        <div className="flex flex-col items-center justify-center p-12 text-slate-400">
+          <p className="text-lg">No tiles found in catalog.</p>
+        </div>
+    );
+  }
 
   return (
       <div className="flex flex-col gap-6">
@@ -258,51 +450,56 @@ export default function TileCatalogViewerClient({
         </div>
 
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {Object.entries(tiles).map(([key, tile]) => {
+          {Object.entries(tiles || {}).map(([key, tile]) => {
+            if (!tile || !tile.space) return null;
+
             const widthPx = tile.space.x * tileSize;
             const heightPx = tile.space.y * tileSize;
 
-            const states = tile.traversable ? Object.keys(tile.traversable).map(Number) : [];
-            const currentState = selectedState[key] ?? (states.length > 0 ? states[0] : 0);
+            const traversableStates = tile.traversable
+                ? Object.keys(tile.traversable).map(Number)
+                : [];
+            const currentTraversable =
+                traversableSelections[key] ??
+                (traversableStates.length > 0 ? traversableStates[0] : 0);
             const currentRoutes: TraversableRouteMap =
-                tile.traversable && tile.traversable[currentState] ? tile.traversable[currentState] : {};
+                tile.traversable && tile.traversable[currentTraversable]
+                    ? tile.traversable[currentTraversable]
+                    : {};
 
-            const normalizedLocalStates = normalizeTileStates(tile.states);
-            const assetStates = Object.keys(normalizedLocalStates);
-            const currentAssetState = activeAssetStates[key] ?? (assetStates.length > 0 ? assetStates[0] : 'default');
+            const tileSelections = groupSelections[key] || {};
 
-            const stateDefinition = resolveStateDefinition(
-                currentAssetState,
-                normalizedLocalStates,
-                globalStates
+            const resolvedStyles = resolveComponentStyles(
+                tile,
+                tileSelections,
+                safeStateGroups
             );
+
+            const texts = tile.texts ?? {};
+            const overrides = textOverrides[key] ?? {};
 
             const customStyleVars: Record<string, string> = {};
             let rawCssStyles: CSSProperties = {};
             const stateClasses: string[] = [];
 
-            Object.entries(stateDefinition).forEach(([stateKey, value]) => {
-              if (stateKey.startsWith('--')) {
-                customStyleVars[stateKey] = value;
-              } else if (stateKey === 'css') {
+            Object.entries(resolvedStyles).forEach(([styleKey, value]) => {
+              if (styleKey.startsWith('--')) {
+                customStyleVars[styleKey] = value;
+              } else if (styleKey === 'css') {
                 rawCssStyles = parseCssString(value);
-              } else if (stateKey === 'tailwind') {
+              } else if (styleKey === 'tailwind') {
                 const tailwindClasses = value
                     .split(/\s+/)
                     .filter(Boolean)
                     .map((cls) => (cls.startsWith('!') ? cls : `!${cls}`));
                 stateClasses.push(...tailwindClasses);
-              } else if (stateKey === 'class') {
+              } else if (styleKey === 'class') {
                 stateClasses.push(...value.split(/\s+/).filter(Boolean));
               }
             });
 
-            const texts = tile.texts ?? {};
-            const overrides = textOverrides[key] ?? {};
-
             Object.keys(texts).forEach((textKey) => {
               const config = { ...texts[textKey], ...(overrides[textKey] ?? {}) };
-
               if (textKey === 'text') {
                 customStyleVars['--color-text'] = config.fill;
                 customStyleVars['--size-text'] = config.size;
@@ -319,18 +516,24 @@ export default function TileCatalogViewerClient({
 
             const TileComponent = tile.component;
 
+            const groupKeys = tile.groups ? Object.keys(tile.groups) : [];
+            const hasGroups = groupKeys.length > 0;
+            const hasTexts = Object.keys(texts).length > 0;
+            const hasTraversable = traversableStates.length > 0;
+
             return (
                 <div
                     key={key}
                     className="flex flex-col rounded-xl border border-slate-700 bg-slate-800 p-4 shadow-lg"
                 >
                   <div className="mb-3 flex items-center justify-between border-b border-slate-700 pb-2">
-                <span className="font-mono text-sm font-semibold text-lime-300 capitalize">
-                  {key}
-                </span>
+                    <span className="font-mono text-sm font-semibold text-lime-300 capitalize">
+                      {key}
+                    </span>
                     <span className="rounded bg-slate-700 px-2 py-0.5 font-mono text-xs text-slate-300">
-                  {tile.space.x}×{tile.space.y} Tile{tile.space.x * tile.space.y > 1 ? 's' : ''}
-                </span>
+                      {tile.space.x}×{tile.space.y} Tile
+                      {tile.space.x * tile.space.y > 1 ? 's' : ''}
+                    </span>
                   </div>
 
                   <div className="flex flex-1 items-center justify-center overflow-auto rounded-lg border border-slate-800 bg-slate-950/50 p-4">
@@ -342,7 +545,7 @@ export default function TileCatalogViewerClient({
                           className="pointer-events-none absolute inset-0"
                           style={{
                             backgroundImage: `linear-gradient(to right, rgba(255, 255, 255, 0.05) 1px, transparent 1px),
-                                        linear-gradient(to bottom, rgba(255, 255, 255, 0.05) 1px, transparent 1px)`,
+                                  linear-gradient(to bottom, rgba(255, 255, 255, 0.05) 1px, transparent 1px)`,
                             backgroundSize: `${tileSize}px ${tileSize}px`,
                           }}
                       />
@@ -362,6 +565,7 @@ export default function TileCatalogViewerClient({
                       )}
 
                       {showBounds &&
+                          tile.usedSpace &&
                           tile.usedSpace.map(([ux, uy], idx) => (
                               <div
                                   key={idx}
@@ -375,7 +579,7 @@ export default function TileCatalogViewerClient({
                               />
                           ))}
 
-                      {showBounds && (
+                      {showBounds && hasTraversable && (
                           <svg
                               className="pointer-events-none absolute inset-0 z-10"
                               width={widthPx}
@@ -395,44 +599,130 @@ export default function TileCatalogViewerClient({
                               </marker>
                             </defs>
 
-                            {Object.entries(currentRoutes).map(([fromStr, toStr], routeIdx) => {
-                              const start = getClosestEdgePoint(fromStr, tile.space, tileSize);
-                              const end = getClosestEdgePoint(toStr, tile.space, tileSize);
+                            {Object.entries(currentRoutes).map(
+                                ([fromStr, toStr], routeIdx) => {
+                                  const start = getClosestEdgePoint(
+                                      fromStr,
+                                      tile.space,
+                                      tileSize
+                                  );
+                                  const end = getClosestEdgePoint(
+                                      toStr,
+                                      tile.space,
+                                      tileSize
+                                  );
 
-                              return (
-                                  <g key={routeIdx}>
-                                    <line
-                                        x1={start.x}
-                                        y1={start.y}
-                                        x2={end.x}
-                                        y2={end.y}
-                                        stroke="#38bdf8"
-                                        strokeWidth="3"
-                                        strokeDasharray="4 2"
-                                        markerEnd={`url(#arrow-${key})`}
-                                    />
-                                    <circle cx={start.x} cy={start.y} r="4" fill="#0284c7" />
-                                    <circle cx={end.x} cy={end.y} r="4" fill="#38bdf8" />
-                                  </g>
-                              );
-                            })}
+                                  return (
+                                      <g key={routeIdx}>
+                                        <line
+                                            x1={start.x}
+                                            y1={start.y}
+                                            x2={end.x}
+                                            y2={end.y}
+                                            stroke="#38bdf8"
+                                            strokeWidth="3"
+                                            strokeDasharray="4 2"
+                                            markerEnd={`url(#arrow-${key})`}
+                                        />
+                                        <circle cx={start.x} cy={start.y} r="4" fill="#0284c7" />
+                                        <circle cx={end.x} cy={end.y} r="4" fill="#38bdf8" />
+                                      </g>
+                                  );
+                                }
+                            )}
                           </svg>
                       )}
                     </div>
                   </div>
 
-                  {tile.traversable && states.length > 0 && (
+                  {hasGroups &&
+                      groupKeys.map((groupKey) => {
+                        const group = safeStateGroups[groupKey];
+                        if (!group) return null;
+
+                        const config = tile.groups?.[groupKey];
+                        if (!config) return null;
+
+                        const availableStates = config.states.filter(
+                            (s) => group.states && group.states[s]
+                        );
+                        if (availableStates.length === 0) return null;
+
+                        const currentSelection = tileSelections[groupKey] || {
+                          state: '',
+                          variant: '',
+                        };
+                        const currentState =
+                            currentSelection.state ||
+                            getDefaultGroupSelection(tile, groupKey, safeStateGroups).state ||
+                            availableStates[0] ||
+                            '';
+                        const currentVariant =
+                            currentSelection.variant ||
+                            getDefaultGroupSelection(tile, groupKey, safeStateGroups).variant ||
+                            group.defaultVariant ||
+                            'normal';
+
+                        const variants = currentState
+                            ? getGroupVariantOptions(
+                                tile,
+                                groupKey,
+                                currentState,
+                                safeStateGroups
+                            )
+                            : ['normal'];
+
+                        return (
+                            <div key={groupKey} className="mt-3 border-t border-slate-700/60 pt-3">
+                              <label className="mb-1 block text-xs font-medium text-slate-400">
+                                {group.label}:
+                              </label>
+                              <div className="flex flex-wrap gap-2">
+                                <select
+                                    value={currentState}
+                                    onChange={(e) =>
+                                        handleGroupStateChange(key, groupKey, e.target.value)
+                                    }
+                                    className="rounded border border-slate-600 bg-slate-700 px-2 py-1 text-xs text-slate-100 focus:border-lime-500 focus:outline-none"
+                                >
+                                  {availableStates.map((stateName) => (
+                                      <option key={stateName} value={stateName}>
+                                        {stateName}
+                                      </option>
+                                  ))}
+                                </select>
+                                {variants.length > 1 && (
+                                    <select
+                                        value={currentVariant}
+                                        onChange={(e) =>
+                                            handleGroupVariantChange(key, groupKey, e.target.value)
+                                        }
+                                        className="rounded border border-slate-600 bg-slate-700 px-2 py-1 text-xs text-slate-100 focus:border-lime-500 focus:outline-none"
+                                    >
+                                      {variants.map((variantName) => (
+                                          <option key={variantName} value={variantName}>
+                                            {variantName}
+                                          </option>
+                                      ))}
+                                    </select>
+                                )}
+                              </div>
+                            </div>
+                        );
+                      })}
+
+                  {hasTraversable && (
                       <div className="mt-3 border-t border-slate-700/60 pt-3">
                         <label className="mb-1 block text-xs font-medium text-slate-400">
                           Traversable State:
                         </label>
                         <div className="flex flex-wrap gap-1">
-                          {states.map((stIdx) => (
+                          {traversableStates.map((stIdx) => (
                               <button
                                   key={stIdx}
-                                  onClick={() => handleStateChange(key, stIdx)}
+                                  onClick={() => handleTraversableChange(key, stIdx)}
                                   className={`rounded px-2 py-1 font-mono text-xs transition-colors ${
-                                      currentState === stIdx
+                                      currentTraversable === stIdx
                                           ? 'bg-sky-500 font-bold text-white'
                                           : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
                                   }`}
@@ -444,38 +734,21 @@ export default function TileCatalogViewerClient({
                       </div>
                   )}
 
-                  {assetStates.length > 0 && (
-                      <div className="mt-3 border-t border-slate-700/60 pt-3">
-                        <label className="mb-1 block text-xs font-medium text-slate-400">
-                          Visual State:
-                        </label>
-                        <div className="flex flex-wrap gap-1">
-                          {assetStates.map((stateName) => (
-                              <button
-                                  key={stateName}
-                                  onClick={() => handleAssetStateChange(key, stateName)}
-                                  className={`rounded px-2 py-1 font-mono text-xs transition-colors ${
-                                      currentAssetState === stateName
-                                          ? 'bg-lime-500 font-bold text-slate-900'
-                                          : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
-                                  }`}
-                              >
-                                {stateName}
-                              </button>
-                          ))}
-                        </div>
-                      </div>
-                  )}
-
-                  {Object.keys(texts).length > 0 && (
-                      <div className="mt-3 flex h-40 flex-col gap-3 overflow-y-auto border-t border-slate-700/60 pt-3">
+                  {hasTexts && (
+                      <div className="mt-3 flex max-h-40 flex-col gap-3 overflow-y-auto border-t border-slate-700/60 pt-3">
                         <label className="block text-xs font-medium text-slate-400">
                           Text Elements:
                         </label>
                         {Object.entries(texts).map(([textKey, defaultConfig]) => {
-                          const currentConfig = { ...defaultConfig, ...(overrides[textKey] ?? {}) };
+                          const currentConfig = {
+                            ...defaultConfig,
+                            ...(overrides[textKey] ?? {}),
+                          };
                           return (
-                              <div key={textKey} className="rounded border border-slate-700/40 bg-slate-900/50 p-2">
+                              <div
+                                  key={textKey}
+                                  className="rounded border border-slate-700/40 bg-slate-900/50 p-2"
+                              >
                                 <div className="mb-2 font-mono text-[10px] uppercase tracking-wider text-lime-400/70">
                                   {textKey}
                                 </div>
@@ -483,7 +756,14 @@ export default function TileCatalogViewerClient({
                                   <input
                                       type="text"
                                       value={currentConfig.text}
-                                      onChange={(e) => handleTextOverride(key, textKey, 'text', e.target.value)}
+                                      onChange={(e) =>
+                                          handleTextOverride(
+                                              key,
+                                              textKey,
+                                              'text',
+                                              e.target.value
+                                          )
+                                      }
                                       className="w-full rounded border border-slate-600 bg-slate-700 px-2 py-1 text-xs text-slate-100 focus:border-lime-500 focus:outline-none"
                                       placeholder="Content..."
                                   />
@@ -491,13 +771,27 @@ export default function TileCatalogViewerClient({
                                     <input
                                         type="color"
                                         value={currentConfig.fill}
-                                        onChange={(e) => handleTextOverride(key, textKey, 'fill', e.target.value)}
+                                        onChange={(e) =>
+                                            handleTextOverride(
+                                                key,
+                                                textKey,
+                                                'fill',
+                                                e.target.value
+                                            )
+                                        }
                                         className="h-6 w-10 cursor-pointer rounded border border-slate-600 bg-slate-700"
                                     />
                                     <input
                                         type="text"
                                         value={currentConfig.size}
-                                        onChange={(e) => handleTextOverride(key, textKey, 'size', e.target.value)}
+                                        onChange={(e) =>
+                                            handleTextOverride(
+                                                key,
+                                                textKey,
+                                                'size',
+                                                e.target.value
+                                            )
+                                        }
                                         className="flex-1 rounded border border-slate-600 bg-slate-700 px-2 py-1 font-mono text-[10px] text-slate-100 focus:border-lime-500 focus:outline-none"
                                         placeholder="Size (e.g. 10px)"
                                     />
@@ -509,7 +803,7 @@ export default function TileCatalogViewerClient({
                       </div>
                   )}
 
-                  {!tile.traversable && assetStates.length === 0 && Object.keys(texts).length === 0 && (
+                  {!hasGroups && !hasTexts && !hasTraversable && (
                       <div className="mt-3 border-t border-slate-700/60 pt-3 text-xs italic text-slate-500">
                         Fixed Component
                       </div>
