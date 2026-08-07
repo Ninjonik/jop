@@ -16,7 +16,7 @@ const Premain1Square = ({ text, ...props }: SVGProps<SVGSVGElement> & { text?: s
       d="M75,7.5v15h-38.09c-3.82,0-6.91-3.36-6.91-7.5h0c0-4.14,3.1-7.5,6.91-7.5h38.09Z"
     />
     <circle fill="var(--color-4f4f4f, #4f4f4f)" cx={37.67} cy={15} r={6.21} />
-    <circle fill="var(--color-121f1e, #121f1e)" cx={37.67} cy={15} r={4.78} />
+    <circle  style={{ animation: 'var(--departure-animation, none)' }} fill="var(--color-departure, #121f1e)" cx={37.67} cy={15} r={4.78} />
     <rect fill="var(--color-d9d9d9, #d9d9d9)" x={46.73} y={7.5} width={28.27} height={15} />
     <text
         x={60.87}
@@ -570,7 +570,7 @@ const Premain1Square = ({ text, ...props }: SVGProps<SVGSVGElement> & { text?: s
       </g>
     </g>
     <rect fill="var(--stripe-color, #3b3b3b)" x={0} y={30} width={75} height={15} />
-    <rect fill="var(--detail-color, #6e6e6e)" x={28.89} y={33.49} width={41.11} height={8} rx={4} ry={4} />
+    <rect fill="var(--occupation-color, #6e6e6e)" x={28.89} y={33.49} width={41.11} height={8} rx={4} ry={4} />
     <g>
       <circle fill="var(--detail-color, #6e6e6e)" cx={15} cy={37.5} r={10} />
       <circle fill="var(--main-color-alt, #b3b3b3)" cx={15} cy={37.5} r={8} />

@@ -17,8 +17,8 @@ const Shunt1Square = ({ text, ...props }: SVGProps<SVGSVGElement> & { text?: str
       d="M0,67.5v-15h38.09c3.82,0,6.91,3.36,6.91,7.5h0c0,4.14-3.1,7.5-6.91,7.5H0Z"
     />
     <circle fill="var(--color-4f4f4f, #4f4f4f)" cx={37.33} cy={60} r={6.21} />
-    <circle fill="var(--color-696969, #696969)" cx={37.33} cy={60} r={4.78} />
-    <rect fill="var(--detail-color, #6e6e6e)" x={5} y={33.5} width={65} height={8} rx={4} ry={4} />
+    <circle style={{ animation: 'var(--shunt-animation, none)' }} fill="var(--color-shunt, #696969)" cx={37.33} cy={60} r={4.78} />
+    <rect fill="var(--occupation-color, #6e6e6e)" x={5} y={33.5} width={65} height={8} rx={4} ry={4} />
     <rect fill="var(--color-d9d9d9, #d9d9d9)" y={52.5} width={28.27} height={15} />
     <text
         x={14.14}

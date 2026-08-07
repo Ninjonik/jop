@@ -23,7 +23,7 @@ const ShuntButtonSignalBUFFER1Square = ({ text, ...props }: SVGProps<SVGSVGEleme
       d="M45,7.5v15s-38.09,0-38.09,0C3.1,22.5,0,19.14,0,15h0c0-4.14,3.1-7.5,6.91-7.5h38.09Z"
     />
     <circle fill="var(--color-4f4f4f, #4f4f4f)" cx={7.67} cy={15} r={6.21} />
-    <circle fill="var(--color-696969, #696969)" cx={7.67} cy={15} r={4.78} />
+    <circle style={{ animation: 'var(--shunt-animation, none)' }} fill="var(--color-shunt, #696969)" cx={7.67} cy={15} r={4.78} />
     <rect fill="var(--color-d9d9d9, #d9d9d9)" x={16.73} y={7.5} width={28.27} height={15} />
     <text
         x={30.87}

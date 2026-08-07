@@ -161,7 +161,31 @@ export const globalStates: TileStates = {
   },
   cautionActiveReservedS: {
     "states": "cautionActive reservedS",
-  }
+  },
+  shuntBlinkingOccupiedS: {
+    "states": "shuntBlinking occupiedS",
+  },
+  shuntBlinkingReservedS: {
+    "states": "shuntBlinking reservedS",
+  },
+  departureBlinkingOccupiedS: {
+    "states": "departureBlinking occupiedS",
+  },
+  departureBlinkingReservedS: {
+    "states": "departureBlinking reservedS",
+  },
+  dangerBlinkingOccupiedS: {
+    "states": "dangerBlinking occupiedS",
+  },
+  dangerBlinkingReservedS: {
+    "states": "dangerBlinking reservedS",
+  },
+  cautionBlinkingOccupiedS: {
+    "states": "cautionBlinking occupiedS",
+  },
+  cautionBlinkingReservedS: {
+    "states": "cautionBlinking reservedS",
+  },
 }
 
 export const tiles: any = {
@@ -787,7 +811,7 @@ export const tiles: any = {
         "--color-danger": "#1f1212",
         "--color-caution": "#261f10",
       },
-      states: "shuntBlinking shuntBlinkingOccupied shuntBlinkingReserved shuntActive shuntActiveOccupied shuntActiveReserved shuntReserved shuntOccupied departureActive departureBlinking departureActiveOccupied departureActiveReserved departureBlinkingOccupied departureBlinkingReserved departureReserved departureOccupied cautionActive cautionBlinking cautionActiveOccupied cautionActiveReserved cautionBlinkingOccupied cautionBlinkingReserved cautionReserved cautionOccupied dangerActive dangerBlinking dangerActiveOccupied dangerActiveReserved dangerBlinkingOccupied dangerBlinkingReserved dangerReserved dangerOccupied",
+      states: "shuntBlinking shuntBlinkingOccupied shuntBlinkingReserved shuntActive shuntActiveOccupied shuntActiveReserved departureActive departureBlinking departureActiveOccupied departureActiveReserved departureBlinkingOccupied departureBlinkingReserved cautionActive cautionBlinking cautionActiveOccupied cautionActiveReserved cautionBlinkingOccupied cautionBlinkingReserved dangerActive dangerBlinking dangerActiveOccupied dangerActiveReserved dangerBlinkingOccupied dangerBlinkingReserved",
     },
     texts: {
       "text": {
@@ -807,7 +831,7 @@ export const tiles: any = {
     traversable: false,
     states: {
       default: {
-        "--color-121f1e": "#121f1e",
+        "--color-departure": "#121f1e",
         "--color-27282b": "#27282b",
         "--color-343638": "#343638",
         "--stripe-color": "#3b3b3b",
@@ -831,6 +855,7 @@ export const tiles: any = {
         "--color-d9d9d9": "#d9d9d9",
         "--color-fdfefe": "#fdfefe"
       },
+      states: "departureActive departureBlinking",
     },
     texts: {
       "text": {
@@ -855,7 +880,7 @@ export const tiles: any = {
     },
     states: {
       default: {
-        "--color-121f1e": "#121f1e",
+        "--color-departure": "#121f1e",
         "--color-27282b": "#27282b",
         "--color-343638": "#343638",
         "--stripe-color": "#3b3b3b",
@@ -863,6 +888,7 @@ export const tiles: any = {
         "--color-4f4f4f": "#4f4f4f",
         "--color-6c6c6f": "#6c6c6f",
         "--detail-color": "#6e6e6e",
+        "--occupation-color": "#6e6e6e",
         "--color-767879": "#767879",
         "--color-7e8083": "#7e8083",
         "--color-898b8e": "#898b8e",
@@ -879,6 +905,7 @@ export const tiles: any = {
         "--color-d9d9d9": "#d9d9d9",
         "--color-fdfefe": "#fdfefe"
       },
+      states: "occupied reserved departureActive departureBlinking departureBlinkingReserved departureBlinkingOccupied departureActiveReserved departureActiveOccupied",
     },
     texts: {
       "text": {
@@ -920,6 +947,7 @@ export const tiles: any = {
         "--color-d9d9d9": "#d9d9d9",
         "--color-fdfefe": "#fdfefe"
       },
+      states: "shuntActive shuntBlinking",
     },
     texts: {
       "text": {
@@ -952,6 +980,7 @@ export const tiles: any = {
         "--color-696969": "#696969",
         "--color-6c6c6f": "#6c6c6f",
         "--detail-color": "#6e6e6e",
+        "--occupation-color": "#6e6e6e",
         "--color-767879": "#767879",
         "--color-7e8083": "#7e8083",
         "--color-898b8e": "#898b8e",
@@ -967,6 +996,7 @@ export const tiles: any = {
         "--color-d9d9d9": "#d9d9d9",
         "--color-fdfefe": "#fdfefe"
       },
+      states: "occupied reserved shuntActive shuntBlinking shuntBlinkingReserved shuntBlinkingOccupied shuntActiveReserved shuntActiveOccupied",
     },
     texts: {
       "text": {
@@ -1031,6 +1061,7 @@ export const tiles: any = {
         "--color-d9d9d9": "#d9d9d9",
         "--color-fdfefe": "#fdfefe"
       },
+      states: "shuntActive shuntBlinking",
     },
     texts: {
       "text": {
