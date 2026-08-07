@@ -10,12 +10,19 @@ export interface Space {
 export type TraversableRouteMap = Record<string, string>;
 export type TraversableStateMap = Record<number, TraversableRouteMap>;
 
+export interface TextConfig {
+  fill: string;
+  size: string;
+  text: string;
+}
+
 export interface TileData {
   component: React.ComponentType<React.SVGProps<SVGSVGElement>>;
   space: Space;
   usedSpace: [number, number][];
   traversable: false | TraversableStateMap;
   states?: Record<string, Record<string, string>>;
+  texts?: Record<string, TextConfig>;
 }
 
 export type TileCatalog = Record<string, TileData>;
@@ -64,6 +71,7 @@ export default function TileCatalogViewerClient({ tiles, tileSize = 75 }: Client
   const [selectedState, setSelectedState] = useState<Record<string, number>>({});
   const [activeAssetStates, setActiveAssetStates] = useState<Record<string, string>>({});
   const [showBounds, setShowBounds] = useState(true);
+  const [textOverrides, setTextOverrides] = useState<Record<string, Record<string, Partial<TextConfig>>>>({});
 
   const handleStateChange = (key: string, stateIdx: number) => {
     setSelectedState((prev) => ({ ...prev, [key]: stateIdx }));
@@ -71,6 +79,19 @@ export default function TileCatalogViewerClient({ tiles, tileSize = 75 }: Client
 
   const handleAssetStateChange = (key: string, stateName: string) => {
     setActiveAssetStates((prev) => ({ ...prev, [key]: stateName }));
+  };
+
+  const handleTextOverride = (tileKey: string, textKey: string, field: keyof TextConfig, value: string) => {
+    setTextOverrides((prev) => ({
+      ...prev,
+      [tileKey]: {
+        ...prev[tileKey],
+        [textKey]: {
+          ...prev[tileKey]?.[textKey],
+          [field]: value,
+        },
+      },
+    }));
   };
 
   return (
@@ -136,7 +157,25 @@ export default function TileCatalogViewerClient({ tiles, tileSize = 75 }: Client
 
         const assetStates = tile.states ? Object.keys(tile.states) : [];
         const currentAssetState = activeAssetStates[key] ?? (assetStates.length > 0 ? assetStates[0] : 'default');
-        const assetStyleVars = tile.states?.[currentAssetState] ?? {};
+        const assetStyleVars = { ...(tile.states?.[currentAssetState] ?? {}) };
+
+        // Apply text overrides
+        const texts = tile.texts ?? {};
+        const overrides = textOverrides[key] ?? {};
+        
+        Object.keys(texts).forEach((textKey) => {
+          const config = { ...texts[textKey], ...(overrides[textKey] ?? {}) };
+          
+          // If it's the primary/only text, use standard variables
+          if (textKey === 'text') {
+            assetStyleVars['--color-text'] = config.fill;
+            assetStyleVars['--size-text'] = config.size;
+          } else {
+            // Otherwise use specific variables
+            assetStyleVars[`--color-${textKey}`] = config.fill;
+            assetStyleVars[`--size-${textKey}`] = config.size;
+          }
+        });
 
         const TileComponent = tile.component;
 
@@ -180,6 +219,10 @@ export default function TileCatalogViewerClient({ tiles, tileSize = 75 }: Client
                         ? { filter: 'sepia(1) saturate(2) hue-rotate(80deg)' }
                         : {}),
                     }}
+                    {...Object.keys(texts).reduce((acc, textKey) => {
+                      acc[textKey] = overrides[textKey]?.text ?? texts[textKey].text;
+                      return acc;
+                    }, {} as Record<string, string>)}
                   />
                 )}
 
@@ -293,7 +336,48 @@ export default function TileCatalogViewerClient({ tiles, tileSize = 75 }: Client
               </div>
             )}
 
-            {!tile.traversable && assetStates.length === 0 && (
+            {/* Text Properties Control */}
+            {Object.keys(texts).length > 0 && (
+              <div className="mt-3 border-t border-slate-700/60 pt-3 flex flex-col gap-3 h-40 overflow-y-auto">
+                <label className="block text-xs font-medium text-slate-400">
+                  Text Elements:
+                </label>
+                {Object.entries(texts).map(([textKey, defaultConfig]) => {
+                  const currentConfig = { ...defaultConfig, ...(overrides[textKey] ?? {}) };
+                  return (
+                    <div key={textKey} className="rounded bg-slate-900/50 p-2 border border-slate-700/40">
+                      <div className="text-[10px] font-mono text-lime-400/70 mb-2 uppercase tracking-wider">{textKey}</div>
+                      <div className="flex flex-col gap-2">
+                        <input
+                          type="text"
+                          value={currentConfig.text}
+                          onChange={(e) => handleTextOverride(key, textKey, 'text', e.target.value)}
+                          className="w-full bg-slate-700 text-slate-100 text-xs rounded px-2 py-1 border border-slate-600 focus:outline-none focus:border-lime-500"
+                          placeholder="Content..."
+                        />
+                        <div className="flex gap-2">
+                          <input
+                            type="color"
+                            value={currentConfig.fill}
+                            onChange={(e) => handleTextOverride(key, textKey, 'fill', e.target.value)}
+                            className="h-6 w-10 bg-slate-700 border border-slate-600 rounded cursor-pointer"
+                          />
+                          <input
+                            type="text"
+                            value={currentConfig.size}
+                            onChange={(e) => handleTextOverride(key, textKey, 'size', e.target.value)}
+                            className="flex-1 bg-slate-700 text-slate-100 text-[10px] rounded px-2 py-1 border border-slate-600 focus:outline-none focus:border-lime-500 font-mono"
+                            placeholder="Size (e.g. 10px)"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {!tile.traversable && assetStates.length === 0 && Object.keys(texts).length === 0 && (
               <div className="mt-3 border-t border-slate-700/60 pt-3 text-xs text-slate-500 italic">
                 Fixed Component
               </div>

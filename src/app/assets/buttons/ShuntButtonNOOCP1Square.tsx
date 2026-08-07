@@ -1,7 +1,7 @@
 'use client';
 
 import type { SVGProps } from 'react';
-const ShuntButtonNOOCP1Square = (props: SVGProps<SVGSVGElement>) => (
+const ShuntButtonNOOCP1Square = ({ bottomlefttext, toplefttext, middletext, toprighttext, bottomrighttext, ...props }: SVGProps<SVGSVGElement> & { bottomlefttext?: string; toplefttext?: string; middletext?: string; toprighttext?: string; bottomrighttext?: string }) => (
   <svg
     id="Layer_1"
     data-name="Layer 1"
@@ -10,12 +10,12 @@ const ShuntButtonNOOCP1Square = (props: SVGProps<SVGSVGElement>) => (
     {...props}
   >
     
-    <rect fill="#b4bbbd" x={0} width={75} height={75} />
-    <rect fill="#3b3b3b" x={0} y={30} width={75} height={15} />
+    <rect fill="var(--bg-color, #b4bbbd)" x={0} width={75} height={75} />
+    <rect fill="var(--stripe-color, #3b3b3b)" x={0} y={30} width={75} height={15} />
     <g>
-      <circle fill="#6e6e6e" cx={60} cy={37.5} r={10} />
-      <circle fill="#b3b3b3" cx={60} cy={37.5} r={8} />
-      <circle fill="#c9c9c9" cx={60} cy={37.5} r={4.94} />
+      <circle fill="var(--detail-color, #6e6e6e)" cx={60} cy={37.5} r={10} />
+      <circle fill="var(--main-color-alt, #b3b3b3)" cx={60} cy={37.5} r={8} />
+      <circle fill="var(--color-c9c9c9, #c9c9c9)" cx={60} cy={37.5} r={4.94} />
     </g>
   </svg>
 );

@@ -1,7 +1,7 @@
 'use client';
 
 import type { SVGProps } from 'react';
-const TrackNOOCP1Square = (props: SVGProps<SVGSVGElement>) => (
+const TrackNOOCP1Square = ({ text, ...props }: SVGProps<SVGSVGElement> & { text?: string }) => (
   <svg
     id="Layer_1"
     data-name="Layer 1"
@@ -10,8 +10,8 @@ const TrackNOOCP1Square = (props: SVGProps<SVGSVGElement>) => (
     {...props}
   >
     
-    <rect fill="#b4bbbd" x={0} width={75} height={75} />
-    <rect fill="#3b3b3b" x={0} y={30} width={75} height={15} />
+    <rect fill="var(--bg-color, #b4bbbd)" x={0} width={75} height={75} />
+    <rect fill="var(--stripe-color, #3b3b3b)" x={0} y={30} width={75} height={15} />
   </svg>
 );
 export { TrackNOOCP1Square };

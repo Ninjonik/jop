@@ -1,7 +1,7 @@
 'use client';
 
 import type { SVGProps } from 'react';
-const Board1Square = (props: SVGProps<SVGSVGElement>) => (
+const Board1Square = ({ bottomlefttext, ...props }: SVGProps<SVGSVGElement> & { bottomlefttext?: string }) => (
   <svg
     id="Layer_1"
     data-name="Layer 1"
@@ -10,7 +10,7 @@ const Board1Square = (props: SVGProps<SVGSVGElement>) => (
     {...props}
   >
     
-    <rect fill="#b4bbbd" width={75} height={75} />
+    <rect fill="var(--bg-color, #b4bbbd)" width={75} height={75} />
   </svg>
 );
 export { Board1Square };
