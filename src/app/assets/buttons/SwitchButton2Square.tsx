@@ -572,28 +572,38 @@ const SwitchButton2Square = ({ text, ...props }: SVGProps<SVGSVGElement> & { tex
     <g>
       <circle fill="var(--detail-color, #6e6e6e)" cx={16.04} cy={39.93} r={12.25} />
       <circle fill="var(--main-color-alt, #b3b3b3)" cx={16.04} cy={39.93} r={9.8} />
-      <circle fill="var(--color-333, #333)" cx={16.04} cy={39.93} r={6.05} />
-    </g>
-    <g>
-      <circle fill="var(--detail-color, #6e6e6e)" cx={58.96} cy={39.93} r={12.25} />
-      <circle fill="var(--main-color-alt, #b3b3b3)" cx={58.96} cy={39.93} r={9.8} />
-      <circle fill="var(--color-333, #333)" cx={58.96} cy={39.93} r={6.05} />
+      <circle fill="var(--color-left, #333)" cx={16.04} cy={39.93} r={6.05} />
     </g>
     <g>
       <circle fill="var(--detail-color, #6e6e6e)" cx={37.5} cy={21.63} r={12.25} />
       <circle fill="var(--main-color-alt, #b3b3b3)" cx={37.5} cy={21.63} r={9.8} />
-      <circle fill="var(--color-333, #333)" cx={37.5} cy={21.63} r={6.05} />
+      <circle fill="var(--color-middle, #333)" cx={37.5} cy={21.63} r={6.05} />
+    </g>
+    <g>
+      <circle fill="var(--detail-color, #6e6e6e)" cx={58.96} cy={39.93} r={12.25} />
+      <circle fill="var(--main-color-alt, #b3b3b3)" cx={58.96} cy={39.93} r={9.8} />
+      <circle fill="var(--color-right, #333)" cx={58.96} cy={39.93} r={6.05} />
     </g>
     <g>
       <circle fill="var(--detail-color, #6e6e6e)" cx={37.5} cy={127.78} r={22.26} />
-      <polygon
-        fill="var(--color-a1a1a1, #a1a1a1)"
-        points="35.07 85.28 21.13 119.39 53.87 119.39 40.01 85.29 35.07 85.28"
-      />
-      <path
-        fill="var(--main-color-alt, #b3b3b3)"
-        d="M55.29,126.17c.3,10.02-7.13,18.73-16.6,19.38-10.38.71-18.99-7.97-18.99-18.76,0-2.64.51-5.14,1.43-7.41h0c6.46,0,11.7-5.53,11.7-12.35v-19.5c0-1.24.95-2.25,2.13-2.25h5.07c1.18,0,2.13,1.01,2.13,2.25v19.5c0,6.82,5.24,12.35,11.7,12.35h0c.85,2.09,1.35,4.38,1.42,6.79Z"
-      />
+
+      <g
+          className="lever-arm"
+          style={{
+            transformOrigin: '37.5px 127.78px',
+            transform: 'rotate(var(--lever-angle, 0deg))',
+            transition: 'transform 0.1s ease-in-out'
+          }}
+      >
+        <polygon
+            fill="var(--color-a1a1a1, #a1a1a1)"
+            points="35.07 85.28 21.13 119.39 53.87 119.39 40.01 85.29 35.07 85.28"
+        />
+        <path
+            fill="var(--main-color-alt, #b3b3b3)"
+            d="M55.29,126.17c.3,10.02-7.13,18.73-16.6,19.38-10.38.71-18.99-7.97-18.99-18.76,0-2.64.51-5.14,1.43-7.41h0c6.46,0,11.7-5.53,11.7-12.35v-19.5c0-1.24.95-2.25,2.13-2.25h5.07c1.18,0,2.13,1.01,2.13,2.25v19.5c0,6.82,5.24,12.35,11.7,12.35h0c.85,2.09,1.35,4.38,1.42,6.79Z"
+        />
+      </g>
     </g>
   </svg>
 );

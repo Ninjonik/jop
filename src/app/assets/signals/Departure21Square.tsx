@@ -25,11 +25,11 @@ const Departure21Square = ({ text, ...props }: SVGProps<SVGSVGElement> & { text?
         fill="var(--color-text, #000000)"
         fontSize="var(--size-text, 10px)"
     >{text ?? 'Text'}</text>
-    <rect fill="var(--detail-color, #6e6e6e)" x={5} y={33.5} width={65} height={8} rx={4} ry={4} />
+    <rect fill="var(--occupation-color, #6e6e6e)" x={5} y={33.5} width={65} height={8} rx={4} ry={4} />
     <circle fill="var(--color-4f4f4f, #4f4f4f)" cx={22.67} cy={15} r={6.21} />
     <circle fill="var(--color-4f4f4f, #4f4f4f)" cx={37.67} cy={15} r={6.21} />
-    <circle fill="var(--color-121f1e, #121f1e)" cx={22.67} cy={15} r={4.78} />
-    <circle fill="var(--color-696969, #696969)" cx={37.67} cy={15} r={4.78} />
+    <circle style={{ animation: 'var(--departure-animation, none)' }} fill="var(--color-departure, #121f1e)" cx={22.67} cy={15} r={4.78} />
+    <circle style={{ animation: 'var(--shunt-animation, none)' }} fill="var(--color-shunt, #696969)" cx={37.67} cy={15} r={4.78} />
     <g>
       <path
         fill="var(--color-fdfefe, #fdfefe)"

@@ -24,3 +24,23 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+@keyframes departure-blink {
+  0%, 100% { fill: var(--color-departure, #009e49) }
+  50% { fill: var(--color-departure-blink, #121f1e) }
+}
+
+@keyframes shunt-blink {
+  0%, 100% { fill: var(--color-shunt, #e2e8f0) }
+  50% { fill: var(--color-shunt-blink, #696969) }
+}
+
+@keyframes caution-blink {
+  0%, 100% { fill: var(--color-caution, #e69f00) }
+  50% { fill: var(--color-caution-blink, #261f10) }
+}
+
+@keyframes danger-blink {
+  0%, 100% { fill: var(--color-danger, #d32f2f) }
+  50% { fill: var(--color-danger-blink, #1f1212) }
+}

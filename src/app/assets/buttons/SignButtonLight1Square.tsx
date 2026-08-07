@@ -587,7 +587,7 @@ const SignButtonLight1Square = ({ text, ...props }: SVGProps<SVGSVGElement> & { 
       <g>
         <circle fill="var(--detail-color, #6e6e6e)" cx={37.5} cy={51.35} r={13.63} />
         <circle fill="var(--main-color-alt, #b3b3b3)" cx={37.5} cy={51.35} r={10.9} />
-        <circle fill="var(--color-333, #333)" cx={37.5} cy={51.35} r={6.73} />
+        <circle style={{ animation: 'var(--shunt-animation, none)' }} fill="var(--color-shunt, #333)" cx={37.5} cy={51.35} r={6.73} />
       </g>
     </g>
   </svg>

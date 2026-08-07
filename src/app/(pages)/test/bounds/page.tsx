@@ -1,7 +1,7 @@
 import TileCatalogViewerClient, {
   TileCatalog,
 } from '@/app/components/test/bounds/TileCatalogViewerClient';
-import { tiles } from '@/app/data/tiles';
+import {globalStates, tiles} from '@/app/data/tiles';
 
 export const metadata = {
   title: 'Tile Catalog Inspector',
@@ -23,7 +23,7 @@ export default async function TileCatalogPage() {
         </p>
       </header>
 
-      <TileCatalogViewerClient tiles={tileCatalog} tileSize={75} />
+      <TileCatalogViewerClient tiles={tileCatalog} tileSize={75} globalStates={globalStates} />
     </main>
   );
 }

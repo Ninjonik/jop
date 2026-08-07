@@ -12,19 +12,19 @@ const Entry1Square = ({ text, ...props }: SVGProps<SVGSVGElement> & { text?: str
     
     <rect fill="var(--bg-color, #b4bbbd)" x={0} width={75} height={75} />
     <rect fill="var(--stripe-color, #3b3b3b)" x={0} y={30} width={75} height={15} />
-    <rect className="occ" x={5} y={33.5} width={65} height={8} rx={4} ry={4} />
+    <rect fill="var(--occupation-color, #6e6e6e)" x={5} y={33.5} width={65} height={8} rx={4} ry={4} />
     <path
       fill="var(--stripe-color, #3b3b3b)"
       d="M5.87,67.5v-15h62.22c3.82,0,6.91,3.36,6.91,7.5h0c0,4.14-3.1,7.5-6.91,7.5H5.87Z"
     />
     <circle fill="var(--color-4f4f4f, #4f4f4f)" cx={52.33} cy={60} r={6.21} />
     <circle fill="var(--color-4f4f4f, #4f4f4f)" cx={37.33} cy={60} r={6.21} />
-    <circle fill="var(--color-1f1212, #1f1212)" cx={37.33} cy={60} r={4.78} />
-    <circle fill="var(--color-121f1e, #121f1e)" cx={52.33} cy={60} r={4.78} />
+    <circle style={{ animation: 'var(--danger-animation, none)' }} fill="var(--color-danger, #4f4f4f)" cx={37.33} cy={60} r={4.78} />
+    <circle style={{ animation: 'var(--departure-animation, none)' }} fill="var(--color-departure, #121f1e)" cx={52.33} cy={60} r={4.78} />
     <circle fill="var(--color-4f4f4f, #4f4f4f)" cx={22.33} cy={60} r={6.21} />
-    <circle fill="var(--color-696969, #696969)" cx={22.33} cy={60} r={4.78} />
+    <circle style={{ animation: 'var(--shunt-animation, none)' }} fill="var(--color-shunt, #696969)" cx={22.33} cy={60} r={4.78} />
     <circle fill="var(--color-4f4f4f, #4f4f4f)" cx={67.33} cy={60} r={6.21} />
-    <circle fill="var(--color-261f10, #261f10)" cx={67.33} cy={60} r={4.78} />
+    <circle style={{ animation: 'var(--caution-animation, none)' }} fill="var(--color-caution, #261f10)" cx={67.33} cy={60} r={4.78} />
     <rect fill="var(--color-d9d9d9, #d9d9d9)" x={0} y={52.5} width={13.27} height={15} />
     <text
         x={6.64}

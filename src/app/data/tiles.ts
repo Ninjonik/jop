@@ -17,6 +17,54 @@
  * These values ought to be out of bounds of the component, since they described
  * in what way they are connected to other tiles.
  *
+ *
+ * ---------------------------------------------------------------------------
+ * `globalStates` format (Catalog Level)
+ * ---------------------------------------------------------------------------
+ * You can define top-level reusable preset states outside of individual tile definitions.
+ * Global preset state keys are conventionally suffixed with 'S' (e.g. `departureActiveS`).
+ *
+ * Example:
+ *   export const globalStates: TileStates = {
+ *     departureActiveS: { "--color-departure": "#00ff00" },
+ *     occupiedS: { "--occupation-color": "#ff0000" },
+ *   };
+ *
+ * ---------------------------------------------------------------------------
+ * `states` format (Component Level)
+ * ---------------------------------------------------------------------------
+ * `states` maps named visual states (`default`, `active`, etc.) or contains
+ * a shorthand string importing preset states directly.
+ *
+ * Space-Separated Shorthand Syntax:
+ *  - `"states": "departureBlinking shuntActive occupied"`
+ *    Automatically generates individual interactive visual states for each item in the string
+ *    by appending 'S' to look up global presets (`departureBlinkingS`, `shuntActiveS`, etc.).
+ *
+ * Property Keys inside state objects:
+ *  - Starts with "--"      => Treated as a CSS custom property (inline variable).
+ *                               e.g. "--main-color": "#ff0000"
+ *  - "css"                 => Plain CSS string applied directly via inline style.
+ *  - "tailwind"            => Space-separated Tailwind classes (auto-prefixed with !).
+ *  - "class"               => Plain CSS class name(s) from globals.css.
+ *  - "states"              => Space-separated string (or Array) of state names to inherit from.
+ *                             If a key without 'S' is passed, it automatically checks for 'S'.
+ *
+ * Example of mixing and matching:
+ *
+ *   // 1. Shorthand String (Generates interactive options dynamically):
+ *   states: {
+ *     states: "departureBlinking shuntBlinking departureActive"
+ *   }
+ *
+ *   // 2. Custom Explicit Mapping + Inheritance:
+ *   states: {
+ *     default: { "--bg-color": "#b4bbbd" },
+ *     activeBlinking: {
+ *       states: "departureBlinking shuntActive", // Inherits presets + adds custom props
+ *       css: "outline: 2px solid yellow;",
+ *     }
+ *   }
  */
 
 import Board1Square from '@/app/assets/board/Board1Square';
@@ -49,6 +97,72 @@ import TrackNOOCP1Square from '@/app/assets/tracks/TrackNOOCP1Square';
 import TrackSignNOOCP1Square from '@/app/assets/tracks/TrackSignNOOCP1Square';
 import TrackSign1Square from '@/app/assets/tracks/TrackSign1Square';
 import Track1Square from '@/app/assets/tracks/Track1Square';
+import {TileStates} from "@/app/components/test/bounds/TileCatalogViewerClient";
+
+export const globalStates: TileStates = {
+  departureActiveS: {
+    "--color-departure": "#009e49",
+  },
+  shuntActiveS: {
+    "--color-shunt": "#e2e8f0",
+  },
+  dangerActiveS: {
+    "--color-danger": "#d32f2f",
+  },
+  cautionActiveS: {
+    "--color-caution": "#e69f00",
+  },
+  departureBlinkingS: {
+    "states": "departureActive",
+    "--color-departure-blink": "#121f1e",
+    "--departure-animation": "departure-blink 1s infinite",
+  },
+  shuntBlinkingS: {
+    "states": "shuntActive",
+    "--color-shunt-blink": "#696969",
+    "--shunt-animation": "shunt-blink 1s infinite",
+  },
+  dangerBlinkingS: {
+    "states": "dangerActive",
+    "--color-danger-blink": "#1f1212",
+    "--danger-animation": "danger-blink 1s infinite",
+  },
+  cautionBlinkingS: {
+    "states": "cautionActive",
+    "--color-caution-blink": "#261f10",
+    "--caution-animation": "caution-blink 1s infinite",
+  },
+  occupiedS: {
+    "--occupation-color": "#ff0000",
+  },
+  reservedS: {
+    "--occupation-color": "#ffffff",
+  },
+  shuntActiveOccupiedS: {
+    "states": "shuntActive occupiedS",
+  },
+  shuntActiveReservedS: {
+    "states": "shuntActive reservedS",
+  },
+  departureActiveOccupiedS: {
+    "states": "departureActive occupiedS",
+  },
+  departureActiveReservedS: {
+    "states": "departureActive reservedS",
+  },
+  dangerActiveOccupiedS: {
+    "states": "dangerActive occupiedS",
+  },
+  dangerActiveReservedS: {
+    "states": "dangerActive reservedS",
+  },
+  cautionActiveOccupiedS: {
+    "states": "cautionActive occupiedS",
+  },
+  cautionActiveReservedS: {
+    "states": "cautionActive reservedS",
+  }
+}
 
 export const tiles: any = {
   filler: {
@@ -107,13 +221,14 @@ export const tiles: any = {
     traversable: false,
     states: {
       default: {
-        "--color-121f1e": "#121f1e",
+        "--color-shunt": "#696969",
         "--stripe-color": "#3b3b3b",
         "--detail-color": "#6e6e6e",
         "--main-color-alt": "#b3b3b3",
         "--bg-color": "#b4bbbd",
-        "--color-c9c9c9": "#c9c9c9"
+        "--color-departure": "#121f1e"
       },
+      states: "departureBlinking shuntBlinking departureActive shuntActive",
     },
   },
   lineblock: {
@@ -157,35 +272,58 @@ export const tiles: any = {
         "--color-c5c9cb": "#c5c9cb",
         "--color-cfd3d6": "#cfd3d6",
         "--color-d9d9d9": "#d9d9d9",
-        "--color-fdfefe": "#fdfefe"
+        "--color-fdfefe": "#fdfefe",
+        "--color-topleftcircle": "#333",
+        "--color-middlecircle": "#333",
+        "--color-toprightcircle": "#333",
+        "--color-bottomleftcircle": "#333",
+        "--color-bottomrightcircle": "#616161",
+      },
+      sending: {
+        "--color-topleftcircle": "#00ff00",
+      },
+      sendingFree: {
+        "--color-topleftcircle": "#00ff00",
+        "--color-middlecircle": "#ffffff",
+      },
+      receiving: {
+        "--color-toprightcircle": "#ff0000",
+      },
+      receivingFree: {
+        "--color-toprightcircle": "#ff0000",
+        "--color-middlecircle": "#ffffff",
+      },
+      receivingConfirmation: {
+        "--color-toprightcircle": "#ff0000",
+        "--color-bottomleftcircle": "#ffffff",
       },
     },
     texts: {
-        "bottomlefttext": {
-          "fill": "#000000",
-          "size": "10px",
-          "text": "Bottom Left Text"
-        },
-        "toplefttext": {
-          "fill": "#000000",
-          "size": "10px",
-          "text": "Top Left Text"
-        },
-        "middletext": {
-          "fill": "#000000",
-          "size": "10px",
-          "text": "Middle Text"
-        },
-        "toprighttext": {
-          "fill": "#000000",
-          "size": "10px",
-          "text": "Top Right Text"
-        },
-        "bottomrighttext": {
-          "fill": "#000000",
-          "size": "10px",
-          "text": "Bottom Right"
-        }
+      "bottomlefttext": {
+        "fill": "#000000",
+        "size": "10px",
+        "text": "Bottom Left Text"
+      },
+      "toplefttext": {
+        "fill": "#000000",
+        "size": "10px",
+        "text": "Top Left Text"
+      },
+      "middletext": {
+        "fill": "#000000",
+        "size": "10px",
+        "text": "Middle Text"
+      },
+      "toprighttext": {
+        "fill": "#000000",
+        "size": "10px",
+        "text": "Top Right Text"
+      },
+      "bottomrighttext": {
+        "fill": "#000000",
+        "size": "10px",
+        "text": "Bottom Right"
+      }
     },
   },
   shuntButtonNoOcp: {
@@ -202,8 +340,9 @@ export const tiles: any = {
         "--detail-color": "#6e6e6e",
         "--main-color-alt": "#b3b3b3",
         "--bg-color": "#b4bbbd",
-        "--color-c9c9c9": "#c9c9c9"
+        "--color-696969": "#696969"
       },
+      states: "shuntBlinking shuntActive",
     },
   },
   shuntButton: {
@@ -222,13 +361,12 @@ export const tiles: any = {
     states: {
       default: {
         "--stripe-color": "#3b3b3b",
-        "--detail-color": "#6e6e6e",
+        "--occupation-color": "#6e6e6e",
         "--main-color": "#acb0b3",
         "--main-color-alt": "#b3b3b3",
         "--bg-color": "#b4bbbd"
       },
-      active: { '--main-color': '#ff0000' },
-      locked: { '--main-color': '#00ff00' },
+      states: "shuntBlinking shuntActive occupied reserved shuntActiveOccupied shuntActiveReserved",
     },
   },
   signButtonLight: {
@@ -263,13 +401,14 @@ export const tiles: any = {
         "--color-d9d9d9": "#d9d9d9",
         "--color-fdfefe": "#fdfefe"
       },
+      states: "shuntBlinking shuntActive",
     },
     texts: {
-        "text": {
-          "fill": "#000000",
-          "size": "10px",
-          "text": "Text"
-        }
+      "text": {
+        "fill": "#000000",
+        "size": "10px",
+        "text": "Text"
+      }
     },
   },
   signButtonSealedCounter: {
@@ -309,41 +448,41 @@ export const tiles: any = {
       },
     },
     texts: {
-        "digit6": {
-          "fill": "#D3D3D3",
-          "size": "6px",
-          "text": "0"
-        },
-        "digit5": {
-          "fill": "#D3D3D3",
-          "size": "6px",
-          "text": "0"
-        },
-        "digit4": {
-          "fill": "#D3D3D3",
-          "size": "6px",
-          "text": "0"
-        },
-        "digit3": {
-          "fill": "#D3D3D3",
-          "size": "6px",
-          "text": "0"
-        },
-        "digit2": {
-          "fill": "#D3D3D3",
-          "size": "6px",
-          "text": "0"
-        },
-        "digit1": {
-          "fill": "#D3D3D3",
-          "size": "6px",
-          "text": "0"
-        },
-        "text": {
-          "fill": "#000000",
-          "size": "10px",
-          "text": "Text"
-        }
+      "digit6": {
+        "fill": "#D3D3D3",
+        "size": "6px",
+        "text": "0"
+      },
+      "digit5": {
+        "fill": "#D3D3D3",
+        "size": "6px",
+        "text": "0"
+      },
+      "digit4": {
+        "fill": "#D3D3D3",
+        "size": "6px",
+        "text": "0"
+      },
+      "digit3": {
+        "fill": "#D3D3D3",
+        "size": "6px",
+        "text": "0"
+      },
+      "digit2": {
+        "fill": "#D3D3D3",
+        "size": "6px",
+        "text": "0"
+      },
+      "digit1": {
+        "fill": "#D3D3D3",
+        "size": "6px",
+        "text": "0"
+      },
+      "text": {
+        "fill": "#000000",
+        "size": "10px",
+        "text": "Text"
+      }
     },
   },
   signButton: {
@@ -377,15 +516,13 @@ export const tiles: any = {
         "--color-d9d9d9": "#d9d9d9",
         "--color-fdfefe": "#fdfefe"
       },
-      active: { '--main-color': '#ff0000' },
-      locked: { '--main-color': '#00ff00' },
     },
     texts: {
-        "text": {
-          "fill": "#000000",
-          "size": "10px",
-          "text": "Text"
-        }
+      "text": {
+        "fill": "#000000",
+        "size": "10px",
+        "text": "Text"
+      }
     },
   },
   switchButton: {
@@ -403,6 +540,9 @@ export const tiles: any = {
       default: {
         "--color-27282b": "#27282b",
         "--color-333": "#333",
+        "--color-left": "#333",
+        "--color-middle": "#333",
+        "--color-right": "#333",
         "--color-343638": "#343638",
         "--color-424345": "#424345",
         "--color-6c6c6f": "#6c6c6f",
@@ -422,15 +562,40 @@ export const tiles: any = {
         "--color-c5c9cb": "#c5c9cb",
         "--color-cfd3d6": "#cfd3d6",
         "--color-d9d9d9": "#d9d9d9",
-        "--color-fdfefe": "#fdfefe"
+        "--color-fdfefe": "#fdfefe",
+        "--lever-angle": "0deg",
+      },
+      leftSet: {
+        "--color-left": "#00ff00",
+        "--lever-angle": "-40deg",
+      },
+      middleSet: {
+        "--color-middle": "#ff0000",
+        "--lever-angle": "0deg",
+      },
+      rightSet: {
+        "--color-right": "#ffff00",
+        "--lever-angle": "40deg",
+      },
+      leftSetting: {
+        "--color-middle": "#ff0000",
+        "--lever-angle": "-40deg",
+      },
+      middleSetting: {
+        "--color-middle": "#ff0000",
+        "--lever-angle": "0deg",
+      },
+      rightSetting: {
+        "--color-middle": "#ff0000",
+        "--lever-angle": "40deg",
       },
     },
     texts: {
-        "text": {
-          "fill": "#000000",
-          "size": "10px",
-          "text": "Text"
-        }
+      "text": {
+        "fill": "#000000",
+        "size": "10px",
+        "text": "Text"
+      }
     },
   },
   departureSignalNoOcp: {
@@ -464,15 +629,18 @@ export const tiles: any = {
         "--color-c5c9cb": "#c5c9cb",
         "--color-cfd3d6": "#cfd3d6",
         "--color-d9d9d9": "#d9d9d9",
-        "--color-fdfefe": "#fdfefe"
+        "--color-fdfefe": "#fdfefe",
+        "--color-departure": "#121f1e",
+        "--color-shunt": "#696969",
       },
+      states: "shuntBlinking shuntActive departureActive departureBlinking",
     },
     texts: {
-        "text": {
-          "fill": "#000000",
-          "size": "10px",
-          "text": "Text"
-        }
+      "text": {
+        "fill": "#000000",
+        "size": "10px",
+        "text": "Text"
+      }
     },
   },
   departureSignal: {
@@ -498,7 +666,7 @@ export const tiles: any = {
         "--color-4f4f4f": "#4f4f4f",
         "--color-696969": "#696969",
         "--color-6c6c6f": "#6c6c6f",
-        "--detail-color": "#6e6e6e",
+        "--occupation-color": "#6e6e6e",
         "--color-767879": "#767879",
         "--color-7e8083": "#7e8083",
         "--color-898b8e": "#898b8e",
@@ -512,15 +680,18 @@ export const tiles: any = {
         "--color-c5c9cb": "#c5c9cb",
         "--color-cfd3d6": "#cfd3d6",
         "--color-d9d9d9": "#d9d9d9",
-        "--color-fdfefe": "#fdfefe"
+        "--color-fdfefe": "#fdfefe",
+        "--color-departure": "#121f1e",
+        "--color-shunt": "#696969",
       },
+      states: "shuntBlinking shuntActive occupied reserved shuntActiveOccupied shuntActiveReserved departureActive departureBlinking departureActiveOccupied departureActiveReserved",
     },
     texts: {
-        "text": {
-          "fill": "#000000",
-          "size": "10px",
-          "text": "Text"
-        }
+      "text": {
+        "fill": "#000000",
+        "size": "10px",
+        "text": "Text"
+      }
     },
   },
   entrySignalNoOcp: {
@@ -556,15 +727,20 @@ export const tiles: any = {
         "--color-c5c9cb": "#c5c9cb",
         "--color-cfd3d6": "#cfd3d6",
         "--color-d9d9d9": "#d9d9d9",
-        "--color-fdfefe": "#fdfefe"
+        "--color-fdfefe": "#fdfefe",
+        "--color-departure": "#121f1e",
+        "--color-shunt": "#696969",
+        "--color-danger": "#1f1212",
+        "--color-caution": "#261f10",
       },
+      states: "shuntBlinking shuntActive departureActive departureBlinking cautionActive cautionBlinking dangerActive dangerBlinking",
     },
     texts: {
-        "text": {
-          "fill": "#000000",
-          "size": "10px",
-          "text": "Text"
-        }
+      "text": {
+        "fill": "#000000",
+        "size": "10px",
+        "text": "Text"
+      }
     },
   },
   entrySignal: {
@@ -605,17 +781,20 @@ export const tiles: any = {
         "--color-c5c9cb": "#c5c9cb",
         "--color-cfd3d6": "#cfd3d6",
         "--color-d9d9d9": "#d9d9d9",
-        "--color-fdfefe": "#fdfefe"
+        "--color-fdfefe": "#fdfefe",
+        "--color-departure": "#121f1e",
+        "--color-shunt": "#696969",
+        "--color-danger": "#1f1212",
+        "--color-caution": "#261f10",
       },
-      off: {},
-      green: {},
+      states: "shuntBlinking shuntBlinkingOccupied shuntBlinkingReserved shuntActive shuntActiveOccupied shuntActiveReserved shuntReserved shuntOccupied departureActive departureBlinking departureActiveOccupied departureActiveReserved departureBlinkingOccupied departureBlinkingReserved departureReserved departureOccupied cautionActive cautionBlinking cautionActiveOccupied cautionActiveReserved cautionBlinkingOccupied cautionBlinkingReserved cautionReserved cautionOccupied dangerActive dangerBlinking dangerActiveOccupied dangerActiveReserved dangerBlinkingOccupied dangerBlinkingReserved dangerReserved dangerOccupied",
     },
     texts: {
-        "text": {
-          "fill": "#000000",
-          "size": "10px",
-          "text": "Text"
-        }
+      "text": {
+        "fill": "#000000",
+        "size": "10px",
+        "text": "Text"
+      }
     },
   },
   premainSignalNoOcp: {
@@ -654,11 +833,11 @@ export const tiles: any = {
       },
     },
     texts: {
-        "text": {
-          "fill": "#000000",
-          "size": "10px",
-          "text": "Text"
-        }
+      "text": {
+        "fill": "#000000",
+        "size": "10px",
+        "text": "Text"
+      }
     },
   },
   premainSignal: {
@@ -702,11 +881,11 @@ export const tiles: any = {
       },
     },
     texts: {
-        "text": {
-          "fill": "#000000",
-          "size": "10px",
-          "text": "Text"
-        }
+      "text": {
+        "fill": "#000000",
+        "size": "10px",
+        "text": "Text"
+      }
     },
   },
   shuntSignalNoOcp: {
@@ -743,11 +922,11 @@ export const tiles: any = {
       },
     },
     texts: {
-        "text": {
-          "fill": "#000000",
-          "size": "10px",
-          "text": "Text"
-        }
+      "text": {
+        "fill": "#000000",
+        "size": "10px",
+        "text": "Text"
+      }
     },
   },
   shuntSignal: {
@@ -790,11 +969,11 @@ export const tiles: any = {
       },
     },
     texts: {
-        "text": {
-          "fill": "#000000",
-          "size": "10px",
-          "text": "Text"
-        }
+      "text": {
+        "fill": "#000000",
+        "size": "10px",
+        "text": "Text"
+      }
     },
   },
   sign: {
@@ -848,18 +1027,17 @@ export const tiles: any = {
         "--bg-color": "#b4bbbd",
         "--color-b9bdc0": "#b9bdc0",
         "--color-c5c9cb": "#c5c9cb",
-        "--color-c9c9c9": "#c9c9c9",
         "--color-cfd3d6": "#cfd3d6",
         "--color-d9d9d9": "#d9d9d9",
         "--color-fdfefe": "#fdfefe"
       },
     },
     texts: {
-        "text": {
-          "fill": "#000000",
-          "size": "10px",
-          "text": "Text"
-        }
+      "text": {
+        "fill": "#000000",
+        "size": "10px",
+        "text": "Text"
+      }
     },
   },
   crossoverSwitchNoOcp: {
@@ -897,16 +1075,16 @@ export const tiles: any = {
       },
     },
     texts: {
-        "topswitchtext": {
-          "fill": "#000000",
-          "size": "10px",
-          "text": "Top Switch Text"
-        },
-        "bottomswitchtext": {
-          "fill": "#000000",
-          "size": "10px",
-          "text": "Bottom Switch Text"
-        }
+      "topswitchtext": {
+        "fill": "#000000",
+        "size": "10px",
+        "text": "Top Switch Text"
+      },
+      "bottomswitchtext": {
+        "fill": "#000000",
+        "size": "10px",
+        "text": "Bottom Switch Text"
+      }
     },
   },
   crossoverSwitch: {
@@ -968,16 +1146,16 @@ export const tiles: any = {
       },
     },
     texts: {
-        "topswitchtext": {
-          "fill": "#000000",
-          "size": "10px",
-          "text": "Top Switch Text"
-        },
-        "bottomswitchtext": {
-          "fill": "#000000",
-          "size": "10px",
-          "text": "Bottom Switch Text"
-        }
+      "topswitchtext": {
+        "fill": "#000000",
+        "size": "10px",
+        "text": "Top Switch Text"
+      },
+      "bottomswitchtext": {
+        "fill": "#000000",
+        "size": "10px",
+        "text": "Bottom Switch Text"
+      }
     },
   },
   extendedSwitchNoOcp: {
@@ -1017,16 +1195,16 @@ export const tiles: any = {
       },
     },
     texts: {
-        "bottomswitchtext": {
-          "fill": "#000000",
-          "size": "10px",
-          "text": "Lower Switch Text"
-        },
-        "topswitchtext": {
-          "fill": "#000000",
-          "size": "10px",
-          "text": "Upper Switch Text"
-        }
+      "bottomswitchtext": {
+        "fill": "#000000",
+        "size": "10px",
+        "text": "Lower Switch Text"
+      },
+      "topswitchtext": {
+        "fill": "#000000",
+        "size": "10px",
+        "text": "Upper Switch Text"
+      }
     },
   },
   extendedSwitch: {
@@ -1088,16 +1266,16 @@ export const tiles: any = {
       },
     },
     texts: {
-        "bottomswitchtext": {
-          "fill": "#000000",
-          "size": "10px",
-          "text": "Lower Switch Text"
-        },
-        "topswitchtext": {
-          "fill": "#000000",
-          "size": "10px",
-          "text": "Upper Switch Text"
-        }
+      "bottomswitchtext": {
+        "fill": "#000000",
+        "size": "10px",
+        "text": "Lower Switch Text"
+      },
+      "topswitchtext": {
+        "fill": "#000000",
+        "size": "10px",
+        "text": "Upper Switch Text"
+      }
     },
   },
   singleSwitchNoOcp: {
@@ -1135,11 +1313,11 @@ export const tiles: any = {
       },
     },
     texts: {
-        "text": {
-          "fill": "#000000",
-          "size": "10px",
-          "text": "Text"
-        }
+      "text": {
+        "fill": "#000000",
+        "size": "10px",
+        "text": "Text"
+      }
     },
   },
   singleSwitch: {
@@ -1189,11 +1367,11 @@ export const tiles: any = {
       },
     },
     texts: {
-        "text": {
-          "fill": "#000000",
-          "size": "10px",
-          "text": "Text"
-        }
+      "text": {
+        "fill": "#000000",
+        "size": "10px",
+        "text": "Text"
+      }
     },
   },
   trackNoOcp: {
@@ -1243,11 +1421,11 @@ export const tiles: any = {
       },
     },
     texts: {
-        "text": {
-          "fill": "#000000",
-          "size": "10px",
-          "text": "Text"
-        }
+      "text": {
+        "fill": "#000000",
+        "size": "10px",
+        "text": "Text"
+      }
     },
   },
   trackSign: {
@@ -1288,11 +1466,11 @@ export const tiles: any = {
       },
     },
     texts: {
-        "text": {
-          "fill": "#000000",
-          "size": "10px",
-          "text": "Text"
-        }
+      "text": {
+        "fill": "#000000",
+        "size": "10px",
+        "text": "Text"
+      }
     },
   },
   track: {

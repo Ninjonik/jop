@@ -9,7 +9,7 @@ const Lineblock6Square = ({ bottomlefttext, toplefttext, middletext, bottomright
     viewBox="0 0 225 150"
     {...props}
   >
-    
+
     <rect fill="var(--bg-color, #b4bbbd)" x={0} y={75} width={75} height={75} />
     <rect fill="var(--bg-color, #b4bbbd)" x={75} y={75} width={75} height={75} />
     <g>
@@ -583,16 +583,6 @@ const Lineblock6Square = ({ bottomlefttext, toplefttext, middletext, bottomright
             </g>
           </g>
         </g>
-      </g>
-      <g>
-        <path
-          fill="var(--color-616161, #616161)"
-          d="M37.5,130.01c-6.96,0-12.63-5.67-12.63-12.63s5.67-12.63,12.63-12.63,12.63,5.67,12.63,12.63-5.67,12.63-12.63,12.63Z"
-        />
-        <path
-          fill="var(--color-949494, #949494)"
-          d="M37.5,105.75c6.41,0,11.63,5.22,11.63,11.63s-5.22,11.63-11.63,11.63-11.63-5.22-11.63-11.63,5.22-11.63,11.63-11.63M37.5,103.75c-7.53,0-13.63,6.1-13.63,13.63s6.1,13.63,13.63,13.63,13.63-6.1,13.63-13.63-6.1-13.63-13.63-13.63h0Z"
-        />
       </g>
     </g>
     <rect fill="var(--bg-color, #b4bbbd)" x={0} y={0} width={75} height={75} />
@@ -1732,7 +1722,7 @@ const Lineblock6Square = ({ bottomlefttext, toplefttext, middletext, bottomright
     <g>
       <circle fill="var(--detail-color, #6e6e6e)" cx={112.5} cy={51.35} r={13.63} />
       <circle fill="var(--main-color-alt, #b3b3b3)" cx={112.5} cy={51.35} r={10.9} />
-      <circle fill="var(--color-333, #333)" cx={112.5} cy={51.35} r={6.73} />
+      <circle fill="var(--color-middlecircle, #333)" cx={112.5} cy={51.35} r={6.73} />
     </g>
     <rect fill="var(--bg-color, #b4bbbd)" x={150} y={0} width={75} height={75} />
     <g>
@@ -2873,14 +2863,19 @@ const Lineblock6Square = ({ bottomlefttext, toplefttext, middletext, bottomright
       </g>
     </g>
     <g>
+      <circle fill="var(--color-949494, #949494)" cx={37.5} cy={117.38} r={13.63} />
+      <circle fill="var(--color-616161, #616161)" cx={37.5} cy={117.38} r={10.9} />
+      <circle fill="var(--color-bottomleftcircle, #333)" cx={37.5} cy={117.38} r={6.73} />
+    </g>
+    <g>
       <circle fill="var(--color-949494, #949494)" cx={187.5} cy={117.38} r={13.63} />
       <circle fill="var(--color-616161, #616161)" cx={187.5} cy={117.38} r={10.9} />
-      <circle fill="var(--color-828282, #828282)" cx={187.5} cy={117.38} r={6.73} />
+      <circle fill="var(--color-bottomrightcircle, #616161)" cx={187.5} cy={117.38} r={6.73} />
     </g>
     <g>
       <circle fill="var(--detail-color, #6e6e6e)" cx={37.5} cy={51.35} r={13.63} />
       <circle fill="var(--main-color-alt, #b3b3b3)" cx={37.5} cy={51.35} r={10.9} />
-      <circle fill="var(--color-333, #333)" cx={37.5} cy={51.35} r={6.73} />
+      <circle fill="var(--color-topleftcircle, #333)" cx={37.5} cy={51.35} r={6.73} />
     </g>
     <rect
       fill="var(--color-1a1a1a, #1a1a1a)"
@@ -2894,7 +2889,7 @@ const Lineblock6Square = ({ bottomlefttext, toplefttext, middletext, bottomright
     <g>
       <circle fill="var(--detail-color, #6e6e6e)" cx={187.5} cy={51.35} r={13.63} />
       <circle fill="var(--main-color-alt, #b3b3b3)" cx={187.5} cy={51.35} r={10.9} />
-      <circle fill="var(--color-333, #333)" cx={187.5} cy={51.35} r={6.73} />
+      <circle fill="var(--color-toprightcircle, #333)" cx={187.5} cy={51.35} r={6.73} />
     </g>
   </svg>
 );

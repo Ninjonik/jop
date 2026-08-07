@@ -27,8 +27,8 @@ const Departure2NOOCP1Square = ({ text, ...props }: SVGProps<SVGSVGElement> & { 
     >{text ?? 'Text'}</text>
     <circle fill="var(--color-4f4f4f, #4f4f4f)" cx={22.67} cy={15} r={6.21} />
     <circle fill="var(--color-4f4f4f, #4f4f4f)" cx={37.67} cy={15} r={6.21} />
-    <circle fill="var(--color-121f1e, #121f1e)" cx={22.67} cy={15} r={4.78} />
-    <circle fill="var(--color-696969, #696969)" cx={37.67} cy={15} r={4.78} />
+    <circle style={{ animation: 'var(--departure-animation, none)' }} fill="var(--color-departure, #121f1e)" cx={22.67} cy={15} r={4.78} />
+    <circle style={{ animation: 'var(--shunt-animation, none)' }} fill="var(--color-shunt, #696969)" cx={37.67} cy={15} r={4.78} />
     <g>
       <path
         fill="var(--color-fdfefe, #fdfefe)"

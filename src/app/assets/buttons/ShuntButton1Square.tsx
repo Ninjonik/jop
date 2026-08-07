@@ -11,11 +11,11 @@ const ShuntButton1Square = (props: SVGProps<SVGSVGElement>) => (
   >
     <rect fill="var(--bg-color, #b4bbbd)" x={0} width={75} height={75} />
     <rect fill="var(--stripe-color, #3b3b3b)" x={0} y={30} width={75} height={15} />
-    <rect fill="var(--detail-color, #6e6e6e)" x={5} y={33.5} width={41.11} height={8} rx={4} ry={4} />
+    <rect fill="var(--occupation-color, #6e6e6e)" x={5} y={33.5} width={41.11} height={8} rx={4} ry={4} />
     <g>
       <circle fill="var(--detail-color, #6e6e6e)" cx={60} cy={37.5} r={10} />
       <circle fill="var(--main-color-alt, #b3b3b3)" cx={60} cy={37.5} r={8} />
-      <circle fill="var(--main-color, #acb0b3)" cx={60} cy={37.5} r={4.94} />
+      <circle style={{ animation: 'var(--shunt-animation, none)' }} fill="var(--color-shunt, #acb0b3)" cx={60} cy={37.5} r={4.94} />
     </g>
   </svg>
 );
