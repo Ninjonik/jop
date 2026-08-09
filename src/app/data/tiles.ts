@@ -170,8 +170,8 @@
  *      defaultVariant: "normal",
  *      states: {
  *        default: { base: {} },
- *        state1: { base: { "--my-prop": "#ff0000" } },
- *        state2: { base: { "--my-prop": "#00ff00" } },
+ *        state1: { base: { "--my-prop": "#d32f2f" } },
+ *        state2: { base: { "--my-prop": "#009e49" } },
  *      },
  *    },
  *
@@ -318,7 +318,7 @@ export const stateGroups: any = {
       },
       occupied: {
         base: {
-          "--occupation-color": "#ff0000",
+          "--occupation-color": "#d32f2f",
         },
       },
     },
@@ -340,37 +340,37 @@ export const stateGroups: any = {
       },
       leftSet: {
         base: {
-          "--color-left": "#00ff00",
+          "--color-left": "#009e49",
           "--lever-angle": "-40deg",
         },
       },
       middleSet: {
         base: {
-          "--color-middle": "#ff0000",
+          "--color-middle": "#d32f2f",
           "--lever-angle": "0deg",
         },
       },
       rightSet: {
         base: {
-          "--color-right": "#ffff00",
+          "--color-right": "#e69f00",
           "--lever-angle": "40deg",
         },
       },
       leftSetting: {
         base: {
-          "--color-middle": "#ff0000",
+          "--color-middle": "#d32f2f",
           "--lever-angle": "-40deg",
         },
       },
       middleSetting: {
         base: {
-          "--color-middle": "#ff0000",
+          "--color-middle": "#d32f2f",
           "--lever-angle": "0deg",
         },
       },
       rightSetting: {
         base: {
-          "--color-middle": "#ff0000",
+          "--color-middle": "#d32f2f",
           "--lever-angle": "40deg",
         },
       },
@@ -394,30 +394,60 @@ export const stateGroups: any = {
       },
       sending: {
         base: {
-          "--color-topleftcircle": "#00ff00",
+          "--color-topleftcircle": "#009e49",
+        },
+        variants: {
+          blinking: {
+            "--color-departure-blink": "#121f1e",
+            "--departure-animation": "departure-blink 1s infinite",
+          },
         },
       },
       sendingFree: {
         base: {
-          "--color-topleftcircle": "#00ff00",
+          "--color-topleftcircle": "#009e49",
           "--color-middlecircle": "#ffffff",
+        },
+        variants: {
+          blinking: {
+            "--color-departure-blink": "#121f1e",
+            "--departure-animation": "departure-blink 1s infinite",
+          },
         },
       },
       receiving: {
         base: {
-          "--color-toprightcircle": "#ff0000",
+          "--color-toprightcircle": "#d32f2f",
+        },
+        variants: {
+          blinking: {
+            "--color-danger-blink": "#1f1212",
+            "--danger-animation": "danger-blink 1s infinite",
+          },
         },
       },
       receivingFree: {
         base: {
-          "--color-toprightcircle": "#ff0000",
+          "--color-toprightcircle": "#d32f2f",
           "--color-middlecircle": "#ffffff",
+        },
+        variants: {
+          blinking: {
+            "--color-danger-blink": "#1f1212",
+            "--danger-animation": "danger-blink 1s infinite",
+          },
         },
       },
       receivingConfirmation: {
         base: {
-          "--color-toprightcircle": "#ff0000",
+          "--color-toprightcircle": "#d32f2f",
           "--color-bottomleftcircle": "#ffffff",
+        },
+        variants: {
+          blinking: {
+            "--color-danger-blink": "#1f1212",
+            "--danger-animation": "danger-blink 1s infinite",
+          },
         },
       },
     },

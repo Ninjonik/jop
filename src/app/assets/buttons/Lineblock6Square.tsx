@@ -2875,7 +2875,7 @@ const Lineblock6Square = ({ bottomlefttext, toplefttext, middletext, bottomright
     <g>
       <circle fill="var(--detail-color, #6e6e6e)" cx={37.5} cy={51.35} r={13.63} />
       <circle fill="var(--main-color-alt, #b3b3b3)" cx={37.5} cy={51.35} r={10.9} />
-      <circle fill="var(--color-topleftcircle, #333)" cx={37.5} cy={51.35} r={6.73} />
+      <circle style={{ animation: 'var(--departure-animation, none)' }} fill="var(--color-topleftcircle, #333)" cx={37.5} cy={51.35} r={6.73} />
     </g>
     <rect
       fill="var(--color-1a1a1a, #1a1a1a)"
@@ -2889,7 +2889,7 @@ const Lineblock6Square = ({ bottomlefttext, toplefttext, middletext, bottomright
     <g>
       <circle fill="var(--detail-color, #6e6e6e)" cx={187.5} cy={51.35} r={13.63} />
       <circle fill="var(--main-color-alt, #b3b3b3)" cx={187.5} cy={51.35} r={10.9} />
-      <circle fill="var(--color-toprightcircle, #333)" cx={187.5} cy={51.35} r={6.73} />
+      <circle style={{ animation: 'var(--danger-animation, none)' }} fill="var(--color-toprightcircle, #333)" cx={187.5} cy={51.35} r={6.73} />
     </g>
   </svg>
 );
