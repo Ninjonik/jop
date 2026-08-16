@@ -96,7 +96,7 @@ export default function PieceContextMenu({
           onClick={onConnect}
           className="border-b border-neutral-300 px-2 py-1 text-left text-sm text-black"
         >
-          {`connect to ${pendingConnectionPieceId}`}
+          {`connect to ${contextMenu.pendingConnectionEndpointKey ?? pendingConnectionPieceId}`}
         </button>
       ) : null}
       {contextMenu.canStartConnection ? (

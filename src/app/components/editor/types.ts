@@ -34,6 +34,7 @@ export interface PendingPlacementPosition {
 
 export interface PieceContextMenuState {
   pieceId: string;
+  endpointKey: string | null;
   x: number;
   y: number;
   supportsOrientationChange: boolean;
@@ -41,6 +42,7 @@ export interface PieceContextMenuState {
   canStartConnection: boolean;
   canConnectToPending: boolean;
   canCancelPendingConnection: boolean;
+  pendingConnectionEndpointKey: string | null;
   connectedPieceId: string | null;
   connectedPieceCells: [number, number][];
 }

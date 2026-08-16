@@ -248,3 +248,100 @@ export function canPiecesConnect(sourceType: string, targetType: string) {
     (isSwitchButtonPieceType(sourceType) && isSwitchPieceType(targetType))
   );
 }
+
+function getPieceAnchor(editorState: EditorState, targetPieceId: string) {
+  const cells = getPieceCells(editorState, targetPieceId);
+
+  return {
+    x: Math.min(...cells.map(([x]) => x)),
+    y: Math.min(...cells.map(([, y]) => y)),
+  };
+}
+
+function getSwitchEndpointSlot(
+  tileKey: string,
+  localX: number,
+  localY: number
+): 'upper' | 'lower' | 'main' {
+  if (tileKey === 'singleSwitch' || tileKey === 'singleSwitchNoOcp') {
+    return 'main';
+  }
+
+  if (tileKey === 'crossoverSwitch' || tileKey === 'crossoverSwitchNoOcp') {
+    return localY === 0 ? 'upper' : 'lower';
+  }
+
+  if (tileKey === 'extendedSwitch' || tileKey === 'extendedSwitchNoOcp') {
+    return localX === 0 ? 'lower' : 'upper';
+  }
+
+  return 'main';
+}
+
+export function getConnectionEndpointKey(
+  editorState: EditorState,
+  pieceId: string,
+  part: number
+) {
+  const piece = editorState.pieces[pieceId];
+  if (!piece) {
+    return null;
+  }
+
+  if (isSwitchButtonPieceType(piece.type)) {
+    return pieceId;
+  }
+
+  if (!isSwitchPieceType(piece.type)) {
+    return null;
+  }
+
+  const anchor = getPieceAnchor(editorState, pieceId);
+  let localCell: [number, number] | null = null;
+
+  editorState.map.forEach((row, y) => {
+    row.forEach((value, x) => {
+      const ref = parseCellRef(value);
+      if (ref.pieceId === pieceId && ref.part === part) {
+        localCell = [x - anchor.x, y - anchor.y];
+      }
+    });
+  });
+
+  if (!localCell) {
+    return `${pieceId}:main`;
+  }
+
+  const slot = getSwitchEndpointSlot(piece.type, localCell[0], localCell[1]);
+  return `${pieceId}:${slot}`;
+}
+
+export function getConnectionPieceId(endpointKey: string) {
+  return endpointKey.split(':', 1)[0];
+}
+
+export function getAllConnectionEndpointKeysForPiece(editorState: EditorState, pieceId: string) {
+  const piece = editorState.pieces[pieceId];
+  if (!piece) {
+    return [];
+  }
+
+  if (isSwitchButtonPieceType(piece.type)) {
+    return [pieceId];
+  }
+
+  if (piece.type === 'singleSwitch' || piece.type === 'singleSwitchNoOcp') {
+    return [`${pieceId}:main`];
+  }
+
+  if (
+    piece.type === 'crossoverSwitch' ||
+    piece.type === 'crossoverSwitchNoOcp' ||
+    piece.type === 'extendedSwitch' ||
+    piece.type === 'extendedSwitchNoOcp'
+  ) {
+    return [`${pieceId}:upper`, `${pieceId}:lower`];
+  }
+
+  return [];
+}

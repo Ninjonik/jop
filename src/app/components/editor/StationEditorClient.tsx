@@ -23,7 +23,10 @@ import {
   createId,
   createInitialEditorState,
   createPieceRecord,
+  getAllConnectionEndpointKeysForPiece,
   getAllowedPlacements,
+  getConnectionEndpointKey,
+  getConnectionPieceId,
   getPieceCells,
   isSwitchButtonPieceType,
   isSwitchPieceType,
@@ -47,7 +50,7 @@ export default function StationEditorClient({ tiles, stateGroups }: Props) {
   const [pendingVariants, setPendingVariants] = useState<PlacementVariant[]>([]);
   const [pendingPosition, setPendingPosition] = useState<PendingPlacementPosition | null>(null);
   const [contextMenu, setContextMenu] = useState<PieceContextMenuState | null>(null);
-  const [pendingConnectionPieceId, setPendingConnectionPieceId] = useState<string | null>(null);
+  const [pendingConnectionEndpointKey, setPendingConnectionEndpointKey] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const tileSize = useResponsiveTileSize(editorState.width);
 
@@ -83,10 +86,15 @@ export default function StationEditorClient({ tiles, stateGroups }: Props) {
 
       selectedCells.forEach(([x, y]) => {
         const { pieceId: previousPieceId } = parseCellRef(nextMap[y][x]);
-        const linkedPieceId = nextConnections[previousPieceId];
-        if (linkedPieceId) {
-          delete nextConnections[linkedPieceId];
-          delete nextConnections[previousPieceId];
+        getAllConnectionEndpointKeysForPiece(current, previousPieceId).forEach((endpointKey) => {
+          const linkedEndpointKey = nextConnections[endpointKey];
+          if (linkedEndpointKey) {
+            delete nextConnections[linkedEndpointKey];
+            delete nextConnections[endpointKey];
+          }
+        });
+        if (pendingConnectionEndpointKey && getConnectionPieceId(pendingConnectionEndpointKey) === previousPieceId) {
+          setPendingConnectionEndpointKey(null);
         }
         delete nextPieces[previousPieceId];
       });
@@ -155,7 +163,7 @@ export default function StationEditorClient({ tiles, stateGroups }: Props) {
     setSelectedCells([]);
     clearPlacementUi();
     clearContextMenu();
-    setPendingConnectionPieceId(null);
+    setPendingConnectionEndpointKey(null);
   };
 
   const handleExport = () => {
@@ -186,7 +194,7 @@ export default function StationEditorClient({ tiles, stateGroups }: Props) {
     setSelectedCells([]);
     clearPlacementUi();
     clearContextMenu();
-    setPendingConnectionPieceId(null);
+    setPendingConnectionEndpointKey(null);
     event.target.value = '';
   };
 
@@ -194,7 +202,7 @@ export default function StationEditorClient({ tiles, stateGroups }: Props) {
     event.preventDefault();
     clearPlacementUi();
 
-    const { pieceId } = parseCellRef(editorState.map[y][x]);
+    const { pieceId, part } = parseCellRef(editorState.map[y][x]);
     const piece = editorState.pieces[pieceId];
 
     if (!piece) {
@@ -210,26 +218,30 @@ export default function StationEditorClient({ tiles, stateGroups }: Props) {
     const tile = tiles[piece.type];
     const supportsOrientationChange = tile ? canPieceUseInPlaceOrientation(tile) : false;
     const textKeys = Object.keys(tile?.texts ?? {});
-    const connectedPieceId = editorState.connections[pieceId] ?? null;
+    const endpointKey = getConnectionEndpointKey(editorState, pieceId, part);
+    const connectedEndpointKey = endpointKey ? editorState.connections[endpointKey] ?? null : null;
+    const connectedPieceId = connectedEndpointKey ? getConnectionPieceId(connectedEndpointKey) : null;
     const connectedPieceCells = connectedPieceId ? getPieceCells(editorState, connectedPieceId) : [];
-    const pendingPiece = pendingConnectionPieceId
-      ? editorState.pieces[pendingConnectionPieceId]
+    const pendingPiece = pendingConnectionEndpointKey
+      ? editorState.pieces[getConnectionPieceId(pendingConnectionEndpointKey)]
       : null;
     const eligibleType = isSwitchPieceType(piece.type) || isSwitchButtonPieceType(piece.type);
-    const canStartConnection = eligibleType && !connectedPieceId;
-    const canCancelPendingConnection = pendingConnectionPieceId === pieceId;
+    const canStartConnection = eligibleType && Boolean(endpointKey) && !connectedPieceId;
+    const canCancelPendingConnection = pendingConnectionEndpointKey === endpointKey;
     const canConnectToPending = Boolean(
-      pendingConnectionPieceId &&
-        pendingConnectionPieceId !== pieceId &&
+      endpointKey &&
+        pendingConnectionEndpointKey &&
+        pendingConnectionEndpointKey !== endpointKey &&
         pendingPiece &&
         !connectedPieceId &&
-        !editorState.connections[pendingConnectionPieceId] &&
+        !editorState.connections[pendingConnectionEndpointKey] &&
         canPiecesConnect(pendingPiece.type, piece.type)
     );
 
     setSelectedCells([]);
     setContextMenu({
       pieceId,
+      endpointKey,
       x: event.clientX,
       y: event.clientY,
       supportsOrientationChange,
@@ -237,6 +249,7 @@ export default function StationEditorClient({ tiles, stateGroups }: Props) {
       canStartConnection,
       canConnectToPending,
       canCancelPendingConnection,
+      pendingConnectionEndpointKey,
       connectedPieceId,
       connectedPieceCells,
     });
@@ -326,11 +339,13 @@ export default function StationEditorClient({ tiles, stateGroups }: Props) {
         return current;
       }
 
-      const linkedPieceId = nextConnections[contextMenu.pieceId];
-      if (linkedPieceId) {
-        delete nextConnections[linkedPieceId];
-        delete nextConnections[contextMenu.pieceId];
-      }
+      getAllConnectionEndpointKeysForPiece(current, contextMenu.pieceId).forEach((endpointKey) => {
+        const linkedEndpointKey = nextConnections[endpointKey];
+        if (linkedEndpointKey) {
+          delete nextConnections[linkedEndpointKey];
+          delete nextConnections[endpointKey];
+        }
+      });
 
       nextMap.forEach((row, y) => {
         row.forEach((value, x) => {
@@ -355,8 +370,11 @@ export default function StationEditorClient({ tiles, stateGroups }: Props) {
       };
     });
 
-    if (pendingConnectionPieceId === contextMenu.pieceId) {
-      setPendingConnectionPieceId(null);
+    if (
+      pendingConnectionEndpointKey &&
+      getConnectionPieceId(pendingConnectionEndpointKey) === contextMenu.pieceId
+    ) {
+      setPendingConnectionEndpointKey(null);
     }
 
     clearContextMenu();
@@ -367,29 +385,33 @@ export default function StationEditorClient({ tiles, stateGroups }: Props) {
       return;
     }
 
-    setPendingConnectionPieceId(contextMenu.pieceId);
+    if (!contextMenu.endpointKey) {
+      return;
+    }
+
+    setPendingConnectionEndpointKey(contextMenu.endpointKey);
     clearContextMenu();
   };
 
   const handleContextMenuCancelConnection = () => {
-    setPendingConnectionPieceId(null);
+    setPendingConnectionEndpointKey(null);
     clearContextMenu();
   };
 
   const handleContextMenuConnect = () => {
-    if (!contextMenu || !pendingConnectionPieceId || pendingConnectionPieceId === contextMenu.pieceId) {
+    if (!contextMenu?.endpointKey || !pendingConnectionEndpointKey || pendingConnectionEndpointKey === contextMenu.endpointKey) {
       return;
     }
 
     setEditorState((current) => {
-      const sourcePiece = current.pieces[pendingConnectionPieceId];
+      const sourcePiece = current.pieces[getConnectionPieceId(pendingConnectionEndpointKey)];
       const targetPiece = current.pieces[contextMenu.pieceId];
 
       if (
         !sourcePiece ||
         !targetPiece ||
-        current.connections[pendingConnectionPieceId] ||
-        current.connections[contextMenu.pieceId] ||
+        current.connections[pendingConnectionEndpointKey] ||
+        current.connections[contextMenu.endpointKey] ||
         !canPiecesConnect(sourcePiece.type, targetPiece.type)
       ) {
         return current;
@@ -399,13 +421,13 @@ export default function StationEditorClient({ tiles, stateGroups }: Props) {
         ...current,
         connections: {
           ...current.connections,
-          [pendingConnectionPieceId]: contextMenu.pieceId,
-          [contextMenu.pieceId]: pendingConnectionPieceId,
+          [pendingConnectionEndpointKey]: contextMenu.endpointKey,
+          [contextMenu.endpointKey]: pendingConnectionEndpointKey,
         },
       };
     });
 
-    setPendingConnectionPieceId(null);
+    setPendingConnectionEndpointKey(null);
     clearContextMenu();
   };
 
@@ -415,14 +437,18 @@ export default function StationEditorClient({ tiles, stateGroups }: Props) {
     }
 
     setEditorState((current) => {
-      const linkedPieceId = current.connections[contextMenu.pieceId];
-      if (!linkedPieceId) {
+      if (!contextMenu.endpointKey) {
+        return current;
+      }
+
+      const linkedEndpointKey = current.connections[contextMenu.endpointKey];
+      if (!linkedEndpointKey) {
         return current;
       }
 
       const nextConnections = { ...current.connections };
-      delete nextConnections[contextMenu.pieceId];
-      delete nextConnections[linkedPieceId];
+      delete nextConnections[contextMenu.endpointKey];
+      delete nextConnections[linkedEndpointKey];
 
       return {
         ...current,
@@ -431,10 +457,10 @@ export default function StationEditorClient({ tiles, stateGroups }: Props) {
     });
 
     if (
-      pendingConnectionPieceId === contextMenu.pieceId ||
-      pendingConnectionPieceId === contextMenu.connectedPieceId
+      pendingConnectionEndpointKey === contextMenu.endpointKey ||
+      pendingConnectionEndpointKey === contextMenu.pendingConnectionEndpointKey
     ) {
-      setPendingConnectionPieceId(null);
+      setPendingConnectionEndpointKey(null);
     }
 
     clearContextMenu();
@@ -468,7 +494,7 @@ export default function StationEditorClient({ tiles, stateGroups }: Props) {
         onTileContextMenu={handleTileContextMenu}
         onVariantPick={applyPlacement}
         contextMenu={contextMenu}
-        pendingConnectionPieceId={pendingConnectionPieceId}
+        pendingConnectionPieceId={pendingConnectionEndpointKey}
         onContextMenuRotate={handleContextMenuRotate}
         onContextMenuMirror={handleContextMenuMirror}
         onContextMenuEditText={handleContextMenuEditText}
