@@ -1,0 +1,279 @@
+'use client';
+
+import { useMemo, useRef, useState } from 'react';
+import type { ChangeEvent, MouseEvent } from 'react';
+
+import type { StateGroupRegistry, TileCatalog } from '@/app/components/tiles/tile-catalog';
+
+import { DEFAULT_HEIGHT, DEFAULT_WIDTH } from './constants';
+import EditorControls from './components/EditorControls';
+import PlacementToolbar from './components/PlacementToolbar';
+import StationCanvas from './components/StationCanvas';
+import { useResponsiveTileSize } from './hooks/useResponsiveTileSize';
+import type {
+  EditorState,
+  PieceContextMenuState,
+  PlacementVariant,
+  PendingPlacementPosition,
+} from './types';
+import {
+  buildPlacementVariants,
+  canPieceUseInPlaceOrientation,
+  createId,
+  createInitialEditorState,
+  createPieceRecord,
+  getAllowedPlacements,
+  parseCellRef,
+  toCellKey,
+} from './utils';
+
+interface Props {
+  tiles: TileCatalog;
+  stateGroups: StateGroupRegistry;
+}
+
+export default function StationEditorClient({ tiles, stateGroups }: Props) {
+  const placementVariants = useMemo(() => buildPlacementVariants(tiles), [tiles]);
+  const [draftWidth, setDraftWidth] = useState(DEFAULT_WIDTH);
+  const [draftHeight, setDraftHeight] = useState(DEFAULT_HEIGHT);
+  const [editorState, setEditorState] = useState<EditorState>(() =>
+    createInitialEditorState(DEFAULT_WIDTH, DEFAULT_HEIGHT, tiles, stateGroups)
+  );
+  const [selectedCells, setSelectedCells] = useState<[number, number][]>([]);
+  const [pendingVariants, setPendingVariants] = useState<PlacementVariant[]>([]);
+  const [pendingPosition, setPendingPosition] = useState<PendingPlacementPosition | null>(null);
+  const [contextMenu, setContextMenu] = useState<PieceContextMenuState | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const tileSize = useResponsiveTileSize(editorState.width);
+
+  const allowedPlacements = useMemo(
+    () => getAllowedPlacements(editorState, selectedCells, placementVariants),
+    [editorState, placementVariants, selectedCells]
+  );
+
+  const toolbarTileKeys = useMemo(
+    () => Array.from(new Set(allowedPlacements.map((variant) => variant.tileKey))),
+    [allowedPlacements]
+  );
+
+  const clearPlacementUi = () => {
+    setPendingVariants([]);
+    setPendingPosition(null);
+  };
+
+  const clearContextMenu = () => {
+    setContextMenu(null);
+  };
+
+  const applyPlacement = (variant: PlacementVariant) => {
+    const tile = tiles[variant.tileKey];
+    const minX = Math.min(...selectedCells.map(([x]) => x));
+    const minY = Math.min(...selectedCells.map(([, y]) => y));
+    const pieceId = createId();
+
+    setEditorState((current) => {
+      const nextPieces = { ...current.pieces };
+      const nextMap = current.map.map((row) => [...row]);
+
+      selectedCells.forEach(([x, y]) => {
+        const { pieceId: previousPieceId } = parseCellRef(nextMap[y][x]);
+        delete nextPieces[previousPieceId];
+      });
+
+      nextPieces[pieceId] = {
+        ...createPieceRecord(variant.tileKey, tile, stateGroups),
+        rotation: variant.orientation.rotation,
+        mirrored: variant.orientation.mirrored,
+      };
+
+      variant.usedSpace.forEach(([dx, dy]) => {
+        nextMap[minY + dy][minX + dx] = `${pieceId}.${variant.partsByKey[toCellKey(dx, dy)]}`;
+      });
+
+      return {
+        ...current,
+        pieces: nextPieces,
+        map: nextMap,
+      };
+    });
+
+    clearPlacementUi();
+    clearContextMenu();
+    setSelectedCells([]);
+  };
+
+  const handleTileClick = (x: number, y: number, event: MouseEvent<HTMLButtonElement>) => {
+    clearPlacementUi();
+    clearContextMenu();
+
+    setSelectedCells((current) => {
+      const key = toCellKey(x, y);
+      const alreadySelected = current.some(([cx, cy]) => toCellKey(cx, cy) === key);
+
+      if (event.ctrlKey || event.metaKey) {
+        return alreadySelected
+          ? current.filter(([cx, cy]) => toCellKey(cx, cy) !== key)
+          : [...current, [x, y]];
+      }
+
+      return alreadySelected && current.length === 1 ? current : [[x, y]];
+    });
+  };
+
+  const handleToolbarTileClick = (tileKey: string) => {
+    const variants = allowedPlacements.filter((variant) => variant.tileKey === tileKey);
+    if (variants.length === 0) {
+      return;
+    }
+
+    if (variants.length === 1) {
+      applyPlacement(variants[0]);
+      return;
+    }
+
+    const minX = Math.min(...selectedCells.map(([x]) => x));
+    const minY = Math.min(...selectedCells.map(([, y]) => y));
+    setPendingVariants(variants);
+    setPendingPosition({ x: minX, y: minY });
+    clearContextMenu();
+  };
+
+  const handleResetBoard = () => {
+    setEditorState(createInitialEditorState(draftWidth, draftHeight, tiles, stateGroups));
+    setSelectedCells([]);
+    clearPlacementUi();
+    clearContextMenu();
+  };
+
+  const handleExport = () => {
+    const blob = new Blob([JSON.stringify(editorState, null, 2)], {
+      type: 'application/json',
+    });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = 'station.json';
+    anchor.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleImport = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) {
+      return;
+    }
+
+    const parsed = JSON.parse(await file.text()) as EditorState;
+    setEditorState(parsed);
+    setDraftWidth(parsed.width);
+    setDraftHeight(parsed.height);
+    setSelectedCells([]);
+    clearPlacementUi();
+    clearContextMenu();
+    event.target.value = '';
+  };
+
+  const handleTileContextMenu = (x: number, y: number, event: MouseEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    clearPlacementUi();
+
+    const { pieceId } = parseCellRef(editorState.map[y][x]);
+    const piece = editorState.pieces[pieceId];
+
+    if (!piece) {
+      clearContextMenu();
+      return;
+    }
+
+    const tile = tiles[piece.type];
+    if (!tile || !canPieceUseInPlaceOrientation(tile)) {
+      clearContextMenu();
+      return;
+    }
+
+    setSelectedCells([]);
+    setContextMenu({
+      pieceId,
+      x: event.clientX,
+      y: event.clientY,
+    });
+  };
+
+  const updateContextPiece = (updater: (piece: EditorState['pieces'][string]) => EditorState['pieces'][string]) => {
+    if (!contextMenu) {
+      return;
+    }
+
+    setEditorState((current) => {
+      const piece = current.pieces[contextMenu.pieceId];
+      if (!piece) {
+        return current;
+      }
+
+      return {
+        ...current,
+        pieces: {
+          ...current.pieces,
+          [contextMenu.pieceId]: updater(piece),
+        },
+      };
+    });
+
+    clearContextMenu();
+  };
+
+  const handleContextMenuRotate = () => {
+    updateContextPiece((piece) => ({
+      ...piece,
+      rotation: piece.rotation === 0 ? 180 : 0,
+    }));
+  };
+
+  const handleContextMenuMirror = () => {
+    updateContextPiece((piece) => ({
+      ...piece,
+      mirrored: !piece.mirrored,
+    }));
+  };
+
+  return (
+    <main
+      className="flex min-h-screen flex-col overflow-hidden bg-neutral-300 p-4"
+      onClick={() => clearContextMenu()}
+      onContextMenu={(event) => event.preventDefault()}
+    >
+      <EditorControls
+        width={draftWidth}
+        height={draftHeight}
+        onWidthChange={setDraftWidth}
+        onHeightChange={setDraftHeight}
+        onSet={handleResetBoard}
+        onImport={() => fileInputRef.current?.click()}
+        onExport={handleExport}
+      />
+      <PlacementToolbar tileKeys={toolbarTileKeys} onSelect={handleToolbarTileClick} />
+      <StationCanvas
+        editorState={editorState}
+        tiles={tiles}
+        stateGroups={stateGroups}
+        tileSize={tileSize}
+        selectedCells={selectedCells}
+        pendingVariants={pendingVariants}
+        pendingPosition={pendingPosition}
+        onTileClick={handleTileClick}
+        onTileContextMenu={handleTileContextMenu}
+        onVariantPick={applyPlacement}
+        contextMenu={contextMenu}
+        onContextMenuRotate={handleContextMenuRotate}
+        onContextMenuMirror={handleContextMenuMirror}
+      />
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="application/json"
+        onChange={handleImport}
+        className="hidden"
+      />
+    </main>
+  );
+}

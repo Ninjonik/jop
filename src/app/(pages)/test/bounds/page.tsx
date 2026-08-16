@@ -1,6 +1,6 @@
 import TileCatalogViewerClient, {
-    TileCatalog,
 } from '@/app/components/test/bounds/TileCatalogViewerClient';
+import type { TileCatalog } from '@/app/components/tiles/tile-catalog';
 // Try both import methods
 import tilesData, { stateGroups, tiles as namedTiles } from '@/app/data/tiles';
 

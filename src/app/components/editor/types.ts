@@ -1,0 +1,38 @@
+import type { GroupSelection, PieceOrientation } from '@/app/components/tiles/tile-catalog';
+
+export type GridCellRef = `${string}.${number}`;
+
+export interface PieceRecord {
+  type: string;
+  rotation: 0 | 180;
+  mirrored: boolean;
+  state: {
+    groups: Record<string, GroupSelection>;
+    texts: Record<string, string>;
+  };
+}
+
+export interface EditorState {
+  width: number;
+  height: number;
+  pieces: Record<string, PieceRecord>;
+  map: GridCellRef[][];
+}
+
+export interface PlacementVariant {
+  tileKey: string;
+  orientation: PieceOrientation;
+  usedSpace: [number, number][];
+  partsByKey: Record<string, number>;
+}
+
+export interface PendingPlacementPosition {
+  x: number;
+  y: number;
+}
+
+export interface PieceContextMenuState {
+  pieceId: string;
+  x: number;
+  y: number;
+}

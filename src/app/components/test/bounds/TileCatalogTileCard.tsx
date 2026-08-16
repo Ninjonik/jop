@@ -1,14 +1,14 @@
 'use client';
 
-import React, { CSSProperties, useEffect } from 'react';
+import React, { useEffect } from 'react';
+import TileSvg from '@/app/components/tiles/TileSvg';
+import { getDefaultGroupSelection } from '@/app/components/tiles/tile-rendering';
 import type {
-  ComponentGroups,
-  StateGroup,
   StateGroupRegistry,
   TextConfig,
   TileData,
   TraversableRouteMap,
-} from './TileCatalogViewerClient';
+} from '@/app/components/tiles/tile-catalog';
 
 interface TileCatalogTileCardProps {
   tileKey: string;
@@ -60,101 +60,6 @@ function getClosestEdgePoint(
   }
 
   return { x, y };
-}
-
-function camelCase(str: string): string {
-  return str.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase());
-}
-
-function parseCssString(cssString: string): CSSProperties {
-  const styles: Record<string, string> = {};
-  if (!cssString) return styles;
-
-  cssString.split(';').forEach((rule) => {
-    const trimmed = rule.trim();
-    if (!trimmed) return;
-
-    const [property, ...valueParts] = trimmed.split(':');
-    if (property && valueParts.length > 0) {
-      const propName = camelCase(property.trim());
-      const value = valueParts.join(':').trim();
-      styles[propName] = value;
-    }
-  });
-
-  return styles as CSSProperties;
-}
-
-function resolveGroupState(
-  group: StateGroup,
-  stateName: string,
-  variantName: string
-): Record<string, string> {
-  if (!group || !group.states) return {};
-
-  const state = group.states[stateName];
-  if (!state) return {};
-
-  const result = { ...state.base };
-
-  if (state.variants && state.variants[variantName]) {
-    Object.assign(result, state.variants[variantName]);
-  }
-
-  return result;
-}
-
-function resolveComponentStyles(
-  tile: TileData,
-  selections: Record<string, { state: string; variant: string }>,
-  stateGroups: StateGroupRegistry
-): Record<string, string> {
-  const result: Record<string, string> = {};
-
-  if (tile.staticStyles) {
-    Object.assign(result, tile.staticStyles);
-  }
-
-  if (tile.groups) {
-    for (const [groupKey, config] of Object.entries(tile.groups)) {
-      const group = stateGroups[groupKey];
-      const selection = selections[groupKey];
-
-      if (!group || !selection || !config.states.includes(selection.state)) {
-        continue;
-      }
-
-      Object.assign(
-        result,
-        resolveGroupState(group, selection.state, selection.variant)
-      );
-    }
-  }
-
-  return result;
-}
-
-function getDefaultGroupSelection(
-  groups: ComponentGroups | undefined,
-  groupKey: string,
-  stateGroups: StateGroupRegistry
-): { state: string; variant: string } {
-  if (!groups || !groups[groupKey]) {
-    return { state: '', variant: '' };
-  }
-
-  const config = groups[groupKey];
-  const group = stateGroups[groupKey];
-  if (!group) return { state: '', variant: '' };
-
-  const defaultState = config.defaultState || group.defaultState;
-  const defaultVariant = config.defaultVariant || group.defaultVariant;
-
-  if (!config.states.includes(defaultState)) {
-    return { state: config.states[0] || '', variant: defaultVariant };
-  }
-
-  return { state: defaultState, variant: defaultVariant };
 }
 
 function getGroupVariantOptions(
@@ -221,56 +126,7 @@ export default function TileCatalogTileCard({
     tile.traversable && tile.traversable[currentTraversable]
       ? tile.traversable[currentTraversable]
       : {};
-  const resolvedStyles = resolveComponentStyles(tile, groupSelections, stateGroups);
   const texts = tile.texts ?? {};
-  const customStyleVars: Record<string, string> = {};
-  let rawCssStyles: CSSProperties = {};
-  const stateClasses: string[] = [];
-
-  Object.entries(resolvedStyles).forEach(([styleKey, value]) => {
-    if (styleKey.startsWith('--')) {
-      customStyleVars[styleKey] = value;
-      return;
-    }
-
-    if (styleKey === 'css') {
-      rawCssStyles = parseCssString(value);
-      return;
-    }
-
-    if (styleKey === 'tailwind') {
-      stateClasses.push(
-        ...value
-          .split(/\s+/)
-          .filter(Boolean)
-          .map((cls) => (cls.startsWith('!') ? cls : `!${cls}`))
-      );
-      return;
-    }
-
-    if (styleKey === 'class') {
-      stateClasses.push(...value.split(/\s+/).filter(Boolean));
-    }
-  });
-
-  Object.keys(texts).forEach((textKey) => {
-    const config = { ...texts[textKey], ...(textOverrides[textKey] ?? {}) };
-    if (textKey === 'text') {
-      customStyleVars['--color-text'] = config.fill;
-      customStyleVars['--size-text'] = config.size;
-      return;
-    }
-
-    customStyleVars[`--color-${textKey}`] = config.fill;
-    customStyleVars[`--size-${textKey}`] = config.size;
-  });
-
-  const componentClassName = [
-    'pointer-events-none absolute inset-0 h-full w-full object-contain opacity-80',
-    ...stateClasses,
-  ].join(' ');
-
-  const TileComponent = tile.component;
   const groupKeys = tile.groups ? Object.keys(tile.groups) : [];
   const hasGroups = groupKeys.length > 0;
   const hasTexts = Object.keys(texts).length > 0;
@@ -302,19 +158,17 @@ export default function TileCatalogTileCard({
             }}
           />
 
-          {TileComponent && (
-            <TileComponent
-              className={componentClassName}
-              style={{
-                ...customStyleVars,
-                ...rawCssStyles,
-              }}
-              {...Object.keys(texts).reduce((acc, textKey) => {
-                acc[textKey] = textOverrides[textKey]?.text ?? texts[textKey].text;
-                return acc;
-              }, {} as Record<string, string>)}
-            />
-          )}
+          <TileSvg
+            tileKey={tileKey}
+            tile={tile}
+            stateGroups={stateGroups}
+            selections={groupSelections}
+            textValues={Object.keys(texts).reduce((acc, textKey) => {
+              acc[textKey] = textOverrides[textKey]?.text ?? texts[textKey].text;
+              return acc;
+            }, {} as Record<string, string>)}
+            className="pointer-events-none absolute inset-0 h-full w-full object-contain opacity-80"
+          />
 
           {showBounds &&
             tile.usedSpace?.map(([ux, uy], idx) => (

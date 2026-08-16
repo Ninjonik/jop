@@ -209,6 +209,10 @@
  */
 
 import Board1Square from '@/app/assets/board/Board1Square';
+import type {
+  StateGroupRegistry,
+  TileCatalog,
+} from '@/app/components/tiles/tile-catalog';
 import DispatcherBuilding1Square from '@/app/assets/board/DispatcherBuilding1Square';
 import DepartureButton1Square from '@/app/assets/buttons/DepartureButton1Square';
 import Lineblock6Square from '@/app/assets/buttons/Lineblock6Square';
@@ -243,7 +247,7 @@ import Track1Square from '@/app/assets/tracks/Track1Square';
 // GLOBAL STATE GROUPS
 // ============================================================================
 
-export const stateGroups: any = {
+export const stateGroups: StateGroupRegistry = {
   // Signal aspect group
   signal: {
     label: "Signal Aspect",
@@ -507,7 +511,7 @@ const signalColors = {
 // TILE CATALOG
 // ============================================================================
 
-export const tiles: any = {
+export const tiles: TileCatalog = {
   filler: {
     component: Board1Square,
     space: { x: 1, y: 1 },
