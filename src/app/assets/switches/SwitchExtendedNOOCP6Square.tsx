@@ -30,10 +30,10 @@ const SwitchExtendedNOOCP6Square = ({
         y={210}
         textAnchor="middle"
         dominantBaseline="central"
-        fill="var(--color-topswitchtext, #000000)"
-        fontSize="var(--size-topswitchtext, 10px)"
+        fill="var(--color-bottomswitchtext, #000000)"
+        fontSize="var(--size-bottomswitchtext, 10px)"
       >
-        {topswitchtext ?? 'Lower Switch Text'}
+        {bottomswitchtext ?? 'Lower Switch Text'}
       </text>
       <g>
         <path
@@ -716,10 +716,10 @@ const SwitchExtendedNOOCP6Square = ({
           y={93.55}
           textAnchor="middle"
           dominantBaseline="central"
-          fill="var(--color-bottomswitchtext, #000000)"
-          fontSize="var(--size-bottomswitchtext, 10px)"
+          fill="var(--color-topswitchtext, #000000)"
+          fontSize="var(--size-topswitchtext, 10px)"
         >
-          {bottomswitchtext ?? 'Upper Switch Text'}
+          {topswitchtext ?? 'Upper Switch Text'}
         </text>
       </g>
       <g>

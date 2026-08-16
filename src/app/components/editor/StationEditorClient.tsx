@@ -192,6 +192,7 @@ export default function StationEditorClient({ tiles, stateGroups }: Props) {
 
     const tile = tiles[piece.type];
     const supportsOrientationChange = tile ? canPieceUseInPlaceOrientation(tile) : false;
+    const textKeys = Object.keys(tile?.texts ?? {});
 
     setSelectedCells([]);
     setContextMenu({
@@ -199,6 +200,7 @@ export default function StationEditorClient({ tiles, stateGroups }: Props) {
       x: event.clientX,
       y: event.clientY,
       supportsOrientationChange,
+      textKeys,
     });
   };
 
@@ -236,6 +238,37 @@ export default function StationEditorClient({ tiles, stateGroups }: Props) {
     updateContextPiece((piece) => ({
       ...piece,
       mirrored: !piece.mirrored,
+    }));
+  };
+
+  const handleContextMenuEditText = (textKey: string) => {
+    if (!contextMenu) {
+      return;
+    }
+
+    const piece = editorState.pieces[contextMenu.pieceId];
+    if (!piece) {
+      clearContextMenu();
+      return;
+    }
+
+    const currentValue = piece.state.texts[textKey] ?? '';
+    const nextValue = window.prompt(`Set ${textKey}`, currentValue);
+
+    if (nextValue === null) {
+      clearContextMenu();
+      return;
+    }
+
+    updateContextPiece((currentPiece) => ({
+      ...currentPiece,
+      state: {
+        ...currentPiece.state,
+        texts: {
+          ...currentPiece.state.texts,
+          [textKey]: nextValue,
+        },
+      },
     }));
   };
 
@@ -309,6 +342,7 @@ export default function StationEditorClient({ tiles, stateGroups }: Props) {
         contextMenu={contextMenu}
         onContextMenuRotate={handleContextMenuRotate}
         onContextMenuMirror={handleContextMenuMirror}
+        onContextMenuEditText={handleContextMenuEditText}
         onContextMenuRemove={handleContextMenuRemove}
       />
       <input

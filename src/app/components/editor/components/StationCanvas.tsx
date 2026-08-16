@@ -28,6 +28,7 @@ interface Props {
   contextMenu: PieceContextMenuState | null;
   onContextMenuRotate: () => void;
   onContextMenuMirror: () => void;
+  onContextMenuEditText: (textKey: string) => void;
   onContextMenuRemove: () => void;
 }
 
@@ -45,6 +46,7 @@ export default function StationCanvas({
   contextMenu,
   onContextMenuRotate,
   onContextMenuMirror,
+  onContextMenuEditText,
   onContextMenuRemove,
 }: Props) {
   const renderablePieces = getRenderablePieces(editorState);
@@ -137,6 +139,7 @@ export default function StationCanvas({
           contextMenu={contextMenu}
           onRotate={onContextMenuRotate}
           onMirror={onContextMenuMirror}
+          onEditText={onContextMenuEditText}
           onRemove={onContextMenuRemove}
         />
       </div>

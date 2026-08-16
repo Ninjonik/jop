@@ -6,10 +6,17 @@ interface Props {
   contextMenu: PieceContextMenuState | null;
   onRotate: () => void;
   onMirror: () => void;
+  onEditText: (textKey: string) => void;
   onRemove: () => void;
 }
 
-export default function PieceContextMenu({ contextMenu, onRotate, onMirror, onRemove }: Props) {
+export default function PieceContextMenu({
+  contextMenu,
+  onRotate,
+  onMirror,
+  onEditText,
+  onRemove,
+}: Props) {
   if (!contextMenu) {
     return null;
   }
@@ -40,6 +47,16 @@ export default function PieceContextMenu({ contextMenu, onRotate, onMirror, onRe
           </button>
         </>
       ) : null}
+      {contextMenu.textKeys.map((textKey) => (
+        <button
+          key={textKey}
+          type="button"
+          onClick={() => onEditText(textKey)}
+          className="border-b border-neutral-300 px-2 py-1 text-left text-sm text-black"
+        >
+          {`edit ${textKey}`}
+        </button>
+      ))}
       <button
         type="button"
         onClick={onRemove}
