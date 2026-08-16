@@ -17,6 +17,7 @@ export interface EditorState {
   height: number;
   pieces: Record<string, PieceRecord>;
   map: GridCellRef[][];
+  connections: Record<string, string>;
 }
 
 export interface PlacementVariant {
@@ -37,4 +38,9 @@ export interface PieceContextMenuState {
   y: number;
   supportsOrientationChange: boolean;
   textKeys: string[];
+  canStartConnection: boolean;
+  canConnectToPending: boolean;
+  canCancelPendingConnection: boolean;
+  connectedPieceId: string | null;
+  connectedPieceCells: [number, number][];
 }

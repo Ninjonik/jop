@@ -7,7 +7,7 @@ interface Props {
 
 export default function PlacementToolbar({ tileKeys, onSelect }: Props) {
   return (
-    <div className="mb-2 flex flex-wrap gap-1">
+    <div className="mb-2 flex flex-wrap gap-1 h-20">
       {tileKeys.map((tileKey) => (
         <button
           type="button"

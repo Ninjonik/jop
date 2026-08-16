@@ -26,9 +26,14 @@ interface Props {
   onTileContextMenu: (x: number, y: number, event: React.MouseEvent<HTMLButtonElement>) => void;
   onVariantPick: (variant: PlacementVariant) => void;
   contextMenu: PieceContextMenuState | null;
+  pendingConnectionPieceId: string | null;
   onContextMenuRotate: () => void;
   onContextMenuMirror: () => void;
   onContextMenuEditText: (textKey: string) => void;
+  onContextMenuStartConnection: () => void;
+  onContextMenuCancelConnection: () => void;
+  onContextMenuConnect: () => void;
+  onContextMenuDisconnect: () => void;
   onContextMenuRemove: () => void;
 }
 
@@ -44,9 +49,14 @@ export default function StationCanvas({
   onTileContextMenu,
   onVariantPick,
   contextMenu,
+  pendingConnectionPieceId,
   onContextMenuRotate,
   onContextMenuMirror,
   onContextMenuEditText,
+  onContextMenuStartConnection,
+  onContextMenuCancelConnection,
+  onContextMenuConnect,
+  onContextMenuDisconnect,
   onContextMenuRemove,
 }: Props) {
   const renderablePieces = getRenderablePieces(editorState);
@@ -137,9 +147,14 @@ export default function StationCanvas({
         />
         <PieceContextMenu
           contextMenu={contextMenu}
+          pendingConnectionPieceId={pendingConnectionPieceId}
           onRotate={onContextMenuRotate}
           onMirror={onContextMenuMirror}
           onEditText={onContextMenuEditText}
+          onStartConnection={onContextMenuStartConnection}
+          onCancelConnection={onContextMenuCancelConnection}
+          onConnect={onContextMenuConnect}
+          onDisconnect={onContextMenuDisconnect}
           onRemove={onContextMenuRemove}
         />
       </div>

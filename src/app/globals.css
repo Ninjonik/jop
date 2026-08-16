@@ -25,17 +25,34 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
+.piece-transform text {
+  white-space: pre;
+}
+
 /*
- * A mirrored tile should mirror its layout, but not the glyphs inside it.
- * Counter-mirroring each text node around its own bounds keeps its mirrored
- * position and its authored rotation without requiring tile-specific offsets.
- * `scale` is intentionally used instead of `transform` so SVG transform
- * attributes on text nodes continue to participate in the final transform.
+ * Tile orientation should affect layout, but text should remain readable.
+ * Counter-transforming each text node around its own bounds preserves its
+ * authored SVG transform while undoing board-level mirror / 180deg rotation.
+ * `scale` / `rotate` are used instead of `transform` so SVG transform
+ * attributes on text nodes still participate in the final transform stack.
  */
 .piece-transform--mirrored text,
+.piece-transform--rotated text,
 .piece-transform--mirrored-rotated text {
   transform-box: fill-box;
   transform-origin: center;
+}
+
+.piece-transform--mirrored text {
+  scale: -1 1;
+}
+
+.piece-transform--rotated text {
+  rotate: 180deg;
+}
+
+.piece-transform--mirrored-rotated text {
+  rotate: 180deg;
   scale: -1 1;
 }
 

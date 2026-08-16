@@ -76,6 +76,10 @@ function getOrientationTransform(orientation: PieceOrientation): string | undefi
   return transforms.length > 0 ? transforms.join(' ') : undefined;
 }
 
+function normalizeTextValue(value: string): string {
+  return value.replace(/\\n/g, '\n');
+}
+
 export default function TileSvg({
   tileKey,
   tile,
@@ -142,7 +146,7 @@ export default function TileSvg({
         transformOrigin: 'center',
       }}
       {...Object.keys(texts).reduce((acc, textKey) => {
-        acc[textKey] = textValues?.[textKey] ?? texts[textKey].text;
+        acc[textKey] = normalizeTextValue(textValues?.[textKey] ?? texts[textKey].text);
         return acc;
       }, {} as Record<string, string>)}
       data-tile-key={tileKey}

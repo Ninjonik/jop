@@ -4,6 +4,17 @@ import { getDefaultTextValues, getInitialGroupSelections } from '@/app/component
 import { FILLER_TILE_KEY } from './constants';
 import type { EditorState, GridCellRef, PieceRecord, PlacementVariant } from './types';
 
+const SWITCH_TILE_KEYS = new Set([
+  'crossoverSwitchNoOcp',
+  'crossoverSwitch',
+  'extendedSwitchNoOcp',
+  'extendedSwitch',
+  'singleSwitchNoOcp',
+  'singleSwitch',
+]);
+
+const SWITCH_BUTTON_TILE_KEYS = new Set(['switchButton']);
+
 export function createId() {
   return Math.random().toString(36).slice(2, 12);
 }
@@ -158,7 +169,7 @@ export function createInitialEditorState(
     }
   }
 
-  return { width, height, pieces, map };
+  return { width, height, pieces, map, connections: {} };
 }
 
 export function getRenderablePieces(editorState: EditorState) {
@@ -205,5 +216,35 @@ export function getAllowedPlacements(
       sortCells(variant.usedSpace)
         .map(([x, y]) => `${x},${y}`)
         .join('|') === signature
+  );
+}
+
+export function getPieceCells(editorState: EditorState, targetPieceId: string) {
+  const cells: [number, number][] = [];
+
+  editorState.map.forEach((row, y) => {
+    row.forEach((value, x) => {
+      const { pieceId } = parseCellRef(value);
+      if (pieceId === targetPieceId) {
+        cells.push([x, y]);
+      }
+    });
+  });
+
+  return sortCells(cells);
+}
+
+export function isSwitchPieceType(tileKey: string) {
+  return SWITCH_TILE_KEYS.has(tileKey);
+}
+
+export function isSwitchButtonPieceType(tileKey: string) {
+  return SWITCH_BUTTON_TILE_KEYS.has(tileKey);
+}
+
+export function canPiecesConnect(sourceType: string, targetType: string) {
+  return (
+    (isSwitchPieceType(sourceType) && isSwitchButtonPieceType(targetType)) ||
+    (isSwitchButtonPieceType(sourceType) && isSwitchPieceType(targetType))
   );
 }

@@ -17,7 +17,7 @@ const Lineblock6Square = ({ bottomlefttext, toplefttext, middletext, bottomright
         <rect fill="var(--color-d9d9d9, #d9d9d9)" x={4.99} y={76.05} width={65.01} height={24.3} />
         <text
             x={37.5}
-            y={88.2}
+            y={84.2}
             textAnchor="middle"
             dominantBaseline="central"
             fill="var(--color-bottomlefttext, #000000)"
@@ -590,7 +590,7 @@ const Lineblock6Square = ({ bottomlefttext, toplefttext, middletext, bottomright
       <rect fill="var(--color-d9d9d9, #d9d9d9)" x={4.99} y={10.02} width={65.01} height={24.3} />
       <text
           x={37.5}
-          y={21}
+          y={17}
           textAnchor="middle"
           dominantBaseline="central"
           fill="var(--color-toplefttext, #000000)"
@@ -1155,7 +1155,7 @@ const Lineblock6Square = ({ bottomlefttext, toplefttext, middletext, bottomright
       <rect fill="var(--color-d9d9d9, #d9d9d9)" x={79.99} y={10.02} width={65.01} height={24.3} />
       <text
           x={112.5}
-          y={21}
+          y={17}
           textAnchor="middle"
           dominantBaseline="central"
           fill="var(--color-middletext, #000000)"
@@ -1729,7 +1729,7 @@ const Lineblock6Square = ({ bottomlefttext, toplefttext, middletext, bottomright
       <rect fill="var(--color-d9d9d9, #d9d9d9)" x={154.99} y={10.02} width={65.01} height={24.3} />
       <text
           x={187.5}
-          y={21}
+          y={17}
           textAnchor="middle"
           dominantBaseline="central"
           fill="var(--color-toprighttext, #000000)"
@@ -2301,7 +2301,7 @@ const Lineblock6Square = ({ bottomlefttext, toplefttext, middletext, bottomright
       <rect fill="var(--color-d9d9d9, #d9d9d9)" x={154.99} y={76.05} width={65.01} height={24.3} />
       <text
           x={187.5}
-          y={88.2}
+          y={84.2}
           textAnchor="middle"
           dominantBaseline="central"
           fill="var(--color-bottomrighttext, #000000)"

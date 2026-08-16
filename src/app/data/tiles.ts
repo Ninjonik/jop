@@ -605,27 +605,27 @@ export const tiles: TileCatalog = {
     texts: {
       bottomlefttext: {
         fill: "#000000",
-        size: "10px",
+        size: "8px",
         text: "Bottom Left Text",
       },
       toplefttext: {
         fill: "#000000",
-        size: "10px",
+        size: "8px",
         text: "Top Left Text",
       },
       middletext: {
         fill: "#000000",
-        size: "10px",
+        size: "8px",
         text: "Middle Text",
       },
       toprighttext: {
         fill: "#000000",
-        size: "10px",
+        size: "8px",
         text: "Top Right Text",
       },
       bottomrighttext: {
         fill: "#000000",
-        size: "10px",
+        size: "8px",
         text: "Bottom Right",
       },
     },

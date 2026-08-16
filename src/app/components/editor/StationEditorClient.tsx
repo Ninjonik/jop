@@ -19,10 +19,14 @@ import type {
 import {
   buildPlacementVariants,
   canPieceUseInPlaceOrientation,
+  canPiecesConnect,
   createId,
   createInitialEditorState,
   createPieceRecord,
   getAllowedPlacements,
+  getPieceCells,
+  isSwitchButtonPieceType,
+  isSwitchPieceType,
   parseCellRef,
   toCellKey,
 } from './utils';
@@ -43,6 +47,7 @@ export default function StationEditorClient({ tiles, stateGroups }: Props) {
   const [pendingVariants, setPendingVariants] = useState<PlacementVariant[]>([]);
   const [pendingPosition, setPendingPosition] = useState<PendingPlacementPosition | null>(null);
   const [contextMenu, setContextMenu] = useState<PieceContextMenuState | null>(null);
+  const [pendingConnectionPieceId, setPendingConnectionPieceId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const tileSize = useResponsiveTileSize(editorState.width);
 
@@ -74,9 +79,15 @@ export default function StationEditorClient({ tiles, stateGroups }: Props) {
     setEditorState((current) => {
       const nextPieces = { ...current.pieces };
       const nextMap = current.map.map((row) => [...row]);
+      const nextConnections = { ...current.connections };
 
       selectedCells.forEach(([x, y]) => {
         const { pieceId: previousPieceId } = parseCellRef(nextMap[y][x]);
+        const linkedPieceId = nextConnections[previousPieceId];
+        if (linkedPieceId) {
+          delete nextConnections[linkedPieceId];
+          delete nextConnections[previousPieceId];
+        }
         delete nextPieces[previousPieceId];
       });
 
@@ -94,6 +105,7 @@ export default function StationEditorClient({ tiles, stateGroups }: Props) {
         ...current,
         pieces: nextPieces,
         map: nextMap,
+        connections: nextConnections,
       };
     });
 
@@ -143,6 +155,7 @@ export default function StationEditorClient({ tiles, stateGroups }: Props) {
     setSelectedCells([]);
     clearPlacementUi();
     clearContextMenu();
+    setPendingConnectionPieceId(null);
   };
 
   const handleExport = () => {
@@ -164,12 +177,16 @@ export default function StationEditorClient({ tiles, stateGroups }: Props) {
     }
 
     const parsed = JSON.parse(await file.text()) as EditorState;
-    setEditorState(parsed);
+    setEditorState({
+      ...parsed,
+      connections: parsed.connections ?? {},
+    });
     setDraftWidth(parsed.width);
     setDraftHeight(parsed.height);
     setSelectedCells([]);
     clearPlacementUi();
     clearContextMenu();
+    setPendingConnectionPieceId(null);
     event.target.value = '';
   };
 
@@ -193,6 +210,22 @@ export default function StationEditorClient({ tiles, stateGroups }: Props) {
     const tile = tiles[piece.type];
     const supportsOrientationChange = tile ? canPieceUseInPlaceOrientation(tile) : false;
     const textKeys = Object.keys(tile?.texts ?? {});
+    const connectedPieceId = editorState.connections[pieceId] ?? null;
+    const connectedPieceCells = connectedPieceId ? getPieceCells(editorState, connectedPieceId) : [];
+    const pendingPiece = pendingConnectionPieceId
+      ? editorState.pieces[pendingConnectionPieceId]
+      : null;
+    const eligibleType = isSwitchPieceType(piece.type) || isSwitchButtonPieceType(piece.type);
+    const canStartConnection = eligibleType && !connectedPieceId;
+    const canCancelPendingConnection = pendingConnectionPieceId === pieceId;
+    const canConnectToPending = Boolean(
+      pendingConnectionPieceId &&
+        pendingConnectionPieceId !== pieceId &&
+        pendingPiece &&
+        !connectedPieceId &&
+        !editorState.connections[pendingConnectionPieceId] &&
+        canPiecesConnect(pendingPiece.type, piece.type)
+    );
 
     setSelectedCells([]);
     setContextMenu({
@@ -201,6 +234,11 @@ export default function StationEditorClient({ tiles, stateGroups }: Props) {
       y: event.clientY,
       supportsOrientationChange,
       textKeys,
+      canStartConnection,
+      canConnectToPending,
+      canCancelPendingConnection,
+      connectedPieceId,
+      connectedPieceCells,
     });
   };
 
@@ -280,11 +318,18 @@ export default function StationEditorClient({ tiles, stateGroups }: Props) {
     setEditorState((current) => {
       const nextPieces = { ...current.pieces };
       const nextMap = current.map.map((row) => [...row]);
+      const nextConnections = { ...current.connections };
       const fillerTile = tiles.filler;
       const targetPiece = current.pieces[contextMenu.pieceId];
 
       if (!targetPiece || !fillerTile || targetPiece.type === 'filler') {
         return current;
+      }
+
+      const linkedPieceId = nextConnections[contextMenu.pieceId];
+      if (linkedPieceId) {
+        delete nextConnections[linkedPieceId];
+        delete nextConnections[contextMenu.pieceId];
       }
 
       nextMap.forEach((row, y) => {
@@ -306,8 +351,91 @@ export default function StationEditorClient({ tiles, stateGroups }: Props) {
         ...current,
         pieces: nextPieces,
         map: nextMap,
+        connections: nextConnections,
       };
     });
+
+    if (pendingConnectionPieceId === contextMenu.pieceId) {
+      setPendingConnectionPieceId(null);
+    }
+
+    clearContextMenu();
+  };
+
+  const handleContextMenuStartConnection = () => {
+    if (!contextMenu) {
+      return;
+    }
+
+    setPendingConnectionPieceId(contextMenu.pieceId);
+    clearContextMenu();
+  };
+
+  const handleContextMenuCancelConnection = () => {
+    setPendingConnectionPieceId(null);
+    clearContextMenu();
+  };
+
+  const handleContextMenuConnect = () => {
+    if (!contextMenu || !pendingConnectionPieceId || pendingConnectionPieceId === contextMenu.pieceId) {
+      return;
+    }
+
+    setEditorState((current) => {
+      const sourcePiece = current.pieces[pendingConnectionPieceId];
+      const targetPiece = current.pieces[contextMenu.pieceId];
+
+      if (
+        !sourcePiece ||
+        !targetPiece ||
+        current.connections[pendingConnectionPieceId] ||
+        current.connections[contextMenu.pieceId] ||
+        !canPiecesConnect(sourcePiece.type, targetPiece.type)
+      ) {
+        return current;
+      }
+
+      return {
+        ...current,
+        connections: {
+          ...current.connections,
+          [pendingConnectionPieceId]: contextMenu.pieceId,
+          [contextMenu.pieceId]: pendingConnectionPieceId,
+        },
+      };
+    });
+
+    setPendingConnectionPieceId(null);
+    clearContextMenu();
+  };
+
+  const handleContextMenuDisconnect = () => {
+    if (!contextMenu?.connectedPieceId) {
+      return;
+    }
+
+    setEditorState((current) => {
+      const linkedPieceId = current.connections[contextMenu.pieceId];
+      if (!linkedPieceId) {
+        return current;
+      }
+
+      const nextConnections = { ...current.connections };
+      delete nextConnections[contextMenu.pieceId];
+      delete nextConnections[linkedPieceId];
+
+      return {
+        ...current,
+        connections: nextConnections,
+      };
+    });
+
+    if (
+      pendingConnectionPieceId === contextMenu.pieceId ||
+      pendingConnectionPieceId === contextMenu.connectedPieceId
+    ) {
+      setPendingConnectionPieceId(null);
+    }
 
     clearContextMenu();
   };
@@ -340,9 +468,14 @@ export default function StationEditorClient({ tiles, stateGroups }: Props) {
         onTileContextMenu={handleTileContextMenu}
         onVariantPick={applyPlacement}
         contextMenu={contextMenu}
+        pendingConnectionPieceId={pendingConnectionPieceId}
         onContextMenuRotate={handleContextMenuRotate}
         onContextMenuMirror={handleContextMenuMirror}
         onContextMenuEditText={handleContextMenuEditText}
+        onContextMenuStartConnection={handleContextMenuStartConnection}
+        onContextMenuCancelConnection={handleContextMenuCancelConnection}
+        onContextMenuConnect={handleContextMenuConnect}
+        onContextMenuDisconnect={handleContextMenuDisconnect}
         onContextMenuRemove={handleContextMenuRemove}
       />
       <input
