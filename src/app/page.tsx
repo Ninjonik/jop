@@ -1,11 +1,5 @@
-import StationEditorClient from '@/app/components/editor/StationEditorClient';
-import tilesData, { stateGroups, tiles as namedTiles } from '@/app/data/tiles';
+import SessionEntryForm from '@/app/components/home/SessionEntryForm';
 
-export default function Home() {
-  return (
-    <StationEditorClient
-      tiles={namedTiles || tilesData || {}}
-      stateGroups={stateGroups || {}}
-    />
-  );
+export default function HomePage() {
+  return <SessionEntryForm />;
 }

@@ -12,9 +12,11 @@
   },
   "dependencies": {
     "image-size": "^2.0.2",
+    "mongodb": "^7.5.0",
     "next": "16.3.0",
     "react": "19.2.8",
-    "react-dom": "19.2.8"
+    "react-dom": "19.2.8",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@svgr/core": "^8.1.0",

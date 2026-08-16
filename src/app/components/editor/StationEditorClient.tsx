@@ -399,7 +399,9 @@ export default function StationEditorClient({ tiles, stateGroups }: Props) {
   };
 
   const handleContextMenuConnect = () => {
-    if (!contextMenu?.endpointKey || !pendingConnectionEndpointKey || pendingConnectionEndpointKey === contextMenu.endpointKey) {
+    const targetEndpointKey = contextMenu?.endpointKey;
+
+    if (!targetEndpointKey || !pendingConnectionEndpointKey || pendingConnectionEndpointKey === targetEndpointKey) {
       return;
     }
 
@@ -411,7 +413,7 @@ export default function StationEditorClient({ tiles, stateGroups }: Props) {
         !sourcePiece ||
         !targetPiece ||
         current.connections[pendingConnectionEndpointKey] ||
-        current.connections[contextMenu.endpointKey] ||
+        current.connections[targetEndpointKey] ||
         !canPiecesConnect(sourcePiece.type, targetPiece.type)
       ) {
         return current;
@@ -421,8 +423,8 @@ export default function StationEditorClient({ tiles, stateGroups }: Props) {
         ...current,
         connections: {
           ...current.connections,
-          [pendingConnectionEndpointKey]: contextMenu.endpointKey,
-          [contextMenu.endpointKey]: pendingConnectionEndpointKey,
+          [pendingConnectionEndpointKey]: targetEndpointKey,
+          [targetEndpointKey]: pendingConnectionEndpointKey,
         },
       };
     });
