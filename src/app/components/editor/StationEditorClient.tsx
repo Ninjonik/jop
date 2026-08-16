@@ -185,17 +185,20 @@ export default function StationEditorClient({ tiles, stateGroups }: Props) {
       return;
     }
 
-    const tile = tiles[piece.type];
-    if (!tile || !canPieceUseInPlaceOrientation(tile)) {
+    if (piece.type === 'filler') {
       clearContextMenu();
       return;
     }
+
+    const tile = tiles[piece.type];
+    const supportsOrientationChange = tile ? canPieceUseInPlaceOrientation(tile) : false;
 
     setSelectedCells([]);
     setContextMenu({
       pieceId,
       x: event.clientX,
       y: event.clientY,
+      supportsOrientationChange,
     });
   };
 
@@ -236,6 +239,46 @@ export default function StationEditorClient({ tiles, stateGroups }: Props) {
     }));
   };
 
+  const handleContextMenuRemove = () => {
+    if (!contextMenu) {
+      return;
+    }
+
+    setEditorState((current) => {
+      const nextPieces = { ...current.pieces };
+      const nextMap = current.map.map((row) => [...row]);
+      const fillerTile = tiles.filler;
+      const targetPiece = current.pieces[contextMenu.pieceId];
+
+      if (!targetPiece || !fillerTile || targetPiece.type === 'filler') {
+        return current;
+      }
+
+      nextMap.forEach((row, y) => {
+        row.forEach((value, x) => {
+          const { pieceId } = parseCellRef(value);
+          if (pieceId !== contextMenu.pieceId) {
+            return;
+          }
+
+          const fillerPieceId = createId();
+          nextPieces[fillerPieceId] = createPieceRecord('filler', fillerTile, stateGroups);
+          nextMap[y][x] = `${fillerPieceId}.0`;
+        });
+      });
+
+      delete nextPieces[contextMenu.pieceId];
+
+      return {
+        ...current,
+        pieces: nextPieces,
+        map: nextMap,
+      };
+    });
+
+    clearContextMenu();
+  };
+
   return (
     <main
       className="flex min-h-screen flex-col overflow-hidden bg-neutral-300 p-4"
@@ -266,6 +309,7 @@ export default function StationEditorClient({ tiles, stateGroups }: Props) {
         contextMenu={contextMenu}
         onContextMenuRotate={handleContextMenuRotate}
         onContextMenuMirror={handleContextMenuMirror}
+        onContextMenuRemove={handleContextMenuRemove}
       />
       <input
         ref={fileInputRef}

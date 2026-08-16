@@ -6,9 +6,10 @@ interface Props {
   contextMenu: PieceContextMenuState | null;
   onRotate: () => void;
   onMirror: () => void;
+  onRemove: () => void;
 }
 
-export default function PieceContextMenu({ contextMenu, onRotate, onMirror }: Props) {
+export default function PieceContextMenu({ contextMenu, onRotate, onMirror, onRemove }: Props) {
   if (!contextMenu) {
     return null;
   }
@@ -21,19 +22,30 @@ export default function PieceContextMenu({ contextMenu, onRotate, onMirror }: Pr
         top: contextMenu.y,
       }}
     >
+      {contextMenu.supportsOrientationChange ? (
+        <>
+          <button
+            type="button"
+            onClick={onRotate}
+            className="border-b border-neutral-300 px-2 py-1 text-left text-sm text-black"
+          >
+            rotate
+          </button>
+          <button
+            type="button"
+            onClick={onMirror}
+            className="border-b border-neutral-300 px-2 py-1 text-left text-sm text-black"
+          >
+            mirror
+          </button>
+        </>
+      ) : null}
       <button
         type="button"
-        onClick={onRotate}
-        className="border-b border-neutral-300 px-2 py-1 text-left text-sm text-black"
-      >
-        rotate
-      </button>
-      <button
-        type="button"
-        onClick={onMirror}
+        onClick={onRemove}
         className="px-2 py-1 text-left text-sm text-black"
       >
-        mirror
+        remove
       </button>
     </div>
   );

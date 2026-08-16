@@ -35,4 +35,5 @@ export interface PieceContextMenuState {
   pieceId: string;
   x: number;
   y: number;
+  supportsOrientationChange: boolean;
 }

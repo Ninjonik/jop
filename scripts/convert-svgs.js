@@ -58,6 +58,14 @@ async function run() {
     // Remove the invalid standalone `className={className}` attribute injected into <svg>
     jsxCode = jsxCode.replace(/\s*className=\{className\}/g, '');
 
+    // Keep authored text transforms on a wrapper. Mirrored tiles can then
+    // counter-mirror the glyphs without disturbing the text's position or rotation.
+    jsxCode = jsxCode.replace(
+      /<text\b([^>]*?)\s+transform=(["'])(.*?)\2([^>]*)>([\s\S]*?)<\/text>/g,
+      (_, before, quote, textTransform, after, content) =>
+        `<g transform=${quote}${textTransform}${quote}><text${before}${after}>${content}</text></g>`,
+    );
+
     // Ensure both named and default exports are generated
     const finalTsx = jsxCode.replace(
       `export default ${componentName};`,
