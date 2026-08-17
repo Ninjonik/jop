@@ -18,7 +18,7 @@ function formatSseEvent(event: string, data: unknown) {
   return encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
 }
 
-export async function GET(_request: Request, { params }: StationEventsRouteProps) {
+export async function GET(request: Request, { params }: StationEventsRouteProps) {
   try {
     const { sessionId, stationId } = await params;
     const parsedSessionId = sessionIdSchema.parse(sessionId);
@@ -39,19 +39,46 @@ export async function GET(_request: Request, { params }: StationEventsRouteProps
 
     const stream = new ReadableStream({
       start(controller) {
-        controller.enqueue(formatSseEvent('snapshot', { station }));
+        let closed = false;
+
+        const safeEnqueue = (payload: Uint8Array) => {
+          if (closed) {
+            return;
+          }
+
+          try {
+            controller.enqueue(payload);
+          } catch {
+            closed = true;
+            clearInterval(keepAlive);
+            unsubscribe();
+          }
+        };
+
+        const cleanup = () => {
+          if (closed) {
+            return;
+          }
+
+          closed = true;
+          clearInterval(keepAlive);
+          unsubscribe();
+        };
+
+        safeEnqueue(formatSseEvent('snapshot', { station }));
 
         const unsubscribe = subscribeToStation(parsedSessionId, parsedStationId, (nextStation) => {
-          controller.enqueue(formatSseEvent('snapshot', { station: nextStation }));
+          safeEnqueue(formatSseEvent('snapshot', { station: nextStation }));
         });
 
         const keepAlive = setInterval(() => {
-          controller.enqueue(encoder.encode(': keepalive\n\n'));
+          safeEnqueue(encoder.encode(': keepalive\n\n'));
         }, 15000);
 
+        request.signal.addEventListener('abort', cleanup, { once: true });
+
         return () => {
-          clearInterval(keepAlive);
-          unsubscribe();
+          cleanup();
         };
       },
       cancel() {

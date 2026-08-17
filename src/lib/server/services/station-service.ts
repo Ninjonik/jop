@@ -1,7 +1,14 @@
 import { randomUUID } from 'crypto';
 
-import { createInitialStationLayout, placePieceAt } from '@/lib/station/layout';
+import {
+  createInitialStationLayout,
+  getLineblockPremainLinksFromLayout,
+  isLineblockPieceType,
+  placePieceAt,
+} from '@/lib/station/layout';
 import type {
+  LineblockActionCommand,
+  LineblockActionType,
   PendingAction,
   SessionDocument,
   SessionLineblockLink,
@@ -38,6 +45,8 @@ function createStationDocument(
     layout,
     runtime: {
       pendingActions: {},
+      lineblockPremainLinks: {},
+      premainSignalStates: {},
     },
     createdAt,
     updatedAt: createdAt,
@@ -74,6 +83,146 @@ function bumpRevision(station: StationDocument) {
 async function saveAndPublish(station: StationDocument) {
   await stationRepository.save(station);
   publishStationSnapshot(station);
+}
+
+function ensureStationRuntimeState(station: StationDocument) {
+  const existingRuntime = station.runtime ?? {
+    pendingActions: {},
+    lineblockPremainLinks: {},
+    premainSignalStates: {},
+  };
+
+  station.runtime = {
+    pendingActions: existingRuntime.pendingActions ?? {},
+    lineblockPremainLinks: getLineblockPremainLinksFromLayout(station.layout),
+    premainSignalStates: existingRuntime.premainSignalStates ?? {},
+  };
+
+  syncPremainAvailability(station);
+
+  return station;
+}
+
+function getLineblockVisualState(station: StationDocument, pieceId: string) {
+  return station.layout.pieces[pieceId]?.state.groups.lineblock?.state ?? 'default';
+}
+
+function setLineblockVisualState(station: StationDocument, pieceId: string, state: string) {
+  const piece = station.layout.pieces[pieceId];
+  if (!piece) {
+    throw new Error(`Lineblock piece "${pieceId}" was not found.`);
+  }
+
+  piece.state.groups.lineblock = {
+    state,
+    variant: 'normal',
+  };
+}
+
+function syncPremainAvailability(station: StationDocument) {
+  if (!station.runtime) {
+    station.runtime = {
+      pendingActions: {},
+      lineblockPremainLinks: getLineblockPremainLinksFromLayout(station.layout),
+      premainSignalStates: {},
+    };
+  }
+
+  const nextStates: StationDocument['runtime']['premainSignalStates'] = {};
+
+  Object.values(station.runtime.lineblockPremainLinks).forEach((link) => {
+    nextStates[link.premainSignalPieceId] = {
+      linkedLineblockPieceId: link.lineblockPieceId,
+      canBuildPath: getLineblockVisualState(station, link.lineblockPieceId) === 'sendingFree',
+    };
+  });
+
+  station.runtime.premainSignalStates = nextStates;
+}
+
+function getLinkedLineblock(station: StationDocument, session: SessionDocument, pieceId: string) {
+  const link = Object.values(session.topology.lineblockLinks).find(
+    (entry) =>
+      (entry.a.stationId === station.stationId && entry.a.pieceId === pieceId) ||
+      (entry.b.stationId === station.stationId && entry.b.pieceId === pieceId)
+  );
+
+  if (!link) {
+    return null;
+  }
+
+  const remote =
+    link.a.stationId === station.stationId && link.a.pieceId === pieceId ? link.b : link.a;
+
+  return {
+    link,
+    remote,
+  };
+}
+
+function validateLineblockActionStates(
+  actionType: LineblockActionType,
+  localState: string,
+  remoteState: string
+) {
+  if (actionType === 'lineblock:grant-consent') {
+    if (localState !== 'default' || remoteState !== 'default') {
+      throw new Error('Lineblock consent can only be granted from default/default.');
+    }
+
+    return;
+  }
+
+  if (actionType === 'lineblock:revoke-consent') {
+    if (localState !== 'receivingFree' || remoteState !== 'sendingFree') {
+      throw new Error('Lineblock consent can only be revoked from receivingFree/sendingFree.');
+    }
+
+    return;
+  }
+
+  if (actionType === 'lineblock:mark-departed') {
+    if (localState !== 'sendingFree' || remoteState !== 'receivingFree') {
+      throw new Error('A departure can only be marked from sendingFree/receivingFree.');
+    }
+
+    return;
+  }
+
+  if (actionType === 'lineblock:mark-arrived') {
+    if (localState !== 'receiving' || remoteState !== 'sending') {
+      throw new Error('Arrival acknowledgement can only be marked from receiving/sending.');
+    }
+  }
+}
+
+function applyLineblockActionStates(
+  actionType: LineblockActionType,
+  localStation: StationDocument,
+  localPieceId: string,
+  remoteStation: StationDocument,
+  remotePieceId: string
+) {
+  if (actionType === 'lineblock:grant-consent') {
+    setLineblockVisualState(localStation, localPieceId, 'receivingFree');
+    setLineblockVisualState(remoteStation, remotePieceId, 'sendingFree');
+    return;
+  }
+
+  if (actionType === 'lineblock:revoke-consent') {
+    setLineblockVisualState(localStation, localPieceId, 'default');
+    setLineblockVisualState(remoteStation, remotePieceId, 'default');
+    return;
+  }
+
+  if (actionType === 'lineblock:mark-departed') {
+    setLineblockVisualState(localStation, localPieceId, 'sending');
+    setLineblockVisualState(remoteStation, remotePieceId, 'receiving');
+    return;
+  }
+
+  setLineblockVisualState(localStation, localPieceId, 'receivingFree');
+  setLineblockVisualState(remoteStation, remotePieceId, 'sendingFree');
 }
 
 function createPendingAction(command: SwitchSetPositionCommand): PendingAction {
@@ -188,7 +337,7 @@ export const stationService = {
   ) {
     const existing = await stationRepository.findBySessionAndStationId(sessionId, stationId);
     if (existing) {
-      return existing;
+      return ensureStationRuntimeState(existing);
     }
 
     const station = createStationDocument(sessionId, stationId, layoutOverride);
@@ -198,11 +347,13 @@ export const stationService = {
   },
 
   async getStation(sessionId: string, stationId: string) {
-    return stationRepository.findBySessionAndStationId(sessionId, stationId);
+    const station = await stationRepository.findBySessionAndStationId(sessionId, stationId);
+    return station ? ensureStationRuntimeState(station) : null;
   },
 
   async listStations(sessionId: string) {
-    return stationRepository.listBySessionId(sessionId);
+    const stations = await stationRepository.listBySessionId(sessionId);
+    return stations.map((station) => ensureStationRuntimeState(station));
   },
 
   async getSession(sessionId: string) {
@@ -253,6 +404,19 @@ export const stationService = {
       throw new Error(`Station ${endpoints.b.stationId} does not contain lineblock ${endpoints.b.pieceId}.`);
     }
 
+    const linkAlreadyExists = Object.values(session.topology.lineblockLinks).some(
+      (existingLink) =>
+        [existingLink.a, existingLink.b].some(
+          (endpoint) =>
+            (endpoint.stationId === endpoints.a.stationId && endpoint.pieceId === endpoints.a.pieceId) ||
+            (endpoint.stationId === endpoints.b.stationId && endpoint.pieceId === endpoints.b.pieceId)
+        )
+    );
+
+    if (linkAlreadyExists) {
+      throw new Error('Each lineblock can only be linked to one other station lineblock.');
+    }
+
     const linkId = randomUUID();
     const createdAt = nowIso();
     session.topology.lineblockLinks[linkId] = {
@@ -266,6 +430,72 @@ export const stationService = {
 
     await sessionRepository.save(session);
     return session.topology.lineblockLinks[linkId];
+  },
+
+  async submitLineblockAction(command: LineblockActionCommand) {
+    const localStation = await stationRepository.findBySessionAndStationId(
+      command.sessionId,
+      command.stationId
+    );
+    if (!localStation) {
+      throw new Error('Station not found.');
+    }
+
+    ensureStationRuntimeState(localStation);
+
+    const localPiece = localStation.layout.pieces[command.payload.pieceId];
+    if (!localPiece || !isLineblockPieceType(localPiece.type)) {
+      throw new Error(`Lineblock piece "${command.payload.pieceId}" was not found.`);
+    }
+
+    const session = await sessionRepository.findById(command.sessionId);
+    if (!session) {
+      throw new Error('Session not found.');
+    }
+
+    const linked = getLinkedLineblock(localStation, session, command.payload.pieceId);
+    if (!linked) {
+      throw new Error('This lineblock is not linked to another station lineblock.');
+    }
+
+    const remoteStation = await stationRepository.findBySessionAndStationId(
+      command.sessionId,
+      linked.remote.stationId
+    );
+    if (!remoteStation) {
+      throw new Error('Linked remote station was not found.');
+    }
+
+    ensureStationRuntimeState(remoteStation);
+
+    const remotePiece = remoteStation.layout.pieces[linked.remote.pieceId];
+    if (!remotePiece || !isLineblockPieceType(remotePiece.type)) {
+      throw new Error('Linked remote lineblock was not found.');
+    }
+
+    const localState = getLineblockVisualState(localStation, command.payload.pieceId);
+    const remoteState = getLineblockVisualState(remoteStation, linked.remote.pieceId);
+    validateLineblockActionStates(command.type, localState, remoteState);
+
+    applyLineblockActionStates(
+      command.type,
+      localStation,
+      command.payload.pieceId,
+      remoteStation,
+      linked.remote.pieceId
+    );
+
+    syncPremainAvailability(localStation);
+    syncPremainAvailability(remoteStation);
+    bumpRevision(localStation);
+    bumpRevision(remoteStation);
+    await saveAndPublish(localStation);
+    await saveAndPublish(remoteStation);
+
+    return {
+      localStation,
+      remoteStation,
+    };
   },
 
   async submitSwitchSetPosition(command: SwitchSetPositionCommand) {

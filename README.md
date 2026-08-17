@@ -1,36 +1,140 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# JOP
 
-## Getting Started
+JOP is a railway control panel foundation built with Next.js, React, TypeScript, and MongoDB.
 
-First, run the development server:
+Current focus:
+
+- station layout authoring in the editor
+- persisted runtime station snapshots
+- mock session simulation
+- inter-station lineblock topology setup
+- backend-owned runtime state flow
+
+## Main Areas
+
+- `/`
+  Session and station entry page.
+- `/editor`
+  Layout authoring tool. Exported JSON from here is the station layout import format used elsewhere.
+- `/runtime/[sessionId]/[stationId]`
+  Runtime station view backed by MongoDB and SSE snapshot updates.
+- `/mock`
+  Mock session simulator for creating stations, importing station JSON, and wiring inter-station lineblock links.
+- `/test/bounds`
+  Tile catalog inspection and rendering/state coverage page.
+
+## Tech Stack
+
+- Next.js 16 App Router
+- React 19
+- TypeScript
+- MongoDB
+- Zod
+
+## Local Setup
+
+Install dependencies:
+
+```bash
+npm install
+```
+
+Create local env values:
+
+```bash
+cp .env.example .env.local
+```
+
+Required environment variables:
+
+```env
+MONGODB_URI=...
+MONGODB_DB_NAME=jop
+```
+
+Run the dev server:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Build for production:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+npm run build
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Start production server:
 
-## Learn More
+```bash
+npm run start
+```
 
-To learn more about Next.js, take a look at the following resources:
+## Current Data Model
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+There are two important persistence levels:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- session documents
+  hold session metadata and inter-station topology
+- station documents
+  hold one station layout plus runtime pending actions
 
-## Deploy on Vercel
+Important distinction:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- intra-station piece links live in `station.layout.connections`
+- inter-station lineblock links live in `session.topology.lineblockLinks`
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## State Ownership Rules
+
+Editor mode:
+
+- local browser state is the editable source of truth
+- used for layout creation, rotation, mirroring, text edits, and export/import
+
+Runtime mode:
+
+- MongoDB is the canonical source of truth
+- clients fetch snapshots and replace them on SSE updates
+- clients must not directly mutate canonical station state
+
+Mock mode:
+
+- creates a mock session
+- can add multiple stations into one session
+- can import station JSON files
+- can define which lineblock piece in one station links to which lineblock piece in another
+
+## Important Files
+
+If you are new to the repo, start here:
+
+- `docs/ARCHITECTURE.md`
+- `src/app/data/tiles.ts`
+- `src/lib/station/layout.ts`
+- `src/lib/station/domain.ts`
+- `src/lib/server/services/station-service.ts`
+- `src/app/components/editor/StationEditorClient.tsx`
+- `src/app/components/mock/MockControlClient.tsx`
+- `src/app/components/runtime/RuntimeStationClient.tsx`
+
+## Architecture Doc
+
+Detailed architecture notes for AI agents and contributors live here:
+
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+
+That document explains:
+
+- tile catalog and state groups
+- shared station layout shape
+- editor vs runtime state ownership
+- persistence and mutation flow
+- pending action lifecycle
+- inter-station topology
+- key files and common pitfalls
+
+## Notes
+
+- The runtime frontend no longer exposes direct switch controls.
+- The backend still contains a switch command flow as the current example pending-action implementation.
+- Mock mode is currently the main place to simulate multi-station sessions and lineblock topology.

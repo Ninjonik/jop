@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import Link from 'next/link';
 
 import MockControlClient from '@/app/components/mock/MockControlClient';
@@ -16,7 +17,15 @@ export default function MockPage() {
           </Link>
         </header>
 
-        <MockControlClient />
+        <Suspense
+          fallback={
+            <div className="rounded-3xl border border-neutral-800 bg-neutral-900/80 p-4 text-sm text-neutral-400">
+              Loading mock session…
+            </div>
+          }
+        >
+          <MockControlClient />
+        </Suspense>
       </div>
     </main>
   );

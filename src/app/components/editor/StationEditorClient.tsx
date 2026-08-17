@@ -28,6 +28,8 @@ import {
   getConnectionEndpointKey,
   getConnectionPieceId,
   getPieceCells,
+  isLineblockPieceType,
+  isPremainSignalPieceType,
   isSwitchButtonPieceType,
   isSwitchPieceType,
   parseCellRef,
@@ -225,7 +227,11 @@ export default function StationEditorClient({ tiles, stateGroups }: Props) {
     const pendingPiece = pendingConnectionEndpointKey
       ? editorState.pieces[getConnectionPieceId(pendingConnectionEndpointKey)]
       : null;
-    const eligibleType = isSwitchPieceType(piece.type) || isSwitchButtonPieceType(piece.type);
+    const eligibleType =
+      isSwitchPieceType(piece.type) ||
+      isSwitchButtonPieceType(piece.type) ||
+      isLineblockPieceType(piece.type) ||
+      isPremainSignalPieceType(piece.type);
     const canStartConnection = eligibleType && Boolean(endpointKey) && !connectedPieceId;
     const canCancelPendingConnection = pendingConnectionEndpointKey === endpointKey;
     const canConnectToPending = Boolean(

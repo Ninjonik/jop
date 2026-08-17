@@ -1,7 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
 import type { ChangeEvent } from 'react';
 
 import type {
@@ -22,7 +23,8 @@ type OutboundCall = {
 
 type StationSummary = {
   stationId: string;
-  pieceIds: string[];
+  lineblockPieceIds: string[];
+  premainSignalPieceIds: string[];
 };
 
 function getLineblockPieceIds(station: StationDocument): string[] {
@@ -32,27 +34,40 @@ function getLineblockPieceIds(station: StationDocument): string[] {
     .sort();
 }
 
-function makeDefaultLinkDraft(stations: StationSummary[]) {
+function getPremainSignalPieceIds(station: StationDocument): string[] {
+  return Object.entries(station.layout.pieces)
+    .filter(
+      ([, piece]) => piece.type === 'premainSignal' || piece.type === 'premainSignalNoOcp'
+    )
+    .map(([pieceId]) => pieceId)
+    .sort();
+}
+
+function makeDefaultInterStationLinkDraft(stations: StationSummary[]) {
   const firstStation = stations[0];
   const secondStation = stations[1] ?? stations[0];
 
   return {
     aStationId: firstStation?.stationId ?? '',
-    aPieceId: firstStation?.pieceIds[0] ?? '',
+    aPieceId: firstStation?.lineblockPieceIds[0] ?? '',
     bStationId: secondStation?.stationId ?? '',
-    bPieceId: secondStation?.pieceIds[0] ?? '',
+    bPieceId: secondStation?.lineblockPieceIds[0] ?? '',
   };
 }
 
 export default function MockControlClient() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const sessionIdFromUrl = searchParams.get('sessionId')?.trim() ?? '';
   const [session, setSession] = useState<SessionDocument | null>(null);
   const [stations, setStations] = useState<StationDocument[]>([]);
   const [selectedStationId, setSelectedStationId] = useState<string>('');
   const [outboundCalls, setOutboundCalls] = useState<OutboundCall[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [sessionIdDraft, setSessionIdDraft] = useState('');
   const [stationIdDraft, setStationIdDraft] = useState('station-a');
   const [isBusy, setIsBusy] = useState(false);
-  const [linkDraft, setLinkDraft] = useState({
+  const [interStationLinkDraft, setInterStationLinkDraft] = useState({
     aStationId: '',
     aPieceId: '',
     bStationId: '',
@@ -64,7 +79,8 @@ export default function MockControlClient() {
     () =>
       stations.map((station) => ({
         stationId: station.stationId,
-        pieceIds: getLineblockPieceIds(station),
+        lineblockPieceIds: getLineblockPieceIds(station),
+        premainSignalPieceIds: getPremainSignalPieceIds(station),
       })),
     [stations]
   );
@@ -73,6 +89,14 @@ export default function MockControlClient() {
     () => stations.find((station) => station.stationId === selectedStationId) ?? null,
     [selectedStationId, stations]
   );
+
+  function openSession(nextSessionId: string) {
+    router.replace(`/mock?sessionId=${encodeURIComponent(nextSessionId)}`);
+  }
+
+  function getLineblockOptions(stationId: string) {
+    return stationSummaries.find((station) => station.stationId === stationId)?.lineblockPieceIds ?? [];
+  }
 
   async function refreshSession(nextSessionId: string) {
     const [sessionResponse, stationsResponse, outboundResponse] = await Promise.all([
@@ -115,34 +139,46 @@ export default function MockControlClient() {
 
     const summaries = stationsPayload.stations.map((station) => ({
       stationId: station.stationId,
-      pieceIds: getLineblockPieceIds(station),
+      lineblockPieceIds: getLineblockPieceIds(station),
+      premainSignalPieceIds: getPremainSignalPieceIds(station),
     }));
-    const defaultDraft = makeDefaultLinkDraft(summaries);
-    setLinkDraft((current) => ({
-      aStationId: current.aStationId || defaultDraft.aStationId,
-      aPieceId: current.aPieceId || defaultDraft.aPieceId,
-      bStationId: current.bStationId || defaultDraft.bStationId,
-      bPieceId: current.bPieceId || defaultDraft.bPieceId,
+    const defaultInterStationLinkDraft = makeDefaultInterStationLinkDraft(summaries);
+    setInterStationLinkDraft((current) => ({
+      aStationId: current.aStationId || defaultInterStationLinkDraft.aStationId,
+      aPieceId: current.aPieceId || defaultInterStationLinkDraft.aPieceId,
+      bStationId: current.bStationId || defaultInterStationLinkDraft.bStationId,
+      bPieceId: current.bPieceId || defaultInterStationLinkDraft.bPieceId,
     }));
+
   }
+
+  const refreshSessionEvent = useEffectEvent(async (nextSessionId: string) => {
+    await refreshSession(nextSessionId);
+  });
 
   useEffect(() => {
     let active = true;
 
     async function bootstrap() {
       try {
-        const sessionResponse = await fetch('/api/sessions/mock', {
-          method: 'POST',
-        });
-        const sessionPayload = (await sessionResponse.json()) as {
-          session: SessionDocument;
-        };
+        if (!sessionIdFromUrl) {
+          if (!active) {
+            return;
+          }
+
+          setSession(null);
+          setStations([]);
+          setOutboundCalls([]);
+          setSelectedStationId('');
+          setError(null);
+          return;
+        }
 
         if (!active) {
           return;
         }
 
-        await refreshSession(sessionPayload.session._id);
+        await refreshSessionEvent(sessionIdFromUrl);
         setError(null);
       } catch (bootstrapError) {
         if (!active) {
@@ -150,7 +186,7 @@ export default function MockControlClient() {
         }
 
         setError(
-          bootstrapError instanceof Error ? bootstrapError.message : 'Failed to start mock session.'
+          bootstrapError instanceof Error ? bootstrapError.message : 'Failed to load mock session.'
         );
       }
     }
@@ -160,7 +196,7 @@ export default function MockControlClient() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [sessionIdFromUrl]);
 
   useEffect(() => {
     if (!session?._id) {
@@ -168,7 +204,7 @@ export default function MockControlClient() {
     }
 
     const interval = setInterval(() => {
-      void refreshSession(session._id).catch(() => undefined);
+      void refreshSessionEvent(session._id).catch(() => undefined);
     }, 2000);
 
     return () => {
@@ -233,7 +269,7 @@ export default function MockControlClient() {
     }
   }
 
-  async function createLineblockLink() {
+  async function createInterStationLineblockLink() {
     if (!session?._id) {
       return;
     }
@@ -248,12 +284,12 @@ export default function MockControlClient() {
         body: JSON.stringify({
           sessionId: session._id,
           a: {
-            stationId: linkDraft.aStationId,
-            pieceId: linkDraft.aPieceId,
+            stationId: interStationLinkDraft.aStationId,
+            pieceId: interStationLinkDraft.aPieceId,
           },
           b: {
-            stationId: linkDraft.bStationId,
-            pieceId: linkDraft.bPieceId,
+            stationId: interStationLinkDraft.bStationId,
+            pieceId: interStationLinkDraft.bPieceId,
           },
         }),
       });
@@ -279,15 +315,74 @@ export default function MockControlClient() {
     }
   }
 
-  function getPieceOptions(stationId: string) {
-    return stationSummaries.find((station) => station.stationId === stationId)?.pieceIds ?? [];
+  async function handleCreateMockSession() {
+    setIsBusy(true);
+    try {
+      const sessionResponse = await fetch('/api/sessions/mock', {
+        method: 'POST',
+      });
+      const sessionPayload = (await sessionResponse.json()) as {
+        session: SessionDocument;
+      };
+      openSession(sessionPayload.session._id);
+      setError(null);
+    } catch (createSessionError) {
+      setError(
+        createSessionError instanceof Error
+          ? createSessionError.message
+          : 'Failed to create mock session.'
+      );
+    } finally {
+      setIsBusy(false);
+    }
+  }
+
+  function handleOpenExistingSession() {
+    if (!sessionIdDraft.trim()) {
+      return;
+    }
+
+    openSession(sessionIdDraft.trim());
+  }
+
+  if (!sessionIdFromUrl) {
+    return (
+      <section className="rounded-3xl border border-neutral-800 bg-neutral-900/80 p-4">
+        <div className="text-sm text-neutral-400">Enter a mock session ID or create a new mock session.</div>
+        <div className="mt-4 grid gap-3 md:grid-cols-[minmax(0,240px)_auto_auto]">
+          <input
+            value={sessionIdDraft}
+            onChange={(event) => setSessionIdDraft(event.target.value)}
+            className="rounded-xl border border-neutral-700 bg-neutral-950 px-4 py-3 text-sm text-neutral-100 outline-none transition focus:border-amber-400"
+            placeholder="mock-ab12cd34"
+          />
+          <button
+            type="button"
+            disabled={!sessionIdDraft.trim()}
+            onClick={handleOpenExistingSession}
+            className="rounded-full border border-neutral-700 px-4 py-2 text-sm font-medium text-neutral-200 transition hover:border-amber-400 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Open Session
+          </button>
+          <button
+            type="button"
+            disabled={isBusy}
+            onClick={() => void handleCreateMockSession()}
+            className="rounded-full bg-amber-400 px-4 py-2 text-sm font-medium text-neutral-950 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Create Mock Session
+          </button>
+        </div>
+        {error ? <div className="mt-3 text-sm text-red-300">{error}</div> : null}
+      </section>
+    );
   }
 
   return (
     <div className="space-y-6">
       <section className="rounded-3xl border border-neutral-800 bg-neutral-900/80 p-4">
         <div className="text-sm text-neutral-400">
-          {session ? `Mock session ${session._id} active.` : 'Creating mock session...'}
+          {session ? `Mock session ${session._id} active.` : 'Loading mock session...'}
         </div>
         {session ? (
           <div className="mt-4 grid gap-3 md:grid-cols-[minmax(0,220px)_auto_auto]">
@@ -333,6 +428,7 @@ export default function MockControlClient() {
           ) : (
             stations.map((station) => {
               const lineblocks = getLineblockPieceIds(station);
+              const premains = getPremainSignalPieceIds(station);
               const isSelected = station.stationId === selectedStationId;
 
               return (
@@ -348,7 +444,8 @@ export default function MockControlClient() {
                     <div>
                       <div className="font-mono text-sm text-neutral-100">{station.stationId}</div>
                       <div className="text-xs text-neutral-500">
-                        {lineblocks.length} lineblock{lineblocks.length === 1 ? '' : 's'}
+                        {lineblocks.length} lineblock{lineblocks.length === 1 ? '' : 's'} / {premains.length} premain
+                        {premains.length === 1 ? '' : 's'}
                       </div>
                     </div>
                     <div className="flex gap-2">
@@ -381,6 +478,20 @@ export default function MockControlClient() {
                       ))
                     )}
                   </div>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {premains.length === 0 ? (
+                      <span className="text-xs text-neutral-500">No premain signals in this station.</span>
+                    ) : (
+                      premains.map((pieceId) => (
+                        <span
+                          key={pieceId}
+                          className="rounded-full border border-neutral-800 bg-neutral-900 px-3 py-1 text-xs text-neutral-300"
+                        >
+                          premain:{pieceId}
+                        </span>
+                      ))
+                    )}
+                  </div>
                 </div>
               );
             })
@@ -395,12 +506,12 @@ export default function MockControlClient() {
         <div className="mt-4 grid gap-3 md:grid-cols-2">
           <div className="grid gap-2">
             <select
-              value={linkDraft.aStationId}
+              value={interStationLinkDraft.aStationId}
               onChange={(event) =>
-                setLinkDraft((current) => ({
+                setInterStationLinkDraft((current) => ({
                   ...current,
                   aStationId: event.target.value,
-                  aPieceId: getPieceOptions(event.target.value)[0] ?? '',
+                  aPieceId: getLineblockOptions(event.target.value)[0] ?? '',
                 }))
               }
               className="rounded-xl border border-neutral-700 bg-neutral-950 px-4 py-3 text-sm text-neutral-100"
@@ -413,9 +524,9 @@ export default function MockControlClient() {
               ))}
             </select>
             <select
-              value={linkDraft.aPieceId}
+              value={interStationLinkDraft.aPieceId}
               onChange={(event) =>
-                setLinkDraft((current) => ({
+                setInterStationLinkDraft((current) => ({
                   ...current,
                   aPieceId: event.target.value,
                 }))
@@ -423,7 +534,7 @@ export default function MockControlClient() {
               className="rounded-xl border border-neutral-700 bg-neutral-950 px-4 py-3 text-sm text-neutral-100"
             >
               <option value="">Lineblock A</option>
-              {getPieceOptions(linkDraft.aStationId).map((pieceId) => (
+              {getLineblockOptions(interStationLinkDraft.aStationId).map((pieceId) => (
                 <option key={pieceId} value={pieceId}>
                   {pieceId}
                 </option>
@@ -433,12 +544,12 @@ export default function MockControlClient() {
 
           <div className="grid gap-2">
             <select
-              value={linkDraft.bStationId}
+              value={interStationLinkDraft.bStationId}
               onChange={(event) =>
-                setLinkDraft((current) => ({
+                setInterStationLinkDraft((current) => ({
                   ...current,
                   bStationId: event.target.value,
-                  bPieceId: getPieceOptions(event.target.value)[0] ?? '',
+                  bPieceId: getLineblockOptions(event.target.value)[0] ?? '',
                 }))
               }
               className="rounded-xl border border-neutral-700 bg-neutral-950 px-4 py-3 text-sm text-neutral-100"
@@ -451,9 +562,9 @@ export default function MockControlClient() {
               ))}
             </select>
             <select
-              value={linkDraft.bPieceId}
+              value={interStationLinkDraft.bPieceId}
               onChange={(event) =>
-                setLinkDraft((current) => ({
+                setInterStationLinkDraft((current) => ({
                   ...current,
                   bPieceId: event.target.value,
                 }))
@@ -461,7 +572,7 @@ export default function MockControlClient() {
               className="rounded-xl border border-neutral-700 bg-neutral-950 px-4 py-3 text-sm text-neutral-100"
             >
               <option value="">Lineblock B</option>
-              {getPieceOptions(linkDraft.bStationId).map((pieceId) => (
+              {getLineblockOptions(interStationLinkDraft.bStationId).map((pieceId) => (
                 <option key={pieceId} value={pieceId}>
                   {pieceId}
                 </option>
@@ -473,15 +584,15 @@ export default function MockControlClient() {
           type="button"
           disabled={
             isBusy ||
-            !linkDraft.aStationId ||
-            !linkDraft.aPieceId ||
-            !linkDraft.bStationId ||
-            !linkDraft.bPieceId
+            !interStationLinkDraft.aStationId ||
+            !interStationLinkDraft.aPieceId ||
+            !interStationLinkDraft.bStationId ||
+            !interStationLinkDraft.bPieceId
           }
-          onClick={() => void createLineblockLink()}
+          onClick={() => void createInterStationLineblockLink()}
           className="mt-4 rounded-full bg-amber-400 px-4 py-2 text-sm font-medium text-neutral-950 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          Create Lineblock Link
+          Create Inter-Station Lineblock Link
         </button>
         <div className="mt-4 space-y-3">
           {Object.values(session?.topology.lineblockLinks ?? {}).length === 0 ? (
@@ -490,7 +601,7 @@ export default function MockControlClient() {
             Object.values(session?.topology.lineblockLinks ?? {}).map((link) => (
               <div key={link.id} className="rounded-2xl border border-neutral-800 bg-neutral-950/70 p-3">
                 <div className="text-sm font-medium text-neutral-100">
-                  {link.a.stationId}:{link.a.pieceId} ↔ {link.b.stationId}:{link.b.pieceId}
+                  {link.a.stationId}:{link.a.pieceId} {'<->'} {link.b.stationId}:{link.b.pieceId}
                 </div>
                 <div className="text-xs text-neutral-500">{link.createdAt}</div>
               </div>
@@ -508,7 +619,7 @@ export default function MockControlClient() {
             <div className="rounded-2xl border border-neutral-800 bg-neutral-950/70 p-4">
               <div className="font-mono text-sm text-neutral-100">{selectedStation.stationId}</div>
               <div className="mt-2 text-xs text-neutral-500">
-                Revision {selectedStation.revision} · {selectedStation.layout.width}×{selectedStation.layout.height}
+                {selectedStation.layout.width}x{selectedStation.layout.height}
               </div>
               <div className="mt-3 flex flex-wrap gap-2">
                 {getLineblockPieceIds(selectedStation).map((pieceId) => (
@@ -517,6 +628,16 @@ export default function MockControlClient() {
                     className="rounded-full border border-neutral-800 bg-neutral-900 px-3 py-1 text-xs text-neutral-300"
                   >
                     {pieceId}
+                  </span>
+                ))}
+              </div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {getPremainSignalPieceIds(selectedStation).map((pieceId) => (
+                  <span
+                    key={pieceId}
+                    className="rounded-full border border-neutral-800 bg-neutral-900 px-3 py-1 text-xs text-neutral-300"
+                  >
+                    premain:{pieceId}
                   </span>
                 ))}
               </div>
@@ -536,10 +657,13 @@ export default function MockControlClient() {
             <p className="text-sm text-neutral-500">No outbound calls yet.</p>
           ) : (
             outboundCalls.map((call, index) => (
-              <div key={`${call.issuedAt}-${index}`} className="rounded-2xl border border-neutral-800 bg-neutral-950/70 p-3">
+              <div
+                key={`${call.issuedAt}-${index}`}
+                className="rounded-2xl border border-neutral-800 bg-neutral-950/70 p-3"
+              >
                 <div className="text-sm font-medium text-neutral-100">{call.type}</div>
                 <div className="text-xs text-neutral-500">
-                  {call.stationId} · {call.pieceId} · {call.position} · {call.issuedAt}
+                  {call.stationId} / {call.pieceId} / {call.position} / {call.issuedAt}
                 </div>
               </div>
             ))

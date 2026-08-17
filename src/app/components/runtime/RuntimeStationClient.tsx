@@ -97,20 +97,22 @@ export default function RuntimeStationClient({ sessionId, stationId }: RuntimeSt
   }
 
   return (
-    <div className="space-y-4">
-      <section className="rounded-3xl border border-neutral-800 bg-neutral-900/80 p-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <div className="text-sm font-medium text-neutral-100">Revision {station.revision}</div>
-            <div className="text-xs text-neutral-500">Updated {station.updatedAt}</div>
-          </div>
-          {error ? <div className="text-xs text-amber-300">{error}</div> : null}
+    <div className="flex min-h-screen flex-col overflow-hidden bg-neutral-300 p-4">
+      <div className="mb-2 flex flex-wrap items-center gap-2 text-sm text-black">
+        <div className="border border-neutral-700 bg-white px-2 py-0.5">
+          session: {sessionId}
         </div>
-      </section>
+        <div className="border border-neutral-700 bg-white px-2 py-0.5">
+          station: {stationId}
+        </div>
+        {error ? (
+          <div className="border border-amber-700 bg-amber-100 px-2 py-0.5 text-amber-900">
+            {error}
+          </div>
+        ) : null}
+      </div>
 
-      <StationRuntimeBoard
-        station={station}
-      />
+      <StationRuntimeBoard station={station} error={error} onErrorChange={setError} />
     </div>
   );
 }

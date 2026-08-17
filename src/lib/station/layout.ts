@@ -19,6 +19,8 @@ const SWITCH_TILE_KEYS = new Set([
 ]);
 
 const SWITCH_BUTTON_TILE_KEYS = new Set(['switchButton']);
+const LINEBLOCK_TILE_KEYS = new Set(['lineblock']);
+const PREMAIN_SIGNAL_TILE_KEYS = new Set(['premainSignal', 'premainSignalNoOcp']);
 
 export type GridCellRef = `${string}.${number}`;
 
@@ -334,10 +336,20 @@ export function isSwitchButtonPieceType(tileKey: string) {
   return SWITCH_BUTTON_TILE_KEYS.has(tileKey);
 }
 
+export function isLineblockPieceType(tileKey: string) {
+  return LINEBLOCK_TILE_KEYS.has(tileKey);
+}
+
+export function isPremainSignalPieceType(tileKey: string) {
+  return PREMAIN_SIGNAL_TILE_KEYS.has(tileKey);
+}
+
 export function canPiecesConnect(sourceType: string, targetType: string) {
   return (
     (isSwitchPieceType(sourceType) && isSwitchButtonPieceType(targetType)) ||
-    (isSwitchButtonPieceType(sourceType) && isSwitchPieceType(targetType))
+    (isSwitchButtonPieceType(sourceType) && isSwitchPieceType(targetType)) ||
+    (isLineblockPieceType(sourceType) && isPremainSignalPieceType(targetType)) ||
+    (isPremainSignalPieceType(sourceType) && isLineblockPieceType(targetType))
   );
 }
 
@@ -380,6 +392,10 @@ export function getConnectionEndpointKey(layout: StationLayout, pieceId: string,
     return pieceId;
   }
 
+  if (isLineblockPieceType(piece.type) || isPremainSignalPieceType(piece.type)) {
+    return pieceId;
+  }
+
   if (!isSwitchPieceType(piece.type)) {
     return null;
   }
@@ -418,6 +434,10 @@ export function getAllConnectionEndpointKeysForPiece(layout: StationLayout, piec
     return [pieceId];
   }
 
+  if (isLineblockPieceType(piece.type) || isPremainSignalPieceType(piece.type)) {
+    return [pieceId];
+  }
+
   if (piece.type === 'singleSwitch' || piece.type === 'singleSwitchNoOcp') {
     return [`${pieceId}:main`];
   }
@@ -432,4 +452,34 @@ export function getAllConnectionEndpointKeysForPiece(layout: StationLayout, piec
   }
 
   return [];
+}
+
+export function getLineblockPremainLinksFromLayout(layout: StationLayout) {
+  const links: Record<
+    string,
+    {
+      lineblockPieceId: string;
+      premainSignalPieceId: string;
+    }
+  > = {};
+
+  Object.entries(layout.connections).forEach(([endpointKey, linkedEndpointKey]) => {
+    const sourcePieceId = getConnectionPieceId(endpointKey);
+    const targetPieceId = getConnectionPieceId(linkedEndpointKey);
+    const sourcePiece = layout.pieces[sourcePieceId];
+    const targetPiece = layout.pieces[targetPieceId];
+
+    if (!sourcePiece || !targetPiece) {
+      return;
+    }
+
+    if (isLineblockPieceType(sourcePiece.type) && isPremainSignalPieceType(targetPiece.type)) {
+      links[sourcePieceId] = {
+        lineblockPieceId: sourcePieceId,
+        premainSignalPieceId: targetPieceId,
+      };
+    }
+  });
+
+  return links;
 }

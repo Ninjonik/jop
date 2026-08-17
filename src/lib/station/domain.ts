@@ -48,6 +48,16 @@ export type PendingAction = {
   };
 };
 
+export type LineblockPremainLink = {
+  lineblockPieceId: string;
+  premainSignalPieceId: string;
+};
+
+export type PremainRuntimeState = {
+  linkedLineblockPieceId: string;
+  canBuildPath: boolean;
+};
+
 export type StationDocument = {
   _id: string;
   sessionId: string;
@@ -62,6 +72,8 @@ export type StationDocument = {
   };
   runtime: {
     pendingActions: Record<string, PendingAction>;
+    lineblockPremainLinks: Record<string, LineblockPremainLink>;
+    premainSignalStates: Record<string, PremainRuntimeState>;
   };
   createdAt: string;
   updatedAt: string;
@@ -107,6 +119,20 @@ export type SwitchSetPositionPayload = {
 
 export type SwitchSetPositionCommand = StationCommand<SwitchSetPositionPayload> & {
   type: 'switch:set-position';
+};
+
+export type LineblockActionType =
+  | 'lineblock:grant-consent'
+  | 'lineblock:revoke-consent'
+  | 'lineblock:mark-departed'
+  | 'lineblock:mark-arrived';
+
+export type LineblockActionPayload = {
+  pieceId: string;
+};
+
+export type LineblockActionCommand = StationCommand<LineblockActionPayload> & {
+  type: LineblockActionType;
 };
 
 export const sessionIdSchema = z
@@ -159,6 +185,20 @@ export const stationDocumentSchema = z.object({
   layout: stationLayoutSchema,
   runtime: z.object({
     pendingActions: z.record(z.string(), pendingActionSchema),
+    lineblockPremainLinks: z.record(
+      z.string(),
+      z.object({
+        lineblockPieceId: z.string().trim().min(1),
+        premainSignalPieceId: z.string().trim().min(1),
+      })
+    ),
+    premainSignalStates: z.record(
+      z.string(),
+      z.object({
+        linkedLineblockPieceId: z.string().trim().min(1),
+        canBuildPath: z.boolean(),
+      })
+    ),
   }),
   createdAt: z.string(),
   updatedAt: z.string(),
@@ -228,6 +268,26 @@ export const mockInboundSwitchUpdateSchema = z.object({
   actorId: z.string().trim().min(1).default('mock-roblox'),
   pieceId: z.string().trim().min(1),
   position: z.enum(['leftSet', 'middleSet', 'rightSet']),
+});
+
+export const lineblockActionCommandSchema = z.object({
+  commandId: z.string().trim().min(1),
+  sessionId: sessionIdSchema,
+  stationId: stationIdSchema,
+  type: z.enum([
+    'lineblock:grant-consent',
+    'lineblock:revoke-consent',
+    'lineblock:mark-departed',
+    'lineblock:mark-arrived',
+  ]),
+  issuedAt: z.string(),
+  actor: z.object({
+    type: z.enum(['user', 'mock-roblox']),
+    id: z.string().trim().min(1),
+  }),
+  payload: z.object({
+    pieceId: z.string().trim().min(1),
+  }),
 });
 
 export function serializeStationLayout(layout: StationLayout): StationDocument['layout'] {
