@@ -5,6 +5,7 @@ import type {
   StateGroupRegistry,
   TextConfig,
   TileCatalog,
+  TraversableStateKey,
 } from '@/app/components/tiles/tile-catalog';
 import TileCatalogTileCard from './TileCatalogTileCard';
 
@@ -27,7 +28,7 @@ export default function TileCatalogViewerClient({
     Record<string, Record<string, Partial<TextConfig>>>
   >({});
   const [traversableSelections, setTraversableSelections] = useState<
-    Record<string, number>
+    Record<string, TraversableStateKey>
   >({});
 
   const safeStateGroups = stateGroups || {};
@@ -95,10 +96,10 @@ export default function TileCatalogViewerClient({
     });
   };
 
-  const handleTraversableChange = (tileKey: string, stateIdx: number) => {
+  const handleTraversableChange = (tileKey: string, stateKey: TraversableStateKey) => {
     setTraversableSelections((prev) => ({
       ...prev,
-      [tileKey]: stateIdx,
+      [tileKey]: stateKey,
     }));
   };
 

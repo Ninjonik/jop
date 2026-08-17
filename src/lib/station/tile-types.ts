@@ -5,8 +5,9 @@ export interface Space {
   y: number;
 }
 
+export type TraversableStateKey = string | number;
 export type TraversableRouteMap = Record<string, string>;
-export type TraversableStateMap = Record<number, TraversableRouteMap>;
+export type TraversableStateMap = Partial<Record<TraversableStateKey, TraversableRouteMap>>;
 
 export interface TextConfig {
   fill: string;

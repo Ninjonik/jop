@@ -12,7 +12,7 @@ const TrackSign1Square = ({ text, ...props }: SVGProps<SVGSVGElement> & { text?:
     
     <rect fill="var(--bg-color, #b4bbbd)" x={0} width={75} height={75} />
     <rect fill="var(--stripe-color, #3b3b3b)" x={0} y={30} width={75} height={15} />
-    <rect fill="var(--detail-color, #6e6e6e)" x={5} y={33.5} width={65} height={8} rx={4} ry={4} />
+    <rect fill="var(--occupation-color, #6e6e6e)" x={5} y={33.5} width={65} height={8} rx={4} ry={4} />
     <g>
       <rect fill="var(--color-d9d9d9, #d9d9d9)" x={17.39} y={7.51} width={40.23} height={15} />
       <text

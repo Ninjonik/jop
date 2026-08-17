@@ -18,14 +18,14 @@ const SwitchCrossover2Square = ({ topswitchtext, bottomswitchtext, ...props }: S
     />
     <rect fill="var(--stripe-color, #3b3b3b)" x={0} y={30} width={75} height={15} />
     <rect fill="var(--stripe-color, #3b3b3b)" x={0} y={105} width={75} height={15} />
-    <rect fill="var(--detail-color, #6e6e6e)" x={5} y={33.5} width={65} height={8} rx={4} ry={4} />
-    <rect fill="var(--detail-color, #6e6e6e)" x={5} y={108.5} width={65} height={8} rx={4} ry={4} />
+    <rect fill="var(--occupation-top-color, #6e6e6e)" x={5} y={33.5} width={65} height={8} rx={4} ry={4} />
+    <rect fill="var(--occupation-bottom-color, #6e6e6e)" x={5} y={108.5} width={65} height={8} rx={4} ry={4} />
     <path
-      fill="var(--detail-color, #6e6e6e)"
+      fill="var(--occupation-middleLeft-color, #6e6e6e)"
       d="M35.2,77.75h0c1.69,1.42,1.91,3.94.49,5.63l-13.44,16.02c-1.42,1.69-3.94,1.92-5.63.5-.95-.79-1.44-1.93-1.44-3.07,0-.91.31-1.82.94-2.57l13.45-16.02c1.42-1.69,3.95-1.91,5.64-.49Z"
     />
     <path
-      fill="var(--detail-color, #6e6e6e)"
+      fill="var(--occupation-topRight-color, #6e6e6e)"
       d="M59.82,53.17c0,.91-.31,1.82-.94,2.57l-13.45,16.02c-1.42,1.69-3.95,1.91-5.64.49h0c-1.69-1.42-1.91-3.94-.49-5.63l13.44-16.02c1.42-1.7,3.94-1.92,5.64-.5.94.79,1.43,1.93,1.43,3.07Z"
     />
     <g>

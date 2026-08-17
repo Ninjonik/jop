@@ -28,7 +28,8 @@
  * ----------------------------------------------------------------------------
  *
  * `traversable` is either `false` (component is not traversable) or an object
- * indexed by numbers 0 ... n representing all possible traversable states.
+ * indexed by state keys representing all possible traversable states. Keys may
+ * be numbers like `0 ... n` or descriptive strings.
  *
  * Each state maps "from" coordinates to "to" coordinates, defining how the
  * component connects to neighboring tiles. Out-of-bounds coordinates indicate
@@ -307,11 +308,13 @@ export const stateGroups: StateGroupRegistry = {
   },
 
   // Occupation group
+  // Occupation group
   occupation: {
     label: "Occupation",
     defaultState: "default",
     defaultVariant: "normal",
     states: {
+      // 0. Default (Single & Base)
       default: {
         base: {},
       },
@@ -323,6 +326,142 @@ export const stateGroups: StateGroupRegistry = {
       occupied: {
         base: {
           "--occupation-color": "#d32f2f",
+        },
+      },
+
+      // 1. Bottom-Left only
+      blTbr: {
+        base: {},
+        variants: {
+          occupied: { "--occupation-bottomLeft-color": "#d32f2f", "--occupation-bottom-color": "#d32f2f" },
+          reserved: { "--occupation-bottomLeft-color": "#ffffff", "--occupation-bottom-color": "#ffffff" },
+        },
+      },
+
+      // 2. Middle-Left and Top-Right
+      blTtr: {
+        base: {},
+        variants: {
+          occupied: {
+            "--occupation-middleLeft-color": "#d32f2f",
+            "--occupation-topRight-color": "#d32f2f",
+            "--occupation-bottom-color": "#d32f2f",
+            "--occupation-top-color": "#d32f2f",
+          },
+          reserved: {
+            "--occupation-middleLeft-color": "#ffffff",
+            "--occupation-topRight-color": "#ffffff",
+            "--occupation-bottom-color": "#ffffff",
+            "--occupation-top-color": "#ffffff",
+          },
+          mlOccupiedTrReserved: {
+            "--occupation-middleLeft-color": "#d32f2f",
+            "--occupation-topRight-color": "#ffffff",
+            "--occupation-bottom-color": "#d32f2f",
+            "--occupation-top-color": "#ffffff",
+          },
+          mlReservedTrOccupied: {
+            "--occupation-middleLeft-color": "#ffffff",
+            "--occupation-topRight-color": "#d32f2f",
+            "--occupation-bottom-color": "#ffffff",
+            "--occupation-top-color": "#d32f2f",
+          },
+        },
+      },
+
+      // 3. Middle-Left and Middle-Right
+      blTmr: {
+        base: {},
+        variants: {
+          occupied: {
+            "--occupation-middleLeft-color": "#d32f2f",
+            "--occupation-middleRight-color": "#d32f2f",
+          },
+          reserved: {
+            "--occupation-middleLeft-color": "#ffffff",
+            "--occupation-middleRight-color": "#ffffff",
+          },
+          mlOccupiedMrReserved: {
+            "--occupation-middleLeft-color": "#d32f2f",
+            "--occupation-middleRight-color": "#ffffff",
+          },
+          mlReservedMrOccupied: {
+            "--occupation-middleLeft-color": "#ffffff",
+            "--occupation-middleRight-color": "#d32f2f",
+          },
+        },
+      },
+
+      // 4. Bottom only
+      b: {
+        base: {},
+        variants: {
+          occupied: { "--occupation-bottom-color": "#d32f2f" },
+          reserved: { "--occupation-bottom-color": "#ffffff" },
+        },
+      },
+
+      // 5. Top-Left only
+      tlTtr: {
+        base: {},
+        variants: {
+          occupied: { "--occupation-topLeft-color": "#d32f2f" },
+          reserved: { "--occupation-topLeft-color": "#ffffff" },
+        },
+      },
+
+      // 6. Top and Bottom (Top-Left-To-Top-Right And Bottom-Left-To-Bottom-Right)
+      tlTtrAblTbr: {
+        base: {},
+        variants: {
+          occupied: {
+            "--occupation-top-color": "#d32f2f",
+            "--occupation-bottom-color": "#d32f2f",
+          },
+          reserved: {
+            "--occupation-top-color": "#ffffff",
+            "--occupation-bottom-color": "#ffffff",
+          },
+          topOccupiedBottomReserved: {
+            "--occupation-top-color": "#d32f2f",
+            "--occupation-bottom-color": "#ffffff",
+          },
+          topReservedBottomOccupied: {
+            "--occupation-top-color": "#ffffff",
+            "--occupation-bottom-color": "#d32f2f",
+          },
+        },
+      },
+
+      // 7. Top only
+      t: {
+        base: {},
+        variants: {
+          occupied: { "--occupation-top-color": "#d32f2f" },
+          reserved: { "--occupation-top-color": "#ffffff" },
+        },
+      },
+
+      // 8. Bottom-Right and Top-Left
+      brAtl: {
+        base: {},
+        variants: {
+          occupied: {
+            "--occupation-bottomRight-color": "#d32f2f",
+            "--occupation-topLeft-color": "#d32f2f",
+          },
+          reserved: {
+            "--occupation-bottomRight-color": "#ffffff",
+            "--occupation-topLeft-color": "#ffffff",
+          },
+          brOccupiedTlReserved: {
+            "--occupation-bottomRight-color": "#d32f2f",
+            "--occupation-topLeft-color": "#ffffff",
+          },
+          brReservedTlOccupied: {
+            "--occupation-bottomRight-color": "#ffffff",
+            "--occupation-topLeft-color": "#d32f2f",
+          },
         },
       },
     },
@@ -491,6 +630,15 @@ const boardColorsDark = {
 
 const boardColorsWithStripe = {
   ...boardColorsDark,
+  "--occupation-color": "#6e6e6e",
+  "--occupation-topRight-color": "#6e6e6e",
+  "--occupation-topLeft-color": "#6e6e6e",
+  "--occupation-middleRight-color": "#6e6e6e",
+  "--occupation-middleLeft-color": "#6e6e6e",
+  "--occupation-bottomRight-color": "#6e6e6e",
+  "--occupation-bottomLeft-color": "#6e6e6e",
+  "--occupation-top-color": "#6e6e6e",
+  "--occupation-bottom-color": "#6e6e6e",
   "--stripe-color": "#3b3b3b",
   "--detail-color": "#6e6e6e",
   "--main-color-alt": "#b3b3b3",
@@ -660,7 +808,6 @@ export const tiles: TileCatalog = {
     },
     staticStyles: {
       ...boardColorsWithStripe,
-      "--occupation-color": "#6e6e6e",
       "--main-color": "#acb0b3",
     },
     groups: {
@@ -861,7 +1008,6 @@ export const tiles: TileCatalog = {
       "--color-121f1e": "#121f1e",
       "--color-4f4f4f": "#4f4f4f",
       "--color-696969": "#696969",
-      "--occupation-color": "#6e6e6e",
       "--color-departure": "#121f1e",
       "--color-shunt": "#696969",
     },
@@ -1002,7 +1148,6 @@ export const tiles: TileCatalog = {
       ...boardColorsWithStripe,
       "--color-departure": "#121f1e",
       "--color-4f4f4f": "#4f4f4f",
-      "--occupation-color": "#6e6e6e",
     },
     groups: {
       signal: {
@@ -1064,7 +1209,6 @@ export const tiles: TileCatalog = {
       ...boardColorsWithStripe,
       "--color-4f4f4f": "#4f4f4f",
       "--color-696969": "#696969",
-      "--occupation-color": "#6e6e6e",
     },
     groups: {
       signal: {
@@ -1164,23 +1308,29 @@ export const tiles: TileCatalog = {
       [0, 1],
     ],
     traversable: {
-      0: {
+      tlTtrAblTbr: {
         "1,0": "-1,0",
         "-1,0": "1,0",
         "1,1": "-1,1",
         "-1,1": "1,1",
       },
-      1: {
+      blTtr: {
         "-1,1": "1,0",
         "1,0": "-1,1",
       },
-      2: {
+      b: {
         "1,1": "-1,1",
         "-1,1": "1,1",
       },
-      3: {
+      t: {
         "1,0": "-1,0",
         "-1,0": "1,0",
+      },
+    },
+    groups: {
+      occupation: {
+        states: ["default", "tlTtrAblTbr", "blTtr", "b", "t"],
+        defaultState: "default",
       },
     },
     staticStyles: {
@@ -1239,21 +1389,23 @@ export const tiles: TileCatalog = {
       [1, 1],
     ],
     traversable: {
-      0: {
+      blTbr: {
         "-1,2": "1,2",
         "1,2": "-1,2",
       },
-      1: {
+      blTtr: {
         "-1,2": "2,0",
         "2,0": "-1,2",
       },
-      2: {
-        "-1,2": "1,2",
-        "1,2": "-1,2",
-      },
-      3: {
+      blTmr: {
         "-1,2": "2,1",
         "2,1": "-1,2",
+      },
+    },
+    groups: {
+      occupation: {
+        states: ["default", "blTbr", "blTtr", "blTmr"],
+        defaultState: "default",
       },
     },
     staticStyles: {
@@ -1303,13 +1455,19 @@ export const tiles: TileCatalog = {
       [0, 1],
     ],
     traversable: {
-      0: {
+      blTbr: {
         "-1,1": "1,1",
         "1,1": "-1,1",
       },
-      1: {
+      blTtr: {
         "-1,1": "1,0",
         "1,0": "-1,1",
+      },
+    },
+    groups: {
+      occupation: {
+        states: ["default", "blTbr", "blTtr"],
+        defaultState: "default",
       },
     },
     staticStyles: {
@@ -1366,7 +1524,14 @@ export const tiles: TileCatalog = {
     },
     staticStyles: {
       ...boardColorsDark,
+      ...signalColors,
       ...boardColorsWithStripe,
+    },
+    groups: {
+      occupation: {
+        states: ["default", "reserved", "occupied"],
+        defaultState: "default",
+      },
     },
     texts: {
       text: {
@@ -1388,9 +1553,15 @@ export const tiles: TileCatalog = {
       },
     },
     staticStyles: {
-      ...boardColors,
-      "--stripe-color": "#3b3b3b",
-      "--detail-color": "#6e6e6e",
+      ...boardColorsDark,
+      ...signalColors,
+      ...boardColorsWithStripe,
+    },
+    groups: {
+      occupation: {
+        states: ["default", "reserved", "occupied"],
+        defaultState: "default",
+      },
     },
   },
 };

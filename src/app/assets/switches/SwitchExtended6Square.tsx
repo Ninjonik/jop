@@ -20,9 +20,9 @@ const SwitchExtended6Square = ({
       points="85.04 105 22.11 180 2.53 180 65.46 105.01 65.46 105"
     />
     <rect fill="var(--stripe-color, #3b3b3b)" x={0} y={180} width={75} height={15} />
-    <rect fill="var(--detail-color, #6e6e6e)" x={5} y={183.5} width={65} height={8} rx={4} ry={4} />
+    <rect fill="var(--occupation-bottomLeft-color, #6e6e6e)" x={5} y={183.5} width={65} height={8} rx={4} ry={4} />
     <rect
-      fill="var(--detail-color, #6e6e6e)"
+      fill="var(--occupation-middleLeft-color, #6e6e6e)"
       x={7.73}
       y={142.75}
       width={65}
@@ -717,7 +717,7 @@ const SwitchExtended6Square = ({
     />
     <rect fill="var(--stripe-color, #3b3b3b)" x={65.46} y={105} width={84.54} height={15} />
     <rect
-      fill="var(--detail-color, #6e6e6e)"
+      fill="var(--occupation-middleRight-color, #6e6e6e)"
       x={80}
       y={108.5}
       width={65}
@@ -726,7 +726,7 @@ const SwitchExtended6Square = ({
       ry={4}
     />
     <rect
-      fill="var(--detail-color, #6e6e6e)"
+      fill="var(--occupation-topRight-color, #6e6e6e)"
       x={70.73}
       y={67.66}
       width={65}

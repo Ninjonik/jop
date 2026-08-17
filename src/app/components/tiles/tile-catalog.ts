@@ -11,5 +11,6 @@ export type {
   TileCatalog,
   TileData,
   TraversableRouteMap,
+  TraversableStateKey,
   TraversableStateMap,
 } from '@/lib/station/tile-types';

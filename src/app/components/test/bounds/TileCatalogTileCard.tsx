@@ -8,6 +8,7 @@ import type {
   TextConfig,
   TileData,
   TraversableRouteMap,
+  TraversableStateKey,
 } from '@/app/components/tiles/tile-catalog';
 
 interface TileCatalogTileCardProps {
@@ -17,7 +18,7 @@ interface TileCatalogTileCardProps {
   showBounds: boolean;
   stateGroups: StateGroupRegistry;
   groupSelections: Record<string, { state: string; variant: string }>;
-  traversableSelection?: number;
+  traversableSelection?: TraversableStateKey;
   textOverrides: Record<string, Partial<TextConfig>>;
   onInitializeSelections: (
     tileKey: string,
@@ -25,7 +26,7 @@ interface TileCatalogTileCardProps {
   ) => void;
   onGroupStateChange: (tileKey: string, groupKey: string, state: string) => void;
   onGroupVariantChange: (tileKey: string, groupKey: string, variant: string) => void;
-  onTraversableChange: (tileKey: string, stateIdx: number) => void;
+  onTraversableChange: (tileKey: string, stateKey: TraversableStateKey) => void;
   onTextOverride: (
     tileKey: string,
     textKey: string,
@@ -117,11 +118,9 @@ export default function TileCatalogTileCard({
 
   const widthPx = tile.space.x * tileSize;
   const heightPx = tile.space.y * tileSize;
-  const traversableStates = tile.traversable
-    ? Object.keys(tile.traversable).map(Number)
-    : [];
+  const traversableStates = tile.traversable ? Object.keys(tile.traversable) : [];
   const currentTraversable =
-    traversableSelection ?? (traversableStates.length > 0 ? traversableStates[0] : 0);
+    traversableSelection ?? (traversableStates.length > 0 ? traversableStates[0] : '');
   const currentRoutes: TraversableRouteMap =
     tile.traversable && tile.traversable[currentTraversable]
       ? tile.traversable[currentTraversable]
@@ -296,17 +295,17 @@ export default function TileCatalogTileCard({
             Traversable State:
           </label>
           <div className="flex flex-wrap gap-1">
-            {traversableStates.map((stateIdx) => (
+            {traversableStates.map((stateKey) => (
               <button
-                key={stateIdx}
-                onClick={() => onTraversableChange(tileKey, stateIdx)}
+                key={stateKey}
+                onClick={() => onTraversableChange(tileKey, stateKey)}
                 className={`rounded px-2 py-1 font-mono text-xs transition-colors ${
-                  currentTraversable === stateIdx
+                  currentTraversable === stateKey
                     ? 'bg-sky-500 font-bold text-white'
                     : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
                 }`}
               >
-                State {stateIdx}
+                State {stateKey}
               </button>
             ))}
           </div>
