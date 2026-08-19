@@ -387,6 +387,14 @@ function applySessionTrainOccupations(station: StationDocument, session: Session
   });
 }
 
+function applyRuntimeStateWithTrainOccupations(
+  station: StationDocument,
+  session: SessionDocument,
+) {
+  applyRuntimeState(station);
+  applySessionTrainOccupations(station, session);
+}
+
 function isPhysicalSwitchPieceType(pieceType: string) {
   return isPhysicalSwitchType(pieceType);
 }
@@ -1944,15 +1952,17 @@ export const stationService = {
   },
 
   async submitRouteInteract(command: RouteInteractCommand) {
-    const station = await stationRepository.findBySessionAndStationId(
-      command.sessionId,
-      command.stationId,
-    );
-    if (!station) {
+    const [station, rawSession] = await Promise.all([
+      stationRepository.findBySessionAndStationId(command.sessionId, command.stationId),
+      sessionRepository.findById(command.sessionId),
+    ]);
+    if (!station || !rawSession) {
       throw new Error('Station not found.');
     }
 
+    const session = ensureSessionRuntimeState(rawSession);
     ensureStationRuntimeState(station);
+    applySessionTrainOccupations(station, session);
 
     const piece = station.layout.pieces[command.payload.pieceId];
     if (!piece) {
@@ -1999,7 +2009,7 @@ export const stationService = {
         sourcePieceType,
         selectedAt: command.issuedAt,
       };
-      applyRuntimeState(station);
+      applyRuntimeStateWithTrainOccupations(station, session);
       bumpRevision(station);
       await saveStation(station);
       return { kind: 'selection-started' as const };
@@ -2012,7 +2022,7 @@ export const stationService = {
 
     if (selection.sourcePieceId === command.payload.pieceId) {
       station.runtime.routeSelection = null;
-      applyRuntimeState(station);
+      applyRuntimeStateWithTrainOccupations(station, session);
       bumpRevision(station);
       await saveStation(station);
       return { kind: 'selection-cleared' as const };
@@ -2069,7 +2079,7 @@ export const stationService = {
 
       station.runtime.routeSelection = null;
       station.runtime.pendingActions[action.id] = action;
-      applyRuntimeState(station);
+      applyRuntimeStateWithTrainOccupations(station, session);
       bumpRevision(station);
       await saveStation(station);
 
@@ -2110,7 +2120,7 @@ export const stationService = {
 
     station.runtime.routeSelection = null;
     station.runtime.pendingActions[action.id] = action;
-    applyRuntimeState(station);
+    applyRuntimeStateWithTrainOccupations(station, session);
     bumpRevision(station);
     await saveStation(station);
 
