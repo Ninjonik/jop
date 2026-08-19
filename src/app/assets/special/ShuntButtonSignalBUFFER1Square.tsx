@@ -16,7 +16,7 @@ const ShuntButtonSignalBUFFER1Square = ({ text, ...props }: SVGProps<SVGSVGEleme
     <g>
       <circle fill="var(--detail-color, #6e6e6e)" cx={15} cy={37.5} r={10} />
       <circle fill="var(--main-color-alt, #b3b3b3)" cx={15} cy={37.5} r={8} />
-      <circle fill="var(--color-696969, #696969)" cx={15} cy={37.5} r={4.94} />
+      <circle style={{ animation: 'var(--shunt-button-animation, none)' }} fill="var(--color-shunt-button, #696969)" cx={15} cy={37.5} r={4.94} />
     </g>
     <path
       fill="var(--stripe-color, #3b3b3b)"

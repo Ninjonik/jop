@@ -206,14 +206,16 @@ function syncPremainAvailability(station: StationDocument) {
 
 function applyRouteSelectionVisualState(station: StationDocument, selection: RuntimeRouteSelection) {
   const piece = station.layout.pieces[selection.sourcePieceId];
-  if (!piece?.state.groups.signal) {
+  if (!piece) {
     return;
   }
 
-  piece.state.groups.signal = {
-    state: selection.sourcePieceType === 'premainSignal' ? 'departure' : 'departure',
-    variant: 'normal',
-  };
+  if (piece.state.groups.button) {
+    piece.state.groups.button = {
+      state: selection.sourcePieceType === 'premainSignal' ? 'departure' : 'departure',
+      variant: 'normal',
+    };
+  }
 }
 
 function applyPendingRouteVisualState(station: StationDocument, action: PendingAction) {
@@ -226,14 +228,16 @@ function applyPendingRouteVisualState(station: StationDocument, action: PendingA
 
   [sourcePieceId, targetPieceId].forEach((pieceId) => {
     const piece = station.layout.pieces[pieceId];
-    if (!piece?.state.groups.signal) {
+    if (!piece) {
       return;
     }
 
-    piece.state.groups.signal = {
-      state: piece.type === 'shuntButton' ? 'shunt' : 'departure',
-      variant: 'blinking',
-    };
+    if (piece.state.groups.button) {
+      piece.state.groups.button = {
+        state: piece.type === 'shuntButton' ? 'shunt' : 'departure',
+        variant: 'blinking',
+      };
+    }
   });
 }
 

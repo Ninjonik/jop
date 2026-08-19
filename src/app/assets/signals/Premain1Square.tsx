@@ -574,7 +574,7 @@ const Premain1Square = ({ text, ...props }: SVGProps<SVGSVGElement> & { text?: s
     <g>
       <circle fill="var(--detail-color, #6e6e6e)" cx={15} cy={37.5} r={10} />
       <circle fill="var(--main-color-alt, #b3b3b3)" cx={15} cy={37.5} r={8} />
-      <circle fill="var(--color-121f1e, #121f1e)" cx={15} cy={37.5} r={4.94} />
+      <circle style={{ animation: 'var(--departure-button-animation, none)' }} fill="var(--color-departure-button, #121f1e)" cx={15} cy={37.5} r={4.94} />
     </g>
   </svg>
 );

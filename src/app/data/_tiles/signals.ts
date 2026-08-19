@@ -175,6 +175,10 @@ export const signalTiles: TileCatalog = {
         states: ['default', 'departure'],
         defaultState: 'default',
       },
+      button: {
+        states: ['default', 'departure'],
+        defaultState: 'default',
+      },
     },
     texts: {
       text: {
@@ -208,6 +212,10 @@ export const signalTiles: TileCatalog = {
       },
       occupation: {
         states: ['default', 'reserved', 'occupied'],
+        defaultState: 'default',
+      },
+      button: {
+        states: ['default', 'departure'],
         defaultState: 'default',
       },
     },
@@ -294,6 +302,10 @@ export const signalTiles: TileCatalog = {
     },
     groups: {
       signal: {
+        states: ['default', 'shunt'],
+        defaultState: 'default',
+      },
+      button: {
         states: ['default', 'shunt'],
         defaultState: 'default',
       },

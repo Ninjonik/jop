@@ -90,10 +90,6 @@ function normalizeDirection(direction: RuntimeRouteDirection) {
   return direction === 'left-to-right' ? 1 : -1;
 }
 
-function clamp(value: number, min: number, max: number) {
-  return Math.max(min, Math.min(max, value));
-}
-
 function transformExternalPoint(
   point: ExitPoint,
   space: { x: number; y: number },
@@ -172,17 +168,14 @@ function getAdjacentTraversal(
     return null;
   }
 
-  const clampedLocal = {
-    x: clamp(edge.x, 0, getPieceWidth(station.layout, sourcePieceId) - 1),
-    y: clamp(edge.y, 0, getPieceHeight(station.layout, sourcePieceId) - 1),
-  };
-  const step = {
-    x: edge.x - clampedLocal.x,
-    y: edge.y - clampedLocal.y,
-  };
+  const step = getTraversalEdgeStep(station, sourcePieceId, edge);
+  if (!step) {
+    return null;
+  }
+
   const neighborCell = {
-    x: sourceAnchor.x + clampedLocal.x + step.x,
-    y: sourceAnchor.y + clampedLocal.y + step.y,
+    x: sourceAnchor.x + edge.x,
+    y: sourceAnchor.y + edge.y,
   };
 
   if (
@@ -212,14 +205,29 @@ function getAdjacentTraversal(
   };
 }
 
-function getPieceWidth(layout: StationLayout, pieceId: string) {
-  const cells = getPieceCells(layout, pieceId);
-  return Math.max(...cells.map(([x]) => x)) - Math.min(...cells.map(([x]) => x)) + 1;
-}
+function getTraversalEdgeStep(
+  station: StationDocument,
+  pieceId: string,
+  edge: ExitPoint
+): ExitPoint | null {
+  const anchor = getPieceAnchor(station.layout, pieceId);
+  const localCells = getPieceCells(station.layout, pieceId).map(([x, y]) => ({
+    x: x - anchor.x,
+    y: y - anchor.y,
+  }));
+  const adjacentSourceCell = localCells
+    .filter((cell) => Math.abs(edge.x - cell.x) + Math.abs(edge.y - cell.y) === 1)
+    // Railway connections are horizontal; prefer the same row at irregular tile corners.
+    .sort((left, right) => Math.abs(edge.y - left.y) - Math.abs(edge.y - right.y))[0];
 
-function getPieceHeight(layout: StationLayout, pieceId: string) {
-  const cells = getPieceCells(layout, pieceId);
-  return Math.max(...cells.map(([, y]) => y)) - Math.min(...cells.map(([, y]) => y)) + 1;
+  if (!adjacentSourceCell) {
+    return null;
+  }
+
+  return {
+    x: edge.x - adjacentSourceCell.x,
+    y: edge.y - adjacentSourceCell.y,
+  };
 }
 
 function getPieceCenter(layout: StationLayout, pieceId: string) {
@@ -438,8 +446,7 @@ function getTargetPieceContribution(
       return false;
     }
 
-    const exitStepX = option.exit.x - clamp(option.exit.x, 0, getPieceWidth(station.layout, pieceId) - 1);
-    return Math.sign(exitStepX) === directionSign;
+    return Math.sign(getTraversalEdgeStep(station, pieceId, option.exit)?.x ?? 0) === directionSign;
   });
 
   return {
@@ -488,9 +495,7 @@ function getSortedMatchingTraversalOptions(
   return getTraversalOptions(station, pieceId, tiles)
     .filter((option) => toOffsetKey(option.entry) === toOffsetKey(entry))
     .filter((option) => {
-      const exitStepX =
-        option.exit.x - clamp(option.exit.x, 0, getPieceWidth(station.layout, pieceId) - 1);
-      return Math.sign(exitStepX) === directionSign;
+      return Math.sign(getTraversalEdgeStep(station, pieceId, option.exit)?.x ?? 0) === directionSign;
     })
     .sort((left, right) => {
       const weightDiff = getTraversalFootprintWeight(left.state) - getTraversalFootprintWeight(right.state);
@@ -636,9 +641,7 @@ function traceBackwardToBoundary(
     const option = getTraversalOptions(station, pieceId, tiles)
       .filter((candidate) => toOffsetKey(candidate.exit) === toOffsetKey(exitToMatch))
       .filter((candidate) => {
-        const exitStepX =
-          candidate.exit.x - clamp(candidate.exit.x, 0, getPieceWidth(station.layout, pieceId) - 1);
-        return Math.sign(exitStepX) === directionSign;
+        return Math.sign(getTraversalEdgeStep(station, pieceId, candidate.exit)?.x ?? 0) === directionSign;
       })
       .sort((left, right) => {
         const weightDiff = getTraversalFootprintWeight(left.state) - getTraversalFootprintWeight(right.state);
@@ -718,20 +721,126 @@ function canUseLineblockForRoute(
   return lineblockState === 'sendingFree';
 }
 
-function buildSignalStateMap(routes: ActiveTrainRoute[]) {
-  const map = new Map<string, 'departure'>();
+type SignalRoutePlan = {
+  nextSignalPieceId: string | null;
+  clearsStation: boolean;
+};
+
+type NormalSignalAspect = 'default' | 'caution' | 'departure';
+
+function getPlatformRouteKey(station: StationDocument, route: ActiveTrainRoute) {
+  const platformEndpointId =
+    route.routeClass === 'platform-to-premain' ? route.sourcePieceId : route.targetPieceId;
+  if (!station.layout.pieces[platformEndpointId]) {
+    return null;
+  }
+
+  const row = getPieceAnchor(station.layout, platformEndpointId).y;
+  return `${row}:${route.direction}`;
+}
+
+function getOrderedFacingSignals(station: StationDocument, route: ActiveTrainRoute) {
+  const directionSign = normalizeDirection(route.direction);
+  return Array.from(new Set(route.signalPieceIds))
+    .filter((pieceId) => {
+      const piece = station.layout.pieces[pieceId];
+      return (
+        piece?.state.groups.signal &&
+        piece.type !== 'shuntSignal' &&
+        getSignalFacingDirection(piece.type, piece.rotation) === route.direction
+      );
+    })
+    .sort((leftId, rightId) => {
+      const leftX = getPieceCenter(station.layout, leftId).x;
+      const rightX = getPieceCenter(station.layout, rightId).x;
+      return (leftX - rightX) * directionSign;
+    });
+}
+
+function buildSignalRoutePlans(station: StationDocument, routes: ActiveTrainRoute[]) {
+  const orderedSignalsByRoute = new Map<string, string[]>();
+  const outboundStartByPlatform = new Map<string, string>();
+
   routes.forEach((route) => {
-    if (route.routeClass === 'platform-to-premain' && route.targetPlatformDepartureSignalPieceId) {
-      map.set(route.targetPlatformDepartureSignalPieceId, 'departure');
+    const orderedSignals = getOrderedFacingSignals(station, route);
+    orderedSignalsByRoute.set(route.id, orderedSignals);
+
+    const platformKey = getPlatformRouteKey(station, route);
+    if (route.routeClass === 'platform-to-premain' && platformKey && orderedSignals[0]) {
+      outboundStartByPlatform.set(platformKey, orderedSignals[0]);
     }
   });
-  return map;
+
+  const plans = new Map<string, SignalRoutePlan>();
+  routes.forEach((route) => {
+    const orderedSignals = orderedSignalsByRoute.get(route.id) ?? [];
+    orderedSignals.forEach((pieceId, index) => {
+      const nextSignalPieceId = orderedSignals[index + 1] ?? null;
+      if (nextSignalPieceId) {
+        plans.set(pieceId, { nextSignalPieceId, clearsStation: false });
+        return;
+      }
+
+      const platformKey = getPlatformRouteKey(station, route);
+      plans.set(pieceId, {
+        nextSignalPieceId:
+          route.routeClass === 'premain-to-platform' && platformKey
+            ? (outboundStartByPlatform.get(platformKey) ?? null)
+            : null,
+        clearsStation: route.routeClass === 'platform-to-premain',
+      });
+    });
+  });
+
+  return plans;
+}
+
+function resolveSignalAspect(
+  pieceId: string,
+  plans: Map<string, SignalRoutePlan>,
+  resolved: Map<string, NormalSignalAspect>,
+  resolving: Set<string>
+): NormalSignalAspect {
+  const existing = resolved.get(pieceId);
+  if (existing) {
+    return existing;
+  }
+
+  const plan = plans.get(pieceId);
+  if (!plan) {
+    return 'default';
+  }
+
+  if (plan.clearsStation) {
+    resolved.set(pieceId, 'departure');
+    return 'departure';
+  }
+
+  if (!plan.nextSignalPieceId || resolving.has(pieceId)) {
+    resolved.set(pieceId, 'caution');
+    return 'caution';
+  }
+
+  resolving.add(pieceId);
+  const nextAspect = resolveSignalAspect(plan.nextSignalPieceId, plans, resolved, resolving);
+  resolving.delete(pieceId);
+
+  const aspect = nextAspect === 'default' ? 'caution' : 'departure';
+  resolved.set(pieceId, aspect);
+  return aspect;
 }
 
 export function applyActiveRouteVisualState(station: StationDocument) {
   const pieces = station.layout.pieces;
 
   Object.values(pieces).forEach((piece) => {
+    if (piece.state.groups.button) {
+      piece.state.groups.button = {
+        state: 'default',
+        variant: 'normal',
+      };
+    }
+
     if (piece.state.groups.signal) {
       piece.state.groups.signal = {
         state: 'default',
@@ -762,62 +871,18 @@ export function applyActiveRouteVisualState(station: StationDocument) {
     });
   });
 
-  const departureSignalMap = buildSignalStateMap(routes);
+  const signalPlans = buildSignalRoutePlans(station, routes);
+  const resolvedAspects = new Map<string, NormalSignalAspect>();
+  signalPlans.forEach((_, pieceId) => {
+    const piece = pieces[pieceId];
+    if (!piece?.state.groups.signal) {
+      return;
+    }
 
-  routes.forEach((route) => {
-    route.signalPieceIds.forEach((pieceId) => {
-      const piece = pieces[pieceId];
-      if (!piece?.state.groups.signal) {
-        return;
-      }
-
-      if (getSignalFacingDirection(piece.type, piece.rotation) !== route.direction) {
-        return;
-      }
-
-      if (piece.type === 'entrySignal') {
-        if (route.routeClass === 'premain-to-platform') {
-          piece.state.groups.signal = {
-            state:
-              route.targetPlatformDepartureSignalPieceId &&
-              departureSignalMap.has(route.targetPlatformDepartureSignalPieceId)
-                ? 'departure'
-                : 'caution',
-            variant: 'normal',
-          };
-          return;
-        }
-
-        piece.state.groups.signal = {
-          state: 'departure',
-          variant: 'normal',
-        };
-        return;
-      }
-
-      if (piece.type === 'departureSignal') {
-        piece.state.groups.signal = {
-          state: 'departure',
-          variant: 'normal',
-        };
-        return;
-      }
-
-      if (piece.type === 'premainSignal') {
-        piece.state.groups.signal = {
-          state: 'departure',
-          variant: 'normal',
-        };
-        return;
-      }
-
-      if (piece.type === 'shuntSignal' && route.routeType !== 'normal') {
-        piece.state.groups.signal = {
-          state: 'shunt',
-          variant: 'normal',
-        };
-      }
-    });
+    piece.state.groups.signal = {
+      state: resolveSignalAspect(pieceId, signalPlans, resolvedAspects, new Set()),
+      variant: 'normal',
+    };
   });
 }
 
@@ -960,6 +1025,25 @@ export function buildRouteFromSelection(
           });
           signalPieceIds = Array.from(new Set([...signalPieceIds, ...approach.signalPieceIds]));
           extraDebugSteps = [...approach.debugSteps, ...extraDebugSteps];
+        }
+
+        const platformStart = getAdjacentTraversal(station, targetPieceId, {
+          x: directionSign,
+          y: 0,
+        });
+        if (platformStart) {
+          const platform = traceForwardToBoundary(
+            station,
+            platformStart.pieceId,
+            platformStart.entryFromSource,
+            directionSign,
+            tiles
+          );
+          platform.reservedOccupations.forEach((occupation) => {
+            pushReservation(station, extraReservedMap, occupation.pieceId, occupation);
+          });
+          signalPieceIds = Array.from(new Set([...signalPieceIds, ...platform.signalPieceIds]));
+          extraDebugSteps = [...extraDebugSteps, ...platform.debugSteps];
         }
       }
 

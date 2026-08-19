@@ -23,7 +23,7 @@ export const buttonTiles: TileCatalog = {
       '--color-departure': '#121f1e',
     },
     groups: {
-      signal: {
+      button: {
         states: ['default', 'departure', 'shunt'],
         defaultState: 'default',
       },
@@ -104,7 +104,7 @@ export const buttonTiles: TileCatalog = {
       '--color-696969': '#696969',
     },
     groups: {
-      signal: {
+      button: {
         states: ['default', 'shunt'],
         defaultState: 'default',
       },
@@ -126,7 +126,7 @@ export const buttonTiles: TileCatalog = {
       '--main-color': '#acb0b3',
     },
     groups: {
-      signal: {
+      button: {
         states: ['default', 'shunt'],
         defaultState: 'default',
       },
@@ -149,7 +149,7 @@ export const buttonTiles: TileCatalog = {
       '--main-color-alt': '#b3b3b3',
     },
     groups: {
-      signal: {
+      button: {
         states: ['default', 'shunt'],
         defaultState: 'default',
       },
