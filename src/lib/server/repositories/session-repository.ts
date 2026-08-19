@@ -4,18 +4,9 @@ import type { SessionDocument } from '@/lib/station/domain';
 
 import { getMongoDb } from '../mongo';
 
-let initialized = false;
-
 async function getCollection(): Promise<Collection<SessionDocument>> {
   const db = await getMongoDb();
-  const collection = db.collection<SessionDocument>('sessions');
-
-  if (!initialized) {
-    initialized = true;
-    await collection.createIndex({ _id: 1 }, { unique: true });
-  }
-
-  return collection;
+  return db.collection<SessionDocument>('sessions');
 }
 
 export const sessionRepository = {

@@ -1,8 +1,13 @@
 'use client';
 
 import { startTransition, useEffect, useState } from 'react';
+import { io, type Socket } from 'socket.io-client';
 
 import type { StationDocument } from '@/lib/station/domain';
+import type {
+  StationRealtimeClientEvents,
+  StationRealtimeServerEvents,
+} from '@/lib/station/realtime';
 
 import StationRuntimeBoard from './StationRuntimeBoard';
 
@@ -20,7 +25,7 @@ function getRouteStatus(station: StationDocument) {
   }
 
   const pendingRouteAction = Object.values(station.runtime.pendingActions).find((action) =>
-    action.type.startsWith('route:')
+    action.type.startsWith('route:'),
   );
   if (!pendingRouteAction) {
     return null;
@@ -46,8 +51,7 @@ export default function RuntimeStationClient({ sessionId, stationId }: RuntimeSt
           cache: 'no-store',
         });
         const payload = (await response.json()) as
-          | { station: StationDocument }
-          | { error: { message: string } };
+          { station: StationDocument } | { error: { message: string } };
 
         if (!response.ok) {
           throw new Error('error' in payload ? payload.error.message : 'Failed to load station.');
@@ -86,21 +90,45 @@ export default function RuntimeStationClient({ sessionId, stationId }: RuntimeSt
   }, [sessionId, stationId]);
 
   useEffect(() => {
-    const eventSource = new EventSource(`/api/stations/${sessionId}/${stationId}/events`);
+    let active = true;
+    const socket: Socket<StationRealtimeServerEvents, StationRealtimeClientEvents> = io({
+      path: '/socket.io',
+      transports: ['websocket'],
+    });
 
-    eventSource.addEventListener('snapshot', (event) => {
-      const payload = JSON.parse((event as MessageEvent<string>).data) as { station: StationDocument };
+    socket.on('connect', () => {
+      socket.emit('station:subscribe', {
+        type: 'subscribe',
+        sessionId,
+        stationId,
+      });
+      setError(null);
+    });
+
+    socket.on('station:snapshot', (nextStation) => {
       startTransition(() => {
-        setStation(payload.station);
+        setStation(nextStation);
+        setError(null);
       });
     });
 
-    eventSource.onerror = () => {
+    socket.on('station:error', (message) => {
+      setError(message);
+    });
+
+    socket.on('connect_error', () => {
       setError('Realtime subscription disconnected.');
-    };
+    });
+
+    socket.on('disconnect', () => {
+      if (active) {
+        setError('Realtime subscription disconnected. Reconnecting...');
+      }
+    });
 
     return () => {
-      eventSource.close();
+      active = false;
+      socket.disconnect();
     };
   }, [sessionId, stationId]);
 
@@ -121,12 +149,8 @@ export default function RuntimeStationClient({ sessionId, stationId }: RuntimeSt
   return (
     <div className="flex min-h-screen flex-col overflow-hidden bg-neutral-300 p-4">
       <div className="mb-2 flex flex-wrap items-center gap-2 text-sm text-black">
-        <div className="border border-neutral-700 bg-white px-2 py-0.5">
-          session: {sessionId}
-        </div>
-        <div className="border border-neutral-700 bg-white px-2 py-0.5">
-          station: {stationId}
-        </div>
+        <div className="border border-neutral-700 bg-white px-2 py-0.5">session: {sessionId}</div>
+        <div className="border border-neutral-700 bg-white px-2 py-0.5">station: {stationId}</div>
         {error ? (
           <div className="flex-1 border border-red-700 bg-red-100 px-2 py-0.5 text-red-900">
             {error}

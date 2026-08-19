@@ -54,7 +54,6 @@ import { sessionRepository } from '../repositories/session-repository';
 import { stationActionLogRepository } from '../repositories/station-action-log-repository';
 import { stationRepository } from '../repositories/station-repository';
 import { mockRobloxControlPort } from '../roblox/mock-roblox-port';
-import { publishStationSnapshot } from '../station-events';
 
 function nowIso() {
   return new Date().toISOString();
@@ -175,9 +174,8 @@ function bumpRevision(station: StationDocument) {
   station.updatedAt = nowIso();
 }
 
-async function saveAndPublish(station: StationDocument) {
+async function saveStation(station: StationDocument) {
   await stationRepository.save(station);
-  publishStationSnapshot(station);
 }
 
 function ensureStationRuntimeState(station: StationDocument) {
@@ -976,7 +974,7 @@ async function completeSwitchAction(actionId: string, sessionId: string, station
   applySessionTrainOccupations(station, session);
   bumpRevision(station);
   await stationActionLogRepository.create(toActionLog(station, finalAction));
-  await saveAndPublish(station);
+  await saveStation(station);
 }
 
 function scheduleSwitchAction(station: StationDocument, action: PendingAction) {
@@ -1024,7 +1022,7 @@ async function completeRouteAction(actionId: string, sessionId: string, stationI
   action.startedAt = nowIso();
   applyRuntimeState(station);
   bumpRevision(station);
-  await saveAndPublish(station);
+  await saveStation(station);
 
   try {
     if (action.type === 'route:build-normal' || action.type === 'route:build-shunt') {
@@ -1085,7 +1083,7 @@ async function completeRouteAction(actionId: string, sessionId: string, stationI
   applySessionTrainOccupations(station, session);
   bumpRevision(station);
   await stationActionLogRepository.create(toActionLog(station, finalAction));
-  await saveAndPublish(station);
+  await saveStation(station);
 }
 
 const trainMovementTimers = new Map<string, ReturnType<typeof setTimeout>>();
@@ -1194,7 +1192,7 @@ async function saveTrainStationSnapshots(
     ensureStationRuntimeState(station);
     applySessionTrainOccupations(station, session);
     bumpRevision(station);
-    await saveAndPublish(station);
+    await saveStation(station);
   }
 }
 
@@ -1384,7 +1382,6 @@ export const stationService = {
 
     const station = createStationDocument(sessionId, stationId, layoutOverride);
     await stationRepository.create(station);
-    publishStationSnapshot(station);
     return station;
   },
 
@@ -1507,7 +1504,7 @@ export const stationService = {
     applyRuntimeState(station);
     applySessionTrainOccupations(station, session);
     bumpRevision(station);
-    await saveAndPublish(station);
+    await saveStation(station);
     return train;
   },
 
@@ -1538,7 +1535,7 @@ export const stationService = {
       applyRuntimeState(currentStation);
       applySessionTrainOccupations(currentStation, session);
       bumpRevision(currentStation);
-      await saveAndPublish(currentStation);
+      await saveStation(currentStation);
     }
 
     let routeResult = findNextLocalRoute(currentStation, train);
@@ -1867,8 +1864,8 @@ export const stationService = {
     }
     bumpRevision(localStation);
     bumpRevision(remoteStation);
-    await saveAndPublish(localStation);
-    await saveAndPublish(remoteStation);
+    await saveStation(localStation);
+    await saveStation(remoteStation);
 
     return {
       localStation,
@@ -1929,7 +1926,7 @@ export const stationService = {
       applySessionTrainOccupations(station, session);
       bumpRevision(station);
       await stationActionLogRepository.create(toActionLog(station, action));
-      await saveAndPublish(station);
+      await saveStation(station);
       return action;
     }
 
@@ -1939,7 +1936,7 @@ export const stationService = {
     applyRuntimeState(station);
     applySessionTrainOccupations(station, session);
     bumpRevision(station);
-    await saveAndPublish(station);
+    await saveStation(station);
 
     scheduleSwitchAction(station, action);
 
@@ -1963,7 +1960,11 @@ export const stationService = {
     }
 
     const mode = command.payload.button === 'right' ? 'cancel' : 'build';
-    const routeType = command.payload.control;
+    const selectedRoute = station.runtime.routeSelection;
+    const isUniversalShuntEndpoint =
+      piece.type === 'shuntButton' || piece.type === 'shuntButtonNoOcp';
+    const routeType =
+      selectedRoute && isUniversalShuntEndpoint ? selectedRoute.routeType : command.payload.control;
     const shuntEndpointTypes = new Set([
       'departureButton',
       'shuntButton',
@@ -2000,7 +2001,7 @@ export const stationService = {
       };
       applyRuntimeState(station);
       bumpRevision(station);
-      await saveAndPublish(station);
+      await saveStation(station);
       return { kind: 'selection-started' as const };
     }
 
@@ -2013,7 +2014,7 @@ export const stationService = {
       station.runtime.routeSelection = null;
       applyRuntimeState(station);
       bumpRevision(station);
-      await saveAndPublish(station);
+      await saveStation(station);
       return { kind: 'selection-cleared' as const };
     }
 
@@ -2070,7 +2071,7 @@ export const stationService = {
       station.runtime.pendingActions[action.id] = action;
       applyRuntimeState(station);
       bumpRevision(station);
-      await saveAndPublish(station);
+      await saveStation(station);
 
       setTimeout(() => {
         void completeRouteAction(action.id, command.sessionId, command.stationId);
@@ -2111,7 +2112,7 @@ export const stationService = {
     station.runtime.pendingActions[action.id] = action;
     applyRuntimeState(station);
     bumpRevision(station);
-    await saveAndPublish(station);
+    await saveStation(station);
 
     setTimeout(() => {
       void completeRouteAction(action.id, command.sessionId, command.stationId);
@@ -2164,7 +2165,7 @@ export const stationService = {
     applyRuntimeState(station);
     applySessionTrainOccupations(station, session);
     bumpRevision(station);
-    await saveAndPublish(station);
+    await saveStation(station);
     return station;
   },
 };
