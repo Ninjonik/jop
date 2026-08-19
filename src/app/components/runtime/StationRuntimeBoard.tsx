@@ -73,6 +73,49 @@ export default function StationRuntimeBoard({
     }
   }
 
+  async function submitRouteInteract(pieceId: string, button: 'left' | 'right') {
+    try {
+      setPendingActionKey(`${pieceId}:route:${button}`);
+      onErrorChange(null);
+
+      const response = await fetch(
+        `/api/stations/${station.sessionId}/${station.stationId}/commands/route-interact`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            commandId: crypto.randomUUID(),
+            sessionId: station.sessionId,
+            stationId: station.stationId,
+            type: 'route:interact',
+            issuedAt: new Date().toISOString(),
+            actor: {
+              type: 'user',
+              id: 'runtime-ui',
+            },
+            payload: {
+              pieceId,
+              button,
+            },
+          }),
+        }
+      );
+
+      const payload = (await response.json()) as { error?: { message?: string } };
+      if (!response.ok) {
+        throw new Error(payload.error?.message ?? 'Failed to submit route interaction.');
+      }
+    } catch (submitError) {
+      onErrorChange(
+        submitError instanceof Error ? submitError.message : 'Failed to submit route interaction.'
+      );
+    } finally {
+      setPendingActionKey(null);
+    }
+  }
+
   return (
     <div
       className="relative flex flex-1 items-start justify-center overflow-auto bg-neutral-400"
@@ -158,6 +201,22 @@ export default function StationRuntimeBoard({
                     }}
                   />
                 </>
+              ) : null}
+
+              {(piece.type === 'premainSignal' ||
+                piece.type === 'departureButton' ||
+                piece.type === 'shuntButton') ? (
+                <button
+                  type="button"
+                  aria-label={`Interact with route endpoint ${pieceId}`}
+                  disabled={isPiecePending}
+                  onClick={() => void submitRouteInteract(pieceId, 'left')}
+                  onContextMenu={(event) => {
+                    event.preventDefault();
+                    void submitRouteInteract(pieceId, 'right');
+                  }}
+                  className="pointer-events-auto absolute inset-0 rounded-sm border border-transparent bg-transparent disabled:cursor-wait"
+                />
               ) : null}
             </div>
           );

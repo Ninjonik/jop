@@ -59,7 +59,42 @@ export const stateGroups: StateGroupRegistry = {
     },
   },
 
-  // Occupation group
+  // Signal button aspect group
+  button: {
+    label: 'Button',
+    defaultState: 'default',
+    defaultVariant: 'normal',
+    states: {
+      default: {
+        base: {
+          // No special signal colors - just the default component appearance
+        },
+      },
+      departure: {
+        base: {
+          '--color-departure-button': '#009e49',
+        },
+        variants: {
+          blinking: {
+            '--color-departure-button-blink': '#121f1e',
+            '--departure-button-animation': 'departure-button-blink 1s infinite',
+          },
+        },
+      },
+      shunt: {
+        base: {
+          '--color-shunt-button': '#e2e8f0',
+        },
+        variants: {
+          blinking: {
+            '--color-shunt-button-blink': '#696969',
+            '--shunt-button-animation': 'shunt-button-blink 1s infinite',
+          },
+        },
+      },
+    },
+  },
+
   // Occupation group
   occupation: {
     label: 'Occupation',

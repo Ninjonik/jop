@@ -99,6 +99,15 @@ function getTransformedPoint(
   return [nextX, nextY];
 }
 
+export function transformPoint(
+  x: number,
+  y: number,
+  space: { x: number; y: number },
+  orientation: PieceOrientation
+) {
+  return getTransformedPoint(x, y, space, orientation);
+}
+
 function normalizeUsedSpace(points: [number, number][]) {
   const minX = Math.min(...points.map(([x]) => x));
   const minY = Math.min(...points.map(([, y]) => y));
@@ -285,6 +294,15 @@ export function getRenderablePieces(layout: StationLayout) {
   }));
 }
 
+export function getPieceAnchor(layout: StationLayout, targetPieceId: string) {
+  const cells = getPieceCells(layout, targetPieceId);
+
+  return {
+    x: Math.min(...cells.map(([x]) => x)),
+    y: Math.min(...cells.map(([, y]) => y)),
+  };
+}
+
 export function getAllowedPlacements(
   layout: StationLayout,
   selectedCells: [number, number][],
@@ -351,15 +369,6 @@ export function canPiecesConnect(sourceType: string, targetType: string) {
     (isLineblockPieceType(sourceType) && isPremainSignalPieceType(targetType)) ||
     (isPremainSignalPieceType(sourceType) && isLineblockPieceType(targetType))
   );
-}
-
-function getPieceAnchor(layout: StationLayout, targetPieceId: string) {
-  const cells = getPieceCells(layout, targetPieceId);
-
-  return {
-    x: Math.min(...cells.map(([x]) => x)),
-    y: Math.min(...cells.map(([, y]) => y)),
-  };
 }
 
 function getSwitchEndpointSlot(

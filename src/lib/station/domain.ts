@@ -1,6 +1,9 @@
 import { z } from 'zod';
 
+import { stateGroups, tiles } from '@/app/data/tiles';
+
 import type { GridCellRef, PieceRecord, StationLayout } from './layout';
+import { getDefaultTextValues, getInitialGroupSelections } from './tile-state';
 
 export type SessionStatus = 'active' | 'closed';
 export type PendingActionStatus = 'queued' | 'running' | 'completed' | 'failed' | 'cancelled';
@@ -58,6 +61,52 @@ export type PremainRuntimeState = {
   canBuildPath: boolean;
 };
 
+export type RuntimeRouteDirection = 'left-to-right' | 'right-to-left';
+export type RuntimeRouteMode = 'build' | 'cancel';
+export type RuntimeRouteClass = 'premain-to-platform' | 'platform-to-premain';
+
+export type RuntimeRouteSelection = {
+  mode: RuntimeRouteMode;
+  routeType: 'normal';
+  sourcePieceId: string;
+  sourcePieceType: 'premainSignal' | 'departureButton';
+  selectedAt: string;
+};
+
+export type ActiveTrainRouteOccupation = {
+  pieceId: string;
+  state: string;
+  variant: string;
+};
+
+export type RouteDebugStep = {
+  pieceId: string;
+  pieceType: string;
+  anchor: string;
+  cells: string[];
+  rotation: 0 | 180;
+  mirrored: boolean;
+  entry: string;
+  exit: string;
+  traversableState: string;
+  occupationState: string | null;
+  occupationVariant: string | null;
+  signalIncluded: boolean;
+};
+
+export type ActiveTrainRoute = {
+  id: string;
+  routeType: 'normal';
+  routeClass: RuntimeRouteClass;
+  direction: RuntimeRouteDirection;
+  sourcePieceId: string;
+  targetPieceId: string;
+  reservedOccupations: ActiveTrainRouteOccupation[];
+  signalPieceIds: string[];
+  targetPlatformDepartureSignalPieceId: string | null;
+  createdAt: string;
+};
+
 export type StationDocument = {
   _id: string;
   sessionId: string;
@@ -74,6 +123,8 @@ export type StationDocument = {
     pendingActions: Record<string, PendingAction>;
     lineblockPremainLinks: Record<string, LineblockPremainLink>;
     premainSignalStates: Record<string, PremainRuntimeState>;
+    routeSelection: RuntimeRouteSelection | null;
+    activeTrainRoutes: Record<string, ActiveTrainRoute>;
   };
   createdAt: string;
   updatedAt: string;
@@ -133,6 +184,15 @@ export type LineblockActionPayload = {
 
 export type LineblockActionCommand = StationCommand<LineblockActionPayload> & {
   type: LineblockActionType;
+};
+
+export type RouteInteractPayload = {
+  pieceId: string;
+  button: 'left' | 'right';
+};
+
+export type RouteInteractCommand = StationCommand<RouteInteractPayload> & {
+  type: 'route:interact';
 };
 
 export const sessionIdSchema = z
@@ -197,6 +257,36 @@ export const stationDocumentSchema = z.object({
       z.object({
         linkedLineblockPieceId: z.string().trim().min(1),
         canBuildPath: z.boolean(),
+      })
+    ),
+    routeSelection: z
+      .object({
+        mode: z.enum(['build', 'cancel']),
+        routeType: z.literal('normal'),
+        sourcePieceId: z.string().trim().min(1),
+        sourcePieceType: z.enum(['premainSignal', 'departureButton']),
+        selectedAt: z.string(),
+      })
+      .nullable(),
+    activeTrainRoutes: z.record(
+      z.string(),
+      z.object({
+        id: z.string().trim().min(1),
+        routeType: z.literal('normal'),
+        routeClass: z.enum(['premain-to-platform', 'platform-to-premain']),
+        direction: z.enum(['left-to-right', 'right-to-left']),
+        sourcePieceId: z.string().trim().min(1),
+        targetPieceId: z.string().trim().min(1),
+        reservedOccupations: z.array(
+          z.object({
+            pieceId: z.string().trim().min(1),
+            state: z.string().trim().min(1),
+            variant: z.string().trim().min(1),
+          })
+        ),
+        signalPieceIds: z.array(z.string().trim().min(1)),
+        targetPlatformDepartureSignalPieceId: z.string().trim().min(1).nullable(),
+        createdAt: z.string(),
       })
     ),
   }),
@@ -290,12 +380,66 @@ export const lineblockActionCommandSchema = z.object({
   }),
 });
 
+export const routeInteractCommandSchema = z.object({
+  commandId: z.string().trim().min(1),
+  sessionId: sessionIdSchema,
+  stationId: stationIdSchema,
+  type: z.literal('route:interact'),
+  issuedAt: z.string(),
+  actor: z.object({
+    type: z.enum(['user', 'mock-roblox']),
+    id: z.string().trim().min(1),
+  }),
+  payload: z.object({
+    pieceId: z.string().trim().min(1),
+    button: z.enum(['left', 'right']),
+  }),
+});
+
 export function serializeStationLayout(layout: StationLayout): StationDocument['layout'] {
-  return clonePlain(layout);
+  return clonePlain(normalizeStationLayout(layout));
 }
 
 export function deserializeStationLayout(layout: StationDocument['layout']): StationLayout {
-  return clonePlain(layout);
+  return normalizeStationLayout(clonePlain(layout));
+}
+
+export function normalizeStationLayout(layout: StationLayout): StationLayout {
+  return {
+    ...layout,
+    pieces: Object.fromEntries(
+      Object.entries(layout.pieces).map(([pieceId, piece]) => [pieceId, normalizePieceRecord(pieceId, piece)])
+    ),
+  };
+}
+
+function normalizePieceRecord(pieceId: string, piece: PieceRecord): PieceRecord {
+  const tile = tiles[piece.type];
+
+  if (!tile) {
+    throw new Error(`Unknown tile type "${piece.type}" for piece "${pieceId}".`);
+  }
+
+  const defaultGroups = getInitialGroupSelections(tile, stateGroups);
+  const defaultTexts = getDefaultTextValues(tile);
+  const existingGroups = piece.state?.groups ?? {};
+  const existingTexts = piece.state?.texts ?? {};
+
+  return {
+    ...piece,
+    state: {
+      groups: Object.fromEntries(
+        Object.entries(defaultGroups).map(([groupKey, defaultSelection]) => [
+          groupKey,
+          existingGroups[groupKey] ?? { ...defaultSelection },
+        ])
+      ),
+      texts: {
+        ...defaultTexts,
+        ...existingTexts,
+      },
+    },
+  };
 }
 
 function clonePlain<T>(value: T): T {
