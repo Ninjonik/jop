@@ -17,7 +17,7 @@ Current focus:
 - `/editor`
   Layout authoring tool. Exported JSON from here is the station layout import format used elsewhere.
 - `/runtime/[sessionId]/[stationId]`
-  Runtime station view backed by MongoDB and SSE snapshot updates.
+  Runtime station view backed by MongoDB change streams and Socket.IO WebSocket snapshots.
 - `/mock`
   Mock session simulator for creating stations, importing station JSON, and wiring inter-station lineblock links.
 - `/test/bounds`
@@ -94,7 +94,7 @@ Editor mode:
 Runtime mode:
 
 - MongoDB is the canonical source of truth
-- clients fetch snapshots and replace them on SSE updates
+- clients fetch snapshots and replace them on Socket.IO updates observed from MongoDB
 - clients must not directly mutate canonical station state
 
 Mock mode:

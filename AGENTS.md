@@ -73,7 +73,7 @@ The project explicitly follows KISS, YAGNI, and DRY.
 - MongoDB is the canonical source of truth for runtime state.
 - Runtime React state is a read model of server snapshots, never canonical state.
 - Runtime clients send commands; they do not directly patch station state.
-- The backend writes first, then SSE sends a whole-station snapshot, then clients replace their snapshot.
+- The backend writes first, the MongoDB change stream observes the write, Socket.IO sends a whole-station snapshot, then clients replace their snapshot.
 - Do not add optimistic canonical station updates.
 - Editor state is the exception: the editor may mutate local state because it is an authoring tool.
 
@@ -118,7 +118,7 @@ Use this flow for runtime mutations:
 1. App Router route handler parses and validates input.
 2. Service applies domain rules.
 3. Repository persists the canonical document in MongoDB.
-4. Backend publishes the resulting station snapshot.
+4. The custom server observes the MongoDB change and publishes the resulting station snapshot through Socket.IO.
 5. Client replaces its current snapshot.
 
 - Route handlers must remain thin.
@@ -149,6 +149,8 @@ Use this flow for runtime mutations:
 - `src/lib/station/routes.ts`: route search, ordered traversal, reservations, and route visual projection
 - `src/lib/station/switches.ts`: switch-button connections, motor mappings, and fixed-position route constraints
 - `src/lib/station/tile-state.ts`: shared tile state initialization and style resolution
+- `src/lib/station/realtime.ts`: typed Socket.IO station subscription contract
+- `server.ts`: custom Next.js server, Socket.IO transport, and MongoDB station change stream
 - `src/lib/server/services/station-service.ts`: backend station command and lifecycle orchestration
 - `src/lib/server/repositories/*`: MongoDB access only
 - `src/lib/server/roblox/*`: typed outbound Roblox ports and mock implementations

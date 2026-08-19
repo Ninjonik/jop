@@ -64,10 +64,11 @@ Main files:
 Runtime flow:
 
 1. client fetches station snapshot from backend
-2. client subscribes to SSE snapshot updates
+2. client subscribes to Socket.IO station snapshots over WebSocket
 3. backend changes MongoDB first
-4. backend pushes full station snapshots
-5. client replaces local snapshot with the latest backend snapshot
+4. the custom server observes the MongoDB change stream
+5. the custom server pushes the full station snapshot to the subscribed station room
+6. client replaces local snapshot with the latest backend snapshot
 
 The runtime client should be treated as a read model for canonical state.
 
@@ -407,7 +408,8 @@ Backend-owned changes should happen through:
 - validation
 - service layer
 - Mongo write
-- SSE snapshot propagation
+- MongoDB change-stream observation
+- Socket.IO snapshot propagation
 
 Not through:
 
@@ -474,17 +476,22 @@ Lifecycle:
 
 ## 13. Realtime Flow
 
-Realtime is currently full-snapshot SSE.
+Realtime uses full snapshots over Socket.IO WebSockets.
 
 Main files:
 
-- `src/app/api/stations/[sessionId]/[stationId]/events/route.ts`
-- `src/lib/server/station-events.ts`
+- `server.ts`
+- `src/lib/station/realtime.ts`
+- `src/app/components/runtime/RuntimeStationClient.tsx`
 
 Behavior:
 
-- server sends full station snapshots
+- the custom Next.js server owns Socket.IO and one MongoDB `stations` change stream
+- clients subscribe to one station room using validated `sessionId` and `stationId`
+- MongoDB writes are observed with `fullDocument: 'updateLookup'`
+- the server sends validated full station snapshots
 - clients replace their local copy
+- Socket.IO reconnects automatically and the server sends the current snapshot on every subscription
 - no granular patch syncing yet
 
 This is deliberate. The system currently prefers simple, explicit snapshot replacement.
@@ -557,7 +564,7 @@ Main files:
 Current runtime page behavior:
 
 - fetch snapshot
-- subscribe to SSE
+- subscribe through Socket.IO over WebSocket
 - render board
 - display pending actions
 - operate lineblocks, route controls, and connected switch buttons through backend commands
