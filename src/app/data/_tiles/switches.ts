@@ -65,7 +65,7 @@ export const switchTiles: TileCatalog = {
     },
     groups: {
       occupation: {
-        states: ['default', 'tlTtrAblTbr', 'blTtr', 'b', 't'],
+        states: ['default', 'setting', 'tlTtrAblTbr', 'blTtr', 'b', 't'],
         defaultState: 'default',
       },
     },
@@ -140,7 +140,7 @@ export const switchTiles: TileCatalog = {
     },
     groups: {
       occupation: {
-        states: ['default', 'blTbr', 'blTtr', 'blTmr'],
+        states: ['default', 'setting', 'blTbr', 'blTtr', 'blTmr'],
         defaultState: 'default',
       },
     },
@@ -202,7 +202,7 @@ export const switchTiles: TileCatalog = {
     },
     groups: {
       occupation: {
-        states: ['default', 'blTbr', 'blTtr'],
+        states: ['default', 'setting', 'blTbr', 'blTtr', 't'],
         defaultState: 'default',
       },
     },

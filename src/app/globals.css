@@ -57,31 +57,75 @@ body {
 }
 
 @keyframes departure-blink {
-  0%, 100% { fill: var(--color-departure, #009e49) }
-  50% { fill: var(--color-departure-blink, #121f1e) }
+  0%,
+  100% {
+    fill: var(--color-departure, #009e49);
+  }
+  50% {
+    fill: var(--color-departure-blink, #121f1e);
+  }
 }
 
 @keyframes departure-button-blink {
-  0%, 100% { fill: var(--color-departure-button, #009e49) }
-  50% { fill: var(--color-departure-button-blink, #121f1e) }
+  0%,
+  100% {
+    fill: var(--color-departure-button, #009e49);
+  }
+  50% {
+    fill: var(--color-departure-button-blink, #121f1e);
+  }
 }
 
 @keyframes shunt-blink {
-  0%, 100% { fill: var(--color-shunt, #e2e8f0) }
-  50% { fill: var(--color-shunt-blink, #696969) }
+  0%,
+  100% {
+    fill: var(--color-shunt, #e2e8f0);
+  }
+  50% {
+    fill: var(--color-shunt-blink, #696969);
+  }
 }
 
 @keyframes shunt-button-blink {
-  0%, 100% { fill: var(--color-shunt-button, #e2e8f0) }
-  50% { fill: var(--color-shunt-button-blink, #696969) }
+  0%,
+  100% {
+    fill: var(--color-shunt-button, #e2e8f0);
+  }
+  50% {
+    fill: var(--color-shunt-button-blink, #696969);
+  }
 }
 
 @keyframes caution-blink {
-  0%, 100% { fill: var(--color-caution, #e69f00) }
-  50% { fill: var(--color-caution-blink, #261f10) }
+  0%,
+  100% {
+    fill: var(--color-caution, #e69f00);
+  }
+  50% {
+    fill: var(--color-caution-blink, #261f10);
+  }
 }
 
 @keyframes danger-blink {
-  0%, 100% { fill: var(--color-danger, #d32f2f) }
-  50% { fill: var(--color-danger-blink, #1f1212) }
+  0%,
+  100% {
+    fill: var(--color-danger, #d32f2f);
+  }
+  50% {
+    fill: var(--color-danger-blink, #1f1212);
+  }
+}
+
+.piece-transform [fill*='--occupation-'] {
+  animation: var(--occupation-animation, none);
+}
+
+@keyframes switch-occupation-blink {
+  0%,
+  100% {
+    fill: #d32f2f;
+  }
+  50% {
+    fill: #6e6e6e;
+  }
 }

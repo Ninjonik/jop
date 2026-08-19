@@ -11,6 +11,26 @@ interface RuntimeStationClientProps {
   stationId: string;
 }
 
+function getRouteStatus(station: StationDocument) {
+  const selection = station.runtime.routeSelection;
+  if (selection) {
+    const action = selection.mode === 'build' ? 'Building' : 'Cancelling';
+    const routeType = selection.routeType === 'shunt' ? 'shunting' : 'normal';
+    return `${action} ${routeType} route: source selected, choose the destination.`;
+  }
+
+  const pendingRouteAction = Object.values(station.runtime.pendingActions).find((action) =>
+    action.type.startsWith('route:')
+  );
+  if (!pendingRouteAction) {
+    return null;
+  }
+
+  const action = pendingRouteAction.type.includes(':cancel-') ? 'Cancelling' : 'Building';
+  const routeType = pendingRouteAction.type.endsWith('-shunt') ? 'shunting' : 'normal';
+  return `${action} ${routeType} route...`;
+}
+
 export default function RuntimeStationClient({ sessionId, stationId }: RuntimeStationClientProps) {
   const [station, setStation] = useState<StationDocument | null>(null);
   const [loading, setLoading] = useState(true);
@@ -96,6 +116,8 @@ export default function RuntimeStationClient({ sessionId, stationId }: RuntimeSt
     return <p className="text-sm text-neutral-500">Station not found.</p>;
   }
 
+  const routeStatus = getRouteStatus(station);
+
   return (
     <div className="flex min-h-screen flex-col overflow-hidden bg-neutral-300 p-4">
       <div className="mb-2 flex flex-wrap items-center gap-2 text-sm text-black">
@@ -106,13 +128,17 @@ export default function RuntimeStationClient({ sessionId, stationId }: RuntimeSt
           station: {stationId}
         </div>
         {error ? (
-          <div className="border border-amber-700 bg-amber-100 px-2 py-0.5 text-amber-900">
+          <div className="flex-1 border border-red-700 bg-red-100 px-2 py-0.5 text-red-900">
             {error}
+          </div>
+        ) : routeStatus ? (
+          <div className="flex-1 border border-amber-700 bg-amber-100 px-2 py-0.5 text-amber-950">
+            {routeStatus}
           </div>
         ) : null}
       </div>
 
-      <StationRuntimeBoard station={station} error={error} onErrorChange={setError} />
+      <StationRuntimeBoard station={station} onErrorChange={setError} />
     </div>
   );
 }

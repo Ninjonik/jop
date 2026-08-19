@@ -18,6 +18,10 @@ export type SessionDocument = {
   topology: {
     lineblockLinks: Record<string, SessionLineblockLink>;
   };
+  runtime: {
+    trains: Record<string, MockTrain>;
+    lineblocks: Record<string, SessionLineblockRuntimeState>;
+  };
 };
 
 export type SessionLineblockEndpoint = {
@@ -31,6 +35,71 @@ export type SessionLineblockLink = {
   a: SessionLineblockEndpoint;
   b: SessionLineblockEndpoint;
   createdAt: string;
+};
+
+export type SessionLineblockRuntimeState = {
+  arrivalAcknowledgementEligible: boolean;
+  trainId: string | null;
+  updatedAt: string;
+};
+
+export type TrainDirection = 'left-to-right' | 'right-to-left';
+export type MockTrainStatus = 'idle' | 'moving';
+
+export type TrainSensorPosition = {
+  stationId: string;
+  pieceId: string;
+  occupationState: string;
+  routeId: string | null;
+};
+
+export type TrainMovementStep = {
+  stationId: string;
+  routeId: string;
+  routeStepIndex: number;
+  pieceId: string;
+  traversalState: string;
+  occupationState: string | null;
+  signalPieceId: string | null;
+};
+
+export type TrainMovement = {
+  id: string;
+  status: 'running';
+  steps: TrainMovementStep[];
+  nextStepIndex: number;
+  dueAt: string;
+  routeRefs: Array<{
+    stationId: string;
+    routeId: string;
+  }>;
+  lineblockTransit: {
+    linkId: string;
+    fromStationId: string;
+    toStationId: string;
+    receivingRouteId: string;
+    entrySignalPieceId: string;
+  } | null;
+};
+
+export type MockTrain = {
+  id: string;
+  category: string;
+  number: string;
+  length: number;
+  direction: TrainDirection;
+  status: MockTrainStatus;
+  occupiedSensors: TrainSensorPosition[];
+  location: {
+    stationId: string;
+    pieceId: string;
+    routeId: string | null;
+    routeStepIndex: number | null;
+  };
+  lineblockTransit: TrainMovement['lineblockTransit'];
+  movement: TrainMovement | null;
+  createdAt: string;
+  updatedAt: string;
 };
 
 export type PendingAction = {
@@ -63,13 +132,21 @@ export type PremainRuntimeState = {
 
 export type RuntimeRouteDirection = 'left-to-right' | 'right-to-left';
 export type RuntimeRouteMode = 'build' | 'cancel';
-export type RuntimeRouteClass = 'premain-to-platform' | 'platform-to-premain';
+export type RuntimeRouteType = 'normal' | 'shunt';
+export type RuntimeRouteClass = 'premain-to-platform' | 'platform-to-premain' | 'shunt';
+export type RuntimeRouteEndpointType =
+  | 'premainSignal'
+  | 'premainSignalNoOcp'
+  | 'departureButton'
+  | 'shuntButton'
+  | 'shuntButtonNoOcp'
+  | 'shuntSignalButtonBuffer';
 
 export type RuntimeRouteSelection = {
   mode: RuntimeRouteMode;
-  routeType: 'normal';
+  routeType: RuntimeRouteType;
   sourcePieceId: string;
-  sourcePieceType: 'premainSignal' | 'departureButton';
+  sourcePieceType: RuntimeRouteEndpointType;
   selectedAt: string;
 };
 
@@ -96,7 +173,7 @@ export type RouteDebugStep = {
 
 export type ActiveTrainRoute = {
   id: string;
-  routeType: 'normal';
+  routeType: RuntimeRouteType;
   routeClass: RuntimeRouteClass;
   direction: RuntimeRouteDirection;
   sourcePieceId: string;
@@ -104,7 +181,22 @@ export type ActiveTrainRoute = {
   reservedOccupations: ActiveTrainRouteOccupation[];
   signalPieceIds: string[];
   targetPlatformDepartureSignalPieceId: string | null;
+  path: RoutePathStep[];
+  passedSignalPieceIds: string[];
   createdAt: string;
+};
+
+export type RoutePathStep = {
+  pieceId: string;
+  traversalState: string;
+  occupationState: string | null;
+  signalPieceId: string | null;
+};
+
+export type PhysicalSwitchAlignment = {
+  traversableState: string;
+  motorPositions: Partial<Record<'main' | 'upper' | 'lower', 'left' | 'right'>>;
+  updatedAt: string;
 };
 
 export type StationDocument = {
@@ -125,6 +217,7 @@ export type StationDocument = {
     premainSignalStates: Record<string, PremainRuntimeState>;
     routeSelection: RuntimeRouteSelection | null;
     activeTrainRoutes: Record<string, ActiveTrainRoute>;
+    switchAlignments: Record<string, PhysicalSwitchAlignment>;
   };
   createdAt: string;
   updatedAt: string;
@@ -189,6 +282,7 @@ export type LineblockActionCommand = StationCommand<LineblockActionPayload> & {
 export type RouteInteractPayload = {
   pieceId: string;
   button: 'left' | 'right';
+  control: RuntimeRouteType;
 };
 
 export type RouteInteractCommand = StationCommand<RouteInteractPayload> & {
@@ -250,21 +344,28 @@ export const stationDocumentSchema = z.object({
       z.object({
         lineblockPieceId: z.string().trim().min(1),
         premainSignalPieceId: z.string().trim().min(1),
-      })
+      }),
     ),
     premainSignalStates: z.record(
       z.string(),
       z.object({
         linkedLineblockPieceId: z.string().trim().min(1),
         canBuildPath: z.boolean(),
-      })
+      }),
     ),
     routeSelection: z
       .object({
         mode: z.enum(['build', 'cancel']),
-        routeType: z.literal('normal'),
+        routeType: z.enum(['normal', 'shunt']),
         sourcePieceId: z.string().trim().min(1),
-        sourcePieceType: z.enum(['premainSignal', 'departureButton']),
+        sourcePieceType: z.enum([
+          'premainSignal',
+          'premainSignalNoOcp',
+          'departureButton',
+          'shuntButton',
+          'shuntButtonNoOcp',
+          'shuntSignalButtonBuffer',
+        ]),
         selectedAt: z.string(),
       })
       .nullable(),
@@ -272,8 +373,8 @@ export const stationDocumentSchema = z.object({
       z.string(),
       z.object({
         id: z.string().trim().min(1),
-        routeType: z.literal('normal'),
-        routeClass: z.enum(['premain-to-platform', 'platform-to-premain']),
+        routeType: z.enum(['normal', 'shunt']),
+        routeClass: z.enum(['premain-to-platform', 'platform-to-premain', 'shunt']),
         direction: z.enum(['left-to-right', 'right-to-left']),
         sourcePieceId: z.string().trim().min(1),
         targetPieceId: z.string().trim().min(1),
@@ -282,12 +383,35 @@ export const stationDocumentSchema = z.object({
             pieceId: z.string().trim().min(1),
             state: z.string().trim().min(1),
             variant: z.string().trim().min(1),
-          })
+          }),
         ),
         signalPieceIds: z.array(z.string().trim().min(1)),
         targetPlatformDepartureSignalPieceId: z.string().trim().min(1).nullable(),
+        path: z.array(
+          z.object({
+            pieceId: z.string().trim().min(1),
+            traversalState: z.string().trim().min(1),
+            occupationState: z.string().trim().min(1).nullable(),
+            signalPieceId: z.string().trim().min(1).nullable(),
+          }),
+        ),
+        passedSignalPieceIds: z.array(z.string().trim().min(1)),
         createdAt: z.string(),
-      })
+      }),
+    ),
+    switchAlignments: z.record(
+      z.string(),
+      z.object({
+        traversableState: z.string().trim().min(1),
+        motorPositions: z
+          .object({
+            main: z.enum(['left', 'right']).optional(),
+            upper: z.enum(['left', 'right']).optional(),
+            lower: z.enum(['left', 'right']).optional(),
+          })
+          .default({}),
+        updatedAt: z.string(),
+      }),
     ),
   }),
   createdAt: z.string(),
@@ -315,9 +439,70 @@ export const sessionDocumentSchema = z.object({
           pieceId: z.string().trim().min(1),
         }),
         createdAt: z.string(),
-      })
+      }),
     ),
   }),
+  runtime: z.object({
+    trains: z.record(
+      z.string(),
+      z.object({
+        id: z.string(),
+        category: z.string(),
+        number: z.string(),
+        length: z.number().int().positive(),
+        direction: z.enum(['left-to-right', 'right-to-left']),
+        status: z.enum(['idle', 'moving']),
+        occupiedSensors: z.array(
+          z.object({
+            stationId: stationIdSchema,
+            pieceId: z.string(),
+            occupationState: z.string(),
+            routeId: z.string().nullable().default(null),
+          }),
+        ),
+        location: z.object({
+          stationId: stationIdSchema,
+          pieceId: z.string(),
+          routeId: z.string().nullable(),
+          routeStepIndex: z.number().int().nonnegative().nullable(),
+        }),
+        lineblockTransit: z
+          .object({
+            linkId: z.string(),
+            fromStationId: stationIdSchema,
+            toStationId: stationIdSchema,
+            receivingRouteId: z.string(),
+            entrySignalPieceId: z.string(),
+          })
+          .nullable(),
+        movement: z.any().nullable(),
+        createdAt: z.string(),
+        updatedAt: z.string(),
+      }),
+    ),
+    lineblocks: z.record(
+      z.string(),
+      z.object({
+        arrivalAcknowledgementEligible: z.boolean(),
+        trainId: z.string().nullable(),
+        updatedAt: z.string(),
+      }),
+    ),
+  }),
+});
+
+export const createMockTrainSchema = z.object({
+  category: z.string().trim().min(1).max(12),
+  number: z
+    .string()
+    .trim()
+    .min(1)
+    .max(12)
+    .regex(/^[a-zA-Z0-9-]+$/),
+  length: z.number().int().min(1).max(100),
+  stationId: stationIdSchema,
+  pieceId: z.string().trim().min(1),
+  direction: z.enum(['left-to-right', 'right-to-left']),
 });
 
 export const createStationSchema = z.object({
@@ -393,6 +578,7 @@ export const routeInteractCommandSchema = z.object({
   payload: z.object({
     pieceId: z.string().trim().min(1),
     button: z.enum(['left', 'right']),
+    control: z.enum(['normal', 'shunt']),
   }),
 });
 
@@ -408,7 +594,10 @@ export function normalizeStationLayout(layout: StationLayout): StationLayout {
   return {
     ...layout,
     pieces: Object.fromEntries(
-      Object.entries(layout.pieces).map(([pieceId, piece]) => [pieceId, normalizePieceRecord(pieceId, piece)])
+      Object.entries(layout.pieces).map(([pieceId, piece]) => [
+        pieceId,
+        normalizePieceRecord(pieceId, piece),
+      ]),
     ),
   };
 }
@@ -432,7 +621,7 @@ function normalizePieceRecord(pieceId: string, piece: PieceRecord): PieceRecord 
         Object.entries(defaultGroups).map(([groupKey, defaultSelection]) => [
           groupKey,
           existingGroups[groupKey] ?? { ...defaultSelection },
-        ])
+        ]),
       ),
       texts: {
         ...defaultTexts,

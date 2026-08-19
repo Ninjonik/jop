@@ -4,12 +4,11 @@ import { useState } from 'react';
 
 import TileSvg from '@/app/components/tiles/TileSvg';
 import { stateGroups, tiles } from '@/app/data/tiles';
-import type { LineblockActionType, StationDocument } from '@/lib/station/domain';
+import type { LineblockActionType, StationDocument, SwitchPosition } from '@/lib/station/domain';
 import { getRenderablePieces } from '@/lib/station/layout';
 
 interface StationRuntimeBoardProps {
   station: StationDocument;
-  error: string | null;
   onErrorChange: (message: string | null) => void;
 }
 
@@ -21,11 +20,12 @@ function getActionButtonSide(mirrored: boolean, side: 'left' | 'right') {
   return side === 'left' ? 'right' : 'left';
 }
 
-export default function StationRuntimeBoard({
-  station,
-  error,
-  onErrorChange,
-}: StationRuntimeBoardProps) {
+function getOrientedSide(rotation: 0 | 180, mirrored: boolean, side: 'left' | 'right') {
+  const horizontallyFlipped = mirrored !== (rotation === 180);
+  return horizontallyFlipped ? (side === 'left' ? 'right' : 'left') : side;
+}
+
+export default function StationRuntimeBoard({ station, onErrorChange }: StationRuntimeBoardProps) {
   const renderablePieces = getRenderablePieces(station.layout);
   const tileSize = 75;
   const layout = station.layout;
@@ -57,7 +57,7 @@ export default function StationRuntimeBoard({
               pieceId,
             },
           }),
-        }
+        },
       );
 
       const payload = (await response.json()) as { error?: { message?: string } };
@@ -66,14 +66,18 @@ export default function StationRuntimeBoard({
       }
     } catch (submitError) {
       onErrorChange(
-        submitError instanceof Error ? submitError.message : 'Failed to submit lineblock action.'
+        submitError instanceof Error ? submitError.message : 'Failed to submit lineblock action.',
       );
     } finally {
       setPendingActionKey(null);
     }
   }
 
-  async function submitRouteInteract(pieceId: string, button: 'left' | 'right') {
+  async function submitRouteInteract(
+    pieceId: string,
+    button: 'left' | 'right',
+    control: 'normal' | 'shunt',
+  ) {
     try {
       setPendingActionKey(`${pieceId}:route:${button}`);
       onErrorChange(null);
@@ -98,9 +102,10 @@ export default function StationRuntimeBoard({
             payload: {
               pieceId,
               button,
+              control,
             },
           }),
-        }
+        },
       );
 
       const payload = (await response.json()) as { error?: { message?: string } };
@@ -109,10 +114,66 @@ export default function StationRuntimeBoard({
       }
     } catch (submitError) {
       onErrorChange(
-        submitError instanceof Error ? submitError.message : 'Failed to submit route interaction.'
+        submitError instanceof Error ? submitError.message : 'Failed to submit route interaction.',
       );
     } finally {
       setPendingActionKey(null);
+    }
+  }
+
+  async function submitSwitchPosition(pieceId: string, position: SwitchPosition) {
+    try {
+      setPendingActionKey(`${pieceId}:switch`);
+      onErrorChange(null);
+
+      const response = await fetch(
+        `/api/stations/${station.sessionId}/${station.stationId}/commands/switch-set-position`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            commandId: crypto.randomUUID(),
+            sessionId: station.sessionId,
+            stationId: station.stationId,
+            type: 'switch:set-position',
+            issuedAt: new Date().toISOString(),
+            actor: {
+              type: 'user',
+              id: 'runtime-ui',
+            },
+            payload: {
+              pieceId,
+              position,
+            },
+          }),
+        },
+      );
+
+      const payload = (await response.json()) as { error?: { message?: string } };
+      if (!response.ok) {
+        throw new Error(payload.error?.message ?? 'Failed to operate switch.');
+      }
+    } catch (submitError) {
+      onErrorChange(
+        submitError instanceof Error ? submitError.message : 'Failed to operate switch.',
+      );
+    } finally {
+      setPendingActionKey(null);
+    }
+  }
+
+  function operateSwitchButton(pieceId: string, click: 'left' | 'right') {
+    const state = layout.pieces[pieceId]?.state.groups.switch?.state ?? 'default';
+    const neutral = state === 'default' || state === 'middleSet';
+    if (neutral) {
+      void submitSwitchPosition(pieceId, click === 'left' ? 'leftSet' : 'rightSet');
+      return;
+    }
+
+    if ((state === 'leftSet' && click === 'right') || (state === 'rightSet' && click === 'left')) {
+      void submitSwitchPosition(pieceId, 'middleSet');
     }
   }
 
@@ -144,7 +205,14 @@ export default function StationRuntimeBoard({
           const tile = tiles[piece.type];
           const leftButtonSide = getActionButtonSide(piece.mirrored, 'left');
           const rightButtonSide = getActionButtonSide(piece.mirrored, 'right');
-          const isPiecePending = pendingActionKey?.startsWith(`${pieceId}:`) ?? false;
+          const normalControlSide = getOrientedSide(piece.rotation, piece.mirrored, 'left');
+          const shuntControlSide = getOrientedSide(piece.rotation, piece.mirrored, 'right');
+          const bufferControlSide = getOrientedSide(piece.rotation, piece.mirrored, 'left');
+          const hasServerPendingAction = Object.values(station.runtime.pendingActions).some(
+            (action) => action.payload.pieceId === pieceId,
+          );
+          const isPiecePending =
+            (pendingActionKey?.startsWith(`${pieceId}:`) ?? false) || hasServerPendingAction;
 
           return (
             <div
@@ -203,31 +271,95 @@ export default function StationRuntimeBoard({
                 </>
               ) : null}
 
-              {(piece.type === 'premainSignal' ||
-                piece.type === 'departureButton' ||
-                piece.type === 'shuntButton') ? (
+              {piece.type === 'switchButton' ? (
                 <button
                   type="button"
-                  aria-label={`Interact with route endpoint ${pieceId}`}
+                  aria-label={`Operate switch button ${pieceId}`}
                   disabled={isPiecePending}
-                  onClick={() => void submitRouteInteract(pieceId, 'left')}
+                  onClick={() => operateSwitchButton(pieceId, 'left')}
                   onContextMenu={(event) => {
                     event.preventDefault();
-                    void submitRouteInteract(pieceId, 'right');
+                    operateSwitchButton(pieceId, 'right');
                   }}
                   className="pointer-events-auto absolute inset-0 rounded-sm border border-transparent bg-transparent disabled:cursor-wait"
+                />
+              ) : null}
+
+              {piece.type === 'premainSignal' || piece.type === 'premainSignalNoOcp' ? (
+                <button
+                  type="button"
+                  aria-label={`Interact with normal route endpoint ${pieceId}`}
+                  disabled={isPiecePending}
+                  onClick={() => void submitRouteInteract(pieceId, 'left', 'normal')}
+                  onContextMenu={(event) => {
+                    event.preventDefault();
+                    void submitRouteInteract(pieceId, 'right', 'normal');
+                  }}
+                  className="pointer-events-auto absolute inset-0 rounded-sm border border-transparent bg-transparent disabled:cursor-wait"
+                />
+              ) : null}
+
+              {piece.type === 'departureButton' ? (
+                <>
+                  <button
+                    type="button"
+                    aria-label={`Interact with normal route endpoint ${pieceId}`}
+                    disabled={isPiecePending}
+                    onClick={() => void submitRouteInteract(pieceId, 'left', 'normal')}
+                    onContextMenu={(event) => {
+                      event.preventDefault();
+                      void submitRouteInteract(pieceId, 'right', 'normal');
+                    }}
+                    className="pointer-events-auto absolute inset-y-0 w-1/2 rounded-sm border border-transparent bg-transparent disabled:cursor-wait"
+                    style={{ [normalControlSide]: 0 }}
+                  />
+                  <button
+                    type="button"
+                    aria-label={`Interact with shunting route endpoint ${pieceId}`}
+                    disabled={isPiecePending}
+                    onClick={() => void submitRouteInteract(pieceId, 'left', 'shunt')}
+                    onContextMenu={(event) => {
+                      event.preventDefault();
+                      void submitRouteInteract(pieceId, 'right', 'shunt');
+                    }}
+                    className="pointer-events-auto absolute inset-y-0 w-1/2 rounded-sm border border-transparent bg-transparent disabled:cursor-wait"
+                    style={{ [shuntControlSide]: 0 }}
+                  />
+                </>
+              ) : null}
+
+              {piece.type === 'shuntButton' || piece.type === 'shuntButtonNoOcp' ? (
+                <button
+                  type="button"
+                  aria-label={`Interact with shunting route endpoint ${pieceId}`}
+                  disabled={isPiecePending}
+                  onClick={() => void submitRouteInteract(pieceId, 'left', 'shunt')}
+                  onContextMenu={(event) => {
+                    event.preventDefault();
+                    void submitRouteInteract(pieceId, 'right', 'shunt');
+                  }}
+                  className="pointer-events-auto absolute inset-0 rounded-sm border border-transparent bg-transparent disabled:cursor-wait"
+                />
+              ) : null}
+
+              {piece.type === 'shuntSignalButtonBuffer' ? (
+                <button
+                  type="button"
+                  aria-label={`Interact with buffer shunting route endpoint ${pieceId}`}
+                  disabled={isPiecePending}
+                  onClick={() => void submitRouteInteract(pieceId, 'left', 'shunt')}
+                  onContextMenu={(event) => {
+                    event.preventDefault();
+                    void submitRouteInteract(pieceId, 'right', 'shunt');
+                  }}
+                  className="pointer-events-auto absolute inset-y-0 w-1/2 rounded-sm border border-transparent bg-transparent disabled:cursor-wait"
+                  style={{ [bufferControlSide]: 0 }}
                 />
               ) : null}
             </div>
           );
         })}
       </div>
-
-      {error ? (
-        <div className="pointer-events-none absolute left-4 top-4 border border-red-700 bg-red-100 px-3 py-1 text-sm text-red-900">
-          {error}
-        </div>
-      ) : null}
     </div>
   );
 }

@@ -282,6 +282,10 @@ type SessionDocument = {
   topology: {
     lineblockLinks: Record<string, SessionLineblockLink>;
   };
+  runtime: {
+    trains: Record<string, MockTrain>;
+    lineblocks: Record<string, SessionLineblockRuntimeState>;
+  };
 };
 ```
 
@@ -296,6 +300,8 @@ type StationDocument = {
   layout: StationLayout;
   runtime: {
     pendingActions: Record<string, PendingAction>;
+    activeTrainRoutes: Record<string, ActiveTrainRoute>;
+    switchAlignments: Record<string, PhysicalSwitchAlignment>;
   };
   createdAt: string;
   updatedAt: string;
@@ -438,10 +444,17 @@ Current implemented vertical slice:
 
 - `switch:set-position`
 
-Important note:
+Switch-button behavior:
 
-- the frontend switch control UI was intentionally removed from runtime
-- the backend command path still exists as the example pending-action lifecycle
+- runtime users operate the switch-button tile directly
+- switch buttons resolve their switch and `main`/`upper`/`lower` motor through `layout.connections`
+- left/right setting takes three seconds and is persisted as an active action
+- setting actions are recovered from persisted `dueAt` when the station is loaded
+- returning a fixed handle to neutral is instant and retains physical motor alignment
+- fixed button positions constrain route search; neutral buttons may be overridden by routes
+- reserved or occupied switch sections cannot be manually operated
+- compatible crossover halves remain independently controllable
+- the extended switch persists four motor combinations but exposes only its three connected traversals
 
 Current implementation files:
 
@@ -493,6 +506,7 @@ Current responsibilities:
 - inspect lineblock pieces by station
 - create inter-station lineblock links
 - show outbound mock adapter calls
+- create, place, move, and remove session-wide mock trains
 
 Supporting routes:
 
@@ -502,7 +516,36 @@ Supporting routes:
 - `POST /api/sessions/[sessionId]/lineblock-links`
 - `POST /api/stations`
 
-## 15. Runtime Rendering
+## 15. Mock Trains
+
+Mock trains live in `SessionDocument.runtime.trains`, not in a browser and not
+inside one station. A train can occupy sensors in more than one station while
+crossing an inter-station lineblock.
+
+Movement rules:
+
+- the selected spawn sensor is the train front
+- the remaining simulated sensor length is placed behind the front
+- movement requires an active reserved route; call-on movement is not implemented
+- each traversed tile takes two seconds
+- tiles without occupation sensors consume time but do not change the board
+- occupied sensor overlays are derived server-side into station snapshots
+- a route reservation returns to normal after the train's rear clears that sensor
+- trains stop at the last sensor before a terminal departure/shunt control
+- passed signals return to danger
+- physical switch traversal alignment remains persisted after route cancellation
+- odhlaska is enabled only after the complete train clears the entrance signal
+
+Active routes persist an ordered `path`. `reservedOccupations` is intentionally
+not used as a movement path because it is an unordered visual aggregation.
+
+Train mock routes:
+
+- `POST /api/sessions/[sessionId]/trains`
+- `POST /api/sessions/[sessionId]/trains/[trainId]/move`
+- `DELETE /api/sessions/[sessionId]/trains/[trainId]`
+
+## 16. Runtime Rendering
 
 Runtime rendering is based on persisted station snapshots.
 
@@ -517,12 +560,9 @@ Current runtime page behavior:
 - subscribe to SSE
 - render board
 - display pending actions
+- operate lineblocks, route controls, and connected switch buttons through backend commands
 
-Current non-goal:
-
-- no direct runtime control UI for switches on the frontend right now
-
-## 16. Serialization Boundaries
+## 17. Serialization Boundaries
 
 The code tries to keep serialization explicit.
 
@@ -544,7 +584,7 @@ Use these when moving layout data between:
 
 Do not scatter ad hoc object spreads for persisted layout conversion if a shared helper can be used.
 
-## 17. Files To Read First
+## 18. Files To Read First
 
 If you need to change the system, these are the best entry points.
 
@@ -574,7 +614,7 @@ For backend state changes:
 - `src/app/api/stations/*`
 - `src/app/api/sessions/*`
 
-## 18. Common Pitfalls
+## 19. Common Pitfalls
 
 - Do not confuse `layout.connections` with `session.topology.lineblockLinks`.
 - Do not introduce a second station layout shape unless absolutely necessary.
@@ -583,8 +623,10 @@ For backend state changes:
 - Do not reimplement tile orientation/state logic separately from `src/lib/station/*`.
 - Do not assume inter-station links are directional yet.
 - Do not assume lineblock links currently model terminal-side detail.
+- Do not store trains in one station document; train occupancy can span stations.
+- Do not use unordered route reservations as a train movement path.
 
-## 19. Short Summary
+## 20. Short Summary
 
 If you only remember five things, remember these:
 

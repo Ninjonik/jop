@@ -115,6 +115,26 @@ export const stateGroups: StateGroupRegistry = {
           '--occupation-color': '#d32f2f',
         },
       },
+      setting: {
+        base: {
+          '--occupation-color': '#d32f2f',
+          '--occupation-topRight-color': '#d32f2f',
+          '--occupation-topLeft-color': '#d32f2f',
+          '--occupation-middleRight-color': '#d32f2f',
+          '--occupation-middleLeft-color': '#d32f2f',
+          '--occupation-bottomRight-color': '#d32f2f',
+          '--occupation-bottomLeft-color': '#d32f2f',
+          '--occupation-top-color': '#d32f2f',
+          '--occupation-bottom-color': '#d32f2f',
+          '--occupation-topC-color': '#d32f2f',
+          '--occupation-bottomC-color': '#d32f2f',
+        },
+        variants: {
+          blinking: {
+            '--occupation-animation': 'switch-occupation-blink 0.8s ease-in-out infinite',
+          },
+        },
+      },
 
       // 1. Bottom-Left only
       blTbr: {
@@ -189,8 +209,14 @@ export const stateGroups: StateGroupRegistry = {
       b: {
         base: {},
         variants: {
-          occupied: { '--occupation-bottom-color': '#d32f2f' },
-          reserved: { '--occupation-bottom-color': '#ffffff' },
+          occupied: {
+            '--occupation-bottom-color': '#d32f2f',
+            '--occupation-bottomC-color': '#d32f2f',
+          },
+          reserved: {
+            '--occupation-bottom-color': '#ffffff',
+            '--occupation-bottomC-color': '#ffffff',
+          },
         },
       },
 
@@ -208,20 +234,20 @@ export const stateGroups: StateGroupRegistry = {
         base: {},
         variants: {
           occupied: {
-            '--occupation-top-color': '#d32f2f',
-            '--occupation-bottom-color': '#d32f2f',
+            '--occupation-topC-color': '#d32f2f',
+            '--occupation-bottomC-color': '#d32f2f',
           },
           reserved: {
-            '--occupation-top-color': '#ffffff',
-            '--occupation-bottom-color': '#ffffff',
+            '--occupation-topC-color': '#ffffff',
+            '--occupation-bottomC-color': '#ffffff',
           },
           topOccupiedBottomReserved: {
-            '--occupation-top-color': '#d32f2f',
-            '--occupation-bottom-color': '#ffffff',
+            '--occupation-topC-color': '#d32f2f',
+            '--occupation-bottomC-color': '#ffffff',
           },
           topReservedBottomOccupied: {
-            '--occupation-top-color': '#ffffff',
-            '--occupation-bottom-color': '#d32f2f',
+            '--occupation-topC-color': '#ffffff',
+            '--occupation-bottomC-color': '#d32f2f',
           },
         },
       },
@@ -230,8 +256,8 @@ export const stateGroups: StateGroupRegistry = {
       t: {
         base: {},
         variants: {
-          occupied: { '--occupation-top-color': '#d32f2f' },
-          reserved: { '--occupation-top-color': '#ffffff' },
+          occupied: { '--occupation-top-color': '#d32f2f', '--occupation-topC-color': '#d32f2f' },
+          reserved: { '--occupation-top-color': '#ffffff', '--occupation-topC-color': '#ffffff' },
         },
       },
 

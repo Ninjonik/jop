@@ -1,14 +1,15 @@
 import type { SwitchPosition } from '@/lib/station/domain';
+import type { SwitchControlSlot } from '@/lib/station/switches';
 
-export type OutboundRobloxCall =
-  | {
-      type: 'switch:set-position';
-      sessionId: string;
-      stationId: string;
-      pieceId: string;
-      position: SwitchPosition;
-      issuedAt: string;
-    };
+export type OutboundRobloxCall = {
+  type: 'switch:set-position';
+  sessionId: string;
+  stationId: string;
+  pieceId: string;
+  controlSlot: SwitchControlSlot;
+  position: SwitchPosition;
+  issuedAt: string;
+};
 
 const outboundCalls: OutboundRobloxCall[] = [];
 
@@ -17,6 +18,7 @@ export interface RobloxControlPort {
     sessionId: string;
     stationId: string;
     pieceId: string;
+    controlSlot: SwitchControlSlot;
     position: SwitchPosition;
   }): Promise<{
     ok: true;
@@ -33,6 +35,7 @@ export const mockRobloxControlPort: RobloxControlPort = {
       sessionId: input.sessionId,
       stationId: input.stationId,
       pieceId: input.pieceId,
+      controlSlot: input.controlSlot,
       position: input.position,
       issuedAt: acknowledgedAt,
     });
