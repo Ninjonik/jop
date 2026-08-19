@@ -266,7 +266,7 @@ function applyRouteSelectionVisualState(
   if (piece.state.groups.button) {
     piece.state.groups.button = {
       state: selection.routeType === 'shunt' ? 'shunt' : 'departure',
-      variant: 'normal',
+      variant: 'blinking',
     };
   }
 }
