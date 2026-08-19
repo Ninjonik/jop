@@ -1,6 +1,6 @@
 # JOP
 
-JOP is a railway control panel foundation built with Next.js, React, TypeScript, and MongoDB.
+JOP is a railway control panel built with Next.js, React, TypeScript, and MongoDB.
 
 Current focus:
 
