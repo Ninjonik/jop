@@ -10,6 +10,7 @@ import type {
   RouteInteractCommand,
   RuntimeRouteType,
   RuntimeRouteSelection,
+  SessionSchemaDocument,
   SessionDocument,
   SessionLineblockLink,
   StationActionLogDocument,
@@ -58,6 +59,10 @@ import { mockRobloxControlPort } from '../roblox/mock-roblox-port';
 
 function nowIso() {
   return new Date().toISOString();
+}
+
+function createSessionId(prefix: 'mock' | 'session' = 'mock') {
+  return `${prefix}-${randomUUID().slice(0, 8)}`;
 }
 
 function logRouteBuildDebug(
@@ -212,6 +217,15 @@ function normalizeRouteControl(
   return undefined;
 }
 
+function normalizeLineblockDefaultFlow(
+  value: string | undefined,
+): SessionLineblockLink['defaultFlow'] {
+  if (value === 'a-receiving' || value === 'b-receiving') {
+    return value;
+  }
+  return 'neutral';
+}
+
 function ensureStationRuntimeState(station: StationDocument) {
   station.layout = normalizeStationLayout(station.layout);
 
@@ -272,6 +286,29 @@ function setLineblockVisualState(station: StationDocument, pieceId: string, stat
     state,
     variant: 'normal',
   };
+}
+
+function applyLineblockDefaultFlowToStations(
+  defaultFlow: SessionLineblockLink['defaultFlow'],
+  stationA: StationDocument,
+  pieceAId: string,
+  stationB: StationDocument,
+  pieceBId: string,
+) {
+  if (defaultFlow === 'a-receiving') {
+    setLineblockVisualState(stationA, pieceAId, 'receivingFree');
+    setLineblockVisualState(stationB, pieceBId, 'sendingFree');
+    return;
+  }
+
+  if (defaultFlow === 'b-receiving') {
+    setLineblockVisualState(stationA, pieceAId, 'sendingFree');
+    setLineblockVisualState(stationB, pieceBId, 'receivingFree');
+    return;
+  }
+
+  setLineblockVisualState(stationA, pieceAId, 'default');
+  setLineblockVisualState(stationB, pieceBId, 'default');
 }
 
 function syncPremainAvailability(station: StationDocument) {
@@ -424,6 +461,10 @@ function ensureSessionRuntimeState(session: SessionDocument) {
   };
   session.runtime.trains ??= {};
   session.runtime.lineblocks ??= {};
+
+  Object.values(session.topology.lineblockLinks).forEach((link) => {
+    link.defaultFlow = normalizeLineblockDefaultFlow(link.defaultFlow);
+  });
 
   Object.values(session.runtime.trains).forEach((train) => {
     train.occupiedSensors.forEach((sensor) => {
@@ -1463,7 +1504,7 @@ export const stationService = {
   async createMockSession() {
     const createdAt = nowIso();
     const session: SessionDocument = {
-      _id: `mock-${randomUUID().slice(0, 8)}`,
+      _id: createSessionId('mock'),
       createdAt,
       updatedAt: createdAt,
       status: 'active',
@@ -1479,6 +1520,65 @@ export const stationService = {
 
     await sessionRepository.create(session);
     return session;
+  },
+
+  async exportSessionSchema(sessionId: string): Promise<SessionSchemaDocument> {
+    const [rawSession, stations] = await Promise.all([
+      sessionRepository.findById(sessionId),
+      stationRepository.listBySessionId(sessionId),
+    ]);
+    if (!rawSession) {
+      throw new Error('Session not found.');
+    }
+
+    const session = ensureSessionRuntimeState(rawSession);
+    return {
+      version: 1,
+      stations: stations.map((station) => ({
+        stationId: station.stationId,
+        layout: normalizeStationLayout(station.layout),
+      })),
+      lineblockLinks: Object.values(session.topology.lineblockLinks).map((link) => ({
+        a: link.a,
+        b: link.b,
+        defaultFlow: normalizeLineblockDefaultFlow(link.defaultFlow),
+      })),
+    };
+  },
+
+  async importSessionSchema(schema: SessionSchemaDocument) {
+    const createdAt = nowIso();
+    const sessionId = createSessionId('session');
+    const session: SessionDocument = {
+      _id: sessionId,
+      createdAt,
+      updatedAt: createdAt,
+      status: 'active',
+      mockMode: true,
+      topology: {
+        lineblockLinks: {},
+      },
+      runtime: {
+        trains: {},
+        lineblocks: {},
+      },
+    };
+
+    await sessionRepository.create(session);
+
+    for (const stationEntry of schema.stations) {
+      await this.ensureStation(sessionId, stationEntry.stationId, stationEntry.layout);
+    }
+
+    for (const link of schema.lineblockLinks) {
+      await this.createLineblockLink(sessionId, link);
+    }
+
+    const importedSession = await this.getSession(sessionId);
+    if (!importedSession) {
+      throw new Error('Imported session could not be loaded.');
+    }
+    return importedSession;
   },
 
   async ensureStation(
@@ -1811,6 +1911,48 @@ export const stationService = {
     return { trainId };
   },
 
+  async reverseMockTrain(sessionId: string, trainId: string) {
+    const rawSession = await sessionRepository.findById(sessionId);
+    if (!rawSession) {
+      throw new Error('Session not found.');
+    }
+    const session = ensureSessionRuntimeState(rawSession);
+    const train = session.runtime.trains[trainId];
+    if (!train) {
+      throw new Error('Train not found.');
+    }
+    if (train.status === 'moving' || train.movement) {
+      throw new Error('A moving train cannot reverse direction.');
+    }
+    if (train.lineblockTransit) {
+      throw new Error('A train in lineblock transit cannot reverse direction.');
+    }
+    if (train.occupiedSensors.length === 0) {
+      throw new Error('Train has no occupied sensors to reverse from.');
+    }
+
+    const newDirection: TrainDirection =
+      train.direction === 'left-to-right' ? 'right-to-left' : 'left-to-right';
+    const reversedSensors = [...train.occupiedSensors].reverse();
+    const newFront = reversedSensors[0];
+    if (!newFront) {
+      throw new Error('Train has no front sensor after reversal.');
+    }
+
+    train.direction = newDirection;
+    train.occupiedSensors = reversedSensors;
+    train.location = {
+      stationId: newFront.stationId,
+      pieceId: newFront.pieceId,
+      routeId: null,
+      routeStepIndex: null,
+    };
+    train.updatedAt = nowIso();
+    session.updatedAt = nowIso();
+    await sessionRepository.save(session);
+    return train;
+  },
+
   async createStation(
     sessionId: string,
     stationId: string,
@@ -1819,7 +1961,10 @@ export const stationService = {
     return this.ensureStation(sessionId, stationId, layoutOverride);
   },
 
-  async createLineblockLink(sessionId: string, endpoints: Pick<SessionLineblockLink, 'a' | 'b'>) {
+  async createLineblockLink(
+    sessionId: string,
+    endpoints: Pick<SessionLineblockLink, 'a' | 'b' | 'defaultFlow'>,
+  ) {
     const rawSession = await sessionRepository.findById(sessionId);
     if (!rawSession) {
       throw new Error('Session not found.');
@@ -1841,6 +1986,9 @@ export const stationService = {
     if (!stationA || !stationB) {
       throw new Error('Both stations must exist in the session.');
     }
+
+    ensureStationRuntimeState(stationA);
+    ensureStationRuntimeState(stationB);
 
     const pieceA = stationA.layout.pieces[endpoints.a.pieceId];
     const pieceB = stationB.layout.pieces[endpoints.b.pieceId];
@@ -1878,6 +2026,7 @@ export const stationService = {
       sessionId,
       a: endpoints.a,
       b: endpoints.b,
+      defaultFlow: normalizeLineblockDefaultFlow(endpoints.defaultFlow),
       createdAt,
     };
     session.runtime.lineblocks[linkId] = {
@@ -1887,7 +2036,23 @@ export const stationService = {
     };
     session.updatedAt = createdAt;
 
+    applyLineblockDefaultFlowToStations(
+      session.topology.lineblockLinks[linkId].defaultFlow,
+      stationA,
+      endpoints.a.pieceId,
+      stationB,
+      endpoints.b.pieceId,
+    );
+    syncPremainAvailability(stationA);
+    syncPremainAvailability(stationB);
+    applyRuntimeState(stationA);
+    applyRuntimeState(stationB);
+
     await sessionRepository.save(session);
+    bumpRevision(stationA);
+    bumpRevision(stationB);
+    await saveStation(stationA);
+    await saveStation(stationB);
     return session.topology.lineblockLinks[linkId];
   },
 

@@ -7,11 +7,12 @@ import { useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
 
 import type {
   MockTrain,
+  SessionSchemaDocument,
   SessionDocument,
   SessionLineblockLink,
   StationDocument,
 } from '@/lib/station/domain';
-import type { StationLayout } from '@/lib/station/layout';
+import { getPieceAnchor, type StationLayout } from '@/lib/station/layout';
 
 type OutboundCall = {
   type: 'switch:set-position';
@@ -59,7 +60,24 @@ function makeDefaultInterStationLinkDraft(stations: StationSummary[]) {
     aPieceId: firstStation?.lineblockPieceIds[0] ?? '',
     bStationId: secondStation?.stationId ?? '',
     bPieceId: secondStation?.lineblockPieceIds[0] ?? '',
+    defaultFlow: 'neutral' as SessionLineblockLink['defaultFlow'],
   };
+}
+
+function getSpawnOptionLabel(station: StationDocument, pieceId: string) {
+  const piece = station.layout.pieces[pieceId];
+  const anchor = getPieceAnchor(station.layout, pieceId);
+  return `${pieceId} (${anchor.x}.${anchor.y})${piece ? ` / ${piece.type}` : ''}`;
+}
+
+function getLineblockDefaultFlowLabel(defaultFlow: SessionLineblockLink['defaultFlow']) {
+  if (defaultFlow === 'a-receiving') {
+    return 'Station A receiving';
+  }
+  if (defaultFlow === 'b-receiving') {
+    return 'Station B receiving';
+  }
+  return 'Neutral';
 }
 
 export default function MockControlClient() {
@@ -79,6 +97,7 @@ export default function MockControlClient() {
     aPieceId: '',
     bStationId: '',
     bPieceId: '',
+    defaultFlow: 'neutral' as SessionLineblockLink['defaultFlow'],
   });
   const [trainDraft, setTrainDraft] = useState({
     category: 'Os',
@@ -89,6 +108,7 @@ export default function MockControlClient() {
     direction: 'left-to-right' as MockTrain['direction'],
   });
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const sessionSchemaInputRef = useRef<HTMLInputElement | null>(null);
 
   const stationSummaries = useMemo<StationSummary[]>(
     () =>
@@ -170,6 +190,7 @@ export default function MockControlClient() {
       aPieceId: current.aPieceId || defaultInterStationLinkDraft.aPieceId,
       bStationId: current.bStationId || defaultInterStationLinkDraft.bStationId,
       bPieceId: current.bPieceId || defaultInterStationLinkDraft.bPieceId,
+      defaultFlow: current.defaultFlow,
     }));
     setTrainDraft((current) => {
       const stationId = current.stationId || stationsPayload.stations[0]?.stationId || '';
@@ -325,6 +346,7 @@ export default function MockControlClient() {
             stationId: interStationLinkDraft.bStationId,
             pieceId: interStationLinkDraft.bPieceId,
           },
+          defaultFlow: interStationLinkDraft.defaultFlow,
         }),
       });
 
@@ -403,6 +425,28 @@ export default function MockControlClient() {
     }
   }
 
+  async function reverseTrain(trainId: string) {
+    if (!session?._id) {
+      return;
+    }
+    setIsBusy(true);
+    try {
+      const response = await fetch(`/api/sessions/${session._id}/trains/${trainId}/reverse`, {
+        method: 'POST',
+      });
+      const payload = (await response.json()) as { error?: { message?: string } };
+      if (!response.ok) {
+        throw new Error(payload.error?.message ?? 'Failed to reverse train.');
+      }
+      await refreshSession(session._id);
+      setError(null);
+    } catch (trainError) {
+      setError(trainError instanceof Error ? trainError.message : 'Failed to reverse train.');
+    } finally {
+      setIsBusy(false);
+    }
+  }
+
   async function removeTrain(trainId: string) {
     if (!session?._id) {
       return;
@@ -447,6 +491,84 @@ export default function MockControlClient() {
     }
   }
 
+  async function exportSessionSchema() {
+    if (!session?._id) {
+      return;
+    }
+
+    setIsBusy(true);
+    try {
+      const response = await fetch(`/api/sessions/${session._id}/schema`, {
+        cache: 'no-store',
+      });
+      const payload = (await response.json()) as
+        | { schema: SessionSchemaDocument }
+        | { error?: { message?: string } };
+      if (!response.ok || !('schema' in payload)) {
+        throw new Error(
+          'error' in payload
+            ? (payload.error?.message ?? 'Failed to export session schema.')
+            : 'Failed to export session schema.',
+        );
+      }
+
+      const blob = new Blob([JSON.stringify(payload.schema, null, 2)], {
+        type: 'application/json',
+      });
+      const href = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = href;
+      anchor.download = `${session._id}-schema.json`;
+      anchor.click();
+      URL.revokeObjectURL(href);
+      setError(null);
+    } catch (schemaError) {
+      setError(
+        schemaError instanceof Error ? schemaError.message : 'Failed to export session schema.',
+      );
+    } finally {
+      setIsBusy(false);
+    }
+  }
+
+  async function handleImportSessionSchema(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) {
+      return;
+    }
+
+    setIsBusy(true);
+    try {
+      const schema = JSON.parse(await file.text()) as SessionSchemaDocument;
+      const response = await fetch('/api/sessions/schema', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(schema),
+      });
+      const payload = (await response.json()) as
+        | { session: SessionDocument }
+        | { error?: { message?: string } };
+      if (!response.ok || !('session' in payload)) {
+        throw new Error(
+          'error' in payload
+            ? (payload.error?.message ?? 'Failed to import session schema.')
+            : 'Failed to import session schema.',
+        );
+      }
+      openSession(payload.session._id);
+      setError(null);
+    } catch (schemaError) {
+      setError(
+        schemaError instanceof Error ? schemaError.message : 'Failed to import session schema.',
+      );
+    } finally {
+      event.target.value = '';
+      setIsBusy(false);
+    }
+  }
+
   function handleOpenExistingSession() {
     if (!sessionIdDraft.trim()) {
       return;
@@ -485,7 +607,24 @@ export default function MockControlClient() {
             Create Mock Session
           </button>
         </div>
+        <div className="mt-3">
+          <button
+            type="button"
+            disabled={isBusy}
+            onClick={() => sessionSchemaInputRef.current?.click()}
+            className="rounded-full border border-neutral-700 px-4 py-2 text-sm font-medium text-neutral-200 transition hover:border-amber-400 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Import Session Schema
+          </button>
+        </div>
         {error ? <div className="mt-3 text-sm text-red-300">{error}</div> : null}
+        <input
+          ref={sessionSchemaInputRef}
+          type="file"
+          accept="application/json"
+          onChange={(event) => void handleImportSessionSchema(event)}
+          className="hidden"
+        />
       </section>
     );
   }
@@ -519,6 +658,14 @@ export default function MockControlClient() {
               className="rounded-full border border-neutral-700 px-4 py-2 text-sm font-medium text-neutral-200 transition hover:border-amber-400 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
             >
               Import Station JSON
+            </button>
+            <button
+              type="button"
+              disabled={isBusy}
+              onClick={() => void exportSessionSchema()}
+              className="rounded-full border border-neutral-700 px-4 py-2 text-sm font-medium text-neutral-200 transition hover:border-amber-400 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Export Session Schema
             </button>
           </div>
         ) : null}
@@ -594,8 +741,8 @@ export default function MockControlClient() {
             <option value="">Front sensor</option>
             {trainStation
               ? getOccupationSensorPieceIds(trainStation).map((pieceId) => (
-                  <option key={pieceId} value={pieceId}>
-                    {trainStation.layout.pieces[pieceId]?.type}:{pieceId}
+                <option key={pieceId} value={pieceId}>
+                    {getSpawnOptionLabel(trainStation, pieceId)}
                   </option>
                 ))
               : null}
@@ -657,6 +804,14 @@ export default function MockControlClient() {
                       className="rounded-full bg-amber-400 px-3 py-2 text-xs font-medium text-neutral-950 disabled:opacity-50"
                     >
                       Move To Next Signal
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isBusy || train.status === 'moving'}
+                      onClick={() => void reverseTrain(train.id)}
+                      className="rounded-full border border-neutral-700 px-3 py-2 text-xs text-neutral-200 disabled:opacity-50"
+                    >
+                      Reverse Direction
                     </button>
                     <button
                       type="button"
@@ -841,6 +996,22 @@ export default function MockControlClient() {
             </select>
           </div>
         </div>
+        <div className="mt-3 max-w-sm">
+          <select
+            value={interStationLinkDraft.defaultFlow}
+            onChange={(event) =>
+              setInterStationLinkDraft((current) => ({
+                ...current,
+                defaultFlow: event.target.value as SessionLineblockLink['defaultFlow'],
+              }))
+            }
+            className="rounded-xl border border-neutral-700 bg-neutral-950 px-4 py-3 text-sm text-neutral-100"
+          >
+            <option value="neutral">Neutral default state</option>
+            <option value="a-receiving">Station A receiving by default</option>
+            <option value="b-receiving">Station B receiving by default</option>
+          </select>
+        </div>
         <button
           type="button"
           disabled={
@@ -867,7 +1038,9 @@ export default function MockControlClient() {
                 <div className="text-sm font-medium text-neutral-100">
                   {link.a.stationId}:{link.a.pieceId} {'<->'} {link.b.stationId}:{link.b.pieceId}
                 </div>
-                <div className="text-xs text-neutral-500">{link.createdAt}</div>
+                <div className="text-xs text-neutral-500">
+                  {getLineblockDefaultFlowLabel(link.defaultFlow)} / {link.createdAt}
+                </div>
               </div>
             ))
           )}

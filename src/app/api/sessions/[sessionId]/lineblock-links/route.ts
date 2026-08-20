@@ -31,6 +31,7 @@ export async function POST(request: Request, { params }: SessionLineblockLinksRo
     const link = await stationService.createLineblockLink(parsedSessionId, {
       a: body.a,
       b: body.b,
+      defaultFlow: body.defaultFlow,
     });
 
     return Response.json({ link }, { status: 201 });

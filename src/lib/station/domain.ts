@@ -34,6 +34,7 @@ export type SessionLineblockLink = {
   sessionId: string;
   a: SessionLineblockEndpoint;
   b: SessionLineblockEndpoint;
+  defaultFlow: 'neutral' | 'a-receiving' | 'b-receiving';
   createdAt: string;
 };
 
@@ -224,6 +225,19 @@ export type StationDocument = {
   };
   createdAt: string;
   updatedAt: string;
+};
+
+export type SessionSchemaDocument = {
+  version: 1;
+  stations: Array<{
+    stationId: string;
+    layout: StationDocument['layout'];
+  }>;
+  lineblockLinks: Array<{
+    a: SessionLineblockEndpoint;
+    b: SessionLineblockEndpoint;
+    defaultFlow: SessionLineblockLink['defaultFlow'];
+  }>;
 };
 
 export type StationActionLogDocument = {
@@ -444,6 +458,7 @@ export const sessionDocumentSchema = z.object({
           stationId: stationIdSchema,
           pieceId: z.string().trim().min(1),
         }),
+        defaultFlow: z.enum(['neutral', 'a-receiving', 'b-receiving']).default('neutral'),
         createdAt: z.string(),
       }),
     ),
@@ -527,6 +542,30 @@ export const createLineblockLinkSchema = z.object({
     stationId: stationIdSchema,
     pieceId: z.string().trim().min(1),
   }),
+  defaultFlow: z.enum(['neutral', 'a-receiving', 'b-receiving']).default('neutral'),
+});
+
+export const sessionSchemaDocumentSchema = z.object({
+  version: z.literal(1),
+  stations: z.array(
+    z.object({
+      stationId: stationIdSchema,
+      layout: stationLayoutSchema,
+    }),
+  ),
+  lineblockLinks: z.array(
+    z.object({
+      a: z.object({
+        stationId: stationIdSchema,
+        pieceId: z.string().trim().min(1),
+      }),
+      b: z.object({
+        stationId: stationIdSchema,
+        pieceId: z.string().trim().min(1),
+      }),
+      defaultFlow: z.enum(['neutral', 'a-receiving', 'b-receiving']).default('neutral'),
+    }),
+  ),
 });
 
 export const switchSetPositionCommandSchema = z.object({
