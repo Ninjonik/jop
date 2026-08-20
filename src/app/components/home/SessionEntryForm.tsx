@@ -27,7 +27,7 @@ export default function SessionEntryForm() {
           <h1 className="text-4xl font-semibold tracking-tight">Open a runtime station session</h1>
           <p className="max-w-2xl text-sm text-neutral-400">
             Runtime control reads canonical station state from the backend. Use editor mode for layout
-            authoring and mock mode to simulate the Roblox side.
+            authoring, map mode for station/session topology, and mock mode to simulate the Roblox side.
           </p>
         </header>
 
@@ -69,6 +69,12 @@ export default function SessionEntryForm() {
               className="rounded-full border border-neutral-700 px-5 py-3 text-sm font-medium text-neutral-200 transition hover:border-neutral-500 hover:bg-neutral-800"
             >
               Open Editor
+            </Link>
+            <Link
+              href="/map"
+              className="rounded-full border border-neutral-700 px-5 py-3 text-sm font-medium text-neutral-200 transition hover:border-neutral-500 hover:bg-neutral-800"
+            >
+              Open Map
             </Link>
             <Link
               href="/mock"

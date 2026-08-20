@@ -7,12 +7,14 @@ import type {
   LineblockActionType,
   MockTrain,
   PendingAction,
+  PlaceTemplateDocument,
+  RobloxPhysicalSnapshot,
   RouteInteractCommand,
-  RuntimeRouteType,
   RuntimeRouteSelection,
-  SessionSchemaDocument,
+  RuntimeRouteType,
   SessionDocument,
   SessionLineblockLink,
+  SessionSchemaDocument,
   StationActionLogDocument,
   StationDocument,
   SwitchSetPositionCommand,
@@ -52,10 +54,11 @@ import {
 } from '@/lib/station/switches';
 import { resolveComponentStyles } from '@/lib/station/tile-state';
 
+import { placeTemplateRepository } from '../repositories/place-template-repository';
 import { sessionRepository } from '../repositories/session-repository';
 import { stationActionLogRepository } from '../repositories/station-action-log-repository';
 import { stationRepository } from '../repositories/station-repository';
-import { mockRobloxControlPort } from '../roblox/mock-roblox-port';
+import { notifyRuntimeInterpreter } from '../roblox/runtime-interpreter';
 
 function nowIso() {
   return new Date().toISOString();
@@ -182,6 +185,12 @@ function bumpRevision(station: StationDocument) {
 
 async function saveStation(station: StationDocument) {
   await stationRepository.save(station);
+  void notifyRuntimeInterpreter(station.sessionId);
+}
+
+async function saveSession(session: SessionDocument) {
+  await sessionRepository.save(session);
+  void notifyRuntimeInterpreter(session._id);
 }
 
 function normalizeRouteSelection(
@@ -455,12 +464,16 @@ function applyRuntimeState(station: StationDocument) {
 }
 
 function ensureSessionRuntimeState(session: SessionDocument) {
+  session.mockMode ??= true;
+  session.interpreter ??= { kind: 'mock' };
   session.runtime ??= {
     trains: {},
     lineblocks: {},
+    physicalOccupations: {},
   };
   session.runtime.trains ??= {};
   session.runtime.lineblocks ??= {};
+  session.runtime.physicalOccupations ??= {};
 
   Object.values(session.topology.lineblockLinks).forEach((link) => {
     link.defaultFlow = normalizeLineblockDefaultFlow(link.defaultFlow);
@@ -484,7 +497,7 @@ function ensureSessionRuntimeState(session: SessionDocument) {
 }
 
 function applySessionTrainOccupations(station: StationDocument, session: SessionDocument) {
-  const occupiedSensors = Object.values(session.runtime.trains).flatMap((train) =>
+  const mockOccupiedSensors = Object.values(session.runtime.trains).flatMap((train) =>
     train.occupiedSensors
       .filter((sensor) => sensor.stationId === station.stationId)
       .map((sensor) => ({
@@ -492,7 +505,13 @@ function applySessionTrainOccupations(station: StationDocument, session: Session
         occupationState: sensor.occupationState,
       })),
   );
-  applyTrainOccupationVisualState(station, occupiedSensors);
+  const physicalOccupiedSensors = Object.values(session.runtime.physicalOccupations)
+    .filter((occupation) => occupation.occupied && occupation.stationId === station.stationId)
+    .map((occupation) => ({
+      pieceId: occupation.pieceId,
+      occupationState: occupation.traversalState ?? 'occupied',
+    }));
+  applyTrainOccupationVisualState(station, [...mockOccupiedSensors, ...physicalOccupiedSensors]);
   Object.values(station.runtime.pendingActions).forEach((action) => {
     if (action.type === 'switch:set-position') {
       applyPendingSwitchVisualState(station, action);
@@ -500,10 +519,7 @@ function applySessionTrainOccupations(station: StationDocument, session: Session
   });
 }
 
-function applyRuntimeStateWithTrainOccupations(
-  station: StationDocument,
-  session: SessionDocument,
-) {
+function applyRuntimeStateWithTrainOccupations(station: StationDocument, session: SessionDocument) {
   applyRuntimeState(station);
   applySessionTrainOccupations(station, session);
 }
@@ -965,8 +981,8 @@ function assertSwitchControlAvailable(
     const step = route.path.find((candidate) => candidate.pieceId === control.switchPieceId);
     return Boolean(
       step &&
-        !switchPiece.state.groups.occupation &&
-        traversalUsesSwitchControl(switchPiece.type, step.traversalState, control.slot),
+      !switchPiece.state.groups.occupation &&
+      traversalUsesSwitchControl(switchPiece.type, step.traversalState, control.slot),
     );
   });
 
@@ -992,6 +1008,15 @@ function assertSwitchControlAvailable(
     }),
   );
 
+  const physicalOccupationBlocks = Object.values(session.runtime.physicalOccupations).some(
+    (occupation) =>
+      occupation.occupied &&
+      occupation.stationId === station.stationId &&
+      occupation.pieceId === control.switchPieceId &&
+      (!occupation.traversalState ||
+        traversalUsesSwitchControl(switchPiece.type, occupation.traversalState, control.slot)),
+  );
+
   const switchActionBlocks = Object.values(station.runtime.pendingActions).some((action) => {
     if (action.type !== 'switch:set-position' || action.payload.pieceId === control.buttonPieceId) {
       return false;
@@ -1007,7 +1032,13 @@ function assertSwitchControlAvailable(
     );
   });
 
-  if (activeRouteBlocks || pendingRouteBlocks || trainBlocks || switchActionBlocks) {
+  if (
+    activeRouteBlocks ||
+    pendingRouteBlocks ||
+    trainBlocks ||
+    physicalOccupationBlocks ||
+    switchActionBlocks
+  ) {
     throw new Error(
       'The switch cannot be operated while its controlled section is reserved or occupied.',
     );
@@ -1081,14 +1112,6 @@ async function completeSwitchAction(actionId: string, sessionId: string, station
     };
     const traversableState =
       getTraversableStateForMotorPositions(switchPiece.type, motorPositions) ?? 'disconnected';
-
-    await mockRobloxControlPort.setSwitchPosition({
-      sessionId,
-      stationId,
-      pieceId: control.switchPieceId,
-      controlSlot: control.slot,
-      position,
-    });
 
     button.state.groups.switch = {
       state: position,
@@ -1436,7 +1459,7 @@ async function advanceTrainMovement(sessionId: string, trainId: string) {
     train.movement = null;
     train.updatedAt = nowIso();
     session.updatedAt = nowIso();
-    await sessionRepository.save(session);
+    await saveSession(session);
     return;
   }
 
@@ -1492,7 +1515,7 @@ async function advanceTrainMovement(sessionId: string, trainId: string) {
     movement.dueAt = new Date(Date.now() + 2000).toISOString();
   }
   session.updatedAt = nowIso();
-  await sessionRepository.save(session);
+  await saveSession(session);
   await saveTrainStationSnapshots(session, stations, affectedStationIds);
 
   if (train.movement) {
@@ -1509,12 +1532,14 @@ export const stationService = {
       updatedAt: createdAt,
       status: 'active',
       mockMode: true,
+      interpreter: { kind: 'mock' },
       topology: {
         lineblockLinks: {},
       },
       runtime: {
         trains: {},
         lineblocks: {},
+        physicalOccupations: {},
       },
     };
 
@@ -1555,12 +1580,14 @@ export const stationService = {
       updatedAt: createdAt,
       status: 'active',
       mockMode: true,
+      interpreter: { kind: 'mock' },
       topology: {
         lineblockLinks: {},
       },
       runtime: {
         trains: {},
         lineblocks: {},
+        physicalOccupations: {},
       },
     };
 
@@ -1581,6 +1608,221 @@ export const stationService = {
     return importedSession;
   },
 
+  async savePlaceTemplate(placeId: string, sessionId: string) {
+    const schema = await this.exportSessionSchema(sessionId);
+    const existing = await placeTemplateRepository.findByPlaceId(placeId);
+    const timestamp = nowIso();
+    const template: PlaceTemplateDocument = {
+      _id: placeId,
+      placeId,
+      schema,
+      revision: (existing?.revision ?? 0) + 1,
+      createdAt: existing?.createdAt ?? timestamp,
+      updatedAt: timestamp,
+    };
+    await placeTemplateRepository.save(template);
+    return template;
+  },
+
+  async getPlaceTemplate(placeId: string) {
+    return placeTemplateRepository.findByPlaceId(placeId);
+  },
+
+  async registerRobloxSession(sessionId: string, placeId: string, serverId: string) {
+    const existing = await sessionRepository.findById(sessionId);
+    if (existing) {
+      const session = ensureSessionRuntimeState(existing);
+      if (
+        session.interpreter.kind !== 'roblox' ||
+        session.interpreter.placeId !== placeId ||
+        session.interpreter.serverId !== serverId
+      ) {
+        throw new Error('Session ID is already registered to a different runtime.');
+      }
+      return session;
+    }
+
+    const template = await placeTemplateRepository.findByPlaceId(placeId);
+    if (!template) {
+      throw new Error(`No Roblox map template is configured for PlaceId ${placeId}.`);
+    }
+
+    const createdAt = nowIso();
+    const session: SessionDocument = {
+      _id: sessionId,
+      createdAt,
+      updatedAt: createdAt,
+      status: 'active',
+      mockMode: false,
+      interpreter: { kind: 'roblox', placeId, serverId },
+      topology: { lineblockLinks: {} },
+      runtime: {
+        trains: {},
+        lineblocks: {},
+        physicalOccupations: {},
+      },
+    };
+
+    await sessionRepository.create(session);
+    for (const stationEntry of template.schema.stations) {
+      await this.ensureStation(sessionId, stationEntry.stationId, stationEntry.layout);
+    }
+    for (const link of template.schema.lineblockLinks) {
+      await this.createLineblockLink(sessionId, link);
+    }
+
+    return session;
+  },
+
+  async getRobloxPhysicalSnapshot(sessionId: string): Promise<RobloxPhysicalSnapshot> {
+    const [rawSession, rawStations] = await Promise.all([
+      sessionRepository.findById(sessionId),
+      stationRepository.listBySessionId(sessionId),
+    ]);
+    if (!rawSession) {
+      throw new Error('Session not found.');
+    }
+    const session = ensureSessionRuntimeState(rawSession);
+    if (session.interpreter.kind !== 'roblox') {
+      throw new Error('The requested session is not a Roblox session.');
+    }
+
+    const stations = rawStations.map((station) => {
+      ensureStationRuntimeState(station);
+      applySessionTrainOccupations(station, session);
+      return {
+        stationId: station.stationId,
+        revision: station.revision,
+        pieces: Object.fromEntries(
+          Object.entries(station.layout.pieces).map(([pieceId, piece]) => [
+            pieceId,
+            {
+              type: piece.type,
+              groups: piece.state.groups,
+              texts: piece.state.texts,
+              switchAlignment: station.runtime.switchAlignments[pieceId] ?? null,
+            },
+          ]),
+        ),
+      };
+    });
+
+    return {
+      protocolVersion: 1,
+      sessionId,
+      placeId: session.interpreter.placeId,
+      generatedAt: nowIso(),
+      stations,
+    };
+  },
+
+  async applyRobloxOccupation(
+    sessionId: string,
+    input: {
+      eventId: string;
+      stationId: string;
+      pieceId: string;
+      traversalState?: string | null;
+      occupied: boolean;
+      observedAt: string;
+    },
+  ) {
+    const [rawSession, station] = await Promise.all([
+      sessionRepository.findById(sessionId),
+      stationRepository.findBySessionAndStationId(sessionId, input.stationId),
+    ]);
+    if (!rawSession || !station) {
+      throw new Error('Station not found.');
+    }
+    const session = ensureSessionRuntimeState(rawSession);
+    if (session.interpreter.kind !== 'roblox') {
+      throw new Error('Occupation events are only accepted for Roblox sessions.');
+    }
+    ensureStationRuntimeState(station);
+
+    const piece = station.layout.pieces[input.pieceId];
+    if (!piece?.state.groups.occupation) {
+      throw new Error(`Occupation-capable piece "${input.pieceId}" was not found.`);
+    }
+
+    const traversalState = input.traversalState ?? null;
+    const occupationKey = `${input.stationId}:${input.pieceId}:${traversalState ?? '*'}`;
+    const current = session.runtime.physicalOccupations[occupationKey];
+    if (current && Date.parse(current.observedAt) > Date.parse(input.observedAt)) {
+      return { applied: false, station };
+    }
+
+    session.runtime.physicalOccupations[occupationKey] = {
+      stationId: input.stationId,
+      pieceId: input.pieceId,
+      traversalState,
+      occupied: input.occupied,
+      eventId: input.eventId,
+      observedAt: input.observedAt,
+    };
+    session.updatedAt = nowIso();
+
+    applyRuntimeStateWithTrainOccupations(station, session);
+    bumpRevision(station);
+    await sessionRepository.save(session);
+    await saveStation(station);
+    return { applied: true, station };
+  },
+
+  async applyRobloxSwitchFeedback(
+    sessionId: string,
+    input: {
+      stationId: string;
+      pieceId: string;
+      controlSlot: SwitchControlSlot;
+      position: SwitchMotorPosition;
+      observedAt: string;
+    },
+  ) {
+    const [rawSession, station] = await Promise.all([
+      sessionRepository.findById(sessionId),
+      stationRepository.findBySessionAndStationId(sessionId, input.stationId),
+    ]);
+    if (!rawSession || !station) {
+      throw new Error('Station not found.');
+    }
+    const session = ensureSessionRuntimeState(rawSession);
+    if (session.interpreter.kind !== 'roblox') {
+      throw new Error('Switch feedback is only accepted for Roblox sessions.');
+    }
+    ensureStationRuntimeState(station);
+
+    const switchPiece = station.layout.pieces[input.pieceId];
+    if (!switchPiece || !isPhysicalSwitchPieceType(switchPiece.type)) {
+      throw new Error(`Physical switch piece "${input.pieceId}" was not found.`);
+    }
+    const defaultPositions = getDefaultSwitchMotorPositions(switchPiece.type);
+    if (!(input.controlSlot in defaultPositions)) {
+      throw new Error(`Switch does not have a ${input.controlSlot} motor.`);
+    }
+
+    const current = station.runtime.switchAlignments[input.pieceId];
+    if (current && Date.parse(current.updatedAt) > Date.parse(input.observedAt)) {
+      return { applied: false, station };
+    }
+    const motorPositions = {
+      ...defaultPositions,
+      ...(current?.motorPositions ?? {}),
+      [input.controlSlot]: input.position,
+    };
+    station.runtime.switchAlignments[input.pieceId] = {
+      motorPositions,
+      traversableState:
+        getTraversableStateForMotorPositions(switchPiece.type, motorPositions) ?? 'disconnected',
+      updatedAt: input.observedAt,
+    };
+
+    applyRuntimeStateWithTrainOccupations(station, session);
+    bumpRevision(station);
+    await saveStation(station);
+    return { applied: true, station };
+  },
+
   async ensureStation(
     sessionId: string,
     stationId: string,
@@ -1593,6 +1835,7 @@ export const stationService = {
 
     const station = createStationDocument(sessionId, stationId, layoutOverride);
     await stationRepository.create(station);
+    void notifyRuntimeInterpreter(sessionId);
     return station;
   },
 
@@ -1710,7 +1953,7 @@ export const stationService = {
     };
     session.runtime.trains[train.id] = train;
     session.updatedAt = createdAt;
-    await sessionRepository.save(session);
+    await saveSession(session);
 
     applyRuntimeState(station);
     applySessionTrainOccupations(station, session);
@@ -1867,7 +2110,7 @@ export const stationService = {
     train.movement = movement;
     train.updatedAt = nowIso();
     session.updatedAt = nowIso();
-    await sessionRepository.save(session);
+    await saveSession(session);
     await saveTrainStationSnapshots(session, stations, affectedStationIds);
     scheduleTrainMovement(sessionId, train);
     return train;
@@ -1900,7 +2143,7 @@ export const stationService = {
     }
     delete session.runtime.trains[trainId];
     session.updatedAt = nowIso();
-    await sessionRepository.save(session);
+    await saveSession(session);
 
     const stationList = await stationRepository.listBySessionId(sessionId);
     const stations = new Map(
@@ -1949,7 +2192,7 @@ export const stationService = {
     };
     train.updatedAt = nowIso();
     session.updatedAt = nowIso();
-    await sessionRepository.save(session);
+    await saveSession(session);
     return train;
   },
 
@@ -2048,7 +2291,7 @@ export const stationService = {
     applyRuntimeState(stationA);
     applyRuntimeState(stationB);
 
-    await sessionRepository.save(session);
+    await saveSession(session);
     bumpRevision(stationA);
     bumpRevision(stationB);
     await saveStation(stationA);
@@ -2136,7 +2379,7 @@ export const stationService = {
         updatedAt: nowIso(),
       };
       session.updatedAt = nowIso();
-      await sessionRepository.save(session);
+      await saveSession(session);
     }
     bumpRevision(localStation);
     bumpRevision(remoteStation);

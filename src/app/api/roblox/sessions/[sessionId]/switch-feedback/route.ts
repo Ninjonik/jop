@@ -1,0 +1,23 @@
+import { jsonErrorResponse, parseJsonRequest } from '@/lib/server/http';
+import { assertRobloxRequestAuthorized } from '@/lib/server/roblox/roblox-auth';
+import { stationService } from '@/lib/server/services/station-service';
+import { robloxSwitchFeedbackSchema, sessionIdSchema } from '@/lib/station/domain';
+
+export const runtime = 'nodejs';
+
+interface SwitchFeedbackRouteProps {
+  params: Promise<{ sessionId: string }>;
+}
+
+export async function POST(request: Request, { params }: SwitchFeedbackRouteProps) {
+  try {
+    assertRobloxRequestAuthorized(request);
+    const { sessionId } = await params;
+    const parsedSessionId = sessionIdSchema.parse(sessionId);
+    const body = await parseJsonRequest(request, robloxSwitchFeedbackSchema);
+    const result = await stationService.applyRobloxSwitchFeedback(parsedSessionId, body);
+    return Response.json({ applied: result.applied });
+  } catch (error) {
+    return jsonErrorResponse(error);
+  }
+}

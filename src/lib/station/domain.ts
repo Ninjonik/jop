@@ -8,20 +8,33 @@ import { getDefaultTextValues, getInitialGroupSelections } from './tile-state';
 export type SessionStatus = 'active' | 'closed';
 export type PendingActionStatus = 'queued' | 'running' | 'completed' | 'failed' | 'cancelled';
 export type ActionLogStatus = Extract<PendingActionStatus, 'completed' | 'failed' | 'cancelled'>;
+export type RuntimeInterpreter =
+  { kind: 'mock' } | { kind: 'roblox'; placeId: string; serverId: string };
 
 export type SessionDocument = {
   _id: string;
   createdAt: string;
   updatedAt: string;
   status: SessionStatus;
-  mockMode: true;
+  mockMode: boolean;
+  interpreter: RuntimeInterpreter;
   topology: {
     lineblockLinks: Record<string, SessionLineblockLink>;
   };
   runtime: {
     trains: Record<string, MockTrain>;
     lineblocks: Record<string, SessionLineblockRuntimeState>;
+    physicalOccupations: Record<string, PhysicalOccupation>;
   };
+};
+
+export type PhysicalOccupation = {
+  stationId: string;
+  pieceId: string;
+  traversalState: string | null;
+  occupied: boolean;
+  eventId: string;
+  observedAt: string;
 };
 
 export type SessionLineblockEndpoint = {
@@ -240,6 +253,34 @@ export type SessionSchemaDocument = {
   }>;
 };
 
+export type PlaceTemplateDocument = {
+  _id: string;
+  placeId: string;
+  schema: SessionSchemaDocument;
+  revision: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type RobloxPhysicalPieceState = {
+  type: string;
+  groups: PieceRecord['state']['groups'];
+  texts: PieceRecord['state']['texts'];
+  switchAlignment: PhysicalSwitchAlignment | null;
+};
+
+export type RobloxPhysicalSnapshot = {
+  protocolVersion: 1;
+  sessionId: string;
+  placeId: string;
+  generatedAt: string;
+  stations: Array<{
+    stationId: string;
+    revision: number;
+    pieces: Record<string, RobloxPhysicalPieceState>;
+  }>;
+};
+
 export type StationActionLogDocument = {
   _id: string;
   sessionId: string;
@@ -265,7 +306,7 @@ export type StationCommand<TPayload> = {
   type: string;
   issuedAt: string;
   actor: {
-    type: 'user' | 'mock-roblox';
+    type: 'user' | 'mock-roblox' | 'roblox';
     id: string;
   };
   payload: TPayload;
@@ -319,6 +360,11 @@ export const stationIdSchema = z
   .min(1)
   .max(64)
   .regex(/^[a-zA-Z0-9:_-]+$/);
+
+export const robloxPlaceIdSchema = z
+  .string()
+  .trim()
+  .regex(/^\d{1,20}$/);
 
 export const pendingActionSchema = z.object({
   id: z.string(),
@@ -443,7 +489,17 @@ export const sessionDocumentSchema = z.object({
   createdAt: z.string(),
   updatedAt: z.string(),
   status: z.enum(['active', 'closed']),
-  mockMode: z.literal(true),
+  mockMode: z.boolean().default(true),
+  interpreter: z
+    .discriminatedUnion('kind', [
+      z.object({ kind: z.literal('mock') }),
+      z.object({
+        kind: z.literal('roblox'),
+        placeId: robloxPlaceIdSchema,
+        serverId: sessionIdSchema,
+      }),
+    ])
+    .default({ kind: 'mock' }),
   topology: z.object({
     lineblockLinks: z.record(
       z.string(),
@@ -509,6 +565,19 @@ export const sessionDocumentSchema = z.object({
         updatedAt: z.string(),
       }),
     ),
+    physicalOccupations: z
+      .record(
+        z.string(),
+        z.object({
+          stationId: stationIdSchema,
+          pieceId: z.string().trim().min(1),
+          traversalState: z.string().trim().min(1).nullable(),
+          occupied: z.boolean(),
+          eventId: z.string().trim().min(1),
+          observedAt: z.string(),
+        }),
+      )
+      .default({}),
   }),
 });
 
@@ -566,6 +635,30 @@ export const sessionSchemaDocumentSchema = z.object({
       defaultFlow: z.enum(['neutral', 'a-receiving', 'b-receiving']).default('neutral'),
     }),
   ),
+});
+
+export const robloxSessionRegistrationSchema = z.object({
+  sessionId: sessionIdSchema,
+  placeId: robloxPlaceIdSchema,
+  serverId: sessionIdSchema,
+});
+
+export const robloxOccupationEventSchema = z.object({
+  eventId: z.string().trim().min(1).max(128),
+  stationId: stationIdSchema,
+  pieceId: z.string().trim().min(1).max(128),
+  traversalState: z.string().trim().min(1).max(128).nullable().optional(),
+  occupied: z.boolean(),
+  observedAt: z.string(),
+});
+
+export const robloxSwitchFeedbackSchema = z.object({
+  eventId: z.string().trim().min(1).max(128),
+  stationId: stationIdSchema,
+  pieceId: z.string().trim().min(1).max(128),
+  controlSlot: z.enum(['main', 'upper', 'lower']),
+  position: z.enum(['left', 'right']),
+  observedAt: z.string(),
 });
 
 export const switchSetPositionCommandSchema = z.object({

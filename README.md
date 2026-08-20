@@ -20,6 +20,8 @@ Current focus:
   Runtime station view backed by MongoDB change streams and Socket.IO WebSocket snapshots.
 - `/mock`
   Mock session simulator for creating stations, importing station JSON, and wiring inter-station lineblock links.
+- `/map`
+  Session topology editor and Roblox PlaceId template publisher.
 - `/test/bounds`
   Tile catalog inspection and rendering/state coverage page.
 
@@ -50,6 +52,10 @@ Required environment variables:
 ```env
 MONGODB_URI=...
 MONGODB_DB_NAME=jop
+ROBLOX_UNIVERSE_ID=...
+ROBLOX_OPEN_CLOUD_API_KEY=...
+ROBLOX_INBOUND_SECRET=...
+ROBLOX_MESSAGING_TOPIC=JOPRuntime
 ```
 
 Run the dev server:
@@ -103,6 +109,14 @@ Mock mode:
 - can add multiple stations into one session
 - can import station JSON files
 - can define which lineblock piece in one station links to which lineblock piece in another
+
+Roblox mode:
+
+- `/map` saves the current session schema as a reusable template for a PlaceId
+- each Roblox `game.JobId` registers as a new runtime session
+- MongoDB remains canonical; Open Cloud messages only invalidate Roblox's cached projection
+- Roblox fetches full physical state over authenticated HTTPS and posts sensor feedback back over HTTPS
+- the scripts to copy into ServerScriptService live in `roblox/`
 
 ## Important Files
 

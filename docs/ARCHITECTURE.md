@@ -633,7 +633,36 @@ For backend state changes:
 - Do not store trains in one station document; train occupancy can span stations.
 - Do not use unordered route reservations as a train movement path.
 
-## 20. Short Summary
+## 20. Roblox Runtime Adapter
+
+Mock and Roblox runtime integrations implement the same interpreter boundary. Domain services persist
+canonical session/station state and emit a `session:changed` invalidation only after the write. The mock
+interpreter records that event for inspection. The Roblox interpreter publishes the same small event to
+the configured Open Cloud MessagingService topic.
+
+MessagingService is not a state store and its 1 KiB messages are best-effort. A matching Roblox server
+filters notifications by `game.JobId` (the JOP `sessionId`) and fetches a complete physical-state
+projection over authenticated HTTPS. Registration returns the initial projection, and periodic fetching
+repairs missed notifications.
+
+`/map` can save a complete `SessionSchemaDocument` to `roblox_place_templates`, keyed by Roblox
+`PlaceId`. On registration, a new JobId session is instantiated from that template. Tile links in Roblox
+use the `JOPPieceLinks` JSON attribute and contain `{ stationId, pieceId }` pairs, so one Instance can
+represent multiple JOP tiles without relying on globally unique piece IDs.
+
+Roblox occupation events persist in `SessionDocument.runtime.physicalOccupations`. An optional
+`traversalState` allows independently occupied crossover/switch paths. Both mock train sensors and
+physical occupations feed the same server-side station visual projection and availability rules.
+
+Relevant files:
+
+- `src/lib/server/roblox/runtime-interpreter.ts`
+- `src/lib/server/roblox/roblox-open-cloud-port.ts`
+- `src/app/api/roblox/*`
+- `src/lib/server/repositories/place-template-repository.ts`
+- `roblox/ServerScriptService/JopBridge/*`
+
+## 21. Short Summary
 
 If you only remember five things, remember these:
 
