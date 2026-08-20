@@ -8,6 +8,7 @@ import type {
   MockTrain,
   PendingAction,
   RouteInteractCommand,
+  RuntimeRouteType,
   RuntimeRouteSelection,
   SessionDocument,
   SessionLineblockLink,
@@ -178,6 +179,39 @@ async function saveStation(station: StationDocument) {
   await stationRepository.save(station);
 }
 
+function normalizeRouteSelection(
+  selection: StationDocument['runtime']['routeSelection'],
+): StationDocument['runtime']['routeSelection'] {
+  if (!selection) {
+    return null;
+  }
+
+  return {
+    ...selection,
+    sourceControl:
+      selection.sourceControl ??
+      (selection.sourcePieceType === 'departureButton' && selection.routeType === 'shunt'
+        ? 'shunt'
+        : 'normal'),
+  };
+}
+
+function normalizeRouteControl(
+  routeType: RuntimeRouteType,
+  pieceType: string | undefined,
+  control: 'normal' | 'shunt' | undefined,
+) {
+  if (control) {
+    return control;
+  }
+
+  if (pieceType === 'departureButton') {
+    return routeType === 'shunt' ? 'shunt' : 'normal';
+  }
+
+  return undefined;
+}
+
 function ensureStationRuntimeState(station: StationDocument) {
   station.layout = normalizeStationLayout(station.layout);
 
@@ -191,7 +225,7 @@ function ensureStationRuntimeState(station: StationDocument) {
     pendingActions: existingRuntime.pendingActions ?? {},
     lineblockPremainLinks: getLineblockPremainLinksFromLayout(station.layout),
     premainSignalStates: existingRuntime.premainSignalStates ?? {},
-    routeSelection: existingRuntime.routeSelection ?? null,
+    routeSelection: normalizeRouteSelection(existingRuntime.routeSelection ?? null),
     activeTrainRoutes: existingRuntime.activeTrainRoutes ?? {},
     switchAlignments: existingRuntime.switchAlignments ?? {},
   };
@@ -206,6 +240,16 @@ function ensureStationRuntimeState(station: StationDocument) {
   Object.values(station.runtime.activeTrainRoutes).forEach((route) => {
     route.path ??= [];
     route.passedSignalPieceIds ??= [];
+    route.sourceControl = normalizeRouteControl(
+      route.routeType,
+      station.layout.pieces[route.sourcePieceId]?.type,
+      route.sourceControl,
+    );
+    route.targetControl = normalizeRouteControl(
+      route.routeType,
+      station.layout.pieces[route.targetPieceId]?.type,
+      route.targetControl,
+    );
   });
 
   syncPremainAvailability(station);
@@ -265,7 +309,11 @@ function applyRouteSelectionVisualState(
 
   if (piece.state.groups.button) {
     piece.state.groups.button = {
-      state: selection.routeType === 'shunt' ? 'shunt' : 'departure',
+      state: getButtonVisualState(
+        piece.type,
+        selection.routeType,
+        selection.sourcePieceType === 'departureButton' ? selection.sourceControl : null,
+      ),
       variant: 'blinking',
     };
   }
@@ -288,12 +336,36 @@ function applyPendingRouteVisualState(station: StationDocument, action: PendingA
     }
 
     if (piece.state.groups.button) {
+      const controlKey = pieceId === sourcePieceId ? 'sourceControl' : 'targetControl';
+      const explicitControl =
+        action.payload[controlKey] === 'normal' || action.payload[controlKey] === 'shunt'
+          ? action.payload[controlKey]
+          : null;
       piece.state.groups.button = {
-        state: action.payload.routeType === 'shunt' ? 'shunt' : 'departure',
+        state: getButtonVisualState(
+          piece.type,
+          action.payload.routeType === 'shunt' ? 'shunt' : 'normal',
+          explicitControl,
+        ),
         variant: 'blinking',
       };
     }
   });
+}
+
+function getButtonVisualState(
+  pieceType: string,
+  routeType: RuntimeRouteType,
+  explicitControl: 'normal' | 'shunt' | null,
+) {
+  if (pieceType === 'departureButton') {
+    if (explicitControl) {
+      return explicitControl === 'shunt' ? 'shunt' : 'departure';
+    }
+    return routeType === 'shunt' ? 'shunt' : 'departure';
+  }
+
+  return routeType === 'shunt' ? 'shunt' : 'departure';
 }
 
 function applyPendingSwitchVisualState(station: StationDocument, action: PendingAction) {
@@ -796,6 +868,9 @@ function createPendingAction(command: SwitchSetPositionCommand): PendingAction {
   };
 }
 
+const ROUTE_BUILD_DELAY_MS = 2000;
+const ROUTE_CANCEL_DELAY_MS = 5000;
+
 function traversalUsesSwitchControl(
   pieceType: string,
   traversableState: string,
@@ -806,6 +881,24 @@ function traversalUsesSwitchControl(
   }
 
   return getRequiredSwitchMotorPositions(pieceType, traversableState)[slot] !== undefined;
+}
+
+function occupationUsesSwitchControl(
+  pieceType: string,
+  occupationState: string,
+  slot: SwitchControlSlot,
+) {
+  return traversalUsesSwitchControl(pieceType, occupationState, slot);
+}
+
+function getActiveRouteFromSource(
+  station: StationDocument,
+  sourcePieceId: string,
+  routeType: RuntimeRouteType,
+) {
+  return Object.values(station.runtime.activeTrainRoutes).find(
+    (route) => route.sourcePieceId === sourcePieceId && route.routeType === routeType,
+  );
 }
 
 function assertSwitchControlAvailable(
@@ -819,18 +912,20 @@ function assertSwitchControlAvailable(
   }
 
   const activeRouteBlocks = Object.values(station.runtime.activeTrainRoutes).some((route) => {
-    const step = route.path.find((candidate) => candidate.pieceId === control.switchPieceId);
-    if (!step) {
-      return false;
+    const reservedOccupation = route.reservedOccupations.find(
+      (occupation) =>
+        occupation.pieceId === control.switchPieceId &&
+        occupationUsesSwitchControl(switchPiece.type, occupation.state, control.slot),
+    );
+    if (reservedOccupation) {
+      return true;
     }
 
-    const hasOccupationSensor = Boolean(switchPiece.state.groups.occupation);
-    const remainsReserved = route.reservedOccupations.some(
-      (occupation) => occupation.pieceId === control.switchPieceId,
-    );
-    return (
-      (!hasOccupationSensor || remainsReserved) &&
-      traversalUsesSwitchControl(switchPiece.type, step.traversalState, control.slot)
+    const step = route.path.find((candidate) => candidate.pieceId === control.switchPieceId);
+    return Boolean(
+      step &&
+        !switchPiece.state.groups.occupation &&
+        traversalUsesSwitchControl(switchPiece.type, step.traversalState, control.slot),
     );
   });
 
@@ -1041,6 +1136,14 @@ async function completeRouteAction(actionId: string, sessionId: string, stationI
         direction: action.payload.direction as ActiveTrainRoute['direction'],
         sourcePieceId: action.payload.sourcePieceId as string,
         targetPieceId: action.payload.targetPieceId as string,
+        sourceControl:
+          action.payload.sourceControl === 'normal' || action.payload.sourceControl === 'shunt'
+            ? action.payload.sourceControl
+            : undefined,
+        targetControl:
+          action.payload.targetControl === 'normal' || action.payload.targetControl === 'shunt'
+            ? action.payload.targetControl
+            : undefined,
         reservedOccupations: action.payload
           .reservedOccupations as ActiveTrainRoute['reservedOccupations'],
         signalPieceIds: action.payload.signalPieceIds as string[],
@@ -1915,7 +2018,7 @@ export const stationService = {
 
     if (releasing) {
       button.state.groups.switch = {
-        state: 'middleSet',
+        state: 'default',
         variant: 'normal',
       };
       action.status = 'completed';
@@ -1971,10 +2074,7 @@ export const stationService = {
 
     const mode = command.payload.button === 'right' ? 'cancel' : 'build';
     const selectedRoute = station.runtime.routeSelection;
-    const isUniversalShuntEndpoint =
-      piece.type === 'shuntButton' || piece.type === 'shuntButtonNoOcp';
-    const routeType =
-      selectedRoute && isUniversalShuntEndpoint ? selectedRoute.routeType : command.payload.control;
+    const routeType = selectedRoute?.routeType ?? command.payload.control;
     const shuntEndpointTypes = new Set([
       'departureButton',
       'shuntButton',
@@ -2001,12 +2101,51 @@ export const stationService = {
 
     const sourcePieceType = piece.type as RuntimeRouteSelection['sourcePieceType'];
 
+    if (!station.runtime.routeSelection && mode === 'cancel') {
+      const activeRoute = getActiveRouteFromSource(station, command.payload.pieceId, routeType);
+      if (!activeRoute) {
+        throw new Error('No active route starts from the selected endpoint.');
+      }
+
+      const action: PendingAction = {
+        id: command.commandId,
+        type: routeType === 'shunt' ? 'route:cancel-shunt' : 'route:cancel-normal',
+        status: 'queued',
+        sessionId: command.sessionId,
+        stationId: command.stationId,
+        issuedAt: command.issuedAt,
+        startedAt: null,
+        dueAt: new Date(Date.now() + ROUTE_CANCEL_DELAY_MS).toISOString(),
+        finishedAt: null,
+        payload: {
+          routeType,
+          routeId: activeRoute.id,
+          sourcePieceId: activeRoute.sourcePieceId,
+          targetPieceId: activeRoute.targetPieceId,
+          sourceControl: activeRoute.sourceControl,
+          targetControl: activeRoute.targetControl,
+        },
+      };
+
+      station.runtime.pendingActions[action.id] = action;
+      applyRuntimeStateWithTrainOccupations(station, session);
+      bumpRevision(station);
+      await saveStation(station);
+
+      setTimeout(() => {
+        void completeRouteAction(action.id, command.sessionId, command.stationId);
+      }, ROUTE_CANCEL_DELAY_MS);
+
+      return { kind: 'cancel-queued' as const, action };
+    }
+
     if (!station.runtime.routeSelection) {
       station.runtime.routeSelection = {
         mode,
         routeType,
         sourcePieceId: command.payload.pieceId,
         sourcePieceType,
+        sourceControl: command.payload.control,
         selectedAt: command.issuedAt,
       };
       applyRuntimeStateWithTrainOccupations(station, session);
@@ -2062,12 +2201,14 @@ export const stationService = {
         stationId: command.stationId,
         issuedAt: command.issuedAt,
         startedAt: null,
-        dueAt: new Date(Date.now() + 2000).toISOString(),
+        dueAt: new Date(Date.now() + ROUTE_BUILD_DELAY_MS).toISOString(),
         finishedAt: null,
         payload: {
           routeType: selection.routeType,
           sourcePieceId: selection.sourcePieceId,
           targetPieceId: command.payload.pieceId,
+          sourceControl: selection.sourceControl,
+          targetControl: command.payload.control,
           routeClass: builtRoute.routeClass,
           direction: builtRoute.direction,
           reservedOccupations: builtRoute.reservedOccupations,
@@ -2085,7 +2226,7 @@ export const stationService = {
 
       setTimeout(() => {
         void completeRouteAction(action.id, command.sessionId, command.stationId);
-      }, 2000);
+      }, ROUTE_BUILD_DELAY_MS);
 
       return { kind: 'build-queued' as const, action };
     }
@@ -2108,13 +2249,15 @@ export const stationService = {
       stationId: command.stationId,
       issuedAt: command.issuedAt,
       startedAt: null,
-      dueAt: new Date(Date.now() + 2000).toISOString(),
+      dueAt: new Date(Date.now() + ROUTE_CANCEL_DELAY_MS).toISOString(),
       finishedAt: null,
       payload: {
         routeType: selection.routeType,
         routeId: activeRoute.id,
         sourcePieceId: selection.sourcePieceId,
         targetPieceId: command.payload.pieceId,
+        sourceControl: activeRoute.sourceControl ?? selection.sourceControl,
+        targetControl: activeRoute.targetControl ?? command.payload.control,
       },
     };
 
@@ -2126,7 +2269,7 @@ export const stationService = {
 
     setTimeout(() => {
       void completeRouteAction(action.id, command.sessionId, command.stationId);
-    }, 2000);
+    }, ROUTE_CANCEL_DELAY_MS);
 
     return { kind: 'cancel-queued' as const, action };
   },
@@ -2152,7 +2295,7 @@ export const stationService = {
     }
 
     button.state.groups.switch = {
-      state: command.payload.position,
+      state: command.payload.position === 'middleSet' ? 'default' : command.payload.position,
       variant: 'normal',
     };
 

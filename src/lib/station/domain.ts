@@ -147,6 +147,7 @@ export type RuntimeRouteSelection = {
   routeType: RuntimeRouteType;
   sourcePieceId: string;
   sourcePieceType: RuntimeRouteEndpointType;
+  sourceControl: 'normal' | 'shunt';
   selectedAt: string;
 };
 
@@ -178,6 +179,8 @@ export type ActiveTrainRoute = {
   direction: RuntimeRouteDirection;
   sourcePieceId: string;
   targetPieceId: string;
+  sourceControl?: 'normal' | 'shunt';
+  targetControl?: 'normal' | 'shunt';
   reservedOccupations: ActiveTrainRouteOccupation[];
   signalPieceIds: string[];
   targetPlatformDepartureSignalPieceId: string | null;
@@ -366,6 +369,7 @@ export const stationDocumentSchema = z.object({
           'shuntButtonNoOcp',
           'shuntSignalButtonBuffer',
         ]),
+        sourceControl: z.enum(['normal', 'shunt']),
         selectedAt: z.string(),
       })
       .nullable(),
@@ -378,6 +382,8 @@ export const stationDocumentSchema = z.object({
         direction: z.enum(['left-to-right', 'right-to-left']),
         sourcePieceId: z.string().trim().min(1),
         targetPieceId: z.string().trim().min(1),
+        sourceControl: z.enum(['normal', 'shunt']).optional(),
+        targetControl: z.enum(['normal', 'shunt']).optional(),
         reservedOccupations: z.array(
           z.object({
             pieceId: z.string().trim().min(1),
