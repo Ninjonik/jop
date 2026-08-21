@@ -105,7 +105,7 @@ export const buttonTiles: TileCatalog = {
     },
     groups: {
       button: {
-        states: ['default', 'shunt'],
+        states: ['default', 'departure', 'shunt'],
         defaultState: 'default',
       },
     },
@@ -127,7 +127,7 @@ export const buttonTiles: TileCatalog = {
     },
     groups: {
       button: {
-        states: ['default', 'shunt'],
+        states: ['default', 'departure', 'shunt'],
         defaultState: 'default',
       },
       occupation: {

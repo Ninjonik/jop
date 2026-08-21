@@ -612,7 +612,97 @@ function getSpawnSensorPositions(
   return sensors;
 }
 
-function getRouteSteps(station: StationDocument, route: ActiveTrainRoute): TrainMovementStep[] {
+function hasOppositeSideStoppingSignal(station: StationDocument, route: ActiveTrainRoute) {
+  const targetPiece = station.layout.pieces[route.targetPieceId];
+  if (
+    !targetPiece ||
+    (targetPiece.type !== 'shuntButton' &&
+      targetPiece.type !== 'shuntButtonNoOcp' &&
+      targetPiece.type !== 'shuntSignalButtonBuffer')
+  ) {
+    return false;
+  }
+
+  const targetAnchor = getPieceAnchor(station.layout, route.targetPieceId);
+  const directionSign = route.direction === 'left-to-right' ? 1 : -1;
+  const signalCellX = targetAnchor.x - directionSign;
+  if (signalCellX < 0 || signalCellX >= station.layout.width) {
+    return false;
+  }
+
+  const ref = parseCellRef(station.layout.map[targetAnchor.y]?.[signalCellX] ?? '');
+  const piece = station.layout.pieces[ref.pieceId];
+  return (
+    piece?.type === 'departureSignal' ||
+    piece?.type === 'departureSignalNoOcp' ||
+    piece?.type === 'shuntSignal' ||
+    piece?.type === 'shuntSignalNoOcp'
+  );
+}
+
+function appendShuntButtonTailClearanceSteps(
+  station: StationDocument,
+  route: ActiveTrainRoute,
+  steps: TrainMovementStep[],
+  trainLength: number,
+) {
+  if (!hasOppositeSideStoppingSignal(station, route) || trainLength <= 1) {
+    return steps;
+  }
+
+  const lastStep = steps.at(-1);
+  if (!lastStep) {
+    return steps;
+  }
+
+  const directionSign = route.direction === 'left-to-right' ? 1 : -1;
+  const anchor = getPieceAnchor(station.layout, lastStep.pieceId);
+  const extraSteps: TrainMovementStep[] = [];
+  const seen = new Set(steps.map((step) => step.pieceId));
+
+  for (
+    let x = anchor.x + directionSign;
+    x >= 0 && x < station.layout.width && extraSteps.length < trainLength - 1;
+    x += directionSign
+  ) {
+    const cellRef = station.layout.map[anchor.y]?.[x];
+    if (!cellRef) {
+      break;
+    }
+
+    const { pieceId } = parseCellRef(cellRef);
+    if (seen.has(pieceId)) {
+      continue;
+    }
+    seen.add(pieceId);
+
+    const piece = station.layout.pieces[pieceId];
+    if (!piece || piece.type === 'filler') {
+      break;
+    }
+    if (!piece.state.groups.occupation) {
+      continue;
+    }
+
+    extraSteps.push({
+      stationId: station.stationId,
+      routeId: route.id,
+      routeStepIndex: route.path.length + extraSteps.length,
+      pieceId,
+      traversalState: route.path.at(-1)?.traversalState ?? '0',
+      occupationState: getSpawnOccupationState(station, pieceId, anchor.y),
+      signalPieceId: null,
+    });
+  }
+
+  return [...steps, ...extraSteps];
+}
+
+function getRouteSteps(
+  station: StationDocument,
+  route: ActiveTrainRoute,
+  trainLength = 1,
+): TrainMovementStep[] {
   const steps = route.path.map((step, routeStepIndex) => ({
     stationId: station.stationId,
     routeId: route.id,
@@ -625,8 +715,10 @@ function getRouteSteps(station: StationDocument, route: ActiveTrainRoute): Train
 
   const lastStep = steps.at(-1);
   const lastPieceType = lastStep ? station.layout.pieces[lastStep.pieceId]?.type : null;
+  const retainTargetButtonStep = hasOppositeSideStoppingSignal(station, route);
   if (
     lastStep &&
+    !retainTargetButtonStep &&
     (lastPieceType === 'departureButton' ||
       lastPieceType === 'shuntButton' ||
       lastPieceType === 'shuntButtonNoOcp' ||
@@ -635,7 +727,7 @@ function getRouteSteps(station: StationDocument, route: ActiveTrainRoute): Train
     steps.pop();
   }
 
-  return steps;
+  return appendShuntButtonTailClearanceSteps(station, route, steps, trainLength);
 }
 
 function findNextLocalRoute(station: StationDocument, train: MockTrain) {
@@ -646,7 +738,7 @@ function findNextLocalRoute(station: StationDocument, train: MockTrain) {
   if (train.location.routeId) {
     const currentRoute = station.runtime.activeTrainRoutes[train.location.routeId];
     if (currentRoute && train.location.routeStepIndex !== null) {
-      const remainingSteps = getRouteSteps(station, currentRoute).slice(
+      const remainingSteps = getRouteSteps(station, currentRoute, train.length).slice(
         train.location.routeStepIndex + 1,
       );
       if (remainingSteps.length > 0) {
@@ -666,7 +758,7 @@ function findNextLocalRoute(station: StationDocument, train: MockTrain) {
       continue;
     }
 
-    const remainingSteps = getRouteSteps(station, route).filter(
+    const remainingSteps = getRouteSteps(station, route, train.length).filter(
       (step) => step.routeStepIndex > currentStepIndex,
     );
     if (remainingSteps.length > 0) {
@@ -694,7 +786,7 @@ function findNextLocalRoute(station: StationDocument, train: MockTrain) {
 
   const candidate = candidates[0];
   return candidate
-    ? { route: candidate.route, steps: getRouteSteps(station, candidate.route) }
+    ? { route: candidate.route, steps: getRouteSteps(station, candidate.route, train.length) }
     : null;
 }
 
@@ -2069,7 +2161,7 @@ export const stationService = {
 
       routeResult = {
         route: receivingRoute,
-        steps: getRouteSteps(receivingStation, receivingRoute),
+        steps: getRouteSteps(receivingStation, receivingRoute, train.length),
       };
       steps = routeResult.steps;
       lineblockTransit = {
