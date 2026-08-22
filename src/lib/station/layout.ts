@@ -21,6 +21,13 @@ const SWITCH_TILE_KEYS = new Set([
 const SWITCH_BUTTON_TILE_KEYS = new Set(['switchButton']);
 const LINEBLOCK_TILE_KEYS = new Set(['lineblock']);
 const PREMAIN_SIGNAL_TILE_KEYS = new Set(['premainSignal', 'premainSignalNoOcp']);
+const PRIVOLAVACIA_COUNTER_TILE_KEYS = new Set(['signButtonSealedCounter']);
+const PRIVOLAVACIA_SIGNAL_TILE_KEYS = new Set([
+  'entrySignal',
+  'entrySignalNoOcp',
+  'departureSignal',
+  'departureSignalNoOcp',
+]);
 
 export type GridCellRef = `${string}.${number}`;
 
@@ -362,12 +369,22 @@ export function isPremainSignalPieceType(tileKey: string) {
   return PREMAIN_SIGNAL_TILE_KEYS.has(tileKey);
 }
 
+export function isPrivolavaciaCounterPieceType(tileKey: string) {
+  return PRIVOLAVACIA_COUNTER_TILE_KEYS.has(tileKey);
+}
+
+export function isPrivolavaciaSignalPieceType(tileKey: string) {
+  return PRIVOLAVACIA_SIGNAL_TILE_KEYS.has(tileKey);
+}
+
 export function canPiecesConnect(sourceType: string, targetType: string) {
   return (
     (isSwitchPieceType(sourceType) && isSwitchButtonPieceType(targetType)) ||
     (isSwitchButtonPieceType(sourceType) && isSwitchPieceType(targetType)) ||
     (isLineblockPieceType(sourceType) && isPremainSignalPieceType(targetType)) ||
-    (isPremainSignalPieceType(sourceType) && isLineblockPieceType(targetType))
+    (isPremainSignalPieceType(sourceType) && isLineblockPieceType(targetType)) ||
+    (isPrivolavaciaCounterPieceType(sourceType) && isPrivolavaciaSignalPieceType(targetType)) ||
+    (isPrivolavaciaSignalPieceType(sourceType) && isPrivolavaciaCounterPieceType(targetType))
   );
 }
 
@@ -401,7 +418,15 @@ export function getConnectionEndpointKey(layout: StationLayout, pieceId: string,
     return pieceId;
   }
 
-  if (isLineblockPieceType(piece.type) || isPremainSignalPieceType(piece.type)) {
+  if (isPrivolavaciaCounterPieceType(piece.type)) {
+    return pieceId;
+  }
+
+  if (
+    isLineblockPieceType(piece.type) ||
+    isPremainSignalPieceType(piece.type) ||
+    isPrivolavaciaSignalPieceType(piece.type)
+  ) {
     return pieceId;
   }
 
@@ -443,7 +468,20 @@ export function getAllConnectionEndpointKeysForPiece(layout: StationLayout, piec
     return [pieceId];
   }
 
-  if (isLineblockPieceType(piece.type) || isPremainSignalPieceType(piece.type)) {
+  if (isPrivolavaciaCounterPieceType(piece.type)) {
+    return [
+      pieceId,
+      ...Object.keys(layout.connections).filter((endpointKey) =>
+        endpointKey.startsWith(`${pieceId}:pn:`),
+      ),
+    ];
+  }
+
+  if (
+    isLineblockPieceType(piece.type) ||
+    isPremainSignalPieceType(piece.type) ||
+    isPrivolavaciaSignalPieceType(piece.type)
+  ) {
     return [pieceId];
   }
 
@@ -487,6 +525,64 @@ export function getLineblockPremainLinksFromLayout(layout: StationLayout) {
         lineblockPieceId: sourcePieceId,
         premainSignalPieceId: targetPieceId,
       };
+    }
+  });
+
+  return links;
+}
+
+export function getPrivolavaciaConnectionKey(sealedCounterPieceId: string, signalPieceId: string) {
+  return `${sealedCounterPieceId}:pn:${signalPieceId}`;
+}
+
+export function getConnectedPieceIdsForEndpointKey(layout: StationLayout, endpointKey: string | null) {
+  if (!endpointKey) {
+    return [];
+  }
+
+  if (layout.connections[endpointKey]) {
+    return [getConnectionPieceId(layout.connections[endpointKey])];
+  }
+
+  const pieceId = getConnectionPieceId(endpointKey);
+  const piece = layout.pieces[pieceId];
+  if (!piece || !isPrivolavaciaCounterPieceType(piece.type)) {
+    return [];
+  }
+
+  return Object.entries(layout.connections)
+    .filter(([sourceEndpointKey, linkedEndpointKey]) => {
+      return (
+        sourceEndpointKey.startsWith(`${pieceId}:pn:`) &&
+        getConnectionPieceId(linkedEndpointKey) !== pieceId
+      );
+    })
+    .map(([, linkedEndpointKey]) => getConnectionPieceId(linkedEndpointKey))
+    .filter((connectedPieceId, index, allIds) => allIds.indexOf(connectedPieceId) === index);
+}
+
+export function getPrivolavaciaSignalLinksFromLayout(layout: StationLayout) {
+  const links: Record<string, string[]> = {};
+
+  Object.entries(layout.connections).forEach(([endpointKey, linkedEndpointKey]) => {
+    const sourcePieceId = getConnectionPieceId(endpointKey);
+    const targetPieceId = getConnectionPieceId(linkedEndpointKey);
+    const sourcePiece = layout.pieces[sourcePieceId];
+    const targetPiece = layout.pieces[targetPieceId];
+
+    if (
+      !sourcePiece ||
+      !targetPiece ||
+      !isPrivolavaciaCounterPieceType(sourcePiece.type) ||
+      !isPrivolavaciaSignalPieceType(targetPiece.type) ||
+      !endpointKey.startsWith(`${sourcePieceId}:pn:`)
+    ) {
+      return;
+    }
+
+    links[sourcePieceId] ??= [];
+    if (!links[sourcePieceId].includes(targetPieceId)) {
+      links[sourcePieceId].push(targetPieceId);
     }
   });
 

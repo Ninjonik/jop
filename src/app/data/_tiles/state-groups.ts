@@ -414,4 +414,26 @@ export const stateGroups: StateGroupRegistry = {
       },
     },
   },
+
+  seal: {
+    label: 'Seal',
+    defaultState: 'sealed',
+    defaultVariant: 'normal',
+    states: {
+      sealed: {
+        base: {
+          '--pn-seal-opacity': '1',
+          '--color-960000': '#960000',
+          '--color-pn-seal': '#424345',
+        },
+      },
+      unsealed: {
+        base: {
+          '--pn-seal-opacity': '0',
+          '--color-960000': 'transparent',
+          '--color-pn-seal': 'transparent',
+        },
+      },
+    },
+  },
 };

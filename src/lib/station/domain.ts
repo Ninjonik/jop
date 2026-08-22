@@ -232,6 +232,8 @@ export type StationDocument = {
     pendingActions: Record<string, PendingAction>;
     lineblockPremainLinks: Record<string, LineblockPremainLink>;
     premainSignalStates: Record<string, PremainRuntimeState>;
+    privolavaciaSelection: PrivolavaciaSelection | null;
+    activePrivolavaciaSignals: Record<string, ActivePrivolavaciaSignal>;
     routeSelection: RuntimeRouteSelection | null;
     activeTrainRoutes: Record<string, ActiveTrainRoute>;
     switchAlignments: Record<string, PhysicalSwitchAlignment>;
@@ -347,6 +349,26 @@ export type RouteInteractCommand = StationCommand<RouteInteractPayload> & {
   type: 'route:interact';
 };
 
+export type PrivolavaciaSelection = {
+  sealedCounterPieceId: string;
+  selectedAt: string;
+};
+
+export type ActivePrivolavaciaSignal = {
+  signalPieceId: string;
+  sealedCounterPieceId: string;
+  activatedAt: string;
+};
+
+export type PrivolavaciaInteractPayload = {
+  pieceId: string;
+  button: 'middle' | 'right';
+};
+
+export type PrivolavaciaInteractCommand = StationCommand<PrivolavaciaInteractPayload> & {
+  type: 'privolavacia:interact';
+};
+
 export const sessionIdSchema = z
   .string()
   .trim()
@@ -416,6 +438,23 @@ export const stationDocumentSchema = z.object({
         canBuildPath: z.boolean(),
       }),
     ),
+    privolavaciaSelection: z
+      .object({
+        sealedCounterPieceId: z.string().trim().min(1),
+        selectedAt: z.string(),
+      })
+      .nullable()
+      .default(null),
+    activePrivolavaciaSignals: z
+      .record(
+        z.string(),
+        z.object({
+          signalPieceId: z.string().trim().min(1),
+          sealedCounterPieceId: z.string().trim().min(1),
+          activatedAt: z.string(),
+        }),
+      )
+      .default({}),
     routeSelection: z
       .object({
         mode: z.enum(['build', 'cancel']),
@@ -717,6 +756,22 @@ export const routeInteractCommandSchema = z.object({
     pieceId: z.string().trim().min(1),
     button: z.enum(['left', 'right']),
     control: z.enum(['normal', 'shunt']),
+  }),
+});
+
+export const privolavaciaInteractCommandSchema = z.object({
+  commandId: z.string().trim().min(1),
+  sessionId: sessionIdSchema,
+  stationId: stationIdSchema,
+  type: z.literal('privolavacia:interact'),
+  issuedAt: z.string(),
+  actor: z.object({
+    type: z.enum(['user', 'mock-roblox']),
+    id: z.string().trim().min(1),
+  }),
+  payload: z.object({
+    pieceId: z.string().trim().min(1),
+    button: z.enum(['middle', 'right']),
   }),
 });
 

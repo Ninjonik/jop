@@ -7,6 +7,7 @@ import type {
   LineblockActionType,
   MockTrain,
   PendingAction,
+  PrivolavaciaInteractCommand,
   PlaceTemplateDocument,
   RobloxPhysicalSnapshot,
   RouteInteractCommand,
@@ -28,10 +29,15 @@ import {
 } from '@/lib/station/domain';
 import {
   createInitialStationLayout,
+  getPrivolavaciaSignalLinksFromLayout,
   getLineblockPremainLinksFromLayout,
   getPieceAnchor,
+  getPieceCells,
   isLineblockPieceType,
+  isPrivolavaciaCounterPieceType,
+  isPrivolavaciaSignalPieceType,
   parseCellRef,
+  transformPoint,
   placePieceAt,
 } from '@/lib/station/layout';
 import {
@@ -147,6 +153,8 @@ function createStationDocument(
       pendingActions: {},
       lineblockPremainLinks: {},
       premainSignalStates: {},
+      privolavaciaSelection: null,
+      activePrivolavaciaSignals: {},
       routeSelection: null,
       activeTrainRoutes: {},
       switchAlignments: {},
@@ -248,6 +256,8 @@ function ensureStationRuntimeState(station: StationDocument) {
     pendingActions: existingRuntime.pendingActions ?? {},
     lineblockPremainLinks: getLineblockPremainLinksFromLayout(station.layout),
     premainSignalStates: existingRuntime.premainSignalStates ?? {},
+    privolavaciaSelection: existingRuntime.privolavaciaSelection ?? null,
+    activePrivolavaciaSignals: existingRuntime.activePrivolavaciaSignals ?? {},
     routeSelection: normalizeRouteSelection(existingRuntime.routeSelection ?? null),
     activeTrainRoutes: existingRuntime.activeTrainRoutes ?? {},
     switchAlignments: existingRuntime.switchAlignments ?? {},
@@ -326,6 +336,8 @@ function syncPremainAvailability(station: StationDocument) {
       pendingActions: {},
       lineblockPremainLinks: getLineblockPremainLinksFromLayout(station.layout),
       premainSignalStates: {},
+      privolavaciaSelection: null,
+      activePrivolavaciaSignals: {},
       routeSelection: null,
       activeTrainRoutes: {},
       switchAlignments: {},
@@ -441,6 +453,113 @@ function applyPendingSwitchVisualState(station: StationDocument, action: Pending
   }
 }
 
+function formatPrivolavaciaCounterValue(value: number) {
+  return String(Math.max(0, Math.trunc(value))).padStart(6, '0').slice(-6);
+}
+
+function getPrivolavaciaCounterValue(piece: StationDocument['layout']['pieces'][string]) {
+  const digitKeys = ['digit6', 'digit5', 'digit4', 'digit3', 'digit2', 'digit1'] as const;
+  const digits = digitKeys.map((key) => piece.state.texts[key] ?? '0').join('');
+  const parsed = Number.parseInt(digits, 10);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function setPrivolavaciaCounterVisualState(
+  station: StationDocument,
+  sealedCounterPieceId: string,
+  active: boolean,
+  nextCounterValue?: number,
+) {
+  const piece = station.layout.pieces[sealedCounterPieceId];
+  if (!piece || !isPrivolavaciaCounterPieceType(piece.type)) {
+    return;
+  }
+
+  if (typeof nextCounterValue === 'number') {
+    const formatted = formatPrivolavaciaCounterValue(nextCounterValue);
+    ['digit6', 'digit5', 'digit4', 'digit3', 'digit2', 'digit1'].forEach((key, index) => {
+      piece.state.texts[key] = formatted[index];
+    });
+  }
+
+  if (piece.state.groups.seal) {
+    piece.state.groups.seal = {
+      state: active ? 'unsealed' : 'sealed',
+      variant: 'normal',
+    };
+  }
+}
+
+function applyPrivolavaciaVisualState(station: StationDocument) {
+  const activeCounterIds = new Set(
+    Object.values(station.runtime.activePrivolavaciaSignals).map((entry) => entry.sealedCounterPieceId),
+  );
+
+  Object.entries(station.layout.pieces).forEach(([pieceId, piece]) => {
+    if (!isPrivolavaciaCounterPieceType(piece.type)) {
+      return;
+    }
+    setPrivolavaciaCounterVisualState(station, pieceId, activeCounterIds.has(pieceId));
+  });
+
+  Object.values(station.runtime.activePrivolavaciaSignals).forEach((entry) => {
+    const signalPiece = station.layout.pieces[entry.signalPieceId];
+    if (signalPiece?.state.groups.signal) {
+      signalPiece.state.groups.signal = {
+        state: 'shunt',
+        variant: 'normal',
+      };
+    }
+
+    setPrivolavaciaCounterVisualState(station, entry.sealedCounterPieceId, true);
+  });
+}
+
+function getPrivolavaciaLinkedSignals(station: StationDocument, sealedCounterPieceId: string) {
+  return getPrivolavaciaSignalLinksFromLayout(station.layout)[sealedCounterPieceId] ?? [];
+}
+
+function cancelPrivolavaciaSignal(station: StationDocument, signalPieceId: string) {
+  delete station.runtime.activePrivolavaciaSignals[signalPieceId];
+  if (
+    station.runtime.privolavaciaSelection &&
+    !station.layout.pieces[station.runtime.privolavaciaSelection.sealedCounterPieceId]
+  ) {
+    station.runtime.privolavaciaSelection = null;
+  }
+}
+
+function activatePrivolavaciaSignal(
+  station: StationDocument,
+  sealedCounterPieceId: string,
+  signalPieceId: string,
+  activatedAt: string,
+) {
+  const sealedCounterPiece = station.layout.pieces[sealedCounterPieceId];
+  const signalPiece = station.layout.pieces[signalPieceId];
+  if (
+    !sealedCounterPiece ||
+    !signalPiece ||
+    !isPrivolavaciaCounterPieceType(sealedCounterPiece.type) ||
+    !isPrivolavaciaSignalPieceType(signalPiece.type)
+  ) {
+    throw new Error('The selected PN counter or signal was not found.');
+  }
+
+  const linkedSignalIds = getPrivolavaciaLinkedSignals(station, sealedCounterPieceId);
+  if (!linkedSignalIds.includes(signalPieceId)) {
+    throw new Error('The selected signal is not linked to this PN counter.');
+  }
+
+  const currentCounterValue = getPrivolavaciaCounterValue(sealedCounterPiece);
+  setPrivolavaciaCounterVisualState(station, sealedCounterPieceId, true, currentCounterValue + 1);
+  station.runtime.activePrivolavaciaSignals[signalPieceId] = {
+    signalPieceId,
+    sealedCounterPieceId,
+    activatedAt,
+  };
+}
+
 function applyRuntimeState(station: StationDocument) {
   applyActiveRouteVisualState(station, tiles);
 
@@ -461,6 +580,8 @@ function applyRuntimeState(station: StationDocument) {
       applyPendingSwitchVisualState(station, action);
     }
   });
+
+  applyPrivolavaciaVisualState(station);
 }
 
 function ensureSessionRuntimeState(session: SessionDocument) {
@@ -728,6 +849,279 @@ function getRouteSteps(
   }
 
   return appendShuntButtonTailClearanceSteps(station, route, steps, trainLength);
+}
+
+type ExitPoint = {
+  x: number;
+  y: number;
+};
+
+const PN_TRAVERSAL_FALLBACK_TYPES: Record<string, string> = {
+  departureSignalNoOcp: 'departureSignal',
+  entrySignalNoOcp: 'entrySignal',
+  premainSignalNoOcp: 'premainSignal',
+  shuntSignalNoOcp: 'shuntSignal',
+  singleSwitchNoOcp: 'singleSwitch',
+  crossoverSwitchNoOcp: 'crossoverSwitch',
+  extendedSwitchNoOcp: 'extendedSwitch',
+  trackNoOcp: 'track',
+  trackSignNoOcp: 'trackSign',
+};
+
+function toOffsetKey(point: ExitPoint) {
+  return `${point.x},${point.y}`;
+}
+
+function parseOffsetKey(key: string): ExitPoint {
+  const [x, y] = key.split(',').map(Number);
+  return { x, y };
+}
+
+function normalizeDirectionSign(direction: TrainDirection) {
+  return direction === 'left-to-right' ? 1 : -1;
+}
+
+function isAnySignalPieceType(pieceType: string | undefined) {
+  return (
+    pieceType === 'entrySignal' ||
+    pieceType === 'entrySignalNoOcp' ||
+    pieceType === 'departureSignal' ||
+    pieceType === 'departureSignalNoOcp' ||
+    pieceType === 'premainSignal' ||
+    pieceType === 'premainSignalNoOcp' ||
+    pieceType === 'shuntSignal' ||
+    pieceType === 'shuntSignalNoOcp' ||
+    pieceType === 'shuntSignalButtonBuffer'
+  );
+}
+
+function getPnTraversalTile(pieceType: string) {
+  const tile = tiles[pieceType];
+  if (tile?.traversable !== false) {
+    return tile;
+  }
+
+  const fallbackType = PN_TRAVERSAL_FALLBACK_TYPES[pieceType];
+  return fallbackType ? tiles[fallbackType] : tile;
+}
+
+function getPnTraversalEdgeStep(
+  station: StationDocument,
+  pieceId: string,
+  edge: ExitPoint,
+): ExitPoint | null {
+  const anchor = getPieceAnchor(station.layout, pieceId);
+  const localCells = getPieceCells(station.layout, pieceId).map(([x, y]) => ({
+    x: x - anchor.x,
+    y: y - anchor.y,
+  }));
+  const adjacentSourceCell = localCells
+    .filter((cell) => Math.abs(edge.x - cell.x) + Math.abs(edge.y - cell.y) === 1)
+    .sort((left, right) => Math.abs(edge.y - left.y) - Math.abs(edge.y - right.y))[0];
+
+  if (!adjacentSourceCell) {
+    return null;
+  }
+
+  return {
+    x: edge.x - adjacentSourceCell.x,
+    y: edge.y - adjacentSourceCell.y,
+  };
+}
+
+function transformPnExternalPoint(
+  point: ExitPoint,
+  space: { x: number; y: number },
+  rotation: 0 | 180,
+  mirrored: boolean,
+) {
+  const [x, y] = transformPoint(point.x, point.y, space, { rotation, mirrored });
+  return { x, y };
+}
+
+function getPnTraversalOptions(station: StationDocument, pieceId: string) {
+  const piece = station.layout.pieces[pieceId];
+  if (!piece) {
+    return [];
+  }
+
+  const tile = getPnTraversalTile(piece.type);
+  if (!tile || tile.traversable === false) {
+    return [];
+  }
+
+  const alignedState = station.runtime.switchAlignments[pieceId]?.traversableState;
+
+  return Object.entries(tile.traversable).flatMap(([stateKey, routes]) => {
+    if (alignedState && stateKey !== alignedState) {
+      return [];
+    }
+
+    return Object.entries(routes ?? {}).map(([entryKey, exitKey]) => ({
+      state: stateKey,
+      entry: transformPnExternalPoint(
+        parseOffsetKey(entryKey),
+        tile.space,
+        piece.rotation,
+        piece.mirrored,
+      ),
+      exit: transformPnExternalPoint(
+        parseOffsetKey(exitKey),
+        tile.space,
+        piece.rotation,
+        piece.mirrored,
+      ),
+      occupationState: piece.state.groups.occupation
+        ? stateKey === '0'
+          ? 'reserved'
+          : stateKey
+        : null,
+    }));
+  });
+}
+
+function getPnNeighborTraversal(station: StationDocument, sourcePieceId: string, exit: ExitPoint) {
+  const sourceAnchor = getPieceAnchor(station.layout, sourcePieceId);
+  const step = getPnTraversalEdgeStep(station, sourcePieceId, exit);
+  if (!step) {
+    return null;
+  }
+
+  const neighborCell = {
+    x: sourceAnchor.x + exit.x,
+    y: sourceAnchor.y + exit.y,
+  };
+
+  if (
+    neighborCell.x < 0 ||
+    neighborCell.y < 0 ||
+    neighborCell.y >= station.layout.height ||
+    neighborCell.x >= station.layout.width
+  ) {
+    return null;
+  }
+
+  const neighborRef = parseCellRef(station.layout.map[neighborCell.y][neighborCell.x]);
+  const neighborAnchor = getPieceAnchor(station.layout, neighborRef.pieceId);
+  return {
+    pieceId: neighborRef.pieceId,
+    entry: {
+      x: neighborCell.x - neighborAnchor.x - step.x,
+      y: neighborCell.y - neighborAnchor.y - step.y,
+    },
+  };
+}
+
+function buildPrivolavaciaSteps(
+  station: StationDocument,
+  train: MockTrain,
+  signalPieceId: string,
+) {
+  const directionSign = normalizeDirectionSign(train.direction);
+  const startEntry = directionSign > 0 ? { x: -1, y: 0 } : { x: 1, y: 0 };
+  const visited = new Set<string>();
+  const steps: TrainMovementStep[] = [];
+
+  let currentPieceId: string | null = signalPieceId;
+  let currentEntry: ExitPoint | null = startEntry;
+
+  while (currentPieceId && currentEntry) {
+    const pieceId = currentPieceId;
+    const entryPoint = currentEntry;
+    const visitedKey = `${pieceId}:${toOffsetKey(entryPoint)}`;
+    if (visited.has(visitedKey)) {
+      break;
+    }
+    visited.add(visitedKey);
+
+    const piece = station.layout.pieces[pieceId];
+    if (!piece) {
+      break;
+    }
+
+    const option = getPnTraversalOptions(station, pieceId).find((candidate) => {
+      return (
+        toOffsetKey(candidate.entry) === toOffsetKey(entryPoint) &&
+        Math.sign(getPnTraversalEdgeStep(station, pieceId, candidate.exit)?.x ?? 0) === directionSign
+      );
+    });
+
+    if (!option) {
+      break;
+    }
+
+    steps.push({
+      stationId: station.stationId,
+      routeId: `pn:${signalPieceId}`,
+      routeStepIndex: steps.length,
+      pieceId,
+      traversalState: option.state,
+      occupationState: option.occupationState,
+      signalPieceId: isAnySignalPieceType(piece.type) ? pieceId : null,
+    });
+
+    if (pieceId !== signalPieceId && isAnySignalPieceType(piece.type)) {
+      break;
+    }
+
+    const neighbor = getPnNeighborTraversal(station, pieceId, option.exit);
+    if (!neighbor) {
+      break;
+    }
+
+    currentPieceId = neighbor.pieceId;
+    currentEntry = neighbor.entry;
+  }
+
+  return steps;
+}
+
+function findPrivolavaciaMovement(station: StationDocument, train: MockTrain) {
+  const directionSign = normalizeDirectionSign(train.direction);
+  const frontAnchor = getPieceAnchor(station.layout, train.location.pieceId);
+
+  const candidateSignalIds = Object.keys(station.runtime.activePrivolavaciaSignals)
+    .filter((signalPieceId) => {
+      const signalPiece = station.layout.pieces[signalPieceId];
+      if (!signalPiece) {
+        return false;
+      }
+
+      const signalAnchor = getPieceAnchor(station.layout, signalPieceId);
+      return (
+        signalAnchor.y === frontAnchor.y &&
+        (signalAnchor.x - frontAnchor.x) * directionSign >= 0 &&
+        (signalAnchor.x - frontAnchor.x) * directionSign <= 2
+      );
+    })
+    .sort((leftId, rightId) => {
+      const leftDistance =
+        (getPieceAnchor(station.layout, leftId).x - frontAnchor.x) * directionSign;
+      const rightDistance =
+        (getPieceAnchor(station.layout, rightId).x - frontAnchor.x) * directionSign;
+      return leftDistance - rightDistance;
+    });
+
+  const signalPieceId = candidateSignalIds[0];
+  if (!signalPieceId) {
+    return null;
+  }
+
+  const steps = buildPrivolavaciaSteps(station, train, signalPieceId);
+  if (steps.length === 0) {
+    return null;
+  }
+
+  const startIndex = steps.findIndex((step) => step.pieceId === train.location.pieceId);
+  const remainingSteps = startIndex >= 0 ? steps.slice(startIndex + 1) : steps;
+  if (remainingSteps.length === 0) {
+    return null;
+  }
+
+  return {
+    signalPieceId,
+    steps: remainingSteps,
+  };
 }
 
 function findNextLocalRoute(station: StationDocument, train: MockTrain) {
@@ -1468,6 +1862,10 @@ function markPassedSignal(station: StationDocument, routeId: string, signalPiece
   if (route && !route.passedSignalPieceIds.includes(signalPieceId)) {
     route.passedSignalPieceIds.push(signalPieceId);
   }
+
+  if (station.runtime.activePrivolavaciaSignals[signalPieceId]) {
+    cancelPrivolavaciaSignal(station, signalPieceId);
+  }
 }
 
 function releaseSensorReservations(
@@ -2085,11 +2483,12 @@ export const stationService = {
     }
 
     let routeResult = findNextLocalRoute(currentStation, train);
-    let steps = routeResult?.steps ?? [];
+    let privolavaciaMovement = routeResult ? null : findPrivolavaciaMovement(currentStation, train);
+    let steps = routeResult?.steps ?? privolavaciaMovement?.steps ?? [];
     let lineblockTransit: MockTrain['lineblockTransit'] = null;
     const affectedStationIds = new Set<string>([currentStation.stationId]);
 
-    if (!routeResult || steps.length === 0) {
+    if ((!routeResult && !privolavaciaMovement) || steps.length === 0) {
       const completedRoute = train.location.routeId
         ? currentStation.runtime.activeTrainRoutes[train.location.routeId]
         : null;
@@ -2174,11 +2573,19 @@ export const stationService = {
       train.lineblockTransit = lineblockTransit;
     }
 
-    if (!routeResult || steps.length === 0) {
+    if (!routeResult && !privolavaciaMovement) {
+      privolavaciaMovement = findPrivolavaciaMovement(currentStation, train);
+      steps = privolavaciaMovement?.steps ?? steps;
+    }
+
+    if ((!routeResult && !privolavaciaMovement) || steps.length === 0) {
       throw new Error('The selected route has no remaining movement steps.');
     }
-    claimExistingTrainSensorsForRoute(train, routeResult.route, steps[0].stationId);
-    assertRouteSignalPermitsMovement(routeResult.route, steps);
+
+    if (routeResult) {
+      claimExistingTrainSensorsForRoute(train, routeResult.route, steps[0].stationId);
+      assertRouteSignalPermitsMovement(routeResult.route, steps);
+    }
     assertMovementSensorsAvailable(session, train.id, stations, steps);
 
     const movement = {
@@ -2189,11 +2596,12 @@ export const stationService = {
       dueAt: new Date(Date.now() + 2000).toISOString(),
       routeRefs: [
         {
-          stationId:
-            routeResult.route === currentStation.runtime.activeTrainRoutes[routeResult.route.id]
+          stationId: routeResult
+            ? routeResult.route === currentStation.runtime.activeTrainRoutes[routeResult.route.id]
               ? currentStation.stationId
-              : steps[0].stationId,
-          routeId: routeResult.route.id,
+              : steps[0].stationId
+            : currentStation.stationId,
+          routeId: routeResult ? routeResult.route.id : `pn:${privolavaciaMovement?.signalPieceId ?? 'unknown'}`,
         },
       ],
       lineblockTransit,
@@ -2772,6 +3180,92 @@ export const stationService = {
     }, ROUTE_CANCEL_DELAY_MS);
 
     return { kind: 'cancel-queued' as const, action };
+  },
+
+  async submitPrivolavaciaInteract(command: PrivolavaciaInteractCommand) {
+    const [station, rawSession] = await Promise.all([
+      stationRepository.findBySessionAndStationId(command.sessionId, command.stationId),
+      sessionRepository.findById(command.sessionId),
+    ]);
+    if (!station || !rawSession) {
+      throw new Error('Station not found.');
+    }
+
+    const session = ensureSessionRuntimeState(rawSession);
+    ensureStationRuntimeState(station);
+    applySessionTrainOccupations(station, session);
+
+    const piece = station.layout.pieces[command.payload.pieceId];
+    if (!piece) {
+      throw new Error('Selected PN control was not found.');
+    }
+
+    if (command.payload.button === 'right') {
+      if (!isPrivolavaciaSignalPieceType(piece.type)) {
+        throw new Error('PN can only be cancelled by right-clicking the active signal.');
+      }
+      if (!station.runtime.activePrivolavaciaSignals[command.payload.pieceId]) {
+        throw new Error('The selected signal does not currently have PN active.');
+      }
+
+      cancelPrivolavaciaSignal(station, command.payload.pieceId);
+      station.runtime.privolavaciaSelection = null;
+      applyRuntimeStateWithTrainOccupations(station, session);
+      bumpRevision(station);
+      await saveStation(station);
+      return { kind: 'cancelled' as const };
+    }
+
+    if (isPrivolavaciaCounterPieceType(piece.type)) {
+      const linkedSignalIds = getPrivolavaciaLinkedSignals(station, command.payload.pieceId);
+      if (linkedSignalIds.length === 0) {
+        throw new Error('The selected PN counter is not linked to any entry or departure signal.');
+      }
+
+      if (linkedSignalIds.length === 1) {
+        activatePrivolavaciaSignal(
+          station,
+          command.payload.pieceId,
+          linkedSignalIds[0],
+          command.issuedAt,
+        );
+        station.runtime.privolavaciaSelection = null;
+        applyRuntimeStateWithTrainOccupations(station, session);
+        bumpRevision(station);
+        await saveStation(station);
+        return { kind: 'activated' as const, signalPieceId: linkedSignalIds[0] };
+      }
+
+      station.runtime.privolavaciaSelection = {
+        sealedCounterPieceId: command.payload.pieceId,
+        selectedAt: command.issuedAt,
+      };
+      applyRuntimeStateWithTrainOccupations(station, session);
+      bumpRevision(station);
+      await saveStation(station);
+      return { kind: 'selection-started' as const };
+    }
+
+    if (!isPrivolavaciaSignalPieceType(piece.type)) {
+      throw new Error('PN can only be activated from a linked entry or departure signal.');
+    }
+
+    const selection = station.runtime.privolavaciaSelection;
+    if (!selection) {
+      throw new Error('Select a grouped PN counter first, then middle-click the target signal.');
+    }
+
+    activatePrivolavaciaSignal(
+      station,
+      selection.sealedCounterPieceId,
+      command.payload.pieceId,
+      command.issuedAt,
+    );
+    station.runtime.privolavaciaSelection = null;
+    applyRuntimeStateWithTrainOccupations(station, session);
+    bumpRevision(station);
+    await saveStation(station);
+    return { kind: 'activated' as const, signalPieceId: command.payload.pieceId };
   },
 
   async applyMockInboundSwitchPosition(command: SwitchSetPositionCommand) {

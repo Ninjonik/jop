@@ -176,6 +176,14 @@ export const buttonTiles: TileCatalog = {
       '--color-949494': '#949494',
       '--color-960000': '#960000',
       '--color-c2c2c2': '#c2c2c2',
+      '--color-pn-seal': '#424345',
+      '--pn-seal-opacity': '1',
+    },
+    groups: {
+      seal: {
+        states: ['sealed', 'unsealed'],
+        defaultState: 'sealed',
+      },
     },
     texts: {
       digit6: {

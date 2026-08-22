@@ -164,6 +164,47 @@ export default function StationRuntimeBoard({ station, onErrorChange }: StationR
     }
   }
 
+  async function submitPrivolavaciaInteract(pieceId: string, button: 'middle' | 'right') {
+    try {
+      setPendingActionKey(`${pieceId}:pn:${button}`);
+      onErrorChange(null);
+
+      const response = await fetch(
+        `/api/stations/${station.sessionId}/${station.stationId}/commands/privolavacia-interact`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            commandId: crypto.randomUUID(),
+            sessionId: station.sessionId,
+            stationId: station.stationId,
+            type: 'privolavacia:interact',
+            issuedAt: new Date().toISOString(),
+            actor: {
+              type: 'user',
+              id: 'runtime-ui',
+            },
+            payload: {
+              pieceId,
+              button,
+            },
+          }),
+        },
+      );
+
+      const payload = (await response.json()) as { error?: { message?: string } };
+      if (!response.ok) {
+        throw new Error(payload.error?.message ?? 'Failed to operate PN.');
+      }
+    } catch (submitError) {
+      onErrorChange(submitError instanceof Error ? submitError.message : 'Failed to operate PN.');
+    } finally {
+      setPendingActionKey(null);
+    }
+  }
+
   function operateSwitchButton(pieceId: string, click: 'left' | 'right') {
     const state = layout.pieces[pieceId]?.state.groups.switch?.state ?? 'default';
     const neutral = state === 'default' || state === 'middleSet';
@@ -285,6 +326,22 @@ export default function StationRuntimeBoard({ station, onErrorChange }: StationR
                 />
               ) : null}
 
+              {piece.type === 'signButtonSealedCounter' ? (
+                <button
+                  type="button"
+                  aria-label={`Operate PN counter ${pieceId}`}
+                  disabled={isPiecePending}
+                  onMouseDown={(event) => {
+                    if (event.button !== 1) {
+                      return;
+                    }
+                    event.preventDefault();
+                    void submitPrivolavaciaInteract(pieceId, 'middle');
+                  }}
+                  className="pointer-events-auto absolute inset-0 rounded-sm border border-transparent bg-transparent disabled:cursor-wait"
+                />
+              ) : null}
+
               {piece.type === 'premainSignal' || piece.type === 'premainSignalNoOcp' ? (
                 <button
                   type="button"
@@ -326,6 +383,29 @@ export default function StationRuntimeBoard({ station, onErrorChange }: StationR
                     style={{ [shuntControlSide]: 0 }}
                   />
                 </>
+              ) : null}
+
+              {piece.type === 'entrySignal' ||
+              piece.type === 'entrySignalNoOcp' ||
+              piece.type === 'departureSignal' ||
+              piece.type === 'departureSignalNoOcp' ? (
+                <button
+                  type="button"
+                  aria-label={`Operate PN signal ${pieceId}`}
+                  disabled={isPiecePending}
+                  onMouseDown={(event) => {
+                    if (event.button !== 1) {
+                      return;
+                    }
+                    event.preventDefault();
+                    void submitPrivolavaciaInteract(pieceId, 'middle');
+                  }}
+                  onContextMenu={(event) => {
+                    event.preventDefault();
+                    void submitPrivolavaciaInteract(pieceId, 'right');
+                  }}
+                  className="pointer-events-auto absolute inset-0 rounded-sm border border-transparent bg-transparent disabled:cursor-wait"
+                />
               ) : null}
 
               {piece.type === 'shuntButton' || piece.type === 'shuntButtonNoOcp' ? (

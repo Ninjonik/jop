@@ -25,10 +25,14 @@ import {
   createPieceRecord,
   getAllConnectionEndpointKeysForPiece,
   getAllowedPlacements,
+  getConnectedPieceIdsForEndpointKey,
   getConnectionEndpointKey,
   getConnectionPieceId,
   getPieceCells,
+  getPrivolavaciaConnectionKey,
   isLineblockPieceType,
+  isPrivolavaciaCounterPieceType,
+  isPrivolavaciaSignalPieceType,
   isPremainSignalPieceType,
   isSwitchButtonPieceType,
   isSwitchPieceType,
@@ -221,9 +225,10 @@ export default function StationEditorClient({ tiles, stateGroups }: Props) {
     const supportsOrientationChange = tile ? canPieceUseInPlaceOrientation(tile) : false;
     const textKeys = Object.keys(tile?.texts ?? {});
     const endpointKey = getConnectionEndpointKey(editorState, pieceId, part);
-    const connectedEndpointKey = endpointKey ? editorState.connections[endpointKey] ?? null : null;
-    const connectedPieceId = connectedEndpointKey ? getConnectionPieceId(connectedEndpointKey) : null;
-    const connectedPieceCells = connectedPieceId ? getPieceCells(editorState, connectedPieceId) : [];
+    const connectedPieceIds = getConnectedPieceIdsForEndpointKey(editorState, endpointKey);
+    const connectedPieceCells = connectedPieceIds.flatMap((connectedPieceId) =>
+      getPieceCells(editorState, connectedPieceId),
+    );
     const pendingPiece = pendingConnectionEndpointKey
       ? editorState.pieces[getConnectionPieceId(pendingConnectionEndpointKey)]
       : null;
@@ -231,17 +236,32 @@ export default function StationEditorClient({ tiles, stateGroups }: Props) {
       isSwitchPieceType(piece.type) ||
       isSwitchButtonPieceType(piece.type) ||
       isLineblockPieceType(piece.type) ||
-      isPremainSignalPieceType(piece.type);
-    const canStartConnection = eligibleType && Boolean(endpointKey) && !connectedPieceId;
+      isPremainSignalPieceType(piece.type) ||
+      isPrivolavaciaCounterPieceType(piece.type) ||
+      isPrivolavaciaSignalPieceType(piece.type);
+    const canStartConnection =
+      eligibleType &&
+      Boolean(endpointKey) &&
+      (connectedPieceIds.length === 0 || isPrivolavaciaCounterPieceType(piece.type));
     const canCancelPendingConnection = pendingConnectionEndpointKey === endpointKey;
     const canConnectToPending = Boolean(
       endpointKey &&
         pendingConnectionEndpointKey &&
         pendingConnectionEndpointKey !== endpointKey &&
         pendingPiece &&
-        !connectedPieceId &&
-        !editorState.connections[pendingConnectionEndpointKey] &&
-        canPiecesConnect(pendingPiece.type, piece.type)
+        canPiecesConnect(pendingPiece.type, piece.type) &&
+        (
+          (isPrivolavaciaCounterPieceType(pendingPiece.type) &&
+            isPrivolavaciaSignalPieceType(piece.type) &&
+            connectedPieceIds.length === 0) ||
+          (isPrivolavaciaCounterPieceType(piece.type) &&
+            isPrivolavaciaSignalPieceType(pendingPiece.type) &&
+            !editorState.connections[pendingConnectionEndpointKey]) ||
+          (!isPrivolavaciaCounterPieceType(pendingPiece.type) &&
+            !isPrivolavaciaCounterPieceType(piece.type) &&
+            connectedPieceIds.length === 0 &&
+            !editorState.connections[pendingConnectionEndpointKey])
+        )
     );
 
     setSelectedCells([]);
@@ -256,7 +276,7 @@ export default function StationEditorClient({ tiles, stateGroups }: Props) {
       canConnectToPending,
       canCancelPendingConnection,
       pendingConnectionEndpointKey,
-      connectedPieceId,
+      connectedPieceIds,
       connectedPieceCells,
     });
   };
@@ -415,12 +435,54 @@ export default function StationEditorClient({ tiles, stateGroups }: Props) {
       const sourcePiece = current.pieces[getConnectionPieceId(pendingConnectionEndpointKey)];
       const targetPiece = current.pieces[contextMenu.pieceId];
 
+      if (!sourcePiece || !targetPiece || !canPiecesConnect(sourcePiece.type, targetPiece.type)) {
+        return current;
+      }
+
       if (
-        !sourcePiece ||
-        !targetPiece ||
+        isPrivolavaciaCounterPieceType(sourcePiece.type) &&
+        isPrivolavaciaSignalPieceType(targetPiece.type)
+      ) {
+        if (current.connections[targetEndpointKey]) {
+          return current;
+        }
+
+        const syntheticEndpointKey = getPrivolavaciaConnectionKey(
+          getConnectionPieceId(pendingConnectionEndpointKey),
+          contextMenu.pieceId,
+        );
+        return {
+          ...current,
+          connections: {
+            ...current.connections,
+            [syntheticEndpointKey]: targetEndpointKey,
+            [targetEndpointKey]: syntheticEndpointKey,
+          },
+        };
+      }
+
+      if (
+        isPrivolavaciaCounterPieceType(targetPiece.type) &&
+        isPrivolavaciaSignalPieceType(sourcePiece.type)
+      ) {
+        if (current.connections[pendingConnectionEndpointKey]) {
+          return current;
+        }
+
+        const syntheticEndpointKey = getPrivolavaciaConnectionKey(contextMenu.pieceId, getConnectionPieceId(pendingConnectionEndpointKey));
+        return {
+          ...current,
+          connections: {
+            ...current.connections,
+            [syntheticEndpointKey]: pendingConnectionEndpointKey,
+            [pendingConnectionEndpointKey]: syntheticEndpointKey,
+          },
+        };
+      }
+
+      if (
         current.connections[pendingConnectionEndpointKey] ||
-        current.connections[targetEndpointKey] ||
-        !canPiecesConnect(sourcePiece.type, targetPiece.type)
+        current.connections[targetEndpointKey]
       ) {
         return current;
       }
@@ -440,23 +502,41 @@ export default function StationEditorClient({ tiles, stateGroups }: Props) {
   };
 
   const handleContextMenuDisconnect = () => {
-    if (!contextMenu?.connectedPieceId) {
+    if (!contextMenu || contextMenu.connectedPieceIds.length === 0) {
       return;
     }
 
-    setEditorState((current) => {
-      if (!contextMenu.endpointKey) {
-        return current;
-      }
+    const disconnectMenu = contextMenu;
 
-      const linkedEndpointKey = current.connections[contextMenu.endpointKey];
-      if (!linkedEndpointKey) {
+    setEditorState((current) => {
+      if (!disconnectMenu.endpointKey) {
         return current;
       }
 
       const nextConnections = { ...current.connections };
-      delete nextConnections[contextMenu.endpointKey];
-      delete nextConnections[linkedEndpointKey];
+      const piece = current.pieces[disconnectMenu.pieceId];
+      if (!piece) {
+        return current;
+      }
+
+      if (isPrivolavaciaCounterPieceType(piece.type)) {
+        Object.keys(nextConnections)
+          .filter((endpointKey) => endpointKey.startsWith(`${disconnectMenu.pieceId}:pn:`))
+          .forEach((endpointKey) => {
+            const linkedEndpointKey = nextConnections[endpointKey];
+            if (linkedEndpointKey) {
+              delete nextConnections[linkedEndpointKey];
+            }
+            delete nextConnections[endpointKey];
+          });
+      } else {
+        const linkedEndpointKey = nextConnections[disconnectMenu.endpointKey];
+        if (!linkedEndpointKey) {
+          return current;
+        }
+        delete nextConnections[disconnectMenu.endpointKey];
+        delete nextConnections[linkedEndpointKey];
+      }
 
       return {
         ...current,
@@ -465,8 +545,8 @@ export default function StationEditorClient({ tiles, stateGroups }: Props) {
     });
 
     if (
-      pendingConnectionEndpointKey === contextMenu.endpointKey ||
-      pendingConnectionEndpointKey === contextMenu.pendingConnectionEndpointKey
+      pendingConnectionEndpointKey === disconnectMenu.endpointKey ||
+      pendingConnectionEndpointKey === disconnectMenu.pendingConnectionEndpointKey
     ) {
       setPendingConnectionEndpointKey(null);
     }

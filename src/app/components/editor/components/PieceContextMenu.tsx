@@ -70,7 +70,7 @@ export default function PieceContextMenu({
           {`edit ${textKey}`}
         </button>
       ))}
-      {contextMenu.connectedPieceId ? (
+      {contextMenu.connectedPieceIds.length > 0 ? (
         <button
           type="button"
           onClick={onDisconnect}

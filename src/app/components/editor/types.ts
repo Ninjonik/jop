@@ -24,6 +24,6 @@ export interface PieceContextMenuState {
   canConnectToPending: boolean;
   canCancelPendingConnection: boolean;
   pendingConnectionEndpointKey: string | null;
-  connectedPieceId: string | null;
+  connectedPieceIds: string[];
   connectedPieceCells: [number, number][];
 }

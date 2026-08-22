@@ -695,11 +695,13 @@ const SignButtonSealedCounter1Square = ({ text, counter,
     </g>
     <g>
       <path
-        className="cls-14"
+        fill="var(--color-pn-seal, #424345)"
+        opacity="var(--pn-seal-opacity, 1)"
         d="M50.86,52.34s-1.59-4.72-7.96-2.5c-3.76,1.31,5.41-8.51,5.41-8.51,0,0-2.1,6.8,4.66,7.24"
       />
       <rect
         fill="var(--color-960000, #960000)"
+        opacity="var(--pn-seal-opacity, 1)"
         x={51.31}
         y={49.03}
         width={6.94}
