@@ -7,6 +7,10 @@ import { stateGroups, tiles } from '@/app/data/tiles';
 import type { LineblockActionType, StationDocument, SwitchPosition } from '@/lib/station/domain';
 import { getPieceAnchor, getRenderablePieces, parseCellRef } from '@/lib/station/layout';
 import { buildRouteFromSelection } from '@/lib/station/routes';
+import {
+  getConnectedSwitchControl,
+  getDefaultSwitchMotorPositions,
+} from '@/lib/station/switches';
 
 interface StationRuntimeBoardProps {
   station: StationDocument;
@@ -88,6 +92,7 @@ export default function StationRuntimeBoard({ station, onErrorChange }: StationR
   const tileSize = 75;
   const layout = station.layout;
   const [pendingActionKey, setPendingActionKey] = useState<string | null>(null);
+  const [heldInspectionButtonId, setHeldInspectionButtonId] = useState<string | null>(null);
 
   async function submitLineblockAction(pieceId: string, type: LineblockActionType) {
     try {
@@ -276,8 +281,117 @@ export default function StationRuntimeBoard({ station, onErrorChange }: StationR
     }
   }
 
+  async function clearSelectedRoute() {
+    const selection = station.runtime.routeSelection;
+    if (!selection) {
+      return;
+    }
+
+    await submitRouteInteract(
+      selection.sourcePieceId,
+      selection.mode === 'cancel' ? 'right' : 'left',
+      selection.sourceControl,
+    );
+  }
+
   function hasActivePrivolavaciaSignal(signalPieceId: string | null) {
     return !!(signalPieceId && station.runtime.activePrivolavaciaSignals[signalPieceId]);
+  }
+
+  function isManualSwitchButtonState(state: string) {
+    return (
+      state === 'leftSet' ||
+      state === 'rightSet' ||
+      state === 'leftSetting' ||
+      state === 'rightSetting'
+    );
+  }
+
+  function getHeldInspectionSelections(pieceId: string) {
+    if (!heldInspectionButtonId) {
+      return null;
+    }
+
+    const heldPiece = layout.pieces[heldInspectionButtonId];
+    if (heldPiece?.type !== 'signButton') {
+      return null;
+    }
+
+    const heldButtonText = heldPiece.state.texts.text;
+    const piece = layout.pieces[pieceId];
+    if (!piece) {
+      return null;
+    }
+
+    if (heldButtonText === 'kont. KÚ') {
+      if (!piece.state.groups.occupation || piece.state.groups.occupation.state !== 'default') {
+        return null;
+      }
+
+      return {
+        ...piece.state.groups,
+        occupation: {
+          state: 'occupied',
+          variant: 'normal',
+        },
+      };
+    }
+
+    if (heldButtonText !== 'kont. pol. výh.') {
+      return null;
+    }
+
+    if (piece.type === 'switchButton') {
+      const currentState = piece.state.groups.switch?.state ?? 'default';
+      if (isManualSwitchButtonState(currentState)) {
+        return null;
+      }
+
+      const control = getConnectedSwitchControl(layout, pieceId);
+      const switchPiece = control ? layout.pieces[control.switchPieceId] : null;
+      if (!control || !switchPiece) {
+        return null;
+      }
+
+      const alignment = station.runtime.switchAlignments[control.switchPieceId];
+      const motorPositions = {
+        ...getDefaultSwitchMotorPositions(switchPiece.type),
+        ...(alignment?.motorPositions ?? {}),
+      };
+      const motorPosition = motorPositions[control.slot];
+      if (motorPosition !== 'left' && motorPosition !== 'right') {
+        return null;
+      }
+
+      return {
+        ...piece.state.groups,
+        switch: {
+          state: motorPosition,
+          variant: 'normal',
+        },
+      };
+    }
+
+    if (!piece.state.groups.occupation) {
+      return null;
+    }
+
+    const alignment = station.runtime.switchAlignments[pieceId];
+    if (
+      !alignment ||
+      piece.state.groups.occupation.state !== 'default' ||
+      piece.state.groups.occupation.variant === 'occupied'
+    ) {
+      return null;
+    }
+
+    return {
+      ...piece.state.groups,
+      occupation: {
+        state: alignment.traversableState,
+        variant: 'reserved',
+      },
+    };
   }
 
   return (
@@ -338,7 +452,7 @@ export default function StationRuntimeBoard({ station, onErrorChange }: StationR
                 tileKey={piece.type}
                 tile={tile}
                 stateGroups={stateGroups}
-                selections={piece.state.groups}
+                selections={getHeldInspectionSelections(pieceId) ?? piece.state.groups}
                 textValues={piece.state.texts}
                 orientation={{
                   rotation: piece.rotation,
@@ -406,6 +520,60 @@ export default function StationRuntimeBoard({ station, onErrorChange }: StationR
                     event.preventDefault();
                     void submitPrivolavaciaInteract(pieceId, 'middle');
                   }}
+                  className="pointer-events-auto absolute inset-0 rounded-sm border border-transparent bg-transparent disabled:cursor-wait"
+                />
+              ) : null}
+
+              {piece.type === 'signButton' && piece.state.texts.text === 'kont. pol. výh.' ? (
+                <button
+                  type="button"
+                  aria-label={`Hold switch inspection button ${pieceId}`}
+                  disabled={isPiecePending}
+                  onMouseDown={(event) => {
+                    if (event.button !== 0) {
+                      return;
+                    }
+                    event.preventDefault();
+                    setHeldInspectionButtonId(pieceId);
+                  }}
+                  onMouseUp={() => {
+                    setHeldInspectionButtonId((current) => (current === pieceId ? null : current));
+                  }}
+                  onMouseLeave={() => {
+                    setHeldInspectionButtonId((current) => (current === pieceId ? null : current));
+                  }}
+                  className="pointer-events-auto absolute inset-0 rounded-sm border border-transparent bg-transparent disabled:cursor-wait"
+                />
+              ) : null}
+
+              {piece.type === 'signButton' && piece.state.texts.text === 'kont. KÚ' ? (
+                <button
+                  type="button"
+                  aria-label={`Hold occupation inspection button ${pieceId}`}
+                  disabled={isPiecePending}
+                  onMouseDown={(event) => {
+                    if (event.button !== 0) {
+                      return;
+                    }
+                    event.preventDefault();
+                    setHeldInspectionButtonId(pieceId);
+                  }}
+                  onMouseUp={() => {
+                    setHeldInspectionButtonId((current) => (current === pieceId ? null : current));
+                  }}
+                  onMouseLeave={() => {
+                    setHeldInspectionButtonId((current) => (current === pieceId ? null : current));
+                  }}
+                  className="pointer-events-auto absolute inset-0 rounded-sm border border-transparent bg-transparent disabled:cursor-wait"
+                />
+              ) : null}
+
+              {piece.type === 'signButton' && piece.state.texts.text === 'ruš. voľ. VC' ? (
+                <button
+                  type="button"
+                  aria-label={`Clear selected route with ${pieceId}`}
+                  disabled={isPiecePending || !station.runtime.routeSelection}
+                  onClick={() => void clearSelectedRoute()}
                   className="pointer-events-auto absolute inset-0 rounded-sm border border-transparent bg-transparent disabled:cursor-wait"
                 />
               ) : null}

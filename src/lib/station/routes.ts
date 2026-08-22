@@ -35,6 +35,7 @@ type TraversalOption = {
 type RouteSearchState = {
   pieceId: string;
   entry: ExitPoint;
+  cost: number;
   visitedPieceIds: string[];
   reservedOccupations: Record<string, ActiveTrainRouteOccupation>;
   signalPieceIds: string[];
@@ -164,11 +165,26 @@ function buildOrderedRoutePath(
   });
 }
 
-function getOccupationState(pieceType: string, traversableState: string) {
+function getOccupationState(
+  pieceType: string,
+  traversableState: string,
+  entry?: ExitPoint,
+  exit?: ExitPoint,
+) {
   // A single switch draws its diagonal as the top occupation segment. The shared
   // blTtr state also lights straight segments needed by the extended switch.
   if (pieceType === 'singleSwitch' && traversableState === 'blTtr') {
     return 't';
+  }
+
+  if (
+    pieceType === 'crossoverSwitch' &&
+    traversableState === 'tlTtrAblTbr' &&
+    entry &&
+    exit &&
+    entry.y === exit.y
+  ) {
+    return entry.y === 0 ? 't' : 'b';
   }
 
   return traversableState === '0' ? 'reserved' : traversableState;
@@ -214,7 +230,7 @@ function getTraversalOptions(
 
       options.push({
         state: stateKey,
-        occupationState: getOccupationState(piece.type, stateKey),
+        occupationState: getOccupationState(piece.type, stateKey, entry, exit),
         occupationVariant: stateKey === '0' ? 'normal' : 'reserved',
         entry,
         exit,
@@ -611,6 +627,8 @@ function getTraversalFootprintWeight(state: string) {
   }
 
   if (
+    state === 't' ||
+    state === 'b' ||
     state === 'blTbr' ||
     state === 'blTtr' ||
     state === 'blTmr' ||
@@ -621,10 +639,27 @@ function getTraversalFootprintWeight(state: string) {
   }
 
   if (state === 'tlTtrAblTbr') {
-    return 3;
+    return 2;
   }
 
   return 10;
+}
+
+function getTraversalPreferenceRank(state: string) {
+  if (state === '0' || state === 'reserved') return 0;
+  if (state === 'tlTtrAblTbr') return 1;
+  if (state === 't' || state === 'b') return 2;
+  if (state === 'blTbr' || state === 'blTtr' || state === 'blTmr') return 3;
+  if (state === 'tlTtr' || state === 'brAtl') return 4;
+  return 10;
+}
+
+function getTraversalSearchCost(pieceType: string, traversableState: string) {
+  if (pieceType === 'crossoverSwitch') {
+    return traversableState === 'blTtr' ? 2 : 1;
+  }
+
+  return 1;
 }
 
 function getSortedMatchingTraversalOptions(
@@ -646,6 +681,12 @@ function getSortedMatchingTraversalOptions(
         getTraversalFootprintWeight(left.state) - getTraversalFootprintWeight(right.state);
       if (weightDiff !== 0) {
         return weightDiff;
+      }
+
+      const preferenceDiff =
+        getTraversalPreferenceRank(left.state) - getTraversalPreferenceRank(right.state);
+      if (preferenceDiff !== 0) {
+        return preferenceDiff;
       }
 
       return left.state.localeCompare(right.state);
@@ -883,6 +924,12 @@ function traceBackwardToBoundary(
           return weightDiff;
         }
 
+        const preferenceDiff =
+          getTraversalPreferenceRank(left.state) - getTraversalPreferenceRank(right.state);
+        if (preferenceDiff !== 0) {
+          return preferenceDiff;
+        }
+
         return left.state.localeCompare(right.state);
       })[0];
 
@@ -1117,8 +1164,99 @@ function resolveSignalAspect(
   return aspect;
 }
 
+type CrossoverBranchStatus = 'reserved' | 'occupied';
+
+type CrossoverBranches = {
+  top?: CrossoverBranchStatus;
+  bottom?: CrossoverBranchStatus;
+};
+
 export function crossoverTraversalStatesConflict(leftState: string, rightState: string) {
-  return leftState !== rightState;
+  const getBranch = (state: string) => {
+    if (state === 't') return 'top';
+    if (state === 'b') return 'bottom';
+    if (state === 'tlTtrAblTbr') return 'both';
+    return 'diagonal';
+  };
+  const leftBranch = getBranch(leftState);
+  const rightBranch = getBranch(rightState);
+
+  return !(
+    (leftBranch === 'top' && rightBranch === 'bottom') ||
+    (leftBranch === 'bottom' && rightBranch === 'top')
+  );
+}
+
+function getCrossoverBranches(occupation: ActiveTrainRouteOccupation): CrossoverBranches | null {
+  if (occupation.state === 't') {
+    return { top: occupation.variant === 'occupied' ? 'occupied' : 'reserved' };
+  }
+
+  if (occupation.state === 'b') {
+    return { bottom: occupation.variant === 'occupied' ? 'occupied' : 'reserved' };
+  }
+
+  if (occupation.state !== 'tlTtrAblTbr') {
+    return null;
+  }
+
+  if (occupation.variant === 'topOccupiedBottomReserved') {
+    return { top: 'occupied', bottom: 'reserved' };
+  }
+
+  if (occupation.variant === 'topReservedBottomOccupied') {
+    return { top: 'reserved', bottom: 'occupied' };
+  }
+
+  const status = occupation.variant === 'occupied' ? 'occupied' : 'reserved';
+  return { top: status, bottom: status };
+}
+
+function mergeBranchStatus(
+  current: CrossoverBranchStatus | undefined,
+  incoming: CrossoverBranchStatus | undefined,
+) {
+  if (current === 'occupied' || incoming === 'occupied') {
+    return 'occupied' as const;
+  }
+
+  return current ?? incoming;
+}
+
+function mergeCrossoverOccupations(
+  current: ActiveTrainRouteOccupation,
+  incoming: ActiveTrainRouteOccupation,
+) {
+  const currentBranches = getCrossoverBranches(current);
+  const incomingBranches = getCrossoverBranches(incoming);
+  if (!currentBranches || !incomingBranches) {
+    return incoming;
+  }
+
+  const top = mergeBranchStatus(currentBranches.top, incomingBranches.top);
+  const bottom = mergeBranchStatus(currentBranches.bottom, incomingBranches.bottom);
+
+  if (top && bottom) {
+    const variant =
+      top === 'occupied' && bottom === 'occupied'
+        ? 'occupied'
+        : top === 'occupied'
+          ? 'topOccupiedBottomReserved'
+          : bottom === 'occupied'
+            ? 'topReservedBottomOccupied'
+            : 'reserved';
+    return {
+      pieceId: incoming.pieceId,
+      state: 'tlTtrAblTbr',
+      variant,
+    };
+  }
+
+  return {
+    pieceId: incoming.pieceId,
+    state: top ? 't' : 'b',
+    variant: top ?? bottom ?? 'reserved',
+  };
 }
 
 function containsOccupiedBranch(occupation: ActiveTrainRouteOccupation) {
@@ -1134,8 +1272,6 @@ function isTraversalBlockedByOccupation(
   pieceId: string,
   _requiredOccupationState?: string,
 ) {
-  void _requiredOccupationState;
-
   const piece = station.layout.pieces[pieceId];
   const selection = piece?.state.groups.occupation;
   if (!piece || !selection) {
@@ -1154,7 +1290,22 @@ function isTraversalBlockedByOccupation(
   if (piece.type !== 'crossoverSwitch') {
     return true;
   }
-  return true;
+
+  const required: ActiveTrainRouteOccupation = {
+    pieceId,
+    state: _requiredOccupationState ?? 'reserved',
+    variant: 'reserved',
+  };
+  const currentBranches = getCrossoverBranches(current);
+  const requiredBranches = getCrossoverBranches(required);
+  if (!currentBranches || !requiredBranches) {
+    return true;
+  }
+
+  return (
+    (requiredBranches.top !== undefined && currentBranches.top === 'occupied') ||
+    (requiredBranches.bottom !== undefined && currentBranches.bottom === 'occupied')
+  );
 }
 
 export function applyActiveRouteVisualState(station: StationDocument, tiles: TileCatalog) {
@@ -1195,8 +1346,8 @@ export function applyActiveRouteVisualState(station: StationDocument, tiles: Til
       const current = mergedOccupations.get(occupation.pieceId);
       mergedOccupations.set(
         occupation.pieceId,
-        current && piece.type === 'crossoverSwitch' && current.variant === 'occupied'
-          ? { ...occupation, variant: 'occupied' }
+        current && piece.type === 'crossoverSwitch'
+          ? mergeCrossoverOccupations(current, occupation)
           : occupation,
       );
     });
@@ -1270,9 +1421,7 @@ export function applyTrainOccupationVisualState(
       variant: piece.state.groups.occupation.variant,
     };
     const occupation =
-      piece.type === 'crossoverSwitch' && current.variant === 'occupied'
-        ? { ...incoming, variant: 'occupied' }
-        : incoming;
+      piece.type === 'crossoverSwitch' ? mergeCrossoverOccupations(current, incoming) : incoming;
 
     piece.state.groups.occupation = {
       state: occupation.state,
@@ -1342,6 +1491,7 @@ export function buildRouteFromSelection(
     {
       pieceId: startTraversal.pieceId,
       entry: startTraversal.entry,
+      cost: 0,
       visitedPieceIds: [],
       reservedOccupations: {},
       signalPieceIds: shuntSource?.sourceSignalPieceId ? [shuntSource.sourceSignalPieceId] : [],
@@ -1352,6 +1502,7 @@ export function buildRouteFromSelection(
   const targetKey = `${targetTraversal.pieceId}:${toOffsetKey(targetTraversal.entry)}`;
 
   while (queue.length > 0) {
+    queue.sort((left, right) => left.cost - right.cost);
     const current = queue.shift();
     if (!current) {
       break;
@@ -1613,6 +1764,7 @@ export function buildRouteFromSelection(
       queue.push({
         pieceId: neighbor.pieceId,
         entry: neighbor.entry,
+        cost: current.cost + getTraversalSearchCost(currentPiece.type, option.state),
         visitedPieceIds: [...current.visitedPieceIds, current.pieceId],
         reservedOccupations: nextReserved,
         signalPieceIds: nextSignals,

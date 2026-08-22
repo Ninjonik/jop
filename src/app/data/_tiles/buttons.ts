@@ -150,7 +150,7 @@ export const buttonTiles: TileCatalog = {
     },
     groups: {
       button: {
-        states: ['default', 'shunt'],
+        states: ['default', 'shunt', 'danger'],
         defaultState: 'default',
       },
     },
@@ -265,6 +265,8 @@ export const buttonTiles: TileCatalog = {
       switch: {
         states: [
           'default',
+          'left',
+          'right',
           'leftSet',
           'middleSet',
           'rightSet',

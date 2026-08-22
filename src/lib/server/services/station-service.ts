@@ -371,6 +371,7 @@ function applyRouteSelectionVisualState(
         piece.type,
         selection.routeType,
         selection.sourcePieceType === 'departureButton' ? selection.sourceControl : null,
+        null,
       ),
       variant: 'blinking',
     };
@@ -404,6 +405,13 @@ function applyPendingRouteVisualState(station: StationDocument, action: PendingA
           piece.type,
           action.payload.routeType === 'shunt' ? 'shunt' : 'normal',
           explicitControl,
+          action.payload.routeClass === 'platform-to-premain'
+            ? 'platform-to-premain'
+            : action.payload.routeClass === 'premain-to-platform'
+              ? 'premain-to-platform'
+              : action.payload.routeClass === 'shunt'
+                ? 'shunt'
+                : null,
         ),
         variant: 'blinking',
       };
@@ -415,12 +423,20 @@ function getButtonVisualState(
   pieceType: string,
   routeType: RuntimeRouteType,
   explicitControl: 'normal' | 'shunt' | null,
+  routeClass: ActiveTrainRoute['routeClass'] | null,
 ) {
   if (pieceType === 'departureButton') {
     if (explicitControl) {
       return explicitControl === 'shunt' ? 'shunt' : 'departure';
     }
     return routeType === 'shunt' ? 'shunt' : 'departure';
+  }
+
+  if (
+    (pieceType === 'shuntButton' || pieceType === 'shuntButtonNoOcp') &&
+    routeClass === 'platform-to-premain'
+  ) {
+    return 'shunt';
   }
 
   return routeType === 'shunt' ? 'shunt' : 'departure';
@@ -451,6 +467,112 @@ function applyPendingSwitchVisualState(station: StationDocument, action: Pending
       variant: 'blinking',
     };
   }
+}
+
+function applyNamedIndicatorVisualState(station: StationDocument) {
+  const hasPendingRouteBuild = Object.values(station.runtime.pendingActions).some(
+    (action) => action.type === 'route:build-normal' || action.type === 'route:build-shunt',
+  );
+  const pendingCancelDelayLabels = new Set(
+    Object.values(station.runtime.pendingActions)
+      .filter((action) => action.type === 'route:cancel-normal' || action.type === 'route:cancel-shunt')
+      .map((action) => action.payload.cancelDelayLabel)
+      .filter((label): label is string => typeof label === 'string'),
+  );
+
+  Object.values(station.layout.pieces).forEach((piece) => {
+    if (piece.type !== 'signButtonLight') {
+      return;
+    }
+
+    const label = piece.state.texts.text;
+    if (!piece.state.groups.button) {
+      return;
+    }
+
+    if (label === 'stavanie VC') {
+      piece.state.groups.button = {
+        state: hasPendingRouteBuild ? 'danger' : 'default',
+        variant: 'normal',
+      };
+      return;
+    }
+
+    if (label === '5s' || label === '1min' || label === '3min') {
+      piece.state.groups.button = {
+        state: pendingCancelDelayLabels.has(label) ? 'shunt' : 'default',
+        variant: 'normal',
+      };
+    }
+  });
+}
+
+function getOccupiedPieceIdsForStation(session: SessionDocument, stationId: string) {
+  const occupiedPieceIds = new Set<string>();
+
+  Object.values(session.runtime.trains).forEach((train) => {
+    train.occupiedSensors.forEach((sensor) => {
+      if (sensor.stationId === stationId) {
+        occupiedPieceIds.add(sensor.pieceId);
+      }
+    });
+  });
+
+  Object.values(session.runtime.physicalOccupations).forEach((occupation) => {
+    if (occupation.occupied && occupation.stationId === stationId) {
+      occupiedPieceIds.add(occupation.pieceId);
+    }
+  });
+
+  return occupiedPieceIds;
+}
+
+function getRoutePreStartPieceId(station: StationDocument, route: ActiveTrainRoute) {
+  const sourcePiece = station.layout.pieces[route.sourcePieceId];
+  if (!sourcePiece) {
+    return null;
+  }
+
+  const directionSign = route.direction === 'left-to-right' ? 1 : -1;
+  const anchor = getPieceAnchor(station.layout, route.sourcePieceId);
+  const candidateX = anchor.x - directionSign;
+  const candidateY = anchor.y;
+
+  if (
+    candidateX < 0 ||
+    candidateY < 0 ||
+    candidateY >= station.layout.height ||
+    candidateX >= station.layout.width
+  ) {
+    return null;
+  }
+
+  const ref = parseCellRef(station.layout.map[candidateY][candidateX]);
+  return ref.pieceId || null;
+}
+
+function getRouteCancelDelay(
+  station: StationDocument,
+  route: ActiveTrainRoute,
+  occupiedPieceIds: Set<string>,
+) {
+  if (route.reservedOccupations.some((occupation) => occupiedPieceIds.has(occupation.pieceId))) {
+    throw new Error('The route can no longer be cancelled because a train has already entered it.');
+  }
+
+  const preStartPieceId = getRoutePreStartPieceId(station, route);
+  if (preStartPieceId && occupiedPieceIds.has(preStartPieceId)) {
+    const label = route.routeType === 'shunt' ? '1min' : '3min';
+    return {
+      durationMs: route.routeType === 'shunt' ? 60_000 : 180_000,
+      label,
+    };
+  }
+
+  return {
+    durationMs: 5_000,
+    label: '5s',
+  };
 }
 
 function formatPrivolavaciaCounterValue(value: number) {
@@ -667,6 +789,7 @@ function applyRuntimeState(station: StationDocument) {
   });
 
   applyPrivolavaciaVisualState(station);
+  applyNamedIndicatorVisualState(station);
 }
 
 function ensureSessionRuntimeState(session: SessionDocument) {
@@ -750,7 +873,7 @@ function getSpawnOccupationState(station: StationDocument, pieceId: string, row:
 
   const anchor = getPieceAnchor(station.layout, pieceId);
   if (piece.type === 'crossoverSwitch') {
-    return 'tlTtrAblTbr';
+    return row === anchor.y ? 't' : 'b';
   }
   if (piece.type === 'singleSwitch') {
     return row === anchor.y ? 't' : 'blTbr';
@@ -1274,11 +1397,22 @@ function mergeCrossoverAlignment(current: string | undefined, incoming: string) 
     return incoming;
   }
 
+  const straightStates = new Set(['t', 'b', 'tlTtrAblTbr']);
+  if (straightStates.has(current) && straightStates.has(incoming)) {
+    return 'tlTtrAblTbr';
+  }
+
   throw new Error('The crossover is aligned incompatibly with another active route.');
 }
 
 function crossoverAlignmentAllows(current: string, required: string) {
-  return current === required;
+  if (
+    current === required ||
+    (current === 'tlTtrAblTbr' && (required === 't' || required === 'b'))
+  ) {
+    return true;
+  }
+  return false;
 }
 
 function applyRouteSwitchAlignments(
@@ -1486,7 +1620,6 @@ function createPendingAction(command: SwitchSetPositionCommand): PendingAction {
 }
 
 const ROUTE_BUILD_DELAY_MS = 2000;
-const ROUTE_CANCEL_DELAY_MS = 5000;
 
 function traversalUsesSwitchControl(
   pieceType: string,
@@ -3088,6 +3221,8 @@ export const stationService = {
       if (!activeRoute) {
         throw new Error('No active route starts from the selected endpoint.');
       }
+      const occupiedPieceIds = getOccupiedPieceIdsForStation(session, station.stationId);
+      const cancelDelay = getRouteCancelDelay(station, activeRoute, occupiedPieceIds);
 
       const action: PendingAction = {
         id: command.commandId,
@@ -3097,7 +3232,7 @@ export const stationService = {
         stationId: command.stationId,
         issuedAt: command.issuedAt,
         startedAt: null,
-        dueAt: new Date(Date.now() + ROUTE_CANCEL_DELAY_MS).toISOString(),
+        dueAt: new Date(Date.now() + cancelDelay.durationMs).toISOString(),
         finishedAt: null,
         payload: {
           routeType,
@@ -3106,6 +3241,8 @@ export const stationService = {
           targetPieceId: activeRoute.targetPieceId,
           sourceControl: activeRoute.sourceControl,
           targetControl: activeRoute.targetControl,
+          routeClass: activeRoute.routeClass,
+          cancelDelayLabel: cancelDelay.label,
         },
       };
 
@@ -3116,7 +3253,7 @@ export const stationService = {
 
       setTimeout(() => {
         void completeRouteAction(action.id, command.sessionId, command.stationId);
-      }, ROUTE_CANCEL_DELAY_MS);
+      }, cancelDelay.durationMs);
 
       return { kind: 'cancel-queued' as const, action };
     }
@@ -3222,6 +3359,8 @@ export const stationService = {
     if (!activeRoute) {
       throw new Error('No active route exists for the selected endpoints.');
     }
+    const occupiedPieceIds = getOccupiedPieceIdsForStation(session, station.stationId);
+    const cancelDelay = getRouteCancelDelay(station, activeRoute, occupiedPieceIds);
 
     const action: PendingAction = {
       id: command.commandId,
@@ -3231,7 +3370,7 @@ export const stationService = {
       stationId: command.stationId,
       issuedAt: command.issuedAt,
       startedAt: null,
-      dueAt: new Date(Date.now() + ROUTE_CANCEL_DELAY_MS).toISOString(),
+      dueAt: new Date(Date.now() + cancelDelay.durationMs).toISOString(),
       finishedAt: null,
       payload: {
         routeType: selection.routeType,
@@ -3240,6 +3379,8 @@ export const stationService = {
         targetPieceId: command.payload.pieceId,
         sourceControl: activeRoute.sourceControl ?? selection.sourceControl,
         targetControl: activeRoute.targetControl ?? command.payload.control,
+        routeClass: activeRoute.routeClass,
+        cancelDelayLabel: cancelDelay.label,
       },
     };
 
@@ -3251,7 +3392,7 @@ export const stationService = {
 
     setTimeout(() => {
       void completeRouteAction(action.id, command.sessionId, command.stationId);
-    }, ROUTE_CANCEL_DELAY_MS);
+    }, cancelDelay.durationMs);
 
     return { kind: 'cancel-queued' as const, action };
   },

@@ -92,6 +92,17 @@ export const stateGroups: StateGroupRegistry = {
           },
         },
       },
+      danger: {
+        base: {
+          '--color-shunt-button': '#d32f2f',
+        },
+        variants: {
+          blinking: {
+            '--color-shunt-button-blink': '#1f1212',
+            '--shunt-button-animation': 'shunt-button-blink 1s infinite',
+          },
+        },
+      },
     },
   },
 
@@ -298,6 +309,16 @@ export const stateGroups: StateGroupRegistry = {
           '--color-middle': '#333',
           '--color-right': '#333',
           '--lever-angle': '0deg',
+        },
+      },
+      left: {
+        base: {
+          '--color-left': '#009e49',
+        },
+      },
+      right: {
+        base: {
+          '--color-right': '#e69f00',
         },
       },
       leftSet: {
