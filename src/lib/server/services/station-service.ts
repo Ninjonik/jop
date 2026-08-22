@@ -491,9 +491,13 @@ function setPrivolavaciaCounterVisualState(
 }
 
 function applyPrivolavaciaVisualState(station: StationDocument) {
+  const selectedCounterId = station.runtime.privolavaciaSelection?.sealedCounterPieceId ?? null;
   const activeCounterIds = new Set(
     Object.values(station.runtime.activePrivolavaciaSignals).map((entry) => entry.sealedCounterPieceId),
   );
+  if (selectedCounterId) {
+    activeCounterIds.add(selectedCounterId);
+  }
 
   Object.entries(station.layout.pieces).forEach(([pieceId, piece]) => {
     if (!isPrivolavaciaCounterPieceType(piece.type)) {
@@ -507,7 +511,7 @@ function applyPrivolavaciaVisualState(station: StationDocument) {
     if (signalPiece?.state.groups.signal) {
       signalPiece.state.groups.signal = {
         state: 'shunt',
-        variant: 'normal',
+        variant: 'blinking',
       };
     }
 
@@ -517,6 +521,87 @@ function applyPrivolavaciaVisualState(station: StationDocument) {
 
 function getPrivolavaciaLinkedSignals(station: StationDocument, sealedCounterPieceId: string) {
   return getPrivolavaciaSignalLinksFromLayout(station.layout)[sealedCounterPieceId] ?? [];
+}
+
+function getDepartureSignalPieceIdForButton(
+  station: StationDocument,
+  departureButtonPieceId: string,
+) {
+  const anchor = getPieceAnchor(station.layout, departureButtonPieceId);
+
+  for (const directionX of [-1, 1]) {
+    const signalCell = {
+      x: anchor.x + directionX,
+      y: anchor.y,
+    };
+
+    if (
+      signalCell.x < 0 ||
+      signalCell.y < 0 ||
+      signalCell.y >= station.layout.height ||
+      signalCell.x >= station.layout.width
+    ) {
+      continue;
+    }
+
+    const ref = parseCellRef(station.layout.map[signalCell.y][signalCell.x]);
+    const piece = station.layout.pieces[ref.pieceId];
+    if (piece?.type === 'departureSignal' || piece?.type === 'departureSignalNoOcp') {
+      return ref.pieceId;
+    }
+  }
+
+  return null;
+}
+
+function getEntrySignalPieceIdForPremain(
+  station: StationDocument,
+  premainSignalPieceId: string,
+) {
+  const departureButtonPieceIds = Object.entries(station.layout.pieces)
+    .filter(([, piece]) => piece.type === 'departureButton')
+    .map(([pieceId]) => pieceId);
+
+  for (const departureButtonPieceId of departureButtonPieceIds) {
+    try {
+      const route = buildRouteFromSelection(
+        station,
+        premainSignalPieceId,
+        departureButtonPieceId,
+        tiles,
+        'normal',
+        false,
+      );
+      const entrySignalPieceId = route.signalPieceIds.find((pieceId) => {
+        const type = station.layout.pieces[pieceId]?.type;
+        return type === 'entrySignal' || type === 'entrySignalNoOcp';
+      });
+      if (entrySignalPieceId) {
+        return entrySignalPieceId;
+      }
+    } catch {
+      continue;
+    }
+  }
+
+  return null;
+}
+
+function getPrivolavaciaSignalPieceIdForControl(station: StationDocument, pieceId: string) {
+  const piece = station.layout.pieces[pieceId];
+  if (!piece) {
+    return null;
+  }
+
+  if (piece.type === 'departureButton') {
+    return getDepartureSignalPieceIdForButton(station, pieceId);
+  }
+
+  if (piece.type === 'premainSignal' || piece.type === 'premainSignalNoOcp') {
+    return getEntrySignalPieceIdForPremain(station, pieceId);
+  }
+
+  return isPrivolavaciaSignalPieceType(piece.type) ? pieceId : null;
 }
 
 function cancelPrivolavaciaSignal(station: StationDocument, signalPieceId: string) {
@@ -3189,15 +3274,20 @@ export const stationService = {
       throw new Error('Selected PN control was not found.');
     }
 
+    const controlledSignalPieceId = getPrivolavaciaSignalPieceIdForControl(
+      station,
+      command.payload.pieceId,
+    );
+
     if (command.payload.button === 'right') {
-      if (!isPrivolavaciaSignalPieceType(piece.type)) {
-        throw new Error('PN can only be cancelled by right-clicking the active signal.');
+      if (!controlledSignalPieceId) {
+        throw new Error('PN can only be cancelled from the matching route control.');
       }
-      if (!station.runtime.activePrivolavaciaSignals[command.payload.pieceId]) {
-        throw new Error('The selected signal does not currently have PN active.');
+      if (!station.runtime.activePrivolavaciaSignals[controlledSignalPieceId]) {
+        throw new Error('The selected control does not currently have PN active.');
       }
 
-      cancelPrivolavaciaSignal(station, command.payload.pieceId);
+      cancelPrivolavaciaSignal(station, controlledSignalPieceId);
       station.runtime.privolavaciaSelection = null;
       applyRuntimeStateWithTrainOccupations(station, session);
       bumpRevision(station);
@@ -3235,26 +3325,30 @@ export const stationService = {
       return { kind: 'selection-started' as const };
     }
 
-    if (!isPrivolavaciaSignalPieceType(piece.type)) {
-      throw new Error('PN can only be activated from a linked entry or departure signal.');
-    }
-
     const selection = station.runtime.privolavaciaSelection;
     if (!selection) {
-      throw new Error('Select a grouped PN counter first, then middle-click the target signal.');
+      throw new Error('Select a grouped PN counter first, then use the matching route control.');
+    }
+
+    if (command.payload.button !== 'left') {
+      throw new Error('Grouped PN activation uses the left-click route control.');
+    }
+
+    if (!controlledSignalPieceId) {
+      throw new Error('PN can only be activated from the matching route control.');
     }
 
     activatePrivolavaciaSignal(
       station,
       selection.sealedCounterPieceId,
-      command.payload.pieceId,
+      controlledSignalPieceId,
       command.issuedAt,
     );
     station.runtime.privolavaciaSelection = null;
     applyRuntimeStateWithTrainOccupations(station, session);
     bumpRevision(station);
     await saveStation(station);
-    return { kind: 'activated' as const, signalPieceId: command.payload.pieceId };
+    return { kind: 'activated' as const, signalPieceId: controlledSignalPieceId };
   },
 
   async applyMockInboundSwitchPosition(command: SwitchSetPositionCommand) {

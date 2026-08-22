@@ -362,7 +362,7 @@ export type ActivePrivolavaciaSignal = {
 
 export type PrivolavaciaInteractPayload = {
   pieceId: string;
-  button: 'middle' | 'right';
+  button: 'left' | 'middle' | 'right';
 };
 
 export type PrivolavaciaInteractCommand = StationCommand<PrivolavaciaInteractPayload> & {
@@ -771,7 +771,7 @@ export const privolavaciaInteractCommandSchema = z.object({
   }),
   payload: z.object({
     pieceId: z.string().trim().min(1),
-    button: z.enum(['middle', 'right']),
+    button: z.enum(['left', 'middle', 'right']),
   }),
 });
 
