@@ -99,10 +99,8 @@ export function getRequiredSwitchMotorPositions(
   }
 
   if (normalized === 'crossoverSwitch') {
-    if (traversableState === 'tlTtrAblTbr') return { upper: 'left', lower: 'left' };
-    if (traversableState === 't') return { upper: 'left' };
-    if (traversableState === 'b') return { lower: 'left' };
-    if (traversableState === 'blTtr') return { upper: 'right', lower: 'right' };
+    if (traversableState === 'tlTtrAblTbr') return { main: 'left' };
+    if (traversableState === 'blTtr') return { main: 'right' };
   }
 
   return {};
@@ -112,7 +110,7 @@ export function getDefaultSwitchMotorPositions(pieceType: string): SwitchMotorPo
   const normalized = normalizeSwitchType(pieceType);
   if (normalized === 'singleSwitch') return { main: 'left' };
   if (normalized === 'extendedSwitch') return { lower: 'left', upper: 'right' };
-  if (normalized === 'crossoverSwitch') return { upper: 'left', lower: 'left' };
+  if (normalized === 'crossoverSwitch') return { main: 'left' };
   return {};
 }
 
@@ -122,10 +120,8 @@ export function getMotorPositionsForTraversableState(
 ): SwitchMotorPositions {
   const normalized = normalizeSwitchType(pieceType);
   if (normalized === 'crossoverSwitch') {
-    if (traversableState === 'tlTtrAblTbr') return { upper: 'left', lower: 'left' };
-    if (traversableState === 't') return { upper: 'left', lower: 'right' };
-    if (traversableState === 'b') return { upper: 'right', lower: 'left' };
-    if (traversableState === 'blTtr') return { upper: 'right', lower: 'right' };
+    if (traversableState === 'tlTtrAblTbr') return { main: 'left' };
+    if (traversableState === 'blTtr') return { main: 'right' };
   }
 
   return getRequiredSwitchMotorPositions(pieceType, traversableState);
@@ -150,12 +146,7 @@ export function getTraversableStateForMotorPositions(
   }
 
   if (normalized === 'crossoverSwitch') {
-    const upper = positions.upper ?? 'left';
-    const lower = positions.lower ?? 'left';
-    if (upper === 'left' && lower === 'left') return 'tlTtrAblTbr';
-    if (upper === 'left') return 't';
-    if (lower === 'left') return 'b';
-    return 'blTtr';
+    return positions.main === 'right' ? 'blTtr' : 'tlTtrAblTbr';
   }
 
   return null;
@@ -185,9 +176,7 @@ export function isSwitchTraversalAllowedByButtonLocks(
     const buttonState = station.layout.pieces[control.buttonPieceId]?.state.groups.switch?.state;
     const lock = getButtonLockPosition(buttonState ?? 'default');
     if (lock === 'setting') {
-      return normalizeSwitchType(piece.type) === 'crossoverSwitch'
-        ? required[control.slot] === undefined
-        : false;
+      return false;
     }
 
     return lock === null || required[control.slot] === undefined || required[control.slot] === lock;

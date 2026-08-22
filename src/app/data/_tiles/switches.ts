@@ -54,18 +54,10 @@ export const switchTiles: TileCatalog = {
         '-1,1': '1,0',
         '1,0': '-1,1',
       },
-      b: {
-        '1,1': '-1,1',
-        '-1,1': '1,1',
-      },
-      t: {
-        '1,0': '-1,0',
-        '-1,0': '1,0',
-      },
     },
     groups: {
       occupation: {
-        states: ['default', 'setting', 'tlTtrAblTbr', 'blTtr', 'b', 't'],
+        states: ['default', 'setting', 'tlTtrAblTbr', 'blTtr'],
         defaultState: 'default',
       },
     },

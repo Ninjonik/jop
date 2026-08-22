@@ -391,14 +391,16 @@ export function canPiecesConnect(sourceType: string, targetType: string) {
 function getSwitchEndpointSlot(
   tileKey: string,
   localX: number,
-  localY: number
+  _localY?: number,
 ): 'upper' | 'lower' | 'main' {
+  void _localY;
+
   if (tileKey === 'singleSwitch' || tileKey === 'singleSwitchNoOcp') {
     return 'main';
   }
 
   if (tileKey === 'crossoverSwitch' || tileKey === 'crossoverSwitchNoOcp') {
-    return localY === 0 ? 'upper' : 'lower';
+    return 'main';
   }
 
   if (tileKey === 'extendedSwitch' || tileKey === 'extendedSwitchNoOcp') {
@@ -495,6 +497,10 @@ export function getAllConnectionEndpointKeysForPiece(layout: StationLayout, piec
     piece.type === 'extendedSwitch' ||
     piece.type === 'extendedSwitchNoOcp'
   ) {
+    if (piece.type === 'crossoverSwitch' || piece.type === 'crossoverSwitchNoOcp') {
+      return [`${pieceId}:main`];
+    }
+
     return [`${pieceId}:upper`, `${pieceId}:lower`];
   }
 

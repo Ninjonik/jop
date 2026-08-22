@@ -455,7 +455,7 @@ Switch-button behavior:
 - returning a fixed handle to neutral is instant and retains physical motor alignment
 - fixed button positions constrain route search; neutral buttons may be overridden by routes
 - reserved or occupied switch sections cannot be manually operated
-- compatible crossover halves remain independently controllable
+- crossover switches use one physical control slot and one switch-button link
 - the extended switch persists four motor combinations but exposes only its three connected traversals
 
 Current implementation files:
@@ -651,8 +651,9 @@ use the `JOPPieceLinks` JSON attribute and contain `{ stationId, pieceId }` pair
 represent multiple JOP tiles without relying on globally unique piece IDs.
 
 Roblox occupation events persist in `SessionDocument.runtime.physicalOccupations`. An optional
-`traversalState` allows independently occupied crossover/switch paths. Both mock train sensors and
-physical occupations feed the same server-side station visual projection and availability rules.
+`traversalState` records the occupied traversal through a switch or crossover. Both mock train
+sensors and physical occupations feed the same server-side station visual projection and
+availability rules.
 
 Relevant files:
 

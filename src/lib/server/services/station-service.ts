@@ -665,7 +665,7 @@ function getSpawnOccupationState(station: StationDocument, pieceId: string, row:
 
   const anchor = getPieceAnchor(station.layout, pieceId);
   if (piece.type === 'crossoverSwitch') {
-    return row === anchor.y ? 't' : 'b';
+    return 'tlTtrAblTbr';
   }
   if (piece.type === 'singleSwitch') {
     return row === anchor.y ? 't' : 'blTbr';
@@ -1189,22 +1189,11 @@ function mergeCrossoverAlignment(current: string | undefined, incoming: string) 
     return incoming;
   }
 
-  const straightStates = new Set(['t', 'b', 'tlTtrAblTbr']);
-  if (straightStates.has(current) && straightStates.has(incoming)) {
-    return 'tlTtrAblTbr';
-  }
-
   throw new Error('The crossover is aligned incompatibly with another active route.');
 }
 
 function crossoverAlignmentAllows(current: string, required: string) {
-  if (
-    current === required ||
-    (current === 'tlTtrAblTbr' && (required === 't' || required === 'b'))
-  ) {
-    return true;
-  }
-  return false;
+  return current === required;
 }
 
 function applyRouteSwitchAlignments(
