@@ -10,6 +10,7 @@ import { buildRouteFromSelection } from '@/lib/station/routes';
 import {
   getConnectedSwitchControl,
   getDefaultSwitchMotorPositions,
+  getTraversableStateForMotorPositions,
 } from '@/lib/station/switches';
 
 interface StationRuntimeBoardProps {
@@ -328,11 +329,13 @@ export default function StationRuntimeBoard({ station, onErrorChange }: StationR
         return null;
       }
 
+      const alignment = station.runtime.switchAlignments[pieceId];
+
       return {
         ...piece.state.groups,
         occupation: {
-          state: 'occupied',
-          variant: 'normal',
+          state: alignment?.traversableState ?? 'reserved',
+          variant: 'reserved',
         },
       };
     }
@@ -377,18 +380,24 @@ export default function StationRuntimeBoard({ station, onErrorChange }: StationR
     }
 
     const alignment = station.runtime.switchAlignments[pieceId];
-    if (
-      !alignment ||
-      piece.state.groups.occupation.state !== 'default' ||
-      piece.state.groups.occupation.variant === 'occupied'
-    ) {
+    if (piece.state.groups.occupation.state !== 'default' || piece.state.groups.occupation.variant === 'occupied') {
+      return null;
+    }
+
+    const overlayState =
+      alignment?.traversableState ??
+      getTraversableStateForMotorPositions(
+        piece.type,
+        getDefaultSwitchMotorPositions(piece.type),
+      );
+    if (!overlayState) {
       return null;
     }
 
     return {
       ...piece.state.groups,
       occupation: {
-        state: alignment.traversableState,
+        state: overlayState,
         variant: 'reserved',
       },
     };

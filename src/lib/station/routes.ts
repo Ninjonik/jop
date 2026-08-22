@@ -1087,7 +1087,15 @@ function buildSignalRoutePlans(
   routes: ActiveTrainRoute[],
   tiles: TileCatalog,
 ) {
-  const normalRoutes = routes.filter((route) => route.routeType === 'normal');
+  const cancellingRouteIds = new Set(
+    Object.values(station.runtime.pendingActions)
+      .filter((action) => action.type === 'route:cancel-normal' || action.type === 'route:cancel-shunt')
+      .map((action) => action.payload.routeId)
+      .filter((routeId): routeId is string => typeof routeId === 'string'),
+  );
+  const normalRoutes = routes.filter(
+    (route) => route.routeType === 'normal' && !cancellingRouteIds.has(route.id),
+  );
   const orderedSignalsByRoute = new Map<string, string[]>();
   const outboundStartByPlatform = new Map<string, string>();
 
@@ -1380,6 +1388,14 @@ export function applyActiveRouteVisualState(station: StationDocument, tiles: Til
   routes
     .filter((route) => route.routeType === 'shunt')
     .forEach((route) => {
+      const cancelQueued = Object.values(station.runtime.pendingActions).some(
+        (action) =>
+          (action.type === 'route:cancel-normal' || action.type === 'route:cancel-shunt') &&
+          action.payload.routeId === route.id,
+      );
+      if (cancelQueued) {
+        return;
+      }
       route.signalPieceIds.forEach((pieceId) => {
         const piece = pieces[pieceId];
         if (
