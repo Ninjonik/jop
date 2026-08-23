@@ -1,5 +1,5 @@
 return {
-	BackendBaseUrl = "https://YOUR-JOP-HOST.example.com",
+	BackendBaseUrl = "https://jop.igportals.eu",
 	InboundSecretName = "JOP_INBOUND_SECRET",
 	MessagingTopic = "JOPRuntime",
 	LinkAttributeName = "JOPPieceLinks",
