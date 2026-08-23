@@ -20,6 +20,13 @@ On the web server, create an Open Cloud API key scoped to the experience with
 `ROBLOX_OPEN_CLOUD_API_KEY`, `ROBLOX_INBOUND_SECRET`, and
 `ROBLOX_MESSAGING_TOPIC`. The topic must be no longer than 80 characters.
 
+When a Roblox server starts, `Main.server.lua` registers `game.JobId` as the
+runtime `sessionId` and `game.PlaceId` as the template key. If a saved JOP
+place template exists for that `PlaceId`, the backend creates a fresh Roblox
+session in MongoDB from that template and returns the initial snapshot. If no
+template exists for that `PlaceId`, the bridge disables itself instead of
+retrying forever.
+
 Link any `Instance` to one or more station pieces with a string attribute named
 `JOPPieceLinks`. The value is JSON:
 

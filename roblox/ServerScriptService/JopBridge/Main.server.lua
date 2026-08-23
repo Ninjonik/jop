@@ -15,6 +15,7 @@ local api = ApiClient.new(Config)
 local syncInProgress = false
 local syncRequested = false
 local registry
+local bridgeDisabled = false
 
 local function newEventId()
 	return HttpService:GenerateGUID(false)
@@ -66,7 +67,28 @@ local function applyResponse(response)
 	end
 end
 
+local function shouldDisableAfterRegistrationFailure(message)
+	if type(message) ~= "string" then
+		return false
+	end
+
+	return string.find(message, "No Roblox map template is configured for PlaceId", 1, true) ~= nil
+end
+
+local function disableBridge(reason)
+	if bridgeDisabled then
+		return
+	end
+
+	bridgeDisabled = true
+	warn("[JOP] Bridge disabled: " .. tostring(reason))
+end
+
 local function synchronize()
+	if bridgeDisabled then
+		return
+	end
+
 	if syncInProgress then
 		syncRequested = true
 		return
@@ -111,11 +133,21 @@ task.spawn(function()
 			print(string.format("[JOP] Registered session %s for PlaceId %s", sessionId, placeId))
 			break
 		end
+
+		if shouldDisableAfterRegistrationFailure(response) then
+			disableBridge(response)
+			return
+		end
+
 		warn("[JOP] Registration failed; retrying: " .. tostring(response))
 		task.wait(10)
 	end
 
 	while true do
+		if bridgeDisabled then
+			return
+		end
+
 		task.wait(Config.ReconciliationIntervalSeconds)
 		synchronize()
 	end
