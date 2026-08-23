@@ -27,6 +27,7 @@ export default function StationLinkerClient({ tiles, stateGroups }: Props) {
   const [selectedPieceIds, setSelectedPieceIds] = useState<string[]>([]);
   const [copiedPieceIds, setCopiedPieceIds] = useState<string[]>([]);
   const [copyStatus, setCopyStatus] = useState<string | null>(null);
+  const [lastCopiedCount, setLastCopiedCount] = useState(0);
   const [ctrlSelectionActive, setCtrlSelectionActive] = useState(false);
   const [selectedTraversalIndex, setSelectedTraversalIndex] = useState(0);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -111,6 +112,8 @@ export default function StationLinkerClient({ tiles, stateGroups }: Props) {
     try {
       await navigator.clipboard.writeText(payload);
       setCopiedPieceIds((current) => Array.from(new Set([...current, ...pieceIds])));
+      setSelectedPieceIds([]);
+      setLastCopiedCount(pieceIds.length);
       setCopyStatus(`Copied ${pieceIds.length} tile link${pieceIds.length === 1 ? '' : 's'}.`);
     } catch {
       setCopyStatus('Clipboard copy failed.');
@@ -191,6 +194,7 @@ export default function StationLinkerClient({ tiles, stateGroups }: Props) {
     });
     setSelectedPieceIds([]);
     setCopiedPieceIds([]);
+    setLastCopiedCount(0);
     setCopyStatus(null);
     setCtrlSelectionActive(false);
     setSelectedTraversalIndex(0);
@@ -310,6 +314,9 @@ export default function StationLinkerClient({ tiles, stateGroups }: Props) {
                 <div>Traversal</div>
                 <div className="font-mono text-base">
                   {selectedTraversalState === 'none' ? 'none' : selectedTraversalState}
+                </div>
+                <div className="mt-1 text-xs text-neutral-300">
+                  Last copied: {lastCopiedCount}
                 </div>
               </div>
             ) : null}

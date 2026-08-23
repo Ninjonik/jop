@@ -50,6 +50,8 @@ export default function StationEditorClient({ tiles, stateGroups }: Props) {
   const [draftWidth, setDraftWidth] = useState(DEFAULT_WIDTH);
   const [draftHeight, setDraftHeight] = useState(DEFAULT_HEIGHT);
   const [pieceIdLookup, setPieceIdLookup] = useState('');
+  const [jopPieceLinksInput, setJopPieceLinksInput] = useState('');
+  const [jopPieceLinksError, setJopPieceLinksError] = useState<string | null>(null);
   const [editorState, setEditorState] = useState<EditorState>(() =>
     createInitialEditorState(DEFAULT_WIDTH, DEFAULT_HEIGHT, tiles, stateGroups)
   );
@@ -90,6 +92,43 @@ export default function StationEditorClient({ tiles, stateGroups }: Props) {
     clearContextMenu();
     setPendingConnectionEndpointKey(null);
     setSelectedCells(getPieceCells(editorState, pieceId));
+  };
+
+  const handleHighlightJopPieceLinks = () => {
+    try {
+      const parsed = JSON.parse(jopPieceLinksInput) as Array<{ pieceId?: string }>;
+      if (!Array.isArray(parsed)) {
+        throw new Error('JOPPieceLinks must be a JSON array.');
+      }
+
+      const nextSelectedCells: [number, number][] = [];
+      const seen = new Set<string>();
+
+      parsed.forEach((entry) => {
+        const pieceId = typeof entry?.pieceId === 'string' ? entry.pieceId.trim() : '';
+        if (!pieceId || !editorState.pieces[pieceId]) {
+          return;
+        }
+
+        getPieceCells(editorState, pieceId).forEach(([x, y]) => {
+          const key = `${x},${y}`;
+          if (seen.has(key)) {
+            return;
+          }
+          seen.add(key);
+          nextSelectedCells.push([x, y]);
+        });
+      });
+
+      clearPlacementUi();
+      clearContextMenu();
+      setPendingConnectionEndpointKey(null);
+      setSelectedCells(nextSelectedCells);
+      setJopPieceLinksError(null);
+    } catch (error) {
+      setSelectedCells([]);
+      setJopPieceLinksError(error instanceof Error ? error.message : 'Invalid JOPPieceLinks JSON.');
+    }
   };
 
   const applyPlacement = (variant: PlacementVariant) => {
@@ -214,6 +253,7 @@ export default function StationEditorClient({ tiles, stateGroups }: Props) {
     clearPlacementUi();
     clearContextMenu();
     setPendingConnectionEndpointKey(null);
+    setJopPieceLinksError(null);
     event.target.value = '';
   };
 
@@ -577,10 +617,14 @@ export default function StationEditorClient({ tiles, stateGroups }: Props) {
         width={draftWidth}
         height={draftHeight}
         pieceIdLookup={pieceIdLookup}
+        jopPieceLinksInput={jopPieceLinksInput}
+        jopPieceLinksError={jopPieceLinksError}
         onWidthChange={setDraftWidth}
         onHeightChange={setDraftHeight}
         onPieceIdLookupChange={setPieceIdLookup}
         onFindPieceId={handleFindPieceId}
+        onJopPieceLinksInputChange={setJopPieceLinksInput}
+        onHighlightJopPieceLinks={handleHighlightJopPieceLinks}
         onSet={handleResetBoard}
         onImport={() => fileInputRef.current?.click()}
         onExport={handleExport}

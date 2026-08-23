@@ -7,6 +7,7 @@ import type {
   TileCatalog,
   TraversableStateKey,
 } from '@/app/components/tiles/tile-catalog';
+
 import TileCatalogTileCard from './TileCatalogTileCard';
 
 interface ClientProps {
