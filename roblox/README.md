@@ -95,6 +95,56 @@ state. Roblox no longer computes aspects locally. The bridge applies the
 server-provided resolved signal family/aspect through `SignalController.lua`,
 and that module only reflects backend state onto the physical lamps.
 
+The current bridge sources are also exposed through a protected backend API:
+
+- `GET /api/roblox/bridge-scripts`
+- authorization: `Bearer <ROBLOX_INBOUND_SECRET>`
+
+The response contains the current `ServerScriptService/JopBridge` sources with
+their Roblox class names. You can use this to refresh the bridge directly from
+Studio instead of manually pasting every file.
+
+Example Studio command-bar updater:
+
+```lua
+local HttpService = game:GetService("HttpService")
+
+local backendBaseUrl = "https://your-jop-host.example.com"
+local authorization = HttpService:GetSecret("jop-inbound-secret"):AddPrefix("Bearer ")
+
+local response = HttpService:RequestAsync({
+	Url = backendBaseUrl .. "/api/roblox/bridge-scripts",
+	Method = "GET",
+	Headers = {
+		["authorization"] = authorization,
+	},
+})
+
+assert(response.Success, string.format("HTTP %d: %s", response.StatusCode, response.Body))
+
+local payload = HttpService:JSONDecode(response.Body)
+local root = game:GetService("ServerScriptService"):FindFirstChild("JopBridge")
+if not root then
+	root = Instance.new("Script")
+	root.Name = "JopBridge"
+	root.Parent = game:GetService("ServerScriptService")
+end
+
+for _, scriptInfo in ipairs(payload.scripts) do
+	if scriptInfo.name == "JopBridge" then
+		root.Source = scriptInfo.source
+	else
+		local child = root:FindFirstChild(scriptInfo.name)
+		if not child then
+			child = Instance.new(scriptInfo.className)
+			child.Name = scriptInfo.name
+			child.Parent = root
+		end
+		child.Source = scriptInfo.source
+	end
+end
+```
+
 Only `HardwareDriver.lua` remains intentionally provisional. When the final
 Roblox model hierarchy is defined, keep the bridge protocol and these link
 shapes stable, and replace the attribute-based plumbing with concrete model

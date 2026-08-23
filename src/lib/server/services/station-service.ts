@@ -2403,22 +2403,88 @@ function markPassedSignal(station: StationDocument, routeId: string, signalPiece
   }
 }
 
-function releaseSensorReservations(
+function releaseRouteReservationsForClearedOccupation(
+  station: StationDocument,
+  pieceId: string,
+  traversalState: string | null,
+) {
+  Object.values(station.runtime.activeTrainRoutes).forEach((route) => {
+    route.reservedOccupations = route.reservedOccupations.filter((occupation) => {
+      if (occupation.pieceId !== pieceId) {
+        return true;
+      }
+
+      if (traversalState === null) {
+        return false;
+      }
+
+      return occupation.state !== traversalState;
+    });
+  });
+}
+
+function markRouteSignalPassedByOccupiedPiece(
+  station: StationDocument,
+  pieceId: string,
+  traversalState: string | null,
+) {
+  const pieceType = station.layout.pieces[pieceId]?.type;
+  if (!pieceType || !isAnySignalPieceType(pieceType)) {
+    return;
+  }
+  if (pieceType === 'premainSignal' || pieceType === 'premainSignalNoOcp') {
+    return;
+  }
+
+  Object.values(station.runtime.activeTrainRoutes).forEach((route) => {
+    const matchingStep = route.path.find((step) => {
+      if (step.pieceId !== pieceId || step.signalPieceId !== pieceId) {
+        return false;
+      }
+
+      if (traversalState === null || step.occupationState === null) {
+        return true;
+      }
+
+      return step.occupationState === traversalState;
+    });
+
+    if (matchingStep) {
+      markPassedSignal(station, route.id, pieceId);
+    }
+  });
+}
+
+function applyRouteProgressFromOccupationEvent(
+  station: StationDocument,
+  pieceId: string,
+  traversalState: string | null,
+  occupied: boolean,
+) {
+  if (occupied) {
+    markRouteSignalPassedByOccupiedPiece(station, pieceId, traversalState);
+    return;
+  }
+
+  releaseRouteReservationsForClearedOccupation(station, pieceId, traversalState);
+}
+
+function applyRouteProgressFromMockSensors(
   stations: Map<string, StationDocument>,
   sensors: MockTrain['occupiedSensors'],
+  occupied: boolean,
 ) {
   sensors.forEach((sensor) => {
-    if (!sensor.routeId) {
+    const station = stations.get(sensor.stationId);
+    if (!station) {
       return;
     }
 
-    const route = stations.get(sensor.stationId)?.runtime.activeTrainRoutes[sensor.routeId];
-    if (!route) {
-      return;
-    }
-
-    route.reservedOccupations = route.reservedOccupations.filter(
-      (occupation) => occupation.pieceId !== sensor.pieceId,
+    applyRouteProgressFromOccupationEvent(
+      station,
+      sensor.pieceId,
+      sensor.occupationState ?? null,
+      occupied,
     );
   });
 }
@@ -2514,7 +2580,18 @@ async function advanceTrainMovement(sessionId: string, trainId: string) {
   const clearedSensors = previousSensors.filter(
     (sensor) => !retainedSensorKeys.has(`${sensor.stationId}:${sensor.pieceId}`),
   );
-  releaseSensorReservations(stations, clearedSensors);
+  applyRouteProgressFromMockSensors(stations, clearedSensors, false);
+  if (occupiedState) {
+    const stepStation = stations.get(step.stationId);
+    if (stepStation) {
+    applyRouteProgressFromOccupationEvent(
+      stepStation,
+      step.pieceId,
+      occupiedState,
+      true,
+    );
+    }
+  }
 
   train.location = {
     stationId: step.stationId,
@@ -2523,11 +2600,7 @@ async function advanceTrainMovement(sessionId: string, trainId: string) {
     routeStepIndex: step.routeStepIndex,
   };
   if (previousStep?.signalPieceId) {
-    const signalStation = stations.get(previousStep.stationId);
-    if (signalStation) {
-      markPassedSignal(signalStation, previousStep.routeId, previousStep.signalPieceId);
-      affectedStationIds.add(previousStep.stationId);
-    }
+    affectedStationIds.add(previousStep.stationId);
   }
 
   movement.nextStepIndex += 1;
@@ -2792,6 +2865,8 @@ export const stationService = {
       observedAt: input.observedAt,
     };
     session.updatedAt = nowIso();
+
+    applyRouteProgressFromOccupationEvent(station, input.pieceId, traversalState, input.occupied);
 
     applyRuntimeStateWithTrainOccupations(station, session);
     bumpRevision(station);
@@ -3193,7 +3268,7 @@ export const stationService = {
     const stations = new Map(
       stationList.map((station) => [station.stationId, ensureStationRuntimeState(station)]),
     );
-    releaseSensorReservations(stations, train.occupiedSensors);
+    applyRouteProgressFromMockSensors(stations, train.occupiedSensors, false);
     await saveTrainStationSnapshots(session, stations, affectedStationIds);
     return { trainId };
   },

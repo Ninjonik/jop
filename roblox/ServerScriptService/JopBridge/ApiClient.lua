@@ -60,6 +60,10 @@ function ApiClient:FetchUpdates(sessionId, afterSequence)
 	)
 end
 
+function ApiClient:FetchBridgeScripts()
+	return self:_request("GET", "/api/roblox/bridge-scripts")
+end
+
 function ApiClient:ReportOccupation(sessionId, report)
 	return self:_request(
 		"POST",

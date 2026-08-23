@@ -66,113 +66,37 @@ local function startBlink(instance, lamp, period)
 	end)
 end
 
-local function buildFamilyAspectTable()
-	local expect40 = { z1 = "slow" }
-	local expect60 = { z1 = "fast" }
-	local expect80 = { z = "slow" }
-	local expect100 = { z = "fast" }
-
+local function buildResolvedAspectTable()
+	-- These mappings mirror the canonical Roblox Aspects ModuleScript lamp codes.
+	-- The backend already resolves family/aspect meaning; this controller only
+	-- reflects the resolved aspect onto the physical lamps.
 	return {
-		entry = {
-			danger = { c = "on" },
-			caution = { z1 = "on" },
-			proceed = { z = "on" },
-			shunt = { b = "on" },
-			proceed40Caution = { z1 = "on", z2 = "on", r4 = "on" },
-			proceed40Proceed = { z = "on", z2 = "on", r4 = "on" },
-			proceed40Expect40 = { z1 = "slow", z2 = "on", r4 = "on" },
-			proceed40Expect60 = { z1 = "fast", z2 = "on", r4 = "on" },
-			proceed40Expect80 = { z = "slow", z2 = "on", r4 = "on" },
-			proceed40Expect100 = { z = "fast", z2 = "on", r4 = "on" },
-			proceed30 = { z = "on", z2 = "on", r3 = "on" },
-			proceed40 = { z = "on", z2 = "on", r4 = "on" },
-			proceed50 = { z = "on", z2 = "on", r5 = "on" },
-			proceed60 = { z = "on", z2 = "on", r6 = "on" },
-			proceed80 = { z = "on", z2 = "on", r8 = "on" },
-			proceed100 = { z = "on", z2 = "on", r10 = "on" },
-			expect30 = expect40,
-			expect40 = expect40,
-			expect50 = expect40,
-			expect60 = expect60,
-			expect80 = expect80,
-			expect100 = expect100,
-		},
-		departure = {
-			danger = { c = "on" },
-			caution = { c = "on" },
-			proceed = { z = "on" },
-			shunt = { b = "on" },
-			proceed40Caution = { c = "on", z2 = "on", r4 = "on" },
-			proceed40Proceed = { z = "on", z2 = "on", r4 = "on" },
-			proceed40Expect40 = { c = "on", z2 = "on", r4 = "on" },
-			proceed40Expect60 = { c = "on", z2 = "on", r4 = "on" },
-			proceed40Expect80 = { c = "on", z2 = "on", r4 = "on" },
-			proceed40Expect100 = { c = "on", z2 = "on", r4 = "on" },
-			proceed30 = { z = "on", z2 = "on", r3 = "on" },
-			proceed40 = { z = "on", z2 = "on", r4 = "on" },
-			proceed50 = { z = "on", z2 = "on", r5 = "on" },
-			proceed60 = { z = "on", z2 = "on", r6 = "on" },
-			proceed80 = { z = "on", z2 = "on", r8 = "on" },
-			proceed100 = { z = "on", z2 = "on", r10 = "on" },
-			expect30 = { c = "on" },
-			expect40 = { c = "on" },
-			expect50 = { c = "on" },
-			expect60 = { c = "on" },
-			expect80 = { c = "on" },
-			expect100 = { c = "on" },
-		},
-		premain = {
-			danger = { z1 = "on" },
-			caution = { z1 = "on" },
-			proceed = { z = "on" },
-			shunt = { z1 = "on" },
-			proceed40Caution = { z = "on" },
-			proceed40Proceed = { z = "on" },
-			proceed40Expect40 = { z = "on" },
-			proceed40Expect60 = { z = "on" },
-			proceed40Expect80 = { z = "on" },
-			proceed40Expect100 = { z = "on" },
-			proceed30 = { z = "on" },
-			proceed40 = { z = "on" },
-			proceed50 = { z = "on" },
-			proceed60 = { z = "on" },
-			proceed80 = { z = "on" },
-			proceed100 = { z = "on" },
-			expect30 = expect40,
-			expect40 = expect40,
-			expect50 = expect40,
-			expect60 = expect60,
-			expect80 = expect80,
-			expect100 = expect100,
-		},
-		shunt = {
-			danger = { c = "on" },
-			caution = {},
-			proceed = { c = "on" },
-			shunt = { b = "on" },
-			proceed40Caution = { c = "on" },
-			proceed40Proceed = { c = "on" },
-			proceed40Expect40 = { c = "on" },
-			proceed40Expect60 = { c = "on" },
-			proceed40Expect80 = { c = "on" },
-			proceed40Expect100 = { c = "on" },
-			proceed30 = { c = "on" },
-			proceed40 = { c = "on" },
-			proceed50 = { c = "on" },
-			proceed60 = { c = "on" },
-			proceed80 = { c = "on" },
-			proceed100 = { c = "on" },
-			expect30 = {},
-			expect40 = {},
-			expect50 = {},
-			expect60 = {},
-			expect80 = {},
-			expect100 = {},
-		},
+		danger = { c = "on" },
+		caution = { z1 = "on" },
+		proceed = { z = "on" },
+		shunt = { b = "on" },
+		proceed40Caution = { z1 = "on", z2 = "on", r4 = "on" },
+		proceed40Proceed = { z = "on", z2 = "on", r4 = "on" },
+		proceed40Expect40 = { z1 = "pulse2", z2 = "on", r4 = "on" },
+		proceed40Expect60 = { z1 = "pulse3", z2 = "on", r4 = "on" },
+		proceed40Expect80 = { z = "pulse2", z2 = "on", r4 = "on" },
+		proceed40Expect100 = { z = "pulse3", z2 = "on", r4 = "on" },
+		proceed30 = { z = "on", z2 = "on", r3 = "on" },
+		proceed40 = { z = "on", z2 = "on", r4 = "on" },
+		proceed50 = { z = "on", z2 = "on", r5 = "on" },
+		proceed60 = { z = "on", z2 = "on", r6 = "on" },
+		proceed80 = { z = "on", z2 = "on", r8 = "on" },
+		proceed100 = { z = "on", z2 = "on", r10 = "on" },
+		expect30 = { z1 = "pulse2" },
+		expect40 = { z1 = "pulse2" },
+		expect50 = { z1 = "pulse2" },
+		expect60 = { z1 = "pulse3" },
+		expect80 = { z = "pulse2" },
+		expect100 = { z = "pulse3" },
 	}
 end
 
-local FAMILY_ASPECTS = buildFamilyAspectTable()
+local RESOLVED_ASPECTS = buildResolvedAspectTable()
 local CONTROLLED_LAMPS = {
 	"z1",
 	"z",
@@ -191,8 +115,7 @@ function SignalController.Apply(instance, family, aspect)
 	local state = getOrCreateState(instance)
 	state.version += 1
 
-	local familyConfig = FAMILY_ASPECTS[family]
-	local aspectConfig = familyConfig and familyConfig[aspect] or {}
+	local aspectConfig = RESOLVED_ASPECTS[aspect] or {}
 
 	for _, lampName in ipairs(CONTROLLED_LAMPS) do
 		local lamp = findLamp(instance, lampName)
@@ -200,10 +123,10 @@ function SignalController.Apply(instance, family, aspect)
 			local mode = aspectConfig[lampName]
 			if mode == "on" then
 				turnOn(lamp, DEFAULT_TWEEN)
-			elseif mode == "slow" then
+			elseif mode == "pulse2" then
 				turnOff(lamp, DEFAULT_TWEEN)
 				startBlink(instance, lamp, SLOW_BLINK)
-			elseif mode == "fast" then
+			elseif mode == "pulse3" then
 				turnOff(lamp, DEFAULT_TWEEN)
 				startBlink(instance, lamp, FAST_BLINK)
 			else
