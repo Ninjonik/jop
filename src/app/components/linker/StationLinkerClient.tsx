@@ -82,8 +82,8 @@ export default function StationLinkerClient({ tiles, stateGroups }: Props) {
             typeof traversable === 'object' &&
             selectedTraversalState in traversable;
 
-          return {
-            stationId: stationId.trim(),
+        return {
+            stationId: stationId.trim().toLowerCase(),
             pieceId,
             ...(supportsSelectedTraversal ? { traversalState: selectedTraversalState } : {}),
           };
@@ -97,7 +97,7 @@ export default function StationLinkerClient({ tiles, stateGroups }: Props) {
   }, [selectedPieceIds]);
 
   const copyPieceIds = useCallback(async (pieceIds: string[]) => {
-    const normalizedStationId = stationId.trim();
+    const normalizedStationId = stationId.trim().toLowerCase();
     if (!normalizedStationId) {
       setCopyStatus('Set stationId first.');
       return;

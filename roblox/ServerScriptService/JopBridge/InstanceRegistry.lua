@@ -3,6 +3,19 @@ local HttpService = game:GetService("HttpService")
 local InstanceRegistry = {}
 InstanceRegistry.__index = InstanceRegistry
 
+local function normalizeStationId(value)
+	if type(value) ~= "string" then
+		return nil
+	end
+
+	local trimmed = string.match(value, "^%s*(.-)%s*$")
+	if not trimmed or trimmed == "" then
+		return nil
+	end
+
+	return string.lower(trimmed)
+end
+
 local function decodeLinks(instance, attributeName)
 	local encoded = instance:GetAttribute(attributeName)
 	if type(encoded) ~= "string" or encoded == "" then
@@ -20,7 +33,12 @@ local function decodeLinks(instance, attributeName)
 	local valid = {}
 	for _, link in ipairs(links) do
 		if type(link) == "table" and type(link.stationId) == "string" and type(link.pieceId) == "string" then
-			local entry = { stationId = link.stationId, pieceId = link.pieceId }
+			local stationId = normalizeStationId(link.stationId)
+			if not stationId then
+				continue
+			end
+
+			local entry = { stationId = stationId, pieceId = link.pieceId }
 			if type(link.traversalState) == "string" and link.traversalState ~= "" then
 				entry.traversalState = link.traversalState
 			end
@@ -200,9 +218,11 @@ end
 function InstanceRegistry:ApplySnapshot(snapshot)
 	self._statesByKey = {}
 	for _, station in ipairs(snapshot.stations) do
+		local stationId = normalizeStationId(station.stationId)
 		for pieceId, piece in pairs(station.pieces) do
-			self._statesByKey[station.stationId .. "\0" .. pieceId] = {
-				stationId = station.stationId,
+			if stationId then
+				self._statesByKey[stationId .. "\0" .. pieceId] = {
+					stationId = stationId,
 				pieceId = pieceId,
 				pieceType = piece.type,
 				groups = piece.groups,
@@ -211,6 +231,7 @@ function InstanceRegistry:ApplySnapshot(snapshot)
 				resolvedSignalFamily = piece.resolvedSignalFamily,
 				resolvedSignalAspect = piece.resolvedSignalAspect,
 			}
+			end
 		end
 	end
 
@@ -227,9 +248,14 @@ function InstanceRegistry:ApplyUpdates(updateBatch)
 	local touchedInstances = {}
 
 	for _, update in ipairs(updateBatch.updates) do
-		local pieceKey = update.stationId .. "\0" .. update.pieceId
+		local stationId = normalizeStationId(update.stationId)
+		if not stationId then
+			continue
+		end
+
+		local pieceKey = stationId .. "\0" .. update.pieceId
 		self._statesByKey[pieceKey] = {
-			stationId = update.stationId,
+			stationId = stationId,
 			pieceId = update.pieceId,
 			pieceType = update.piece.type,
 			groups = update.piece.groups,

@@ -617,6 +617,10 @@ function getOccupiedPieceIdsForStation(session: SessionDocument, stationId: stri
   return occupiedPieceIds;
 }
 
+function normalizeRobloxStationId(stationId: string) {
+  return stationId.trim().toLowerCase();
+}
+
 function getSignalFacingDirection(
   pieceType: string,
   rotation: 0 | 180,
@@ -2831,9 +2835,10 @@ export const stationService = {
       observedAt: string;
     },
   ) {
+    const stationId = normalizeRobloxStationId(input.stationId);
     const [rawSession, station] = await Promise.all([
       sessionRepository.findById(sessionId),
-      stationRepository.findBySessionAndStationId(sessionId, input.stationId),
+      stationRepository.findBySessionAndStationId(sessionId, stationId),
     ]);
     if (!rawSession || !station) {
       throw new Error('Station not found.');
@@ -2850,14 +2855,14 @@ export const stationService = {
     }
 
     const traversalState = input.traversalState ?? null;
-    const occupationKey = `${input.stationId}:${input.pieceId}:${traversalState ?? '*'}`;
+    const occupationKey = `${stationId}:${input.pieceId}:${traversalState ?? '*'}`;
     const current = session.runtime.physicalOccupations[occupationKey];
     if (current && Date.parse(current.observedAt) > Date.parse(input.observedAt)) {
       return { applied: false, station };
     }
 
     session.runtime.physicalOccupations[occupationKey] = {
-      stationId: input.stationId,
+      stationId,
       pieceId: input.pieceId,
       traversalState,
       occupied: input.occupied,
@@ -2885,9 +2890,10 @@ export const stationService = {
       observedAt: string;
     },
   ) {
+    const stationId = normalizeRobloxStationId(input.stationId);
     const [rawSession, station] = await Promise.all([
       sessionRepository.findById(sessionId),
-      stationRepository.findBySessionAndStationId(sessionId, input.stationId),
+      stationRepository.findBySessionAndStationId(sessionId, stationId),
     ]);
     if (!rawSession || !station) {
       throw new Error('Station not found.');
