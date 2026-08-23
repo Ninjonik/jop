@@ -49,6 +49,7 @@ export default function StationEditorClient({ tiles, stateGroups }: Props) {
   const placementVariants = useMemo(() => buildPlacementVariants(tiles), [tiles]);
   const [draftWidth, setDraftWidth] = useState(DEFAULT_WIDTH);
   const [draftHeight, setDraftHeight] = useState(DEFAULT_HEIGHT);
+  const [pieceIdLookup, setPieceIdLookup] = useState('');
   const [editorState, setEditorState] = useState<EditorState>(() =>
     createInitialEditorState(DEFAULT_WIDTH, DEFAULT_HEIGHT, tiles, stateGroups)
   );
@@ -77,6 +78,18 @@ export default function StationEditorClient({ tiles, stateGroups }: Props) {
 
   const clearContextMenu = () => {
     setContextMenu(null);
+  };
+
+  const handleFindPieceId = () => {
+    const pieceId = pieceIdLookup.trim();
+    if (!pieceId || !editorState.pieces[pieceId]) {
+      return;
+    }
+
+    clearPlacementUi();
+    clearContextMenu();
+    setPendingConnectionEndpointKey(null);
+    setSelectedCells(getPieceCells(editorState, pieceId));
   };
 
   const applyPlacement = (variant: PlacementVariant) => {
@@ -563,8 +576,11 @@ export default function StationEditorClient({ tiles, stateGroups }: Props) {
       <EditorControls
         width={draftWidth}
         height={draftHeight}
+        pieceIdLookup={pieceIdLookup}
         onWidthChange={setDraftWidth}
         onHeightChange={setDraftHeight}
+        onPieceIdLookupChange={setPieceIdLookup}
+        onFindPieceId={handleFindPieceId}
         onSet={handleResetBoard}
         onImport={() => fileInputRef.current?.click()}
         onExport={handleExport}

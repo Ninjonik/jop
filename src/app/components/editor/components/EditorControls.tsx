@@ -3,8 +3,11 @@
 interface Props {
   width: number;
   height: number;
+  pieceIdLookup: string;
   onWidthChange: (value: number) => void;
   onHeightChange: (value: number) => void;
+  onPieceIdLookupChange: (value: string) => void;
+  onFindPieceId: () => void;
   onSet: () => void;
   onImport: () => void;
   onExport: () => void;
@@ -13,8 +16,11 @@ interface Props {
 export default function EditorControls({
   width,
   height,
+  pieceIdLookup,
   onWidthChange,
   onHeightChange,
+  onPieceIdLookupChange,
+  onFindPieceId,
   onSet,
   onImport,
   onExport,
@@ -43,6 +49,25 @@ export default function EditorControls({
       </button>
       <button type="button" onClick={onExport} className="border border-neutral-700 bg-white px-2 py-0.5 text-sm text-black">
         export
+      </button>
+      <input
+        type="text"
+        value={pieceIdLookup}
+        onChange={(event) => onPieceIdLookupChange(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter') {
+            onFindPieceId();
+          }
+        }}
+        placeholder="piece id"
+        className="w-40 border border-neutral-500 bg-white px-1 py-0.5 text-sm text-black"
+      />
+      <button
+        type="button"
+        onClick={onFindPieceId}
+        className="border border-neutral-700 bg-white px-2 py-0.5 text-sm text-black"
+      >
+        find
       </button>
     </div>
   );
