@@ -282,15 +282,18 @@ function HardwareDriver.ApplyInstanceState(instance, linkedStates, capabilities)
 			signalComponent:SetAttribute(SIGNAL_STATE_ATTRIBUTE, firstSignal.resolvedSignalAspect)
 			signalComponent:SetAttribute(SIGNAL_PIECE_ID_ATTRIBUTE, firstSignal.pieceId)
 			signalComponent:SetAttribute(SIGNAL_TEXT_ATTRIBUTE, firstSignal.texts and firstSignal.texts.text or nil)
+			if firstSignal.resolvedSignalFamily and firstSignal.resolvedSignalAspect then
+				SignalController.Apply(
+					signalComponent,
+					firstSignal.resolvedSignalFamily,
+					firstSignal.resolvedSignalAspect
+				)
+			end
 		else
 			signalComponent:SetAttribute(SIGNAL_STATE_ATTRIBUTE, nil)
 			signalComponent:SetAttribute(SIGNAL_PIECE_ID_ATTRIBUTE, nil)
 			signalComponent:SetAttribute(SIGNAL_TEXT_ATTRIBUTE, nil)
 		end
-	end
-
-	if firstSignal and firstSignal.resolvedSignalFamily and firstSignal.resolvedSignalAspect then
-		SignalController.Apply(instance, firstSignal.resolvedSignalFamily, firstSignal.resolvedSignalAspect)
 	end
 
 	for _, switchComponent in ipairs(capabilities.switches) do

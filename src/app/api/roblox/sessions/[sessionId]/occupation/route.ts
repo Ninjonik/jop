@@ -22,11 +22,14 @@ export async function POST(request: Request, { params }: OccupationRouteProps) {
 
     const batchParse = robloxOccupationBatchSchema.safeParse(rawBody);
     if (batchParse.success) {
-      const results = await Promise.all(
-        batchParse.data.events.map((event) =>
-          stationService.applyRobloxOccupation(parsedSessionId, event),
-        ),
-      );
+      // One physical sensor can be linked to several JOP pieces. Apply those
+      // events in order so each read-modify-write sees the preceding update;
+      // parallel writes to the same session/station can otherwise overwrite
+      // sibling occupations and route progress (including a passed signal).
+      const results = [];
+      for (const event of batchParse.data.events) {
+        results.push(await stationService.applyRobloxOccupation(parsedSessionId, event));
+      }
       return Response.json({ applied: results.some((result) => result.applied) });
     }
 
