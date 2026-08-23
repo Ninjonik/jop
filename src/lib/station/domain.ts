@@ -719,6 +719,10 @@ export const robloxOccupationEventSchema = z.object({
   observedAt: z.string(),
 });
 
+export const robloxOccupationBatchSchema = z.object({
+  events: z.array(robloxOccupationEventSchema).min(1),
+});
+
 export const robloxSwitchFeedbackSchema = z.object({
   eventId: z.string().trim().min(1).max(128),
   stationId: stationIdSchema,
@@ -726,6 +730,10 @@ export const robloxSwitchFeedbackSchema = z.object({
   controlSlot: z.enum(['main', 'upper', 'lower']),
   position: z.enum(['left', 'right']),
   observedAt: z.string(),
+});
+
+export const robloxSwitchFeedbackBatchSchema = z.object({
+  events: z.array(robloxSwitchFeedbackSchema).min(1),
 });
 
 export const switchSetPositionCommandSchema = z.object({

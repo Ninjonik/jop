@@ -16,50 +16,230 @@ local syncInProgress = false
 local syncRequested = false
 local registry
 local bridgeDisabled = false
+local isRegistered = false
+local occupationFlushScheduled = false
+local switchFeedbackFlushScheduled = false
+local REPORT_FLUSH_DELAY_SECONDS = 0.25
+local pendingOccupationReports = {}
+local pendingOccupationOrder = {}
+local pendingSwitchFeedbackReports = {}
+local pendingSwitchFeedbackOrder = {}
 
 local function newEventId()
 	return HttpService:GenerateGUID(false)
+end
+
+local function occupationReportKey(link, report)
+	return table.concat({
+		link.stationId,
+		link.pieceId,
+		report.traversalState or "",
+	}, "\0")
+end
+
+local function switchFeedbackReportKey(link, report)
+	return table.concat({
+		link.stationId,
+		link.pieceId,
+		report.controlSlot or "",
+	}, "\0")
+end
+
+local function queueUniqueReport(store, order, key, payload)
+	if store[key] == nil then
+		table.insert(order, key)
+	end
+	store[key] = payload
+end
+
+local function hasPendingReports(order)
+	return #order > 0
+end
+
+local function popAllReports(store, order)
+	local reports = {}
+
+	for _, key in ipairs(order) do
+		local payload = store[key]
+		if payload ~= nil then
+			table.insert(reports, payload)
+			store[key] = nil
+		end
+	end
+
+	return reports, {}
+end
+
+local function flushOccupationReports()
+	if not isRegistered or bridgeDisabled then
+		occupationFlushScheduled = false
+		return
+	end
+
+	occupationFlushScheduled = false
+
+	if not hasPendingReports(pendingOccupationOrder) then
+		return
+	end
+
+	local batch
+	batch, pendingOccupationOrder = popAllReports(
+		pendingOccupationReports,
+		pendingOccupationOrder
+	)
+
+	if #batch == 0 then
+		return
+	end
+
+	local success, err = pcall(function()
+		api:ReportOccupationBatch(sessionId, batch)
+	end)
+	if not success then
+		warn(
+			string.format(
+				"[JOP] Failed to report occupation batch (%d events): %s",
+				#batch,
+				tostring(err)
+			)
+		)
+
+		for _, payload in ipairs(batch) do
+			local key = table.concat({
+				payload.stationId,
+				payload.pieceId,
+				payload.traversalState or "",
+			}, "\0")
+			queueUniqueReport(
+				pendingOccupationReports,
+				pendingOccupationOrder,
+				key,
+				payload
+			)
+		end
+
+		if not occupationFlushScheduled then
+			occupationFlushScheduled = true
+			task.delay(1, flushOccupationReports)
+		end
+	end
+end
+
+local function flushSwitchFeedbackReports()
+	if not isRegistered or bridgeDisabled then
+		switchFeedbackFlushScheduled = false
+		return
+	end
+
+	switchFeedbackFlushScheduled = false
+
+	if not hasPendingReports(pendingSwitchFeedbackOrder) then
+		return
+	end
+
+	local batch
+	batch, pendingSwitchFeedbackOrder = popAllReports(
+		pendingSwitchFeedbackReports,
+		pendingSwitchFeedbackOrder
+	)
+
+	if #batch == 0 then
+		return
+	end
+
+	local success, err = pcall(function()
+		api:ReportSwitchFeedbackBatch(sessionId, batch)
+	end)
+	if not success then
+		warn(
+			string.format(
+				"[JOP] Failed to report switch feedback batch (%d events): %s",
+				#batch,
+				tostring(err)
+			)
+		)
+
+		for _, payload in ipairs(batch) do
+			local key = table.concat({
+				payload.stationId,
+				payload.pieceId,
+				payload.controlSlot or "",
+			}, "\0")
+			queueUniqueReport(
+				pendingSwitchFeedbackReports,
+				pendingSwitchFeedbackOrder,
+				key,
+				payload
+			)
+		end
+
+		if not switchFeedbackFlushScheduled then
+			switchFeedbackFlushScheduled = true
+			task.delay(1, flushSwitchFeedbackReports)
+		end
+	end
+end
+
+local function scheduleOccupationFlush()
+	if occupationFlushScheduled or not isRegistered or bridgeDisabled then
+		return
+	end
+
+	occupationFlushScheduled = true
+	task.delay(REPORT_FLUSH_DELAY_SECONDS, flushOccupationReports)
+end
+
+local function scheduleSwitchFeedbackFlush()
+	if switchFeedbackFlushScheduled or not isRegistered or bridgeDisabled then
+		return
+	end
+
+	switchFeedbackFlushScheduled = true
+	task.delay(REPORT_FLUSH_DELAY_SECONDS, flushSwitchFeedbackReports)
 end
 
 registry = InstanceRegistry.new(
 	Config,
 	HardwareDriver,
 	function(link, report)
-		task.spawn(function()
-			local success, err = pcall(function()
-				api:ReportOccupation(sessionId, {
-					eventId = newEventId(),
-					stationId = link.stationId,
-					pieceId = link.pieceId,
-					traversalState = report.traversalState,
-					occupied = report.occupied,
-					observedAt = DateTime.now():ToIsoDate(),
-				})
-			end)
-			if not success then
-				warn("[JOP] Failed to report occupation: " .. tostring(err))
-			end
-		end)
+		local payload = {
+			eventId = newEventId(),
+			stationId = link.stationId,
+			pieceId = link.pieceId,
+			traversalState = report.traversalState,
+			occupied = report.occupied,
+			observedAt = DateTime.now():ToIsoDate(),
+		}
+		queueUniqueReport(
+			pendingOccupationReports,
+			pendingOccupationOrder,
+			occupationReportKey(link, report),
+			payload
+		)
+		scheduleOccupationFlush()
 	end,
 	function(link, report)
-		task.spawn(function()
-			local success, err = pcall(function()
-				api:ReportSwitchFeedback(sessionId, {
-					eventId = newEventId(),
-					stationId = link.stationId,
-					pieceId = link.pieceId,
-					controlSlot = report.controlSlot,
-					position = report.position,
-					observedAt = DateTime.now():ToIsoDate(),
-				})
-			end)
-			if not success then
-				warn("[JOP] Failed to report switch feedback: " .. tostring(err))
-			end
-		end)
+		local payload = {
+			eventId = newEventId(),
+			stationId = link.stationId,
+			pieceId = link.pieceId,
+			controlSlot = report.controlSlot,
+			position = report.position,
+			observedAt = DateTime.now():ToIsoDate(),
+		}
+		queueUniqueReport(
+			pendingSwitchFeedbackReports,
+			pendingSwitchFeedbackOrder,
+			switchFeedbackReportKey(link, report),
+			payload
+		)
+		scheduleSwitchFeedbackFlush()
 	end
 )
 registry:Start()
+registry:DebugPrintLinks()
+
+print(string.format("[JOP] Bridge boot for PlaceId %s using runtime sessionId %s", placeId, sessionId))
 
 local function applyResponse(response)
 	if response and response.snapshot then
@@ -130,7 +310,10 @@ task.spawn(function()
 		end)
 		if success then
 			applyResponse(response)
+			isRegistered = true
 			print(string.format("[JOP] Registered session %s for PlaceId %s", sessionId, placeId))
+			scheduleOccupationFlush()
+			scheduleSwitchFeedbackFlush()
 			break
 		end
 

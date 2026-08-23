@@ -43,6 +43,19 @@ function InstanceRegistry.new(config, hardwareDriver, onOccupation, onSwitchFeed
 	return self
 end
 
+local function formatLink(link)
+	if type(link.traversalState) == "string" and link.traversalState ~= "" then
+		return string.format(
+			"{stationId=%s, pieceId=%s, traversalState=%s}",
+			link.stationId,
+			link.pieceId,
+			link.traversalState
+		)
+	end
+
+	return string.format("{stationId=%s, pieceId=%s}", link.stationId, link.pieceId)
+end
+
 local function mergeOccupationReport(link, report)
 	if type(report) ~= "table" then
 		return report
@@ -136,6 +149,24 @@ function InstanceRegistry:Start()
 			self._attributeConnections[instance] = nil
 		end
 	end))
+end
+
+function InstanceRegistry:DebugPrintLinks()
+	print("[JOP] Linked Roblox instances discovered:")
+
+	local printedAny = false
+	for instance, entry in pairs(self._entries) do
+		printedAny = true
+		local linkStrings = {}
+		for _, link in ipairs(entry.links) do
+			table.insert(linkStrings, formatLink(link))
+		end
+		print(string.format("[JOP] %s -> %s", instance:GetFullName(), table.concat(linkStrings, ", ")))
+	end
+
+	if not printedAny then
+		print("[JOP] No linked Roblox instances were found.")
+	end
 end
 
 function InstanceRegistry:ApplySnapshot(snapshot)

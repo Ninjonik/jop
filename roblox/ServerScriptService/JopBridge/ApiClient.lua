@@ -65,11 +65,27 @@ function ApiClient:ReportOccupation(sessionId, report)
 	)
 end
 
+function ApiClient:ReportOccupationBatch(sessionId, reports)
+	return self:_request(
+		"POST",
+		"/api/roblox/sessions/" .. HttpService:UrlEncode(sessionId) .. "/occupation",
+		{ events = reports }
+	)
+end
+
 function ApiClient:ReportSwitchFeedback(sessionId, report)
 	return self:_request(
 		"POST",
 		"/api/roblox/sessions/" .. HttpService:UrlEncode(sessionId) .. "/switch-feedback",
 		report
+	)
+end
+
+function ApiClient:ReportSwitchFeedbackBatch(sessionId, reports)
+	return self:_request(
+		"POST",
+		"/api/roblox/sessions/" .. HttpService:UrlEncode(sessionId) .. "/switch-feedback",
+		{ events = reports }
 	)
 end
 
