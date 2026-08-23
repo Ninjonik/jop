@@ -216,6 +216,32 @@ export type PhysicalSwitchAlignment = {
   updatedAt: string;
 };
 
+export type RobloxResolvedSignalFamily = 'entry' | 'departure' | 'premain' | 'shunt';
+
+export type RobloxResolvedSignalAspect =
+  | 'danger'
+  | 'caution'
+  | 'proceed'
+  | 'shunt'
+  | 'proceed40Caution'
+  | 'proceed40Proceed'
+  | 'proceed40Expect40'
+  | 'proceed40Expect60'
+  | 'proceed40Expect80'
+  | 'proceed40Expect100'
+  | 'proceed30'
+  | 'proceed40'
+  | 'proceed50'
+  | 'proceed60'
+  | 'proceed80'
+  | 'proceed100'
+  | 'expect30'
+  | 'expect40'
+  | 'expect50'
+  | 'expect60'
+  | 'expect80'
+  | 'expect100';
+
 export type StationDocument = {
   _id: string;
   sessionId: string;
@@ -269,6 +295,8 @@ export type RobloxPhysicalPieceState = {
   groups: PieceRecord['state']['groups'];
   texts: PieceRecord['state']['texts'];
   switchAlignment: PhysicalSwitchAlignment | null;
+  resolvedSignalFamily: RobloxResolvedSignalFamily | null;
+  resolvedSignalAspect: RobloxResolvedSignalAspect | null;
 };
 
 export type RobloxPhysicalSnapshot = {

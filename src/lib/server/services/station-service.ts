@@ -13,6 +13,8 @@ import type {
   RouteInteractCommand,
   RuntimeRouteSelection,
   RuntimeRouteType,
+  RobloxResolvedSignalAspect,
+  RobloxResolvedSignalFamily,
   SessionDocument,
   SessionLineblockLink,
   SessionSchemaDocument,
@@ -557,6 +559,243 @@ function getOccupiedPieceIdsForStation(session: SessionDocument, stationId: stri
   });
 
   return occupiedPieceIds;
+}
+
+function getSignalFacingDirection(
+  pieceType: string,
+  rotation: 0 | 180,
+): 'left-to-right' | 'right-to-left' | null {
+  const defaultDirection: 'left-to-right' | 'right-to-left' =
+    pieceType === 'departureSignal' ||
+    pieceType === 'departureSignalNoOcp' ||
+    pieceType === 'premainSignal' ||
+    pieceType === 'premainSignalNoOcp' ||
+    pieceType === 'shuntSignalButtonBuffer'
+      ? 'right-to-left'
+      : 'left-to-right';
+
+  if (
+    pieceType !== 'entrySignal' &&
+    pieceType !== 'entrySignalNoOcp' &&
+    pieceType !== 'departureSignal' &&
+    pieceType !== 'departureSignalNoOcp' &&
+    pieceType !== 'premainSignal' &&
+    pieceType !== 'premainSignalNoOcp' &&
+    pieceType !== 'shuntSignal' &&
+    pieceType !== 'shuntSignalNoOcp' &&
+    pieceType !== 'shuntSignalButtonBuffer'
+  ) {
+    return null;
+  }
+
+  if (rotation === 180) {
+    return defaultDirection === 'left-to-right' ? 'right-to-left' : 'left-to-right';
+  }
+
+  return defaultDirection;
+}
+
+function getPieceCenter(station: StationDocument, pieceId: string) {
+  const cells = getPieceCells(station.layout, pieceId);
+  return {
+    x: cells.reduce((sum, [x]) => sum + x, 0) / cells.length,
+    y: cells.reduce((sum, [, y]) => sum + y, 0) / cells.length,
+  };
+}
+
+function getResolvedSignalFamily(pieceType: string): RobloxResolvedSignalFamily | null {
+  if (pieceType === 'entrySignal' || pieceType === 'entrySignalNoOcp') {
+    return 'entry';
+  }
+  if (pieceType === 'departureSignal' || pieceType === 'departureSignalNoOcp') {
+    return 'departure';
+  }
+  if (pieceType === 'premainSignal' || pieceType === 'premainSignalNoOcp') {
+    return 'premain';
+  }
+  if (
+    pieceType === 'shuntSignal' ||
+    pieceType === 'shuntSignalNoOcp' ||
+    pieceType === 'shuntSignalButtonBuffer'
+  ) {
+    return 'shunt';
+  }
+
+  return null;
+}
+
+function getOrderedFacingSignalsForRoute(station: StationDocument, route: ActiveTrainRoute) {
+  const directionSign = route.direction === 'left-to-right' ? 1 : -1;
+  return Array.from(new Set(route.signalPieceIds))
+    .filter((pieceId) => {
+      const piece = station.layout.pieces[pieceId];
+      return (
+        piece?.state.groups.signal &&
+        piece.type !== 'shuntSignal' &&
+        piece.type !== 'shuntSignalNoOcp' &&
+        getSignalFacingDirection(piece.type, piece.rotation) === route.direction
+      );
+    })
+    .sort((leftId, rightId) => {
+      const leftX = getPieceCenter(station, leftId).x;
+      const rightX = getPieceCenter(station, rightId).x;
+      return (leftX - rightX) * directionSign;
+    });
+}
+
+function getRouteHasSpeedRestriction(station: StationDocument, route: ActiveTrainRoute) {
+  return route.path.some((step) => {
+    const pieceType = station.layout.pieces[step.pieceId]?.type;
+    return pieceType ? isPhysicalSwitchType(pieceType) : false;
+  });
+}
+
+function getBaseResolvedSignalAspect(
+  family: RobloxResolvedSignalFamily,
+  signalState: string,
+): RobloxResolvedSignalAspect {
+  if (family === 'shunt') {
+    return signalState === 'shunt' ? 'shunt' : 'danger';
+  }
+
+  if (family === 'premain') {
+    return signalState === 'departure' ? 'proceed' : 'caution';
+  }
+
+  if (signalState === 'caution') {
+    return 'caution';
+  }
+  if (signalState === 'departure') {
+    return 'proceed';
+  }
+  if (signalState === 'shunt') {
+    return 'shunt';
+  }
+
+  return 'danger';
+}
+
+function isResolved40Aspect(aspect: RobloxResolvedSignalAspect | null) {
+  return (
+    aspect === 'proceed40' ||
+    aspect === 'proceed40Caution' ||
+    aspect === 'proceed40Proceed' ||
+    aspect === 'proceed40Expect40' ||
+    aspect === 'proceed40Expect60' ||
+    aspect === 'proceed40Expect80' ||
+    aspect === 'proceed40Expect100'
+  );
+}
+
+function resolveEntryOrDepartureAspectFromNext(
+  nextAspect: RobloxResolvedSignalAspect | null,
+): RobloxResolvedSignalAspect {
+  if (!nextAspect || nextAspect === 'danger' || nextAspect === 'shunt') {
+    return 'danger';
+  }
+
+  return 'proceed';
+}
+
+function resolvePremainAspectFromNext(
+  nextAspect: RobloxResolvedSignalAspect | null,
+): RobloxResolvedSignalAspect {
+  if (!nextAspect || nextAspect === 'danger' || nextAspect === 'shunt') {
+    return 'caution';
+  }
+
+  if (isResolved40Aspect(nextAspect)) {
+    return 'expect40';
+  }
+
+  return 'proceed';
+}
+
+function buildResolvedRobloxSignalAspects(station: StationDocument) {
+  const resolved = new Map<
+    string,
+    { family: RobloxResolvedSignalFamily; aspect: RobloxResolvedSignalAspect }
+  >();
+
+  Object.entries(station.layout.pieces).forEach(([pieceId, piece]) => {
+    const family = getResolvedSignalFamily(piece.type);
+    const signalState = piece.state.groups.signal?.state;
+    if (!family || !signalState) {
+      return;
+    }
+
+    resolved.set(pieceId, {
+      family,
+      aspect: getBaseResolvedSignalAspect(family, signalState),
+    });
+  });
+
+  const normalRoutes = Object.values(station.runtime.activeTrainRoutes).filter(
+    (route) => route.routeType === 'normal',
+  );
+
+  const outboundStartByPlatform = new Map<string, string>();
+  const orderedSignalsByRoute = new Map<string, string[]>();
+
+  normalRoutes.forEach((route) => {
+    const orderedSignals = getOrderedFacingSignalsForRoute(station, route);
+    orderedSignalsByRoute.set(route.id, orderedSignals);
+    if (route.routeClass === 'platform-to-premain' && orderedSignals[0]) {
+      outboundStartByPlatform.set(route.sourcePieceId, orderedSignals[0]);
+    }
+  });
+
+  normalRoutes.forEach((route) => {
+    const orderedSignals = orderedSignalsByRoute.get(route.id) ?? [];
+    if (orderedSignals.length === 0) {
+      return;
+    }
+
+    const startSignalId = orderedSignals[0];
+    if (getRouteHasSpeedRestriction(station, route)) {
+      const current = resolved.get(startSignalId);
+      if (current?.aspect === 'proceed') {
+        resolved.set(startSignalId, { ...current, aspect: 'proceed40Proceed' });
+      } else if (current?.aspect === 'caution') {
+        resolved.set(startSignalId, { ...current, aspect: 'proceed40Caution' });
+      }
+    }
+  });
+
+  normalRoutes.forEach((route) => {
+    const orderedSignals = orderedSignalsByRoute.get(route.id) ?? [];
+    orderedSignals.forEach((pieceId, index) => {
+      const current = resolved.get(pieceId);
+      if (!current || current.family === 'shunt') {
+        return;
+      }
+
+      const nextSignalPieceId = orderedSignals[index + 1] ?? null;
+      const nextAspect =
+        nextSignalPieceId && resolved.get(nextSignalPieceId)
+          ? resolved.get(nextSignalPieceId)?.aspect ?? null
+          : route.routeClass === 'premain-to-platform'
+            ? resolved.get(outboundStartByPlatform.get(route.targetPieceId) ?? '')?.aspect ?? null
+            : null;
+
+      if (current.family === 'premain') {
+        resolved.set(pieceId, {
+          ...current,
+          aspect: resolvePremainAspectFromNext(nextAspect),
+        });
+        return;
+      }
+
+      if (current.family === 'entry' || current.family === 'departure') {
+        resolved.set(pieceId, {
+          ...current,
+          aspect: resolveEntryOrDepartureAspectFromNext(nextAspect),
+        });
+      }
+    });
+  });
+
+  return resolved;
 }
 
 function getRoutePreStartPieceId(station: StationDocument, route: ActiveTrainRoute) {
@@ -2420,6 +2659,7 @@ export const stationService = {
     const stations = rawStations.map((station) => {
       ensureStationRuntimeState(station);
       applySessionTrainOccupations(station, session);
+      const resolvedSignalAspects = buildResolvedRobloxSignalAspects(station);
       return {
         stationId: station.stationId,
         revision: station.revision,
@@ -2431,6 +2671,8 @@ export const stationService = {
               groups: piece.state.groups,
               texts: piece.state.texts,
               switchAlignment: station.runtime.switchAlignments[pieceId] ?? null,
+              resolvedSignalFamily: resolvedSignalAspects.get(pieceId)?.family ?? null,
+              resolvedSignalAspect: resolvedSignalAspects.get(pieceId)?.aspect ?? null,
             },
           ]),
         ),

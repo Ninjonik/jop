@@ -2,8 +2,8 @@
 
 Create a `Script` named `JopBridge` under `ServerScriptService`. Use
 `Main.server.lua` as its source and add the other `.lua` files as child
-`ModuleScript` instances named `Config`, `ApiClient`, `HardwareDriver`, and
-`InstanceRegistry`.
+`ModuleScript` instances named `Config`, `ApiClient`, `HardwareDriver`,
+`InstanceRegistry`, and `SignalController`.
 
 Before running it:
 
@@ -26,11 +26,62 @@ Link any `Instance` to one or more station pieces with a string attribute named
 ```json
 [
   { "stationId": "station-a", "pieceId": "piece-123" },
+  { "stationId": "station-a", "pieceId": "piece-crossover", "traversalState": "t" },
   { "stationId": "station-b", "pieceId": "piece-456" }
 ]
 ```
 
-Only `HardwareDriver.lua` is intentionally unfinished. Implement its three
-functions once the uniform Roblox model hierarchy and sensor signals are known.
-The function arguments are the stable boundary between the transport bridge and
-physical models.
+`traversalState` is optional. The default `HardwareDriver.lua` can now infer
+occupation traversal sections directly from part names on the linked Roblox
+model, so you usually do not need to encode it manually for occupation sensor
+models. It is still supported if you ever wire custom sensors outside the
+default naming contract.
+
+The default occupation naming contract is:
+
+- normal track sensor: one or more parts named `Occupancy`
+- `singleSwitch`: one or more `Straight` parts and one or more `Diagonal` parts
+- `crossoverSwitch`: one or more `Lower`, `Diagonal`, and `Upper` parts
+- `extendedSwitch`: one or more `LowerStraight`, `LowerDiagonal`,
+  `UpperStraight`, and `UpperDiagonal` parts
+
+Duplicate parts with the same name are merged into one logical section. If any
+part in that section is occupied, the whole section reports occupied.
+
+For `extendedSwitch`, the middle JOP traversal is shared, so both
+`LowerDiagonal` and `UpperStraight` report the same traversal state.
+
+Switch geometry can also be driven directly by the default driver when the
+linked switch model contains mutually exclusive physical variants named `ONE`,
+`TWO`, and optionally `THREE`:
+
+- `singleSwitch`: `ONE = blTbr`, `TWO = blTtr`
+- `crossoverSwitch`: `ONE = tlTtrAblTbr`, `TWO = blTtr`
+- `extendedSwitch`: `ONE = blTbr`, `TWO = blTtr`, `THREE = blTmr`
+
+On every switch change, the driver immediately hides the inactive variants and
+leaves only the selected one collidable.
+
+The bridge now supports split standalone Roblox instances for signals, switches,
+and occupation sensors, even when they all point at the same JOP piece. The
+default `HardwareDriver.lua` detects component roles from descendant attributes:
+
+- `JOPComponentType = "signal"` or `"signalHead"`
+- `JOPComponentType = "switch"`, `"switchMotor"`, or `"switchFeedback"`
+
+The default switch feedback observer contract is still attribute-based until the
+final switch motor structure is defined:
+
+- Switch feedback emits from `JOPPosition` and requires `JOPControlSlot`
+- Snapshot application writes resolved state back via `JOPResolved*`
+  attributes
+
+Signals are now expected to be fully driven by the server-resolved Roblox
+snapshot. Roblox no longer computes aspects locally. The bridge applies the
+server-provided resolved signal family/aspect through `SignalController.lua`,
+and that module only reflects snapshot state onto the physical lamps.
+
+Only `HardwareDriver.lua` remains intentionally provisional. When the final
+Roblox model hierarchy is defined, keep the bridge protocol and these link
+shapes stable, and replace the attribute-based plumbing with concrete model
+wiring.
