@@ -63,10 +63,15 @@ import {
 import { resolveComponentStyles } from '@/lib/station/tile-state';
 
 import { placeTemplateRepository } from '../repositories/place-template-repository';
+import { robloxRuntimeStateRepository } from '../repositories/roblox-runtime-state-repository';
+import { robloxRuntimeUpdateRepository } from '../repositories/roblox-runtime-update-repository';
 import { sessionRepository } from '../repositories/session-repository';
 import { stationActionLogRepository } from '../repositories/station-action-log-repository';
 import { stationRepository } from '../repositories/station-repository';
-import { notifyRuntimeInterpreter } from '../roblox/runtime-interpreter';
+import {
+  initializeRobloxRuntimeState,
+  notifyRuntimeInterpreter,
+} from '../roblox/runtime-interpreter';
 
 function nowIso() {
   return new Date().toISOString();
@@ -193,14 +198,65 @@ function bumpRevision(station: StationDocument) {
   station.updatedAt = nowIso();
 }
 
-async function saveStation(station: StationDocument) {
-  await stationRepository.save(station);
-  void notifyRuntimeInterpreter(station.sessionId);
+async function buildRobloxPhysicalSnapshot(sessionId: string): Promise<RobloxPhysicalSnapshot> {
+  const [rawSession, rawStations] = await Promise.all([
+    sessionRepository.findById(sessionId),
+    stationRepository.listBySessionId(sessionId),
+  ]);
+  if (!rawSession) {
+    throw new Error('Session not found.');
+  }
+  const session = ensureSessionRuntimeState(rawSession);
+  if (session.interpreter.kind !== 'roblox') {
+    throw new Error('The requested session is not a Roblox session.');
+  }
+
+  const stations = rawStations.map((station) => {
+    ensureStationRuntimeState(station);
+    applySessionTrainOccupations(station, session);
+    const resolvedSignalAspects = buildResolvedRobloxSignalAspects(station);
+    return {
+      stationId: station.stationId,
+      revision: station.revision,
+      pieces: Object.fromEntries(
+        Object.entries(station.layout.pieces).map(([pieceId, piece]) => [
+          pieceId,
+          {
+            type: piece.type,
+            groups: piece.state.groups,
+            texts: piece.state.texts,
+            switchAlignment: station.runtime.switchAlignments[pieceId] ?? null,
+            resolvedSignalFamily: resolvedSignalAspects.get(pieceId)?.family ?? null,
+            resolvedSignalAspect: resolvedSignalAspects.get(pieceId)?.aspect ?? null,
+          },
+        ]),
+      ),
+    };
+  });
+
+  return {
+    protocolVersion: 1,
+    sessionId,
+    placeId: session.interpreter.placeId,
+    generatedAt: nowIso(),
+    stations,
+  };
 }
 
-async function saveSession(session: SessionDocument) {
+async function saveStation(station: StationDocument, options?: { skipRuntimeNotify?: boolean }) {
+  await stationRepository.save(station);
+  if (!options?.skipRuntimeNotify) {
+    void notifyRuntimeInterpreter(station.sessionId, () =>
+      buildRobloxPhysicalSnapshot(station.sessionId),
+    );
+  }
+}
+
+async function saveSession(session: SessionDocument, options?: { skipRuntimeNotify?: boolean }) {
   await sessionRepository.save(session);
-  void notifyRuntimeInterpreter(session._id);
+  if (!options?.skipRuntimeNotify) {
+    void notifyRuntimeInterpreter(session._id, () => buildRobloxPhysicalSnapshot(session._id));
+  }
 }
 
 function normalizeRouteSelection(
@@ -2634,57 +2690,60 @@ export const stationService = {
 
     await sessionRepository.create(session);
     for (const stationEntry of template.schema.stations) {
-      await this.ensureStation(sessionId, stationEntry.stationId, stationEntry.layout);
+      await this.ensureStation(sessionId, stationEntry.stationId, stationEntry.layout, true);
     }
     for (const link of template.schema.lineblockLinks) {
-      await this.createLineblockLink(sessionId, link);
+      await this.createLineblockLink(sessionId, link, true);
     }
+
+    await initializeRobloxRuntimeState(sessionId, () => buildRobloxPhysicalSnapshot(sessionId));
 
     return session;
   },
 
   async getRobloxPhysicalSnapshot(sessionId: string): Promise<RobloxPhysicalSnapshot> {
-    const [rawSession, rawStations] = await Promise.all([
-      sessionRepository.findById(sessionId),
-      stationRepository.listBySessionId(sessionId),
-    ]);
+    return buildRobloxPhysicalSnapshot(sessionId);
+  },
+
+  async getRobloxRuntimeInit(sessionId: string) {
+    let state = await robloxRuntimeStateRepository.findBySessionId(sessionId);
+    if (!state) {
+      await initializeRobloxRuntimeState(sessionId, () => buildRobloxPhysicalSnapshot(sessionId));
+      state = await robloxRuntimeStateRepository.findBySessionId(sessionId);
+    }
+    const snapshot = await buildRobloxPhysicalSnapshot(sessionId);
+
+    return {
+      snapshot,
+      cursor: state?.latestSequence ?? 0,
+    };
+  },
+
+  async getRobloxRuntimeUpdates(sessionId: string, afterSequence: number) {
+    const rawSession = await sessionRepository.findById(sessionId);
     if (!rawSession) {
       throw new Error('Session not found.');
     }
+
     const session = ensureSessionRuntimeState(rawSession);
     if (session.interpreter.kind !== 'roblox') {
       throw new Error('The requested session is not a Roblox session.');
     }
 
-    const stations = rawStations.map((station) => {
-      ensureStationRuntimeState(station);
-      applySessionTrainOccupations(station, session);
-      const resolvedSignalAspects = buildResolvedRobloxSignalAspects(station);
-      return {
-        stationId: station.stationId,
-        revision: station.revision,
-        pieces: Object.fromEntries(
-          Object.entries(station.layout.pieces).map(([pieceId, piece]) => [
-            pieceId,
-            {
-              type: piece.type,
-              groups: piece.state.groups,
-              texts: piece.state.texts,
-              switchAlignment: station.runtime.switchAlignments[pieceId] ?? null,
-              resolvedSignalFamily: resolvedSignalAspects.get(pieceId)?.family ?? null,
-              resolvedSignalAspect: resolvedSignalAspects.get(pieceId)?.aspect ?? null,
-            },
-          ]),
-        ),
-      };
-    });
+    await robloxRuntimeUpdateRepository.deleteUpToSequence(sessionId, afterSequence);
+    const updates = await robloxRuntimeUpdateRepository.listAfterSequence(sessionId, afterSequence);
+    const cursor = updates.length > 0 ? updates[updates.length - 1].sequence : afterSequence;
 
     return {
-      protocolVersion: 1,
       sessionId,
-      placeId: session.interpreter.placeId,
+      cursor,
       generatedAt: nowIso(),
-      stations,
+      updates: updates.map((update) => ({
+        sequence: update.sequence,
+        stationId: update.stationId,
+        pieceId: update.pieceId,
+        piece: update.piece,
+      })),
     };
   },
 
@@ -2799,6 +2858,7 @@ export const stationService = {
     sessionId: string,
     stationId: string,
     layoutOverride?: StationDocument['layout'],
+    suppressRuntimeNotify = false,
   ) {
     const existing = await stationRepository.findBySessionAndStationId(sessionId, stationId);
     if (existing) {
@@ -2807,7 +2867,9 @@ export const stationService = {
 
     const station = createStationDocument(sessionId, stationId, layoutOverride);
     await stationRepository.create(station);
-    void notifyRuntimeInterpreter(sessionId);
+    if (!suppressRuntimeNotify) {
+      void notifyRuntimeInterpreter(sessionId, () => buildRobloxPhysicalSnapshot(sessionId));
+    }
     return station;
   },
 
@@ -3189,6 +3251,7 @@ export const stationService = {
   async createLineblockLink(
     sessionId: string,
     endpoints: Pick<SessionLineblockLink, 'a' | 'b' | 'defaultFlow'>,
+    suppressRuntimeNotify = false,
   ) {
     const rawSession = await sessionRepository.findById(sessionId);
     if (!rawSession) {
@@ -3273,11 +3336,11 @@ export const stationService = {
     applyRuntimeState(stationA);
     applyRuntimeState(stationB);
 
-    await saveSession(session);
+    await saveSession(session, { skipRuntimeNotify: suppressRuntimeNotify });
     bumpRevision(stationA);
     bumpRevision(stationB);
-    await saveStation(stationA);
-    await saveStation(stationB);
+    await saveStation(stationA, { skipRuntimeNotify: suppressRuntimeNotify });
+    await saveStation(stationB, { skipRuntimeNotify: suppressRuntimeNotify });
     return session.topology.lineblockLinks[linkId];
   },
 

@@ -50,10 +50,13 @@ function ApiClient:Register(sessionId, placeId)
 	})
 end
 
-function ApiClient:FetchSnapshot(sessionId)
+function ApiClient:FetchUpdates(sessionId, afterSequence)
 	return self:_request(
 		"GET",
-		"/api/roblox/sessions/" .. HttpService:UrlEncode(sessionId) .. "/snapshot"
+		"/api/roblox/sessions/"
+			.. HttpService:UrlEncode(sessionId)
+			.. "/updates?afterSequence="
+			.. HttpService:UrlEncode(tostring(afterSequence or 0))
 	)
 end
 

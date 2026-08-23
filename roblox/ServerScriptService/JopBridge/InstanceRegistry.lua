@@ -40,6 +40,7 @@ function InstanceRegistry.new(config, hardwareDriver, onOccupation, onSwitchFeed
 	self._connections = {}
 	self._attributeConnections = {}
 	self._statesByKey = {}
+	self._instancesByPieceKey = {}
 	return self
 end
 
@@ -86,6 +87,31 @@ function InstanceRegistry:_applyEntry(instance, entry)
 	end
 end
 
+function InstanceRegistry:_linkEntryToPieceKeys(instance, entry)
+	for _, link in ipairs(entry.links) do
+		local pieceKey = link.stationId .. "\0" .. link.pieceId
+		local instances = self._instancesByPieceKey[pieceKey]
+		if not instances then
+			instances = {}
+			self._instancesByPieceKey[pieceKey] = instances
+		end
+		instances[instance] = true
+	end
+end
+
+function InstanceRegistry:_unlinkEntryFromPieceKeys(instance, entry)
+	for _, link in ipairs(entry.links) do
+		local pieceKey = link.stationId .. "\0" .. link.pieceId
+		local instances = self._instancesByPieceKey[pieceKey]
+		if instances then
+			instances[instance] = nil
+			if next(instances) == nil then
+				self._instancesByPieceKey[pieceKey] = nil
+			end
+		end
+	end
+end
+
 function InstanceRegistry:_remove(instance)
 	local entry = self._entries[instance]
 	if not entry then
@@ -93,6 +119,7 @@ function InstanceRegistry:_remove(instance)
 	end
 	entry.disconnectOccupation()
 	entry.disconnectSwitchFeedback()
+	self:_unlinkEntryFromPieceKeys(instance, entry)
 	self._entries[instance] = nil
 end
 
@@ -121,6 +148,7 @@ function InstanceRegistry:_refresh(instance)
 		disconnectOccupation = disconnectOccupation,
 		disconnectSwitchFeedback = disconnectSwitchFeedback,
 	}
+	self:_linkEntryToPieceKeys(instance, self._entries[instance])
 	self:_applyEntry(instance, self._entries[instance])
 end
 
@@ -180,12 +208,50 @@ function InstanceRegistry:ApplySnapshot(snapshot)
 				groups = piece.groups,
 				texts = piece.texts,
 				switchAlignment = piece.switchAlignment,
+				resolvedSignalFamily = piece.resolvedSignalFamily,
+				resolvedSignalAspect = piece.resolvedSignalAspect,
 			}
 		end
 	end
 
 	for instance, entry in pairs(self._entries) do
 		self:_applyEntry(instance, entry)
+	end
+end
+
+function InstanceRegistry:ApplyUpdates(updateBatch)
+	if type(updateBatch) ~= "table" or type(updateBatch.updates) ~= "table" then
+		return
+	end
+
+	local touchedInstances = {}
+
+	for _, update in ipairs(updateBatch.updates) do
+		local pieceKey = update.stationId .. "\0" .. update.pieceId
+		self._statesByKey[pieceKey] = {
+			stationId = update.stationId,
+			pieceId = update.pieceId,
+			pieceType = update.piece.type,
+			groups = update.piece.groups,
+			texts = update.piece.texts,
+			switchAlignment = update.piece.switchAlignment,
+			resolvedSignalFamily = update.piece.resolvedSignalFamily,
+			resolvedSignalAspect = update.piece.resolvedSignalAspect,
+		}
+
+		local instances = self._instancesByPieceKey[pieceKey]
+		if instances then
+			for instance, _ in pairs(instances) do
+				touchedInstances[instance] = true
+			end
+		end
+	end
+
+	for instance, _ in pairs(touchedInstances) do
+		local entry = self._entries[instance]
+		if entry then
+			self:_applyEntry(instance, entry)
+		end
 	end
 end
 

@@ -10,8 +10,8 @@ export async function POST(request: Request) {
     assertRobloxRequestAuthorized(request);
     const body = await parseJsonRequest(request, robloxSessionRegistrationSchema);
     await stationService.registerRobloxSession(body.sessionId, body.placeId, body.serverId);
-    const snapshot = await stationService.getRobloxPhysicalSnapshot(body.sessionId);
-    return Response.json({ snapshot }, { status: 201 });
+    const init = await stationService.getRobloxRuntimeInit(body.sessionId);
+    return Response.json(init, { status: 201 });
   } catch (error) {
     return jsonErrorResponse(error);
   }

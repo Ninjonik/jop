@@ -12,11 +12,12 @@ if sessionId == "" then
 end
 local placeId = tostring(game.PlaceId)
 local api = ApiClient.new(Config)
-local syncInProgress = false
-local syncRequested = false
+local updateFetchInProgress = false
+local updateFetchRequested = false
 local registry
 local bridgeDisabled = false
 local isRegistered = false
+local currentUpdateCursor = 0
 local occupationFlushScheduled = false
 local switchFeedbackFlushScheduled = false
 local REPORT_FLUSH_DELAY_SECONDS = 0.25
@@ -241,9 +242,28 @@ registry:DebugPrintLinks()
 
 print(string.format("[JOP] Bridge boot for PlaceId %s using runtime sessionId %s", placeId, sessionId))
 
-local function applyResponse(response)
-	if response and response.snapshot then
-		registry:ApplySnapshot(response.snapshot)
+local function applyInit(initPayload)
+	if not initPayload then
+		return
+	end
+
+	if initPayload.snapshot then
+		registry:ApplySnapshot(initPayload.snapshot)
+	end
+
+	if type(initPayload.cursor) == "number" then
+		currentUpdateCursor = initPayload.cursor
+	end
+end
+
+local function applyUpdates(updateBatch)
+	if not updateBatch then
+		return
+	end
+
+	registry:ApplyUpdates(updateBatch)
+	if type(updateBatch.cursor) == "number" then
+		currentUpdateCursor = updateBatch.cursor
 	end
 end
 
@@ -264,28 +284,33 @@ local function disableBridge(reason)
 	warn("[JOP] Bridge disabled: " .. tostring(reason))
 end
 
-local function synchronize()
+local function fetchQueuedUpdates()
 	if bridgeDisabled then
 		return
 	end
 
-	if syncInProgress then
-		syncRequested = true
+	if not isRegistered then
 		return
 	end
-	syncInProgress = true
+
+	if updateFetchInProgress then
+		updateFetchRequested = true
+		return
+	end
+
+	updateFetchInProgress = true
 	repeat
-		syncRequested = false
+		updateFetchRequested = false
 		local success, response = pcall(function()
-			return api:FetchSnapshot(sessionId)
+			return api:FetchUpdates(sessionId, currentUpdateCursor)
 		end)
 		if success then
-			applyResponse(response)
+			applyUpdates(response)
 		else
-			warn("[JOP] Snapshot synchronization failed: " .. tostring(response))
+			warn("[JOP] Queued update fetch failed: " .. tostring(response))
 		end
-	until not syncRequested
-	syncInProgress = false
+	until not updateFetchRequested
+	updateFetchInProgress = false
 end
 
 local subscribed, subscribeResult = pcall(function()
@@ -295,12 +320,12 @@ local subscribed, subscribeResult = pcall(function()
 			decoded = HttpService:JSONDecode(message.Data)
 		end)
 		if decoded and decoded.type == "session:changed" and decoded.sessionId == sessionId then
-			task.spawn(synchronize)
+			task.spawn(fetchQueuedUpdates)
 		end
 	end)
 end)
 if not subscribed then
-	warn("[JOP] MessagingService subscription failed; periodic reconciliation remains active: " .. tostring(subscribeResult))
+	warn("[JOP] MessagingService subscription failed: " .. tostring(subscribeResult))
 end
 
 task.spawn(function()
@@ -309,9 +334,16 @@ task.spawn(function()
 			return api:Register(sessionId, placeId)
 		end)
 		if success then
-			applyResponse(response)
+			applyInit(response)
 			isRegistered = true
-			print(string.format("[JOP] Registered session %s for PlaceId %s", sessionId, placeId))
+			print(
+				string.format(
+					"[JOP] Registered session %s for PlaceId %s at update cursor %s",
+					sessionId,
+					placeId,
+					tostring(currentUpdateCursor)
+				)
+			)
 			scheduleOccupationFlush()
 			scheduleSwitchFeedbackFlush()
 			break
@@ -324,14 +356,5 @@ task.spawn(function()
 
 		warn("[JOP] Registration failed; retrying: " .. tostring(response))
 		task.wait(10)
-	end
-
-	while true do
-		if bridgeDisabled then
-			return
-		end
-
-		task.wait(Config.ReconciliationIntervalSeconds)
-		synchronize()
 	end
 end)

@@ -311,6 +311,25 @@ export type RobloxPhysicalSnapshot = {
   }>;
 };
 
+export type RobloxPhysicalUpdate = {
+  sequence: number;
+  stationId: string;
+  pieceId: string;
+  piece: RobloxPhysicalPieceState;
+};
+
+export type RobloxPhysicalInit = {
+  snapshot: RobloxPhysicalSnapshot;
+  cursor: number;
+};
+
+export type RobloxPhysicalUpdateBatch = {
+  sessionId: string;
+  cursor: number;
+  generatedAt: string;
+  updates: RobloxPhysicalUpdate[];
+};
+
 export type StationActionLogDocument = {
   _id: string;
   sessionId: string;
@@ -708,6 +727,10 @@ export const robloxSessionRegistrationSchema = z.object({
   sessionId: sessionIdSchema,
   placeId: robloxPlaceIdSchema,
   serverId: sessionIdSchema,
+});
+
+export const robloxUpdateCursorSchema = z.object({
+  afterSequence: z.coerce.number().int().min(0).default(0),
 });
 
 export const robloxOccupationEventSchema = z.object({

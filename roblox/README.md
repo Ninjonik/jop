@@ -23,9 +23,16 @@ On the web server, create an Open Cloud API key scoped to the experience with
 When a Roblox server starts, `Main.server.lua` registers `game.JobId` as the
 runtime `sessionId` and `game.PlaceId` as the template key. If a saved JOP
 place template exists for that `PlaceId`, the backend creates a fresh Roblox
-session in MongoDB from that template and returns the initial snapshot. If no
-template exists for that `PlaceId`, the bridge disables itself instead of
+session in MongoDB from that template and returns one full initialization
+payload containing the entire physical state plus the current update cursor. If
+no template exists for that `PlaceId`, the bridge disables itself instead of
 retrying forever.
+
+After initialization, Roblox no longer performs periodic full-state refreshes.
+The backend publishes only `session:changed` invalidations through
+MessagingService. On each invalidation, Roblox fetches queued piece updates from
+`/api/roblox/sessions/[sessionId]/updates?afterSequence=...` and applies only
+those changed pieces locally.
 
 Link any `Instance` to one or more station pieces with a string attribute named
 `JOPPieceLinks`. The value is JSON:
@@ -84,9 +91,9 @@ final switch motor structure is defined:
   attributes
 
 Signals are now expected to be fully driven by the server-resolved Roblox
-snapshot. Roblox no longer computes aspects locally. The bridge applies the
+state. Roblox no longer computes aspects locally. The bridge applies the
 server-provided resolved signal family/aspect through `SignalController.lua`,
-and that module only reflects snapshot state onto the physical lamps.
+and that module only reflects backend state onto the physical lamps.
 
 Only `HardwareDriver.lua` remains intentionally provisional. When the final
 Roblox model hierarchy is defined, keep the bridge protocol and these link
