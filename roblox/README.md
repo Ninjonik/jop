@@ -128,6 +128,11 @@ if not root then
 	root = Instance.new("Script")
 	root.Name = "JopBridge"
 	root.Parent = game:GetService("ServerScriptService")
+else
+	root:Destroy()
+	root = Instance.new("Script")
+	root.Name = "JopBridge"
+	root.Parent = game:GetService("ServerScriptService")
 end
 
 for _, scriptInfo in ipairs(payload.scripts) do
