@@ -28,6 +28,39 @@ export function isCrossoverSwitchType(pieceType: string) {
   return normalizeSwitchType(pieceType) === 'crossoverSwitch';
 }
 
+export function isDivergingSwitchTraversal(pieceType: string, traversalState: string) {
+  const normalized = normalizeSwitchType(pieceType);
+  if (normalized === 'singleSwitch' || normalized === 'extendedSwitch') {
+    return traversalState !== 'blTbr';
+  }
+  if (normalized === 'crossoverSwitch') {
+    return traversalState === 'blTtr';
+  }
+  return false;
+}
+
+export function isOccupationVisibleForSwitchAlignment(
+  pieceType: string,
+  occupationState: string,
+  alignedState: string | null | undefined,
+) {
+  const normalized = normalizeSwitchType(pieceType);
+  if (normalized === 'singleSwitch') {
+    return alignedState === 'blTtr'
+      ? occupationState === 't' || occupationState === 'blTtr'
+      : occupationState === 'blTbr';
+  }
+  if (normalized === 'extendedSwitch') {
+    return occupationState === (alignedState ?? 'blTbr');
+  }
+  if (normalized === 'crossoverSwitch') {
+    return alignedState === 'blTtr'
+      ? occupationState === 'blTtr'
+      : occupationState === 't' || occupationState === 'b' || occupationState === 'tlTtrAblTbr';
+  }
+  return true;
+}
+
 function parseSwitchEndpoint(endpointKey: string) {
   const [pieceId, rawSlot] = endpointKey.split(':', 2);
   const slot = rawSlot ?? 'main';

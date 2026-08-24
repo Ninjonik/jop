@@ -1002,7 +1002,7 @@ function canUseLineblockForRoute(
   return lineblockState === 'sendingFree';
 }
 
-type SignalRoutePlan = {
+export type SignalRoutePlan = {
   nextSignalPieceId: string | null;
   clearsStation: boolean;
 };
@@ -1082,7 +1082,7 @@ function getOrderedFacingSignals(station: StationDocument, route: ActiveTrainRou
     });
 }
 
-function buildSignalRoutePlans(
+export function buildSignalRoutePlans(
   station: StationDocument,
   routes: ActiveTrainRoute[],
   tiles: TileCatalog,

@@ -45,6 +45,7 @@ import {
 import {
   applyActiveRouteVisualState,
   applyTrainOccupationVisualState,
+  buildSignalRoutePlans,
   buildRouteFromSelection,
   crossoverTraversalStatesConflict,
 } from '@/lib/station/routes';
@@ -55,6 +56,8 @@ import {
   getRequiredSwitchMotorPositions,
   getTraversableStateForMotorPositions,
   isCrossoverSwitchType,
+  isDivergingSwitchTraversal,
+  isOccupationVisibleForSwitchAlignment,
   isPhysicalSwitchType,
   isSwitchTraversalAllowedByButtonLocks,
   type SwitchControlSlot,
@@ -708,7 +711,7 @@ function getOrderedFacingSignalsForRoute(station: StationDocument, route: Active
 function getRouteHasSpeedRestriction(station: StationDocument, route: ActiveTrainRoute) {
   return route.path.some((step) => {
     const pieceType = station.layout.pieces[step.pieceId]?.type;
-    return pieceType ? isPhysicalSwitchType(pieceType) : false;
+    return pieceType ? isDivergingSwitchTraversal(pieceType, step.traversalState) : false;
   });
 }
 
@@ -767,10 +770,10 @@ function applySpeedRestrictionToResolvedAspect(
 ): RobloxResolvedSignalAspect {
   if (family === 'departure' || family === 'entry') {
     if (aspect === 'proceed') {
-      return 'proceed40';
+      return 'proceed40Proceed';
     }
     if (aspect === 'caution') {
-      return 'expect40';
+      return 'proceed40Caution';
     }
     return aspect;
   }
@@ -787,7 +790,7 @@ function applySpeedRestrictionToResolvedAspect(
   return aspect;
 }
 
-function isRestrictive40ResolvedAspect(aspect: RobloxResolvedSignalAspect | null | undefined) {
+function hasLocal40SpeedRestriction(aspect: RobloxResolvedSignalAspect | null | undefined) {
   return (
     aspect === 'proceed40' ||
     aspect === 'proceed40Caution' ||
@@ -795,8 +798,7 @@ function isRestrictive40ResolvedAspect(aspect: RobloxResolvedSignalAspect | null
     aspect === 'proceed40Expect40' ||
     aspect === 'proceed40Expect60' ||
     aspect === 'proceed40Expect80' ||
-    aspect === 'proceed40Expect100' ||
-    aspect === 'expect40'
+    aspect === 'proceed40Expect100'
   );
 }
 
@@ -825,6 +827,7 @@ function buildResolvedRobloxSignalAspects(station: StationDocument) {
   const normalRoutes = Object.values(station.runtime.activeTrainRoutes).filter(
     (route) => route.routeType === 'normal',
   );
+  const locallyRestrictedSignalIds = new Set<string>();
 
   normalRoutes.forEach((route) => {
     if (!getRouteHasSpeedRestriction(station, route)) {
@@ -845,24 +848,26 @@ function buildResolvedRobloxSignalAspects(station: StationDocument) {
       ...current,
       aspect: applySpeedRestrictionToResolvedAspect(current.family, current.aspect),
     });
+    locallyRestrictedSignalIds.add(startSignalId);
   });
 
-  normalRoutes.forEach((route) => {
-    const orderedSignals = getOrderedFacingSignalsForRoute(station, route);
-    orderedSignals.forEach((pieceId, index) => {
-      const current = resolved.get(pieceId);
-      if (!current || current.family !== 'premain') {
-        return;
-      }
+  const signalPlans = buildSignalRoutePlans(station, normalRoutes, tiles);
+  signalPlans.forEach((plan, pieceId) => {
+    if (!plan.nextSignalPieceId || !locallyRestrictedSignalIds.has(plan.nextSignalPieceId)) {
+      return;
+    }
 
-      const nextSignalId = orderedSignals[index + 1] ?? null;
-      const nextAspect = nextSignalId ? resolved.get(nextSignalId)?.aspect ?? null : null;
-      if (isRestrictive40ResolvedAspect(nextAspect) && current.aspect === 'caution') {
-        resolved.set(pieceId, {
-          ...current,
-          aspect: 'expect40',
-        });
-      }
+    const current = resolved.get(pieceId);
+    if (!current) {
+      return;
+    }
+
+    resolved.set(pieceId, {
+      ...current,
+      aspect:
+        locallyRestrictedSignalIds.has(pieceId) && hasLocal40SpeedRestriction(current.aspect)
+          ? 'proceed40Expect40'
+          : 'expect40',
     });
   });
 
@@ -1179,6 +1184,22 @@ function applySessionTrainOccupations(station: StationDocument, session: Session
   );
   const physicalOccupiedSensors = Object.values(session.runtime.physicalOccupations)
     .filter((occupation) => occupation.occupied && occupation.stationId === station.stationId)
+    .filter((occupation) => {
+      const piece = station.layout.pieces[occupation.pieceId];
+      if (
+        !piece ||
+        !isPhysicalSwitchType(piece.type) ||
+        occupation.traversalState === null
+      ) {
+        return true;
+      }
+
+      return isOccupationVisibleForSwitchAlignment(
+        piece.type,
+        occupation.traversalState,
+        station.runtime.switchAlignments[occupation.pieceId]?.traversableState,
+      );
+    })
     .map((occupation) => ({
       pieceId: occupation.pieceId,
       occupationState: occupation.traversalState ?? 'occupied',

@@ -1,5 +1,6 @@
 import { jsonErrorResponse } from '@/lib/server/http';
 import { assertRobloxRequestAuthorized } from '@/lib/server/roblox/roblox-auth';
+import { queueRobloxSessionMutation } from '@/lib/server/roblox/session-mutation-queue';
 import { stationService } from '@/lib/server/services/station-service';
 import {
   robloxOccupationBatchSchema,
@@ -8,21 +9,6 @@ import {
 } from '@/lib/station/domain';
 
 export const runtime = 'nodejs';
-
-const sessionOccupationQueues = new Map<string, Promise<unknown>>();
-
-function queueSessionOccupationRequest<T>(sessionId: string, operation: () => Promise<T>) {
-  const previous = sessionOccupationQueues.get(sessionId) ?? Promise.resolve();
-  const next = previous.catch(() => undefined).then(operation);
-  sessionOccupationQueues.set(sessionId, next);
-  const cleanup = () => {
-    if (sessionOccupationQueues.get(sessionId) === next) {
-      sessionOccupationQueues.delete(sessionId);
-    }
-  };
-  void next.then(cleanup, cleanup);
-  return next;
-}
 
 interface OccupationRouteProps {
   params: Promise<{ sessionId: string }>;
@@ -35,7 +21,7 @@ export async function POST(request: Request, { params }: OccupationRouteProps) {
     const parsedSessionId = sessionIdSchema.parse(sessionId);
     const rawBody = await request.json();
 
-    return await queueSessionOccupationRequest(parsedSessionId, async () => {
+    return await queueRobloxSessionMutation(parsedSessionId, async () => {
       const batchParse = robloxOccupationBatchSchema.safeParse(rawBody);
       if (batchParse.success) {
         // Serialize both events within a batch and overlapping HTTP batches.
