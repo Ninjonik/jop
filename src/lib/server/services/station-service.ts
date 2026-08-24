@@ -2006,6 +2006,59 @@ function applyLineblockActionStates(
   setLineblockVisualState(remoteStation, remotePieceId, 'sendingFree');
 }
 
+async function setOutboundRouteLineblockStates(
+  session: SessionDocument,
+  station: StationDocument,
+  sourcePieceId: string | null | undefined,
+  routeClass: ActiveTrainRoute['routeClass'] | null | undefined,
+  nextStates: {
+    local: 'sending' | 'sendingFree';
+    remote: 'receiving' | 'receivingFree';
+  },
+) {
+  if (routeClass !== 'platform-to-premain') {
+    return null;
+  }
+
+  const localPremainId =
+    typeof sourcePieceId === 'string' &&
+    (station.layout.pieces[sourcePieceId]?.type === 'premainSignal' ||
+      station.layout.pieces[sourcePieceId]?.type === 'premainSignalNoOcp')
+      ? sourcePieceId
+      : null;
+  if (!localPremainId) {
+    return null;
+  }
+
+  const localPremainLink = Object.values(station.runtime.lineblockPremainLinks).find(
+    (link) => link.premainSignalPieceId === localPremainId,
+  );
+  if (!localPremainLink) {
+    return null;
+  }
+
+  const linked = getLinkedLineblock(station, session, localPremainLink.lineblockPieceId);
+  if (!linked) {
+    return null;
+  }
+
+  const remoteStation = await stationRepository.findBySessionAndStationId(
+    session._id,
+    linked.remote.stationId,
+  );
+  if (!remoteStation) {
+    return null;
+  }
+
+  ensureStationRuntimeState(remoteStation);
+  setLineblockVisualState(station, localPremainLink.lineblockPieceId, nextStates.local);
+  setLineblockVisualState(remoteStation, linked.remote.pieceId, nextStates.remote);
+  syncPremainAvailability(station);
+  syncPremainAvailability(remoteStation);
+
+  return remoteStation;
+}
+
 function createPendingAction(command: SwitchSetPositionCommand): PendingAction {
   return {
     id: command.commandId,
@@ -2292,6 +2345,8 @@ async function completeRouteAction(actionId: string, sessionId: string, stationI
   bumpRevision(station);
   await saveStation(station);
 
+  let linkedLineblockStation: StationDocument | null = null;
+
   try {
     if (action.type === 'route:build-normal' || action.type === 'route:build-shunt') {
       const route: ActiveTrainRoute = {
@@ -2321,6 +2376,16 @@ async function completeRouteAction(actionId: string, sessionId: string, stationI
 
       applyRouteSwitchAlignments(station, session, route);
       station.runtime.activeTrainRoutes[route.id] = route;
+      linkedLineblockStation = await setOutboundRouteLineblockStates(
+        session,
+        station,
+        route.sourcePieceId,
+        route.routeClass,
+        {
+          local: 'sending',
+          remote: 'receiving',
+        },
+      );
       action.result = { routeId: route.id };
       action.status = 'completed';
       action.finishedAt = nowIso();
@@ -2340,11 +2405,38 @@ async function completeRouteAction(actionId: string, sessionId: string, stationI
         throw new Error('A route cannot be cancelled while a train occupies it.');
       }
       delete station.runtime.activeTrainRoutes[routeId];
+      linkedLineblockStation = await setOutboundRouteLineblockStates(
+        session,
+        station,
+        route?.sourcePieceId ?? (typeof action.payload.sourcePieceId === 'string'
+          ? action.payload.sourcePieceId
+          : null),
+        route?.routeClass ??
+          (typeof action.payload.routeClass === 'string'
+            ? (action.payload.routeClass as ActiveTrainRoute['routeClass'])
+            : null),
+        {
+          local: 'sendingFree',
+          remote: 'receivingFree',
+        },
+      );
       action.result = { routeId };
       action.status = 'completed';
       action.finishedAt = nowIso();
     }
   } catch (error) {
+    linkedLineblockStation = await setOutboundRouteLineblockStates(
+      session,
+      station,
+      typeof action.payload.sourcePieceId === 'string' ? action.payload.sourcePieceId : null,
+      typeof action.payload.routeClass === 'string'
+        ? (action.payload.routeClass as ActiveTrainRoute['routeClass'])
+        : null,
+      {
+        local: 'sendingFree',
+        remote: 'receivingFree',
+      },
+    );
     action.status = 'failed';
     action.finishedAt = nowIso();
     action.error = {
@@ -2365,6 +2457,12 @@ async function completeRouteAction(actionId: string, sessionId: string, stationI
   );
   await stationActionLogRepository.create(toActionLog(station, finalAction));
   await saveStation(station);
+  if (linkedLineblockStation) {
+    applyRuntimeState(linkedLineblockStation);
+    applySessionTrainOccupations(linkedLineblockStation, session);
+    bumpRevision(linkedLineblockStation);
+    await saveStation(linkedLineblockStation);
+  }
 }
 
 const trainMovementTimers = new Map<string, ReturnType<typeof setTimeout>>();
@@ -4017,6 +4115,16 @@ export const stationService = {
 
       station.runtime.routeSelection = null;
       station.runtime.pendingActions[action.id] = action;
+      const linkedLineblockStation = await setOutboundRouteLineblockStates(
+        session,
+        station,
+        selection.sourcePieceId,
+        builtRoute.routeClass,
+        {
+          local: 'sending',
+          remote: 'receiving',
+        },
+      );
       applyRuntimeStateWithTrainOccupations(station, session);
       bumpRevision(station);
       printDebugBlock(
@@ -4025,6 +4133,12 @@ export const stationService = {
         buildActionDebugLines(station, action),
       );
       await saveStation(station);
+      if (linkedLineblockStation) {
+        applyRuntimeState(linkedLineblockStation);
+        applySessionTrainOccupations(linkedLineblockStation, session);
+        bumpRevision(linkedLineblockStation);
+        await saveStation(linkedLineblockStation);
+      }
 
       setTimeout(() => {
         void completeRouteAction(action.id, command.sessionId, command.stationId);

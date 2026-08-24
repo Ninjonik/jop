@@ -189,6 +189,23 @@ function InstanceRegistry:_refresh(instance)
 		return
 	end
 	local capabilities = self._driver.DescribeInstance and self._driver.DescribeInstance(instance) or nil
+	if capabilities
+		and not capabilities.hasSignals
+		and not capabilities.hasOccupations
+		and not capabilities.hasSwitches
+	then
+		local linkStrings = {}
+		for _, link in ipairs(links) do
+			table.insert(linkStrings, formatLink(link))
+		end
+		warn(
+			string.format(
+				"[JOP] Linked instance has JOPPieceLinks but no recognized bridge capabilities: %s -> %s",
+				instance:GetFullName(),
+				table.concat(linkStrings, ", ")
+			)
+		)
+	end
 
 	local disconnectOccupation = self._driver.ObserveOccupation(instance, function(report)
 		for _, link in ipairs(links) do
