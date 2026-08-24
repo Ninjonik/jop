@@ -132,7 +132,13 @@ export function getRequiredSwitchMotorPositions(
   }
 
   if (normalized === 'crossoverSwitch') {
-    if (traversableState === 'tlTtrAblTbr') return { main: 'left' };
+    if (
+      traversableState === 't' ||
+      traversableState === 'b' ||
+      traversableState === 'tlTtrAblTbr'
+    ) {
+      return { main: 'left' };
+    }
     if (traversableState === 'blTtr') return { main: 'right' };
   }
 
@@ -153,7 +159,13 @@ export function getMotorPositionsForTraversableState(
 ): SwitchMotorPositions {
   const normalized = normalizeSwitchType(pieceType);
   if (normalized === 'crossoverSwitch') {
-    if (traversableState === 'tlTtrAblTbr') return { main: 'left' };
+    if (
+      traversableState === 't' ||
+      traversableState === 'b' ||
+      traversableState === 'tlTtrAblTbr'
+    ) {
+      return { main: 'left' };
+    }
     if (traversableState === 'blTtr') return { main: 'right' };
   }
 

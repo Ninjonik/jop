@@ -1799,6 +1799,10 @@ function mergeCrossoverAlignment(current: string | undefined, incoming: string) 
     return incoming;
   }
 
+  if (current === 'blTtr' || incoming === 'blTtr') {
+    throw new Error('The crossover is aligned incompatibly with another active route.');
+  }
+
   const straightStates = new Set(['t', 'b', 'tlTtrAblTbr']);
   if (straightStates.has(current) && straightStates.has(incoming)) {
     return 'tlTtrAblTbr';
@@ -2012,22 +2016,29 @@ async function setOutboundRouteLineblockStates(
   session: SessionDocument,
   station: StationDocument,
   sourcePieceId: string | null | undefined,
+  signalPieceIds: string[] | null | undefined,
   routeClass: ActiveTrainRoute['routeClass'] | null | undefined,
   nextStates: {
     local: 'sending' | 'sendingFree';
-    remote: 'receiving' | 'receivingFree';
+    remote: 'receiving' | 'receivingFree' | 'receivingAwaitingConfirmation';
   },
 ) {
   if (routeClass !== 'platform-to-premain') {
     return null;
   }
 
-  const localPremainId =
+  const localPremainIdFromSource =
     typeof sourcePieceId === 'string' &&
     (station.layout.pieces[sourcePieceId]?.type === 'premainSignal' ||
       station.layout.pieces[sourcePieceId]?.type === 'premainSignalNoOcp')
       ? sourcePieceId
       : null;
+  const localPremainIdFromSignals =
+    signalPieceIds?.find((pieceId) => {
+      const type = station.layout.pieces[pieceId]?.type;
+      return type === 'premainSignal' || type === 'premainSignalNoOcp';
+    }) ?? null;
+  const localPremainId = localPremainIdFromSource ?? localPremainIdFromSignals;
   if (!localPremainId) {
     return null;
   }
@@ -2382,6 +2393,7 @@ async function completeRouteAction(actionId: string, sessionId: string, stationI
         session,
         station,
         route.sourcePieceId,
+        route.signalPieceIds,
         route.routeClass,
         {
           local: 'sending',
@@ -2413,6 +2425,10 @@ async function completeRouteAction(actionId: string, sessionId: string, stationI
         route?.sourcePieceId ?? (typeof action.payload.sourcePieceId === 'string'
           ? action.payload.sourcePieceId
           : null),
+        route?.signalPieceIds ??
+          (Array.isArray(action.payload.signalPieceIds)
+            ? (action.payload.signalPieceIds as string[])
+            : null),
         route?.routeClass ??
           (typeof action.payload.routeClass === 'string'
             ? (action.payload.routeClass as ActiveTrainRoute['routeClass'])
@@ -2431,6 +2447,9 @@ async function completeRouteAction(actionId: string, sessionId: string, stationI
       session,
       station,
       typeof action.payload.sourcePieceId === 'string' ? action.payload.sourcePieceId : null,
+      Array.isArray(action.payload.signalPieceIds)
+        ? (action.payload.signalPieceIds as string[])
+        : null,
       typeof action.payload.routeClass === 'string'
         ? (action.payload.routeClass as ActiveTrainRoute['routeClass'])
         : null,
@@ -2703,17 +2722,9 @@ function markRouteSignalPassedByOccupiedPiece(
   pieceId: string,
   traversalState: string | null,
 ) {
-  const pieceType = station.layout.pieces[pieceId]?.type;
-  if (!pieceType || !isAnySignalPieceType(pieceType)) {
-    return;
-  }
-  if (pieceType === 'premainSignal' || pieceType === 'premainSignalNoOcp') {
-    return;
-  }
-
   Object.values(station.runtime.activeTrainRoutes).forEach((route) => {
-    const matchingStep = route.path.find((step) => {
-      if (step.pieceId !== pieceId || step.signalPieceId !== pieceId) {
+    const occupiedStepIndex = route.path.findIndex((step) => {
+      if (step.pieceId !== pieceId) {
         return false;
       }
 
@@ -2723,9 +2734,41 @@ function markRouteSignalPassedByOccupiedPiece(
 
       return step.occupationState === traversalState;
     });
+    if (occupiedStepIndex < 0) {
+      return;
+    }
 
-    if (matchingStep) {
+    const occupiedStep = route.path[occupiedStepIndex];
+    if (occupiedStep.signalPieceId === pieceId) {
       markPassedSignal(station, route.id, pieceId);
+      return;
+    }
+
+    // Shunt signals without occupation sensors must fall back to the first
+    // occupied step after the signal on the same shunting route.
+    if (route.routeType !== 'shunt' || !occupiedStep.occupationState) {
+      return;
+    }
+
+    for (let index = occupiedStepIndex - 1; index >= 0; index -= 1) {
+      const candidate = route.path[index];
+      if (candidate.occupationState) {
+        break;
+      }
+
+      const signalPieceId = candidate.signalPieceId;
+      if (!signalPieceId) {
+        continue;
+      }
+
+      const signalPieceType = station.layout.pieces[signalPieceId]?.type;
+      if (
+        signalPieceType === 'shuntSignalNoOcp' ||
+        signalPieceType === 'shuntSignalButtonBuffer'
+      ) {
+        markPassedSignal(station, route.id, signalPieceId);
+      }
+      break;
     }
   });
 }
@@ -4131,6 +4174,7 @@ export const stationService = {
         session,
         station,
         selection.sourcePieceId,
+        builtRoute.signalPieceIds,
         builtRoute.routeClass,
         {
           local: 'sending',

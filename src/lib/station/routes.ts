@@ -657,8 +657,8 @@ function getTraversalFootprintWeight(state: string) {
 
 function getTraversalPreferenceRank(state: string) {
   if (state === '0' || state === 'reserved') return 0;
-  if (state === 'tlTtrAblTbr') return 1;
-  if (state === 't' || state === 'b') return 2;
+  if (state === 't' || state === 'b') return 1;
+  if (state === 'tlTtrAblTbr') return 2;
   if (state === 'blTbr' || state === 'blTtr' || state === 'blTmr') return 3;
   if (state === 'tlTtr' || state === 'brAtl') return 4;
   return 10;
@@ -1212,6 +1212,11 @@ function getCrossoverBranches(occupation: ActiveTrainRouteOccupation): Crossover
 
   if (occupation.state === 'b') {
     return { bottom: occupation.variant === 'occupied' ? 'occupied' : 'reserved' };
+  }
+
+  if (occupation.state === 'blTtr') {
+    const status = occupation.variant === 'occupied' ? 'occupied' : 'reserved';
+    return { top: status, bottom: status };
   }
 
   if (occupation.state !== 'tlTtrAblTbr') {
