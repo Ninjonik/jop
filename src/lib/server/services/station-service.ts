@@ -747,6 +747,17 @@ function getResolvedStartSignalIdForRoute(station: StationDocument, route: Activ
   }
 
   const orderedSignals = getOrderedFacingSignalsForRoute(station, route);
+  if (route.routeClass === 'premain-to-platform') {
+    // The entry signal governs the speed through the station switches. The
+    // preceding premain signal announces that restriction after the entry has
+    // been resolved, rather than receiving the entry's 40 km/h aspect itself.
+    return (
+      orderedSignals.find(
+        (pieceId) => getResolvedSignalFamily(station.layout.pieces[pieceId]?.type ?? '') === 'entry',
+      ) ?? null
+    );
+  }
+
   return orderedSignals[0] ?? null;
 }
 
