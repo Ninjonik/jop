@@ -45,8 +45,8 @@ local function turnOn(lamp, duration)
 	setLampTransparency(lamp, OPEN_TRANSPARENCY, duration)
 end
 
-local function turnOff(lamp, duration)
-	setLampTransparency(lamp, CLOSED_TRANSPARENCY, duration)
+local function turnOff(lamp, duration, transparency)
+	setLampTransparency(lamp, transparency or CLOSED_TRANSPARENCY, duration)
 end
 
 local function startBlink(instance, lamp, period)
@@ -71,6 +71,7 @@ local function buildResolvedAspectTable()
 	-- The backend already resolves family/aspect meaning; this controller only
 	-- reflects the resolved aspect onto the physical lamps.
 	return {
+		off = {}, -- Legacy `sx`: all fitted lamps and speed indicators are off.
 		danger = { c = "on" },
 		caution = { z1 = "on" },
 		proceed = { z = "on" },
@@ -127,6 +128,9 @@ function SignalController.Apply(instance, family, aspect)
 	state.version += 1
 
 	local aspectConfig = RESOLVED_ASPECTS[aspect] or {}
+	-- The old premain signal script used 0.99 for an extinguished lamp. Other
+	-- signal families used 0.97. Preserve those physical part values exactly.
+	local closedTransparency = family == "premain" and 0.99 or CLOSED_TRANSPARENCY
 	print(
 		string.format(
 			"[JOP][Signal] Applying %s family=%s aspect=%s lamps=[%s]",
@@ -144,13 +148,13 @@ function SignalController.Apply(instance, family, aspect)
 			if mode == "on" then
 				turnOn(lamp, DEFAULT_TWEEN)
 			elseif mode == "pulse2" then
-				turnOff(lamp, DEFAULT_TWEEN)
+				turnOff(lamp, DEFAULT_TWEEN, closedTransparency)
 				startBlink(instance, lamp, SLOW_BLINK)
 			elseif mode == "pulse3" then
-				turnOff(lamp, DEFAULT_TWEEN)
+				turnOff(lamp, DEFAULT_TWEEN, closedTransparency)
 				startBlink(instance, lamp, FAST_BLINK)
 			else
-				turnOff(lamp, DEFAULT_TWEEN)
+				turnOff(lamp, DEFAULT_TWEEN, closedTransparency)
 			end
 
 			print(

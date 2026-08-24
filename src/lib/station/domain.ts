@@ -219,6 +219,7 @@ export type PhysicalSwitchAlignment = {
 export type RobloxResolvedSignalFamily = 'entry' | 'departure' | 'premain' | 'shunt';
 
 export type RobloxResolvedSignalAspect =
+  | 'off'
   | 'danger'
   | 'caution'
   | 'proceed'

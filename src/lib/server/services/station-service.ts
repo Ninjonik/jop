@@ -716,6 +716,12 @@ function getBaseResolvedSignalAspect(
   family: RobloxResolvedSignalFamily,
   signalState: string,
 ): RobloxResolvedSignalAspect {
+  // The board's default state is the legacy Roblox `sx` aspect: every lamp is
+  // extinguished. It is distinct from `danger`/`s0`, which lights the red lamp.
+  if (signalState === 'default') {
+    return 'off';
+  }
+
   if (family === 'shunt') {
     return signalState === 'shunt' ? 'shunt' : 'danger';
   }
