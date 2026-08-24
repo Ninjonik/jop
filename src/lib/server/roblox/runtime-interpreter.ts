@@ -2,10 +2,12 @@ import type {
   RobloxPhysicalSnapshot,
   SessionDocument,
 } from '@/lib/station/domain';
+import { buildRobloxUpdateDebugLine } from '@/lib/station/debug';
 
 import { robloxRuntimeStateRepository } from '../repositories/roblox-runtime-state-repository';
 import { robloxRuntimeUpdateRepository } from '../repositories/roblox-runtime-update-repository';
 import { sessionRepository } from '../repositories/session-repository';
+import { printDebugBlock } from '../debug-log';
 import { mockRuntimeInterpreter } from './mock-roblox-port';
 import { robloxRuntimeInterpreter } from './roblox-open-cloud-port';
 
@@ -101,6 +103,12 @@ async function synchronizeRobloxRuntimeState(
   if (updates.length === 0) {
     return;
   }
+
+  printDebugBlock(
+    'roblox-debug',
+    `publishing ${updates.length} physical updates for ${sessionId}`,
+    updates.map((update) => buildRobloxUpdateDebugLine(update.stationId, update.pieceId, update.piece)),
+  );
 
   const session = await sessionRepository.findById(sessionId);
   if (!session) {

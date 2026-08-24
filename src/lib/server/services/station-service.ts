@@ -72,6 +72,8 @@ import {
   initializeRobloxRuntimeState,
   notifyRuntimeInterpreter,
 } from '../roblox/runtime-interpreter';
+import { printDebugBlock } from '../debug-log';
+import { buildActionDebugLines } from '@/lib/station/debug';
 
 function nowIso() {
   return new Date().toISOString();
@@ -2084,6 +2086,7 @@ function toActionLog(station: StationDocument, action: PendingAction): StationAc
     payload: action.payload,
     result: action.result,
     error: action.error,
+    debugLines: buildActionDebugLines(station, action),
   };
 }
 
@@ -2165,6 +2168,11 @@ async function completeSwitchAction(actionId: string, sessionId: string, station
   applyRuntimeState(station);
   applySessionTrainOccupations(station, session);
   bumpRevision(station);
+  printDebugBlock(
+    'web-debug',
+    `${station.sessionId}/${station.stationId} applied ${finalAction.type}`,
+    buildActionDebugLines(station, finalAction),
+  );
   await stationActionLogRepository.create(toActionLog(station, finalAction));
   await saveStation(station);
 }
@@ -2282,6 +2290,11 @@ async function completeRouteAction(actionId: string, sessionId: string, stationI
   applyRuntimeState(station);
   applySessionTrainOccupations(station, session);
   bumpRevision(station);
+  printDebugBlock(
+    'web-debug',
+    `${station.sessionId}/${station.stationId} applied ${finalAction.type}`,
+    buildActionDebugLines(station, finalAction),
+  );
   await stationActionLogRepository.create(toActionLog(station, finalAction));
   await saveStation(station);
 }
@@ -3570,6 +3583,11 @@ export const stationService = {
       applyRuntimeState(station);
       applySessionTrainOccupations(station, session);
       bumpRevision(station);
+      printDebugBlock(
+        'web-debug',
+        `${station.sessionId}/${station.stationId} accepted ${action.type}`,
+        buildActionDebugLines(station, action),
+      );
       await stationActionLogRepository.create(toActionLog(station, action));
       await saveStation(station);
       return action;
@@ -3581,6 +3599,11 @@ export const stationService = {
     applyRuntimeState(station);
     applySessionTrainOccupations(station, session);
     bumpRevision(station);
+    printDebugBlock(
+      'web-debug',
+      `${station.sessionId}/${station.stationId} accepted ${action.type}`,
+      buildActionDebugLines(station, action),
+    );
     await saveStation(station);
 
     scheduleSwitchAction(station, action);
@@ -3668,6 +3691,11 @@ export const stationService = {
       station.runtime.pendingActions[action.id] = action;
       applyRuntimeStateWithTrainOccupations(station, session);
       bumpRevision(station);
+      printDebugBlock(
+        'web-debug',
+        `${station.sessionId}/${station.stationId} accepted ${action.type}`,
+        buildActionDebugLines(station, action),
+      );
       await saveStation(station);
 
       setTimeout(() => {
@@ -3760,6 +3788,11 @@ export const stationService = {
       station.runtime.pendingActions[action.id] = action;
       applyRuntimeStateWithTrainOccupations(station, session);
       bumpRevision(station);
+      printDebugBlock(
+        'web-debug',
+        `${station.sessionId}/${station.stationId} accepted ${action.type}`,
+        buildActionDebugLines(station, action),
+      );
       await saveStation(station);
 
       setTimeout(() => {
@@ -3807,6 +3840,11 @@ export const stationService = {
     station.runtime.pendingActions[action.id] = action;
     applyRuntimeStateWithTrainOccupations(station, session);
     bumpRevision(station);
+    printDebugBlock(
+      'web-debug',
+      `${station.sessionId}/${station.stationId} accepted ${action.type}`,
+      buildActionDebugLines(station, action),
+    );
     await saveStation(station);
 
     setTimeout(() => {

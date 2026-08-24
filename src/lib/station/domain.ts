@@ -346,6 +346,7 @@ export type StationActionLogDocument = {
     code: string;
     message: string;
   };
+  debugLines?: string[];
 };
 
 export type StationCommand<TPayload> = {
