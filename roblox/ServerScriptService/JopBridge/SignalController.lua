@@ -75,6 +75,7 @@ local function buildResolvedAspectTable()
 		caution = { z1 = "on" },
 		proceed = { z = "on" },
 		shunt = { b = "on" },
+		callOn = { c = "on", b = "pulse2" },
 		proceed40Caution = { z1 = "on", z2 = "on", r4 = "on" },
 		proceed40Proceed = { z = "on", z2 = "on", r4 = "on" },
 		proceed40Expect40 = { z1 = "pulse2", z2 = "on", r4 = "on" },

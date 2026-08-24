@@ -38,6 +38,11 @@ export const stationRepository = {
     return collection.find({ sessionId }).sort({ stationId: 1 }).toArray();
   },
 
+  async listAll() {
+    const collection = await getCollection();
+    return collection.find({}).sort({ sessionId: 1, stationId: 1 }).toArray();
+  },
+
   async save(station: StationDocument) {
     const collection = await getCollection();
     await collection.replaceOne({ _id: station._id }, station, { upsert: false });

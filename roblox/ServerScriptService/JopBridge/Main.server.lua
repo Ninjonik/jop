@@ -21,6 +21,7 @@ local currentUpdateCursor = 0
 local occupationFlushScheduled = false
 local switchFeedbackFlushScheduled = false
 local REPORT_FLUSH_DELAY_SECONDS = 0.25
+local HEARTBEAT_INTERVAL_SECONDS = 55
 local pendingOccupationReports = {}
 local pendingOccupationOrder = {}
 local pendingSwitchFeedbackReports = {}
@@ -328,6 +329,21 @@ local function fetchQueuedUpdates()
 	updateFetchInProgress = false
 end
 
+local function heartbeatLoop()
+	while not bridgeDisabled do
+		if isRegistered then
+			local success, response = pcall(function()
+				return api:Heartbeat(sessionId)
+			end)
+			if not success then
+				warn("[JOP] Heartbeat failed: " .. tostring(response))
+			end
+		end
+
+		task.wait(HEARTBEAT_INTERVAL_SECONDS)
+	end
+end
+
 local subscribed, subscribeResult = pcall(function()
 	return MessagingService:SubscribeAsync(Config.MessagingTopic, function(message)
 		local decoded = nil
@@ -373,3 +389,5 @@ task.spawn(function()
 		task.wait(10)
 	end
 end)
+
+task.spawn(heartbeatLoop)

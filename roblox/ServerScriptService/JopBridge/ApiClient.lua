@@ -50,6 +50,16 @@ function ApiClient:Register(sessionId, placeId)
 	})
 end
 
+function ApiClient:Heartbeat(sessionId)
+	return self:_request(
+		"POST",
+		"/api/roblox/sessions/" .. HttpService:UrlEncode(sessionId) .. "/heartbeat",
+		{
+			serverId = sessionId,
+		}
+	)
+end
+
 function ApiClient:FetchUpdates(sessionId, afterSequence)
 	return self:_request(
 		"GET",

@@ -8,8 +8,17 @@ import { getDefaultTextValues, getInitialGroupSelections } from './tile-state';
 export type SessionStatus = 'active' | 'closed';
 export type PendingActionStatus = 'queued' | 'running' | 'completed' | 'failed' | 'cancelled';
 export type ActionLogStatus = Extract<PendingActionStatus, 'completed' | 'failed' | 'cancelled'>;
+export type RobloxSessionHeartbeat = {
+  lastHeartbeatAt: string | null;
+};
 export type RuntimeInterpreter =
-  { kind: 'mock' } | { kind: 'roblox'; placeId: string; serverId: string };
+  | { kind: 'mock' }
+  | {
+      kind: 'roblox';
+      placeId: string;
+      serverId: string;
+      heartbeat: RobloxSessionHeartbeat;
+    };
 
 export type SessionDocument = {
   _id: string;
@@ -223,6 +232,7 @@ export type RobloxResolvedSignalAspect =
   | 'caution'
   | 'proceed'
   | 'shunt'
+  | 'callOn'
   | 'proceed40Caution'
   | 'proceed40Proceed'
   | 'proceed40Expect40'
@@ -328,6 +338,17 @@ export type RobloxPhysicalUpdateBatch = {
   cursor: number;
   generatedAt: string;
   updates: RobloxPhysicalUpdate[];
+};
+
+export type LiveRobloxSessionSummary = {
+  sessionId: string;
+  placeId: string;
+  serverId: string;
+  lastHeartbeatAt: string;
+  isLive: boolean;
+  stations: Array<{
+    stationId: string;
+  }>;
 };
 
 export type StationActionLogDocument = {
@@ -584,6 +605,13 @@ export const sessionDocumentSchema = z.object({
         kind: z.literal('roblox'),
         placeId: robloxPlaceIdSchema,
         serverId: sessionIdSchema,
+        heartbeat: z
+          .object({
+            lastHeartbeatAt: z.string().nullable().default(null),
+          })
+          .default({
+            lastHeartbeatAt: null,
+          }),
       }),
     ])
     .default({ kind: 'mock' }),
@@ -727,6 +755,10 @@ export const sessionSchemaDocumentSchema = z.object({
 export const robloxSessionRegistrationSchema = z.object({
   sessionId: sessionIdSchema,
   placeId: robloxPlaceIdSchema,
+  serverId: sessionIdSchema,
+});
+
+export const robloxSessionHeartbeatSchema = z.object({
   serverId: sessionIdSchema,
 });
 

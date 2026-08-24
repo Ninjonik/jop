@@ -82,6 +82,8 @@ function nowIso() {
   return new Date().toISOString();
 }
 
+const ROBLOX_SESSION_HEARTBEAT_TIMEOUT_MS = 60_000;
+
 function createSessionId(prefix: 'mock' | 'session' = 'mock') {
   return `${prefix}-${randomUUID().slice(0, 8)}`;
 }
@@ -871,6 +873,19 @@ function buildResolvedRobloxSignalAspects(station: StationDocument) {
     });
   });
 
+  // PN is a persisted signal override, not a normal route aspect. Apply it
+  // last so route and speed resolution cannot replace the legacy `spn`
+  // indication while the call-on remains active.
+  Object.keys(station.runtime.activePrivolavaciaSignals).forEach((pieceId) => {
+    const current = resolved.get(pieceId);
+    if (current && (current.family === 'entry' || current.family === 'departure')) {
+      resolved.set(pieceId, {
+        ...current,
+        aspect: 'callOn',
+      });
+    }
+  });
+
   return resolved;
 }
 
@@ -1143,6 +1158,11 @@ function applyRuntimeState(station: StationDocument) {
 function ensureSessionRuntimeState(session: SessionDocument) {
   session.mockMode ??= true;
   session.interpreter ??= { kind: 'mock' };
+  if (session.interpreter.kind === 'roblox') {
+    session.interpreter.heartbeat ??= {
+      lastHeartbeatAt: null,
+    };
+  }
   session.runtime ??= {
     trains: {},
     lineblocks: {},
@@ -1171,6 +1191,24 @@ function ensureSessionRuntimeState(session: SessionDocument) {
   });
 
   return session;
+}
+
+function isRobloxSessionLive(session: SessionDocument, now = Date.now()) {
+  if (session.interpreter.kind !== 'roblox') {
+    return false;
+  }
+
+  const heartbeatAt = session.interpreter.heartbeat.lastHeartbeatAt;
+  if (!heartbeatAt) {
+    return false;
+  }
+
+  const heartbeatTime = Date.parse(heartbeatAt);
+  if (Number.isNaN(heartbeatTime)) {
+    return false;
+  }
+
+  return now - heartbeatTime <= ROBLOX_SESSION_HEARTBEAT_TIMEOUT_MS;
 }
 
 function applySessionTrainOccupations(station: StationDocument, session: SessionDocument) {
@@ -2866,6 +2904,7 @@ export const stationService = {
   },
 
   async registerRobloxSession(sessionId: string, placeId: string, serverId: string) {
+    const heartbeatAt = nowIso();
     const existing = await sessionRepository.findById(sessionId);
     if (existing) {
       const session = ensureSessionRuntimeState(existing);
@@ -2876,6 +2915,9 @@ export const stationService = {
       ) {
         throw new Error('Session ID is already registered to a different runtime.');
       }
+      session.interpreter.heartbeat.lastHeartbeatAt = heartbeatAt;
+      session.updatedAt = heartbeatAt;
+      await sessionRepository.save(session);
       return session;
     }
 
@@ -2891,7 +2933,14 @@ export const stationService = {
       updatedAt: createdAt,
       status: 'active',
       mockMode: false,
-      interpreter: { kind: 'roblox', placeId, serverId },
+      interpreter: {
+        kind: 'roblox',
+        placeId,
+        serverId,
+        heartbeat: {
+          lastHeartbeatAt: heartbeatAt,
+        },
+      },
       topology: { lineblockLinks: {} },
       runtime: {
         trains: {},
@@ -2911,6 +2960,31 @@ export const stationService = {
     await initializeRobloxRuntimeState(sessionId, () => buildRobloxPhysicalSnapshot(sessionId));
 
     return session;
+  },
+
+  async heartbeatRobloxSession(sessionId: string, serverId: string) {
+    const existing = await sessionRepository.findById(sessionId);
+    if (!existing) {
+      throw new Error('Session not found.');
+    }
+
+    const session = ensureSessionRuntimeState(existing);
+    if (session.interpreter.kind !== 'roblox') {
+      throw new Error('Heartbeat is only accepted for Roblox sessions.');
+    }
+    if (session.interpreter.serverId !== serverId) {
+      throw new Error('Session heartbeat came from a different Roblox server.');
+    }
+
+    session.interpreter.heartbeat.lastHeartbeatAt = nowIso();
+    session.updatedAt = session.interpreter.heartbeat.lastHeartbeatAt;
+    await sessionRepository.save(session);
+
+    return {
+      sessionId: session._id,
+      lastHeartbeatAt: session.interpreter.heartbeat.lastHeartbeatAt,
+      isLive: true,
+    };
   },
 
   async getRobloxPhysicalSnapshot(sessionId: string): Promise<RobloxPhysicalSnapshot> {
@@ -3131,6 +3205,41 @@ export const stationService = {
     ensureSessionRuntimeState(session);
     scheduleSessionTrainMovements(session);
     return session;
+  },
+
+  async listLiveRobloxSessions() {
+    const [sessions, stations] = await Promise.all([
+      sessionRepository.listActiveRobloxSessions(),
+      stationRepository.listAll(),
+    ]);
+    const now = Date.now();
+    const stationsBySessionId = new Map<string, Array<{ stationId: string }>>();
+
+    stations.forEach((station) => {
+      const existing = stationsBySessionId.get(station.sessionId) ?? [];
+      existing.push({ stationId: station.stationId });
+      stationsBySessionId.set(station.sessionId, existing);
+    });
+
+    return sessions
+      .map((rawSession) => {
+      const session = ensureSessionRuntimeState(rawSession);
+      const lastHeartbeatAt = session.interpreter.kind === 'roblox'
+        ? session.interpreter.heartbeat.lastHeartbeatAt
+        : null;
+
+      return {
+        sessionId: session._id,
+        placeId: session.interpreter.kind === 'roblox' ? session.interpreter.placeId : '',
+        serverId: session.interpreter.kind === 'roblox' ? session.interpreter.serverId : '',
+        lastHeartbeatAt: lastHeartbeatAt ?? session.updatedAt,
+        isLive: isRobloxSessionLive(session, now),
+        stations: (stationsBySessionId.get(session._id) ?? []).sort((a, b) =>
+          a.stationId.localeCompare(b.stationId),
+        ),
+      };
+      })
+      .filter((session) => session.isLive);
   },
 
   async createMockTrain(
