@@ -1971,8 +1971,10 @@ function validateLineblockActionStates(
   }
 
   if (actionType === 'lineblock:mark-arrived') {
-    if (localState !== 'receiving' || remoteState !== 'sending') {
-      throw new Error('Arrival acknowledgement can only be marked from receiving/sending.');
+    if (localState !== 'receivingAwaitingConfirmation' || remoteState !== 'sending') {
+      throw new Error(
+        'Arrival acknowledgement can only be marked from receivingAwaitingConfirmation/sending.',
+      );
     }
   }
 }
@@ -2788,6 +2790,16 @@ function updateLineblockArrivalEligibility(
   });
 
   if (completelyPastEntry) {
+    const remoteLineblockPieceId = Object.values(receivingStation.runtime.lineblockPremainLinks).find(
+      (link) => link.premainSignalPieceId === route.sourcePieceId,
+    )?.lineblockPieceId;
+    if (remoteLineblockPieceId) {
+      setLineblockVisualState(
+        receivingStation,
+        remoteLineblockPieceId,
+        'receivingAwaitingConfirmation',
+      );
+    }
     session.runtime.lineblocks[transit.linkId] = {
       arrivalAcknowledgementEligible: true,
       trainId: train.id,

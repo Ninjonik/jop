@@ -421,7 +421,7 @@ export const stateGroups: StateGroupRegistry = {
           },
         },
       },
-      receivingConfirmation: {
+      receivingAwaitingConfirmation: {
         base: {
           '--color-toprightcircle': '#d32f2f',
           '--color-bottomleftcircle': '#ffffff',

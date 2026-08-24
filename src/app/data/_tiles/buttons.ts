@@ -60,7 +60,7 @@ export const buttonTiles: TileCatalog = {
           'sendingFree',
           'receiving',
           'receivingFree',
-          'receivingConfirmation',
+          'receivingAwaitingConfirmation',
         ],
         defaultState: 'default',
       },
