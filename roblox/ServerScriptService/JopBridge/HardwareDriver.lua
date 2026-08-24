@@ -28,8 +28,8 @@ local SWITCH_COMPONENT_TYPES = {
 }
 
 local COUNTERS_GROUP_NAME = "Counters"
-local OCCUPANCY_POLL_SECONDS = 2.5
 local OCCUPANCY_INFLATION = Vector3.new(1, 1, 1)
+local OCCUPANCY_CLEAR_SETTLE_SECONDS = 0.5
 
 local switchVisualStateByInstance = setmetatable({}, { __mode = "k" })
 
@@ -135,6 +135,12 @@ local function setAllBasePartsActive(instance, active)
 	for _, descendant in ipairs(instance:GetDescendants()) do
 		visit(descendant)
 	end
+end
+
+local function isMoverPart(part)
+	return typeof(part) == "Instance"
+		and part:IsA("BasePart")
+		and string.find(string.lower(part.Name), "mover", 1, true) ~= nil
 end
 
 local function getSwitchVisualGroups(instance)
@@ -247,6 +253,58 @@ local function buildOccupationSections(instance)
 	end
 
 	return sections
+end
+
+local function getSectionTouchCount(section)
+	local total = 0
+	for _, count in pairs(section.touchCounts or {}) do
+		total += count
+	end
+	return total
+end
+
+local function sampleSectionOccupied(section, countersGroupId)
+	local touchingParts = {}
+
+	for _, block in ipairs(section.parts) do
+		if block.Parent then
+			local params = OverlapParams.new()
+			params.FilterType = Enum.RaycastFilterType.Exclude
+			params.FilterDescendantsInstances = { block }
+			params.CollisionGroup = countersGroupId
+			params.RespectCanCollide = false
+
+			local parts = workspace:GetPartBoundsInBox(
+				block.CFrame,
+				block.Size + OCCUPANCY_INFLATION,
+				params
+			)
+
+			for _, part in ipairs(parts) do
+				if isMoverPart(part) then
+					touchingParts[part] = true
+				end
+			end
+		end
+	end
+
+	return next(touchingParts) ~= nil, touchingParts
+end
+
+local function reportSectionOccupiedChange(section, report, occupied)
+	if section.occupied == occupied then
+		return
+	end
+
+	section.occupied = occupied
+	report({
+		occupied = occupied,
+		traversalState = section.traversalState,
+	})
+end
+
+local function refreshSectionFromTouchState(section, report)
+	reportSectionOccupiedChange(section, report, getSectionTouchCount(section) > 0)
 end
 
 local function collectTaggedComponents(instance)
@@ -460,53 +518,77 @@ function HardwareDriver.ObserveOccupation(instance, report, capabilities)
 
 	local countersGroupId = ensureCountersCollisionGroup()
 	local running = true
-	local lastOccupiedBySection = {}
+	local disconnectors = {}
 
-	task.spawn(function()
-		while running do
-			for sectionIndex, section in ipairs(sections) do
-				local wheelSet = {}
-				local count = 0
+	for _, section in ipairs(sections) do
+		section.touchCounts = {}
+		section.occupied = false
+		section.clearGeneration = 0
 
-				for _, block in ipairs(section.parts) do
-					if block.Parent then
-						local params = OverlapParams.new()
-						params.FilterType = Enum.RaycastFilterType.Exclude
-						params.FilterDescendantsInstances = { block }
-						params.CollisionGroup = countersGroupId
-						params.RespectCanCollide = false
+		local initiallyOccupied, sampledTouchingParts = sampleSectionOccupied(section, countersGroupId)
+		for part, _ in pairs(sampledTouchingParts) do
+			section.touchCounts[part] = 1
+		end
+		reportSectionOccupiedChange(section, report, initiallyOccupied)
 
-						local parts = workspace:GetPartBoundsInBox(
-							block.CFrame,
-							block.Size + OCCUPANCY_INFLATION,
-							params
-						)
-
-						for _, part in ipairs(parts) do
-							if part.Name:lower():match("mover") and not wheelSet[part] then
-								wheelSet[part] = true
-								count += 1
-							end
-						end
-					end
-				end
-
-				local occupied = count > 0
-				if lastOccupiedBySection[sectionIndex] ~= occupied then
-					lastOccupiedBySection[sectionIndex] = occupied
-					report({
-						occupied = occupied,
-						traversalState = section.traversalState,
-					})
-				end
+		local function noteTouch(part)
+			if not running or not isMoverPart(part) then
+				return
 			end
 
-			task.wait(OCCUPANCY_POLL_SECONDS)
+			section.touchCounts[part] = (section.touchCounts[part] or 0) + 1
+			section.clearGeneration += 1
+			refreshSectionFromTouchState(section, report)
 		end
-	end)
+
+		local function noteTouchEnded(part)
+			if not running or not isMoverPart(part) then
+				return
+			end
+
+			local current = section.touchCounts[part]
+			if current == nil then
+				return
+			end
+
+			if current <= 1 then
+				section.touchCounts[part] = nil
+			else
+				section.touchCounts[part] = current - 1
+			end
+
+			if getSectionTouchCount(section) > 0 then
+				refreshSectionFromTouchState(section, report)
+				return
+			end
+
+			section.clearGeneration += 1
+			local generation = section.clearGeneration
+			task.delay(OCCUPANCY_CLEAR_SETTLE_SECONDS, function()
+				if not running or section.clearGeneration ~= generation then
+					return
+				end
+
+				local occupied, resampledTouchingParts = sampleSectionOccupied(section, countersGroupId)
+				section.touchCounts = {}
+				for sampledPart, _ in pairs(resampledTouchingParts) do
+					section.touchCounts[sampledPart] = 1
+				end
+				reportSectionOccupiedChange(section, report, occupied)
+			end)
+		end
+
+		for _, block in ipairs(section.parts) do
+			push(disconnectors, block.Touched:Connect(noteTouch))
+			push(disconnectors, block.TouchEnded:Connect(noteTouchEnded))
+		end
+	end
 
 	return function()
 		running = false
+		for _, connection in ipairs(disconnectors) do
+			connection:Disconnect()
+		end
 	end
 end
 

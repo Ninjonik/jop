@@ -2440,56 +2440,13 @@ function releaseRouteReservationsForClearedOccupation(
   });
 }
 
-function sweepRouteReservationsBehindTrain(
-  station: StationDocument,
-  routeId: string,
-  occupiedPieceIds: Set<string>,
-) {
-  const route = station.runtime.activeTrainRoutes[routeId];
-  if (!route) {
-    return;
-  }
-
-  const occupiedIndices = route.path
-    .map((step, index) => (occupiedPieceIds.has(step.pieceId) ? index : -1))
-    .filter((index) => index >= 0);
-  if (occupiedIndices.length === 0) {
-    return;
-  }
-
-  const furthestOccupiedIndex = Math.max(...occupiedIndices);
-  const releasablePieceIds = new Set(
-    route.path
-      .slice(0, furthestOccupiedIndex)
-      .map((step) => step.pieceId)
-      .filter((pieceId) => !occupiedPieceIds.has(pieceId)),
-  );
-  if (releasablePieceIds.size === 0) {
-    return;
-  }
-
-  route.reservedOccupations = route.reservedOccupations.filter((occupation) => {
-    if (!releasablePieceIds.has(occupation.pieceId)) {
-      return true;
-    }
-
-    const piece = station.layout.pieces[occupation.pieceId];
-    const currentOccupation = piece?.state.groups.occupation;
-    if (!currentOccupation || currentOccupation.state === 'default') {
-      return false;
-    }
-
-    return currentOccupation.variant === 'occupied';
-  });
-}
-
-function sweepReservationsBehindTrain(
+function releaseReservationsBehindClearedSensor(
   stations: Map<string, StationDocument>,
-  sensors: MockTrain['occupiedSensors'],
+  clearedSensors: MockTrain['occupiedSensors'],
+  occupiedSensors: MockTrain['occupiedSensors'],
 ) {
   const occupiedByRoute = new Map<string, Set<string>>();
-
-  sensors.forEach((sensor) => {
+  occupiedSensors.forEach((sensor) => {
     if (!sensor.routeId) {
       return;
     }
@@ -2500,14 +2457,76 @@ function sweepReservationsBehindTrain(
     occupiedByRoute.set(key, occupiedPieceIds);
   });
 
-  occupiedByRoute.forEach((occupiedPieceIds, key) => {
+  clearedSensors.forEach((sensor) => {
+    if (!sensor.routeId) {
+      return;
+    }
+
+    const station = stations.get(sensor.stationId);
+    if (!station) {
+      return;
+    }
+
+    const route = station.runtime.activeTrainRoutes[sensor.routeId];
+    if (!route) {
+      return;
+    }
+
+    const clearedIndex = route.path.findIndex((step) => step.pieceId === sensor.pieceId);
+    if (clearedIndex < 0) {
+      return;
+    }
+
+    const occupiedPieceIds = occupiedByRoute.get(`${sensor.stationId}\0${sensor.routeId}`) ?? new Set();
+    route.reservedOccupations = route.reservedOccupations.filter((occupation) => {
+      const occupationIndex = route.path.findIndex((step) => step.pieceId === occupation.pieceId);
+      if (occupationIndex < 0 || occupationIndex > clearedIndex) {
+        return true;
+      }
+
+      return occupiedPieceIds.has(occupation.pieceId);
+    });
+  });
+}
+
+function clearCompletedRouteIfFullyReleased(
+  station: StationDocument,
+  routeId: string,
+) {
+  const route = station.runtime.activeTrainRoutes[routeId];
+  if (!route) {
+    return;
+  }
+
+  if (route.reservedOccupations.length > 0) {
+    return;
+  }
+
+  delete station.runtime.activeTrainRoutes[routeId];
+}
+
+function finalizeReleasedRoutes(
+  stations: Map<string, StationDocument>,
+  clearedSensors: MockTrain['occupiedSensors'],
+) {
+  const releasedRouteKeys = new Set<string>();
+
+  clearedSensors.forEach((sensor) => {
+    if (!sensor.routeId) {
+      return;
+    }
+
+    releasedRouteKeys.add(`${sensor.stationId}\0${sensor.routeId}`);
+  });
+
+  releasedRouteKeys.forEach((key) => {
     const [stationId, routeId] = key.split('\0', 2);
     const station = stations.get(stationId);
     if (!station) {
       return;
     }
 
-    sweepRouteReservationsBehindTrain(station, routeId, occupiedPieceIds);
+    clearCompletedRouteIfFullyReleased(station, routeId);
   });
 }
 
@@ -2680,7 +2699,8 @@ async function advanceTrainMovement(sessionId: string, trainId: string) {
       );
     }
   }
-  sweepReservationsBehindTrain(stations, train.occupiedSensors);
+  releaseReservationsBehindClearedSensor(stations, clearedSensors, train.occupiedSensors);
+  finalizeReleasedRoutes(stations, clearedSensors);
 
   train.location = {
     stationId: step.stationId,
