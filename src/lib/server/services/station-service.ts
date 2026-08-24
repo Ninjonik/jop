@@ -737,49 +737,51 @@ function getBaseResolvedSignalAspect(
   return 'danger';
 }
 
-function isResolved40Aspect(aspect: RobloxResolvedSignalAspect | null) {
-  return (
-    aspect === 'proceed40' ||
-    aspect === 'proceed40Caution' ||
-    aspect === 'proceed40Proceed' ||
-    aspect === 'proceed40Expect40' ||
-    aspect === 'proceed40Expect60' ||
-    aspect === 'proceed40Expect80' ||
-    aspect === 'proceed40Expect100'
-  );
+function getResolvedStartSignalIdForRoute(station: StationDocument, route: ActiveTrainRoute) {
+  if (route.routeClass === 'platform-to-premain') {
+    return route.targetPlatformDepartureSignalPieceId;
+  }
+
+  const orderedSignals = getOrderedFacingSignalsForRoute(station, route);
+  return orderedSignals[0] ?? null;
 }
 
-function resolveEntryOrDepartureAspectFromNext(
-  nextAspect: RobloxResolvedSignalAspect | null,
+function applySpeedRestrictionToResolvedAspect(
+  family: RobloxResolvedSignalFamily,
+  aspect: RobloxResolvedSignalAspect,
 ): RobloxResolvedSignalAspect {
-  if (!nextAspect || nextAspect === 'danger' || nextAspect === 'shunt') {
-    return 'danger';
+  if (family === 'departure' || family === 'entry') {
+    if (aspect === 'proceed') {
+      return 'proceed40';
+    }
+    if (aspect === 'caution') {
+      return 'expect40';
+    }
+    return aspect;
   }
 
-  return 'proceed';
-}
-
-function resolvePremainAspectFromNext(
-  nextAspect: RobloxResolvedSignalAspect | null,
-): RobloxResolvedSignalAspect {
-  if (!nextAspect || nextAspect === 'danger' || nextAspect === 'shunt') {
-    return 'caution';
+  if (family === 'premain') {
+    if (aspect === 'proceed') {
+      return 'proceed40Proceed';
+    }
+    if (aspect === 'caution') {
+      return 'expect40';
+    }
   }
 
-  if (isResolved40Aspect(nextAspect)) {
-    return 'expect40';
-  }
-
-  return 'proceed';
+  return aspect;
 }
 
 function buildResolvedRobloxSignalAspects(station: StationDocument) {
+  const projectedStation = structuredClone(station);
+  applyActiveRouteVisualState(projectedStation, tiles);
+
   const resolved = new Map<
     string,
     { family: RobloxResolvedSignalFamily; aspect: RobloxResolvedSignalAspect }
   >();
 
-  Object.entries(station.layout.pieces).forEach(([pieceId, piece]) => {
+  Object.entries(projectedStation.layout.pieces).forEach(([pieceId, piece]) => {
     const family = getResolvedSignalFamily(piece.type);
     const signalState = piece.state.groups.signal?.state;
     if (!family || !signalState) {
@@ -796,64 +798,24 @@ function buildResolvedRobloxSignalAspects(station: StationDocument) {
     (route) => route.routeType === 'normal',
   );
 
-  const outboundStartByPlatform = new Map<string, string>();
-  const orderedSignalsByRoute = new Map<string, string[]>();
-
   normalRoutes.forEach((route) => {
-    const orderedSignals = getOrderedFacingSignalsForRoute(station, route);
-    orderedSignalsByRoute.set(route.id, orderedSignals);
-    if (route.routeClass === 'platform-to-premain' && orderedSignals[0]) {
-      outboundStartByPlatform.set(route.sourcePieceId, orderedSignals[0]);
-    }
-  });
-
-  normalRoutes.forEach((route) => {
-    const orderedSignals = orderedSignalsByRoute.get(route.id) ?? [];
-    if (orderedSignals.length === 0) {
+    if (!getRouteHasSpeedRestriction(station, route)) {
       return;
     }
 
-    const startSignalId = orderedSignals[0];
-    if (getRouteHasSpeedRestriction(station, route)) {
-      const current = resolved.get(startSignalId);
-      if (current?.aspect === 'proceed') {
-        resolved.set(startSignalId, { ...current, aspect: 'proceed40Proceed' });
-      } else if (current?.aspect === 'caution') {
-        resolved.set(startSignalId, { ...current, aspect: 'proceed40Caution' });
-      }
+    const startSignalId = getResolvedStartSignalIdForRoute(station, route);
+    if (!startSignalId) {
+      return;
     }
-  });
 
-  normalRoutes.forEach((route) => {
-    const orderedSignals = orderedSignalsByRoute.get(route.id) ?? [];
-    orderedSignals.forEach((pieceId, index) => {
-      const current = resolved.get(pieceId);
-      if (!current || current.family === 'shunt') {
-        return;
-      }
+    const current = resolved.get(startSignalId);
+    if (!current) {
+      return;
+    }
 
-      const nextSignalPieceId = orderedSignals[index + 1] ?? null;
-      const nextAspect =
-        nextSignalPieceId && resolved.get(nextSignalPieceId)
-          ? resolved.get(nextSignalPieceId)?.aspect ?? null
-          : route.routeClass === 'premain-to-platform'
-            ? resolved.get(outboundStartByPlatform.get(route.targetPieceId) ?? '')?.aspect ?? null
-            : null;
-
-      if (current.family === 'premain') {
-        resolved.set(pieceId, {
-          ...current,
-          aspect: resolvePremainAspectFromNext(nextAspect),
-        });
-        return;
-      }
-
-      if (current.family === 'entry' || current.family === 'departure') {
-        resolved.set(pieceId, {
-          ...current,
-          aspect: resolveEntryOrDepartureAspectFromNext(nextAspect),
-        });
-      }
+    resolved.set(startSignalId, {
+      ...current,
+      aspect: applySpeedRestrictionToResolvedAspect(current.family, current.aspect),
     });
   });
 
