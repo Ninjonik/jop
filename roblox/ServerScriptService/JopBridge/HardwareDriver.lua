@@ -203,6 +203,19 @@ local function addOccupationSection(sections, parts, traversalState)
 		return
 	end
 
+	-- Multiple physical part groups can represent one logical traversal (the
+	-- extended switch middle route is the important case). Observe them as one
+	-- section so one clear group cannot overwrite another group that is still
+	-- occupied under the same backend occupation key.
+	for _, section in ipairs(sections) do
+		if section.traversalState == traversalState then
+			for _, part in ipairs(parts) do
+				push(section.parts, part)
+			end
+			return
+		end
+	end
+
 	push(sections, {
 		parts = parts,
 		traversalState = traversalState,
@@ -249,7 +262,9 @@ local function buildOccupationSections(instance)
 	local diagonalParts = findNamedBaseParts(instance, "Diagonal")
 	if #straightParts > 0 or #diagonalParts > 0 then
 		addOccupationSection(sections, straightParts, "blTbr")
-		addOccupationSection(sections, diagonalParts, "blTtr")
+		-- The JOP occupation projection renders a single-switch diagonal as `t`,
+		-- so reports must use the same value for reservation release to match.
+		addOccupationSection(sections, diagonalParts, "t")
 	end
 
 	return sections

@@ -41,26 +41,26 @@ local function setLampTransparency(lamp, transparency, duration)
 	return tween
 end
 
-local function turnOn(lamp, duration)
-	setLampTransparency(lamp, OPEN_TRANSPARENCY, duration)
+local function turnOn(lamp, duration, transparency)
+	setLampTransparency(lamp, transparency or OPEN_TRANSPARENCY, duration)
 end
 
 local function turnOff(lamp, duration, transparency)
 	setLampTransparency(lamp, transparency or CLOSED_TRANSPARENCY, duration)
 end
 
-local function startBlink(instance, lamp, period)
+local function startBlink(instance, lamp, period, openTransparency, closedTransparency)
 	local state = getOrCreateState(instance)
 	local version = state.version
 
 	task.spawn(function()
 		while signalStates[instance] and signalStates[instance].version == version do
-			turnOn(lamp, period)
+			turnOn(lamp, period, openTransparency)
 			task.wait(period)
 			if not signalStates[instance] or signalStates[instance].version ~= version then
 				break
 			end
-			turnOff(lamp, period)
+			turnOff(lamp, period, closedTransparency)
 			task.wait(period)
 		end
 	end)
@@ -71,7 +71,6 @@ local function buildResolvedAspectTable()
 	-- The backend already resolves family/aspect meaning; this controller only
 	-- reflects the resolved aspect onto the physical lamps.
 	return {
-		off = {}, -- Legacy `sx`: all fitted lamps and speed indicators are off.
 		danger = { c = "on" },
 		caution = { z1 = "on" },
 		proceed = { z = "on" },
@@ -128,8 +127,14 @@ function SignalController.Apply(instance, family, aspect)
 	state.version += 1
 
 	local aspectConfig = RESOLVED_ASPECTS[aspect] or {}
-	-- The old premain signal script used 0.99 for an extinguished lamp. Other
-	-- signal families used 0.97. Preserve those physical part values exactly.
+	-- Preserve the legacy scripts' actual part transparency values per signal
+	-- family. In particular, entry/shunt lamps are fully visible when lit.
+	local openTransparency = OPEN_TRANSPARENCY
+	if family == "entry" or family == "shunt" then
+		openTransparency = 0
+	elseif family == "departure" then
+		openTransparency = 0.1
+	end
 	local closedTransparency = family == "premain" and 0.99 or CLOSED_TRANSPARENCY
 	print(
 		string.format(
@@ -146,13 +151,13 @@ function SignalController.Apply(instance, family, aspect)
 		if lamp then
 			local mode = aspectConfig[lampName]
 			if mode == "on" then
-				turnOn(lamp, DEFAULT_TWEEN)
+				turnOn(lamp, DEFAULT_TWEEN, openTransparency)
 			elseif mode == "pulse2" then
 				turnOff(lamp, DEFAULT_TWEEN, closedTransparency)
-				startBlink(instance, lamp, SLOW_BLINK)
+				startBlink(instance, lamp, SLOW_BLINK, openTransparency, closedTransparency)
 			elseif mode == "pulse3" then
 				turnOff(lamp, DEFAULT_TWEEN, closedTransparency)
-				startBlink(instance, lamp, FAST_BLINK)
+				startBlink(instance, lamp, FAST_BLINK, openTransparency, closedTransparency)
 			else
 				turnOff(lamp, DEFAULT_TWEEN, closedTransparency)
 			end
