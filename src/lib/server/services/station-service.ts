@@ -2740,6 +2740,10 @@ function markRouteSignalPassedByOccupiedPiece(
 
     const occupiedStep = route.path[occupiedStepIndex];
     if (occupiedStep.signalPieceId === pieceId) {
+      const signalPieceType = station.layout.pieces[pieceId]?.type;
+      if (signalPieceType === 'premainSignal' || signalPieceType === 'premainSignalNoOcp') {
+        return;
+      }
       markPassedSignal(station, route.id, pieceId);
       return;
     }
@@ -2818,31 +2822,28 @@ function updateLineblockArrivalEligibility(
   }
 
   const receivingStation = stations.get(transit.toStationId);
-  const route = receivingStation?.runtime.activeTrainRoutes[transit.receivingRouteId];
-  const entryIndex = route?.path.findIndex((step) => step.pieceId === transit.entrySignalPieceId);
-  if (!route || entryIndex === undefined || entryIndex < 0) {
+  if (!receivingStation) {
     return;
   }
 
-  const completelyPastEntry = train.occupiedSensors.every((sensor) => {
-    if (sensor.stationId !== transit.toStationId) {
-      return false;
-    }
-    const index = route.path.findIndex((step) => step.pieceId === sensor.pieceId);
-    return index > entryIndex;
+  const receivingStationSensors = train.occupiedSensors.filter(
+    (sensor) => sensor.stationId === transit.toStationId,
+  );
+  if (receivingStationSensors.length === 0) {
+    return;
+  }
+
+  const protectedPieceIds = new Set(transit.protectedPieceIds);
+  const completelyPastEntry = receivingStationSensors.every((sensor) => {
+    return !protectedPieceIds.has(sensor.pieceId);
   });
 
   if (completelyPastEntry) {
-    const remoteLineblockPieceId = Object.values(receivingStation.runtime.lineblockPremainLinks).find(
-      (link) => link.premainSignalPieceId === route.sourcePieceId,
-    )?.lineblockPieceId;
-    if (remoteLineblockPieceId) {
-      setLineblockVisualState(
-        receivingStation,
-        remoteLineblockPieceId,
-        'receivingAwaitingConfirmation',
-      );
-    }
+    setLineblockVisualState(
+      receivingStation,
+      transit.receivingLineblockPieceId,
+      'receivingAwaitingConfirmation',
+    );
     session.runtime.lineblocks[transit.linkId] = {
       arrivalAcknowledgementEligible: true,
       trainId: train.id,
@@ -3579,6 +3580,12 @@ export const stationService = {
       if (!entrySignalPieceId) {
         throw new Error('The receiving route does not contain an entrance signal.');
       }
+      const entrySignalIndex = receivingRoute.path.findIndex(
+        (step) => step.pieceId === entrySignalPieceId,
+      );
+      if (entrySignalIndex < 0) {
+        throw new Error('The receiving route path does not include its entrance signal.');
+      }
 
       routeResult = {
         route: receivingRoute,
@@ -3589,8 +3596,12 @@ export const stationService = {
         linkId: linked.link.id,
         fromStationId: currentStation.stationId,
         toStationId: receivingStation.stationId,
+        receivingLineblockPieceId: linked.remote.pieceId,
         receivingRouteId: receivingRoute.id,
         entrySignalPieceId,
+        protectedPieceIds: receivingRoute.path
+          .slice(0, entrySignalIndex + 1)
+          .map((step) => step.pieceId),
       };
       train.lineblockTransit = lineblockTransit;
     }
@@ -3963,6 +3974,51 @@ export const stationService = {
         position: 'middleSet',
         retainedTraversableState:
           station.runtime.switchAlignments[control.switchPieceId]?.traversableState ?? null,
+      };
+      applyRuntimeState(station);
+      applySessionTrainOccupations(station, session);
+      bumpRevision(station);
+      printDebugBlock(
+        'web-debug',
+        `${station.sessionId}/${station.stationId} accepted ${action.type}`,
+        buildActionDebugLines(station, action),
+      );
+      await stationActionLogRepository.create(toActionLog(station, action));
+      await saveStation(station);
+      return action;
+    }
+
+    const switchPiece = station.layout.pieces[control.switchPieceId];
+    const currentAlignment = station.runtime.switchAlignments[control.switchPieceId];
+    const requestedMotorPosition: SwitchMotorPosition =
+      command.payload.position === 'leftSet' ? 'left' : 'right';
+    const currentMotorPosition =
+      currentAlignment?.motorPositions[control.slot] ??
+      (switchPiece ? getDefaultSwitchMotorPositions(switchPiece.type)[control.slot] : undefined);
+
+    if (switchPiece && currentMotorPosition === requestedMotorPosition) {
+      button.state.groups.switch = {
+        state: command.payload.position,
+        variant: 'normal',
+      };
+      const traversableState =
+        currentAlignment?.traversableState ??
+        getTraversableStateForMotorPositions(
+          switchPiece.type,
+          currentAlignment?.motorPositions ?? getDefaultSwitchMotorPositions(switchPiece.type),
+        ) ??
+        'disconnected';
+
+      action.status = 'completed';
+      action.startedAt = nowIso();
+      action.dueAt = null;
+      action.finishedAt = nowIso();
+      action.result = {
+        pieceId: command.payload.pieceId,
+        switchPieceId: control.switchPieceId,
+        controlSlot: control.slot,
+        position: command.payload.position,
+        traversableState,
       };
       applyRuntimeState(station);
       applySessionTrainOccupations(station, session);

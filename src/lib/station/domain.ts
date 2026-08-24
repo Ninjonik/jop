@@ -100,8 +100,10 @@ export type TrainMovement = {
     linkId: string;
     fromStationId: string;
     toStationId: string;
+    receivingLineblockPieceId: string;
     receivingRouteId: string;
     entrySignalPieceId: string;
+    protectedPieceIds: string[];
   } | null;
 };
 
@@ -663,8 +665,10 @@ export const sessionDocumentSchema = z.object({
             linkId: z.string(),
             fromStationId: stationIdSchema,
             toStationId: stationIdSchema,
+            receivingLineblockPieceId: z.string(),
             receivingRouteId: z.string(),
             entrySignalPieceId: z.string(),
+            protectedPieceIds: z.array(z.string()).default([]),
           })
           .nullable(),
         movement: z.any().nullable(),

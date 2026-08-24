@@ -539,6 +539,22 @@ function getInlineTargetTraversal(
   };
 }
 
+function getTerminalTargetTraversal(
+  station: StationDocument,
+  pieceId: string,
+  directionSign: number,
+): RouteEndpointTraversal | null {
+  const piece = station.layout.pieces[pieceId];
+  if (!piece) {
+    return null;
+  }
+
+  return {
+    pieceId,
+    entry: directionSign > 0 ? { x: -1, y: 0 } : { x: 1, y: 0 },
+  };
+}
+
 function isSignalPieceType(pieceType: string) {
   return (
     pieceType === 'entrySignal' ||
@@ -1508,7 +1524,9 @@ export function buildRouteFromSelection(
         : getDepartureSignalTraversal(station, sourcePieceId);
 
   const targetTraversal =
-    routeType === 'shunt' && targetPiece.type !== 'departureButton'
+    routeType === 'shunt' && targetPiece.type === 'shuntSignalButtonBuffer'
+      ? getTerminalTargetTraversal(station, targetPieceId, directionSign)
+      : routeType === 'shunt' && targetPiece.type !== 'departureButton'
       ? getInlineTargetTraversal(station, targetPieceId, sourcePieceId)
       : routeClass === 'premain-to-platform' || routeType === 'shunt'
         ? getArrivalTargetTraversal(station, targetPieceId)
