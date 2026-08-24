@@ -720,7 +720,7 @@ function getBaseResolvedSignalAspect(
   signalState: string,
 ): RobloxResolvedSignalAspect {
   if (signalState === 'default') {
-    return 'danger';
+    return family === 'premain' ? 'caution' : 'danger';
   }
 
   if (family === 'shunt') {
