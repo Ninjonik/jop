@@ -124,17 +124,25 @@ function buildOrderedRoutePath(
   station: StationDocument,
   sourcePieceId: string,
   targetPieceId: string,
-  direction: RuntimeRouteDirection,
   debugSteps: RouteDebugStep[],
   reservedOccupations: ActiveTrainRouteOccupation[],
 ) {
   const reservations = new Map(
     reservedOccupations.map((occupation) => [occupation.pieceId, occupation]),
   );
-  const byPieceId = new Map<string, RoutePathStep>();
+  const path: RoutePathStep[] = [];
+  const includedPieceIds = new Set<string>();
 
+  // `debugSteps` are already the canonical traced traversal order. Preserve that
+  // order for movement and reservation release instead of rebuilding a heuristic
+  // left/right sort, which breaks on bends and crossover geometry.
   debugSteps.forEach((step) => {
-    byPieceId.set(step.pieceId, {
+    if (includedPieceIds.has(step.pieceId)) {
+      return;
+    }
+
+    includedPieceIds.add(step.pieceId);
+    path.push({
       pieceId: step.pieceId,
       traversalState: step.traversableState,
       occupationState: step.occupationState,
@@ -142,27 +150,29 @@ function buildOrderedRoutePath(
     });
   });
 
-  [sourcePieceId, targetPieceId].forEach((pieceId) => {
-    if (byPieceId.has(pieceId)) {
+  [sourcePieceId, targetPieceId].forEach((pieceId, index) => {
+    if (includedPieceIds.has(pieceId)) {
       return;
     }
 
     const piece = station.layout.pieces[pieceId];
     const reservation = reservations.get(pieceId);
-    byPieceId.set(pieceId, {
+    const step: RoutePathStep = {
       pieceId,
       traversalState: '0',
       occupationState: reservation?.state ?? null,
       signalPieceId: piece && isSignalPieceType(piece.type) ? pieceId : null,
-    });
+    };
+
+    includedPieceIds.add(pieceId);
+    if (index === 0) {
+      path.unshift(step);
+    } else {
+      path.push(step);
+    }
   });
 
-  const directionSign = normalizeDirection(direction);
-  return Array.from(byPieceId.values()).sort((a, b) => {
-    const anchorA = getPieceAnchor(station.layout, a.pieceId);
-    const anchorB = getPieceAnchor(station.layout, b.pieceId);
-    return (anchorA.x - anchorB.x) * directionSign;
-  });
+  return path;
 }
 
 function getOccupationState(
@@ -1663,7 +1673,6 @@ export function buildRouteFromSelection(
         station,
         sourcePieceId,
         targetPieceId,
-        direction,
         extraDebugSteps,
         reservedOccupations,
       );

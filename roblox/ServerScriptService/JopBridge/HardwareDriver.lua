@@ -30,6 +30,7 @@ local SWITCH_COMPONENT_TYPES = {
 local COUNTERS_GROUP_NAME = "Counters"
 local OCCUPANCY_INFLATION = Vector3.new(1, 1, 1)
 local OCCUPANCY_CLEAR_SETTLE_SECONDS = 0.5
+local OCCUPANCY_RECONCILE_SECONDS = 1
 
 local switchVisualStateByInstance = setmetatable({}, { __mode = "k" })
 
@@ -598,6 +599,29 @@ function HardwareDriver.ObserveOccupation(instance, report, capabilities)
 			push(disconnectors, block.TouchEnded:Connect(noteTouchEnded))
 		end
 	end
+
+	task.spawn(function()
+		while running do
+			task.wait(OCCUPANCY_RECONCILE_SECONDS)
+
+			if not running then
+				break
+			end
+
+			for _, section in ipairs(sections) do
+				if not section.occupied then
+					continue
+				end
+
+				local occupied, touchingParts = sampleSectionOccupied(section, countersGroupId)
+				section.touchCounts = {}
+				for sampledPart, _ in pairs(touchingParts) do
+					section.touchCounts[sampledPart] = 1
+				end
+				reportSectionOccupiedChange(section, report, occupied)
+			end
+		end
+	end)
 
 	return function()
 		running = false
