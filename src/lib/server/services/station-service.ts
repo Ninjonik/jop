@@ -772,6 +772,19 @@ function applySpeedRestrictionToResolvedAspect(
   return aspect;
 }
 
+function isRestrictive40ResolvedAspect(aspect: RobloxResolvedSignalAspect | null | undefined) {
+  return (
+    aspect === 'proceed40' ||
+    aspect === 'proceed40Caution' ||
+    aspect === 'proceed40Proceed' ||
+    aspect === 'proceed40Expect40' ||
+    aspect === 'proceed40Expect60' ||
+    aspect === 'proceed40Expect80' ||
+    aspect === 'proceed40Expect100' ||
+    aspect === 'expect40'
+  );
+}
+
 function buildResolvedRobloxSignalAspects(station: StationDocument) {
   const projectedStation = structuredClone(station);
   applyActiveRouteVisualState(projectedStation, tiles);
@@ -816,6 +829,25 @@ function buildResolvedRobloxSignalAspects(station: StationDocument) {
     resolved.set(startSignalId, {
       ...current,
       aspect: applySpeedRestrictionToResolvedAspect(current.family, current.aspect),
+    });
+  });
+
+  normalRoutes.forEach((route) => {
+    const orderedSignals = getOrderedFacingSignalsForRoute(station, route);
+    orderedSignals.forEach((pieceId, index) => {
+      const current = resolved.get(pieceId);
+      if (!current || current.family !== 'premain') {
+        return;
+      }
+
+      const nextSignalId = orderedSignals[index + 1] ?? null;
+      const nextAspect = nextSignalId ? resolved.get(nextSignalId)?.aspect ?? null : null;
+      if (isRestrictive40ResolvedAspect(nextAspect) && current.aspect === 'caution') {
+        resolved.set(pieceId, {
+          ...current,
+          aspect: 'expect40',
+        });
+      }
     });
   });
 
@@ -2402,6 +2434,77 @@ function releaseRouteReservationsForClearedOccupation(
   });
 }
 
+function sweepRouteReservationsBehindTrain(
+  station: StationDocument,
+  routeId: string,
+  occupiedPieceIds: Set<string>,
+) {
+  const route = station.runtime.activeTrainRoutes[routeId];
+  if (!route) {
+    return;
+  }
+
+  const occupiedIndices = route.path
+    .map((step, index) => (occupiedPieceIds.has(step.pieceId) ? index : -1))
+    .filter((index) => index >= 0);
+  if (occupiedIndices.length === 0) {
+    return;
+  }
+
+  const furthestOccupiedIndex = Math.max(...occupiedIndices);
+  const releasablePieceIds = new Set(
+    route.path
+      .slice(0, furthestOccupiedIndex)
+      .map((step) => step.pieceId)
+      .filter((pieceId) => !occupiedPieceIds.has(pieceId)),
+  );
+  if (releasablePieceIds.size === 0) {
+    return;
+  }
+
+  route.reservedOccupations = route.reservedOccupations.filter((occupation) => {
+    if (!releasablePieceIds.has(occupation.pieceId)) {
+      return true;
+    }
+
+    const piece = station.layout.pieces[occupation.pieceId];
+    const currentOccupation = piece?.state.groups.occupation;
+    if (!currentOccupation || currentOccupation.state === 'default') {
+      return false;
+    }
+
+    return currentOccupation.variant === 'occupied';
+  });
+}
+
+function sweepReservationsBehindTrain(
+  stations: Map<string, StationDocument>,
+  sensors: MockTrain['occupiedSensors'],
+) {
+  const occupiedByRoute = new Map<string, Set<string>>();
+
+  sensors.forEach((sensor) => {
+    if (!sensor.routeId) {
+      return;
+    }
+
+    const key = `${sensor.stationId}\0${sensor.routeId}`;
+    const occupiedPieceIds = occupiedByRoute.get(key) ?? new Set<string>();
+    occupiedPieceIds.add(sensor.pieceId);
+    occupiedByRoute.set(key, occupiedPieceIds);
+  });
+
+  occupiedByRoute.forEach((occupiedPieceIds, key) => {
+    const [stationId, routeId] = key.split('\0', 2);
+    const station = stations.get(stationId);
+    if (!station) {
+      return;
+    }
+
+    sweepRouteReservationsBehindTrain(station, routeId, occupiedPieceIds);
+  });
+}
+
 function markRouteSignalPassedByOccupiedPiece(
   station: StationDocument,
   pieceId: string,
@@ -2563,14 +2666,15 @@ async function advanceTrainMovement(sessionId: string, trainId: string) {
   if (occupiedState) {
     const stepStation = stations.get(step.stationId);
     if (stepStation) {
-    applyRouteProgressFromOccupationEvent(
-      stepStation,
-      step.pieceId,
-      occupiedState,
-      true,
-    );
+      applyRouteProgressFromOccupationEvent(
+        stepStation,
+        step.pieceId,
+        occupiedState,
+        true,
+      );
     }
   }
+  sweepReservationsBehindTrain(stations, train.occupiedSensors);
 
   train.location = {
     stationId: step.stationId,

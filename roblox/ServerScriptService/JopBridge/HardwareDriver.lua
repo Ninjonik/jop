@@ -103,6 +103,19 @@ local function findNamedBaseParts(instance, targetName)
 	return parts
 end
 
+local function hasNamedBasePart(instance, targetName)
+	if not instance then
+		return false
+	end
+
+	local success, result = pcall(function()
+		local candidate = instance:FindFirstChild(targetName, true)
+		return candidate ~= nil and candidate:IsA("BasePart")
+	end)
+
+	return success and result == true
+end
+
 local function setPartsActive(parts, active)
 	for _, part in ipairs(parts) do
 		part.Transparency = active and 0 or 1
@@ -267,6 +280,36 @@ end
 
 function HardwareDriver.DescribeInstance(instance)
 	local components = collectTaggedComponents(instance)
+
+	if #components.signals == 0 then
+		local componentType = nil
+		if instance and instance.GetAttribute then
+			componentType = normalizeComponentType(instance:GetAttribute(COMPONENT_TYPE_ATTRIBUTE))
+		end
+
+		local hasSignalLamp = hasNamedBasePart(instance, "z") or hasNamedBasePart(instance, "c")
+		if SIGNAL_COMPONENT_TYPES[componentType] or hasSignalLamp then
+			push(components.signals, instance)
+		end
+	end
+
+	if #components.switches == 0 then
+		local componentType = nil
+		if instance and instance.GetAttribute then
+			componentType = normalizeComponentType(instance:GetAttribute(COMPONENT_TYPE_ATTRIBUTE))
+		end
+
+		local hasSwitchVariant = hasNamedBasePart(instance, "ONE")
+			or hasNamedBasePart(instance, "TWO")
+			or hasNamedBasePart(instance, "THREE")
+		if
+			SWITCH_COMPONENT_TYPES[componentType]
+			or hasSwitchVariant
+		then
+			push(components.switches, instance)
+		end
+	end
+
 	return {
 		signals = components.signals,
 		occupations = components.occupations,
@@ -327,6 +370,17 @@ function HardwareDriver.ApplyInstanceState(instance, linkedStates, capabilities)
 		end
 	end
 
+	if firstSignal and #capabilities.signals == 0 then
+		warn(
+			string.format(
+				"[JOP][Apply] No signal components discovered for %s piece=%s station=%s",
+				instance:GetFullName(),
+				tostring(firstSignal.pieceId),
+				tostring(firstSignal.stationId)
+			)
+		)
+	end
+
 	for _, switchComponent in ipairs(capabilities.switches) do
 		if firstSwitch then
 			local alignment = firstSwitch.switchAlignment or {}
@@ -352,6 +406,17 @@ function HardwareDriver.ApplyInstanceState(instance, linkedStates, capabilities)
 			switchComponent:SetAttribute("JOPResolvedUpperPosition", nil)
 			switchComponent:SetAttribute("JOPResolvedLowerPosition", nil)
 		end
+	end
+
+	if firstSwitch and #capabilities.switches == 0 then
+		warn(
+			string.format(
+				"[JOP][Apply] No switch components discovered for %s piece=%s station=%s",
+				instance:GetFullName(),
+				tostring(firstSwitch.pieceId),
+				tostring(firstSwitch.stationId)
+			)
+		)
 	end
 
 	if firstSwitch and firstSwitch.switchAlignment and firstSwitch.switchAlignment.traversableState then
