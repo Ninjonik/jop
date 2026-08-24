@@ -111,11 +111,31 @@ local CONTROLLED_LAMPS = {
 	"r10",
 }
 
+local function formatAspectConfig(aspectConfig)
+	local fragments = {}
+
+	for _, lampName in ipairs(CONTROLLED_LAMPS) do
+		local mode = aspectConfig[lampName] or "off"
+		table.insert(fragments, string.format("%s=%s", lampName, mode))
+	end
+
+	return table.concat(fragments, ", ")
+end
+
 function SignalController.Apply(instance, family, aspect)
 	local state = getOrCreateState(instance)
 	state.version += 1
 
 	local aspectConfig = RESOLVED_ASPECTS[aspect] or {}
+	print(
+		string.format(
+			"[JOP][Signal] Applying %s family=%s aspect=%s lamps=[%s]",
+			instance:GetFullName(),
+			tostring(family),
+			tostring(aspect),
+			formatAspectConfig(aspectConfig)
+		)
+	)
 
 	for _, lampName in ipairs(CONTROLLED_LAMPS) do
 		local lamp = findLamp(instance, lampName)
@@ -132,6 +152,15 @@ function SignalController.Apply(instance, family, aspect)
 			else
 				turnOff(lamp, DEFAULT_TWEEN)
 			end
+
+			print(
+				string.format(
+					"[JOP][Signal] - %s lamp %s -> %s",
+					instance:GetFullName(),
+					lampName,
+					tostring(mode or "off")
+				)
+			)
 		end
 	end
 end

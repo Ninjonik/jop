@@ -37,6 +37,26 @@ local function push(target, value)
 	target[#target + 1] = value
 end
 
+local function formatMotorPositions(alignment)
+	if type(alignment) ~= "table" or type(alignment.motorPositions) ~= "table" then
+		return "none"
+	end
+
+	local fragments = {}
+	for _, slot in ipairs({ "main", "upper", "lower" }) do
+		local value = alignment.motorPositions[slot]
+		if value ~= nil then
+			push(fragments, string.format("%s=%s", slot, tostring(value)))
+		end
+	end
+
+	if #fragments == 0 then
+		return "none"
+	end
+
+	return table.concat(fragments, ", ")
+end
+
 local function ensureCountersCollisionGroup()
 	local groupId = PhysicsService:GetCollisionGroupId(COUNTERS_GROUP_NAME)
 	if groupId == -1 then
@@ -279,6 +299,17 @@ function HardwareDriver.ApplyInstanceState(instance, linkedStates, capabilities)
 
 	for _, signalComponent in ipairs(capabilities.signals) do
 		if firstSignal then
+			print(
+				string.format(
+					"[JOP][Apply] - Setting Signal %s piece=%s station=%s text=%s family=%s aspect=%s",
+					signalComponent:GetFullName(),
+					tostring(firstSignal.pieceId),
+					tostring(firstSignal.stationId),
+					tostring(firstSignal.texts and firstSignal.texts.text or ""),
+					tostring(firstSignal.resolvedSignalFamily),
+					tostring(firstSignal.resolvedSignalAspect)
+				)
+			)
 			signalComponent:SetAttribute(SIGNAL_STATE_ATTRIBUTE, firstSignal.resolvedSignalAspect)
 			signalComponent:SetAttribute(SIGNAL_PIECE_ID_ATTRIBUTE, firstSignal.pieceId)
 			signalComponent:SetAttribute(SIGNAL_TEXT_ATTRIBUTE, firstSignal.texts and firstSignal.texts.text or nil)
@@ -299,6 +330,16 @@ function HardwareDriver.ApplyInstanceState(instance, linkedStates, capabilities)
 	for _, switchComponent in ipairs(capabilities.switches) do
 		if firstSwitch then
 			local alignment = firstSwitch.switchAlignment or {}
+			print(
+				string.format(
+					"[JOP][Apply] - Setting Switch %s piece=%s station=%s state=%s motors=[%s]",
+					switchComponent:GetFullName(),
+					tostring(firstSwitch.pieceId),
+					tostring(firstSwitch.stationId),
+					tostring(alignment.traversableState),
+					formatMotorPositions(alignment)
+				)
+			)
 			switchComponent:SetAttribute(SWITCH_STATE_ATTRIBUTE, alignment.traversableState)
 			switchComponent:SetAttribute(SWITCH_PIECE_ID_ATTRIBUTE, firstSwitch.pieceId)
 			switchComponent:SetAttribute("JOPResolvedMainPosition", alignment.motorPositions and alignment.motorPositions.main or nil)

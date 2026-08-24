@@ -92,6 +92,47 @@ local function mergeOccupationReport(link, report)
 	return merged
 end
 
+local function formatUpdateSummary(state)
+	if type(state) ~= "table" then
+		return "unknown"
+	end
+
+	if state.resolvedSignalAspect ~= nil or state.resolvedSignalFamily ~= nil then
+		return string.format(
+			"signal family=%s aspect=%s",
+			tostring(state.resolvedSignalFamily),
+			tostring(state.resolvedSignalAspect)
+		)
+	end
+
+	if type(state.switchAlignment) == "table" then
+		local fragments = {}
+		local motorPositions = state.switchAlignment.motorPositions
+		if type(motorPositions) == "table" then
+			for _, slot in ipairs({ "main", "upper", "lower" }) do
+				if motorPositions[slot] ~= nil then
+					table.insert(fragments, string.format("%s=%s", slot, tostring(motorPositions[slot])))
+				end
+			end
+		end
+		return string.format(
+			"switch state=%s motors=[%s]",
+			tostring(state.switchAlignment.traversableState),
+			#fragments > 0 and table.concat(fragments, ", ") or "none"
+		)
+	end
+
+	if type(state.groups) == "table" and type(state.groups.occupation) == "table" then
+		return string.format(
+			"occupation state=%s variant=%s",
+			tostring(state.groups.occupation.state),
+			tostring(state.groups.occupation.variant)
+		)
+	end
+
+	return tostring(state.pieceType or "piece")
+end
+
 function InstanceRegistry:_applyEntry(instance, entry)
 	local linkedStates = {}
 	for _, link in ipairs(entry.links) do
@@ -216,6 +257,13 @@ function InstanceRegistry:DebugPrintLinks()
 end
 
 function InstanceRegistry:ApplySnapshot(snapshot)
+	print(
+		string.format(
+			"[JOP][Registry] Applying snapshot for session %s with %d stations",
+			tostring(snapshot.sessionId),
+			type(snapshot.stations) == "table" and #snapshot.stations or 0
+		)
+	)
 	self._statesByKey = {}
 	for _, station in ipairs(snapshot.stations) do
 		local stationId = normalizeStationId(station.stationId)
@@ -231,6 +279,14 @@ function InstanceRegistry:ApplySnapshot(snapshot)
 				resolvedSignalFamily = piece.resolvedSignalFamily,
 				resolvedSignalAspect = piece.resolvedSignalAspect,
 			}
+				print(
+					string.format(
+						"[JOP][Registry] - Snapshot %s/%s -> %s",
+						stationId,
+						tostring(pieceId),
+						formatUpdateSummary(self._statesByKey[stationId .. "\0" .. pieceId])
+					)
+				)
 			end
 		end
 	end
@@ -244,6 +300,14 @@ function InstanceRegistry:ApplyUpdates(updateBatch)
 	if type(updateBatch) ~= "table" or type(updateBatch.updates) ~= "table" then
 		return
 	end
+
+	print(
+		string.format(
+			"[JOP][Registry] Applying queued updates cursor=%s count=%d",
+			tostring(updateBatch.cursor),
+			#updateBatch.updates
+		)
+	)
 
 	local touchedInstances = {}
 
@@ -264,6 +328,14 @@ function InstanceRegistry:ApplyUpdates(updateBatch)
 			resolvedSignalFamily = update.piece.resolvedSignalFamily,
 			resolvedSignalAspect = update.piece.resolvedSignalAspect,
 		}
+		print(
+			string.format(
+				"[JOP][Registry] - Update %s/%s -> %s",
+				stationId,
+				tostring(update.pieceId),
+				formatUpdateSummary(self._statesByKey[pieceKey])
+			)
+		)
 
 		local instances = self._instancesByPieceKey[pieceKey]
 		if instances then

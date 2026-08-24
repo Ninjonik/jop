@@ -3,8 +3,7 @@
 import { startTransition, useEffect, useState } from 'react';
 import { io, type Socket } from 'socket.io-client';
 
-import type { StationActionLogDocument, StationDocument } from '@/lib/station/domain';
-import { getActionLogDebugLines } from '@/lib/station/debug';
+import type { StationDocument } from '@/lib/station/domain';
 import type {
   StationRealtimeClientEvents,
   StationRealtimeServerEvents,
@@ -39,7 +38,6 @@ function getRouteStatus(station: StationDocument) {
 
 export default function RuntimeStationClient({ sessionId, stationId }: RuntimeStationClientProps) {
   const [station, setStation] = useState<StationDocument | null>(null);
-  const [actionLogs, setActionLogs] = useState<StationActionLogDocument[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -49,18 +47,11 @@ export default function RuntimeStationClient({ sessionId, stationId }: RuntimeSt
     async function loadStation() {
       try {
         setLoading(true);
-        const [response, actionsResponse] = await Promise.all([
-          fetch(`/api/stations/${sessionId}/${stationId}`, {
-            cache: 'no-store',
-          }),
-          fetch(`/api/stations/${sessionId}/${stationId}/actions`, {
-            cache: 'no-store',
-          }),
-        ]);
+        const response = await fetch(`/api/stations/${sessionId}/${stationId}`, {
+          cache: 'no-store',
+        });
         const payload = (await response.json()) as
           { station: StationDocument } | { error: { message: string } };
-        const actionsPayload = (await actionsResponse.json()) as
-          { actions: StationActionLogDocument[] } | { error?: { message?: string } };
 
         if (!response.ok) {
           throw new Error('error' in payload ? payload.error.message : 'Failed to load station.');
@@ -76,7 +67,6 @@ export default function RuntimeStationClient({ sessionId, stationId }: RuntimeSt
 
         startTransition(() => {
           setStation(payload.station);
-          setActionLogs('actions' in actionsPayload ? actionsPayload.actions : []);
           setError(null);
         });
       } catch (loadError) {
@@ -96,38 +86,6 @@ export default function RuntimeStationClient({ sessionId, stationId }: RuntimeSt
 
     return () => {
       active = false;
-    };
-  }, [sessionId, stationId]);
-
-  useEffect(() => {
-    let active = true;
-
-    async function loadActions() {
-      try {
-        const response = await fetch(`/api/stations/${sessionId}/${stationId}/actions`, {
-          cache: 'no-store',
-        });
-        const payload = (await response.json()) as
-          { actions: StationActionLogDocument[] } | { error?: { message?: string } };
-        if (!response.ok || !('actions' in payload) || !active) {
-          return;
-        }
-        startTransition(() => {
-          setActionLogs(payload.actions);
-        });
-      } catch {
-        return;
-      }
-    }
-
-    void loadActions();
-    const interval = setInterval(() => {
-      void loadActions();
-    }, 2000);
-
-    return () => {
-      active = false;
-      clearInterval(interval);
     };
   }, [sessionId, stationId]);
 
@@ -204,38 +162,7 @@ export default function RuntimeStationClient({ sessionId, stationId }: RuntimeSt
         ) : null}
       </div>
 
-      <div className="flex min-h-0 flex-1 gap-4 overflow-hidden">
-        <div className="min-w-0 flex-1">
-          <StationRuntimeBoard station={station} onErrorChange={setError} />
-        </div>
-        <aside className="w-96 shrink-0 overflow-auto border border-neutral-700 bg-white p-3 text-sm text-black">
-          <div className="mb-3 font-semibold">Web Debug Log</div>
-          <div className="space-y-3">
-            {actionLogs.length === 0 ? (
-              <div className="text-neutral-500">No completed debug entries yet.</div>
-            ) : (
-              actionLogs.map((action) => {
-                const debugLines = getActionLogDebugLines(action);
-                return (
-                  <div key={action._id} className="border border-neutral-300 p-2">
-                    <div className="font-mono text-xs text-neutral-600">
-                      {action.type} / {action.status}
-                    </div>
-                    <div className="mt-1 text-xs text-neutral-500">
-                      {action.finishedAt ?? action.startedAt ?? action.issuedAt}
-                    </div>
-                    <div className="mt-2 whitespace-pre-wrap font-mono text-xs">
-                      {debugLines.length > 0
-                        ? debugLines.map((line) => `- ${line}`).join('\n')
-                        : '- No debug lines recorded'}
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
-        </aside>
-      </div>
+      <StationRuntimeBoard station={station} onErrorChange={setError} />
     </div>
   );
 }

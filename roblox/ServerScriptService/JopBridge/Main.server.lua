@@ -248,6 +248,13 @@ local function applyInit(initPayload)
 	end
 
 	if initPayload.snapshot then
+		print(
+			string.format(
+				"[JOP][Main] Applying init snapshot cursor=%s generatedAt=%s",
+				tostring(initPayload.cursor),
+				tostring(initPayload.snapshot.generatedAt)
+			)
+		)
 		registry:ApplySnapshot(initPayload.snapshot)
 	end
 
@@ -261,6 +268,14 @@ local function applyUpdates(updateBatch)
 		return
 	end
 
+	print(
+		string.format(
+			"[JOP][Main] Applying queued update batch cursor=%s generatedAt=%s count=%d",
+			tostring(updateBatch.cursor),
+			tostring(updateBatch.generatedAt),
+			type(updateBatch.updates) == "table" and #updateBatch.updates or 0
+		)
+	)
 	registry:ApplyUpdates(updateBatch)
 	if type(updateBatch.cursor) == "number" then
 		currentUpdateCursor = updateBatch.cursor
