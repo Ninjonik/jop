@@ -63,7 +63,7 @@ import {
   type SwitchControlSlot,
   type SwitchMotorPosition,
 } from '@/lib/station/switches';
-import { resolveComponentStyles } from '@/lib/station/tile-state';
+import { getInitialGroupSelections, resolveComponentStyles } from '@/lib/station/tile-state';
 
 import { placeTemplateRepository } from '../repositories/place-template-repository';
 import { robloxRuntimeStateRepository } from '../repositories/roblox-runtime-state-repository';
@@ -3394,6 +3394,117 @@ export const stationService = {
       };
       })
       .filter((session) => session.isLive);
+  },
+
+  async runAdminRecovery(
+    sessionId: string,
+    action: 'clear-physical-occupations' | 'clear-routes' | 'reset-session-state',
+    stationId?: string,
+  ) {
+    const [rawSession, rawStations] = await Promise.all([
+      sessionRepository.findById(sessionId),
+      stationRepository.listBySessionId(sessionId),
+    ]);
+    if (!rawSession) {
+      throw new Error('Session not found.');
+    }
+
+    const session = ensureSessionRuntimeState(rawSession);
+    const stations = rawStations.map(ensureStationRuntimeState);
+    const targetStations = stationId
+      ? stations.filter((station) => station.stationId === stationId)
+      : stations;
+    if (stationId && targetStations.length === 0) {
+      throw new Error('Station not found.');
+    }
+    const affectedStationIds = new Set<string>();
+
+    if (action === 'clear-physical-occupations' || action === 'reset-session-state') {
+      session.runtime.physicalOccupations = Object.fromEntries(
+        Object.entries(session.runtime.physicalOccupations).filter(
+          ([, occupation]) => stationId && occupation.stationId !== stationId,
+        ),
+      );
+      targetStations.forEach((station) => affectedStationIds.add(station.stationId));
+    }
+
+    if (action === 'clear-routes' || action === 'reset-session-state') {
+      targetStations.forEach((station) => {
+        station.runtime.activeTrainRoutes = {};
+        station.runtime.routeSelection = null;
+        Object.entries(station.runtime.pendingActions).forEach(([actionId, pending]) => {
+          if (pending.type.startsWith('route:')) {
+            delete station.runtime.pendingActions[actionId];
+          }
+        });
+        affectedStationIds.add(station.stationId);
+      });
+    }
+
+    if (action === 'reset-session-state') {
+      if (!stationId) {
+        Object.keys(session.runtime.trains).forEach((trainId) => {
+          const timer = trainMovementTimers.get(getTrainTimerKey(sessionId, trainId));
+          if (timer) clearTimeout(timer);
+          trainMovementTimers.delete(getTrainTimerKey(sessionId, trainId));
+        });
+        session.runtime.trains = {};
+      }
+      Object.keys(session.runtime.lineblocks)
+        .filter((linkId) => {
+          const link = session.topology.lineblockLinks[linkId];
+          return !stationId || link?.a.stationId === stationId || link?.b.stationId === stationId;
+        })
+        .forEach((linkId) => {
+        session.runtime.lineblocks[linkId] = {
+          arrivalAcknowledgementEligible: false,
+          trainId: null,
+          updatedAt: nowIso(),
+        };
+        });
+      targetStations.forEach((station) => {
+        Object.keys(station.runtime.pendingActions).forEach((actionId) => {
+          const timerKey = `${sessionId}:${station.stationId}:${actionId}`;
+          const timer = switchActionTimers.get(timerKey);
+          if (timer) clearTimeout(timer);
+          switchActionTimers.delete(timerKey);
+        });
+        station.runtime.pendingActions = {};
+        station.runtime.activePrivolavaciaSignals = {};
+        station.runtime.privolavaciaSelection = null;
+        station.runtime.switchAlignments = {};
+        Object.values(station.layout.pieces).forEach((piece) => {
+          const tile = tiles[piece.type];
+          if (tile) piece.state.groups = getInitialGroupSelections(tile, stateGroups);
+        });
+        affectedStationIds.add(station.stationId);
+      });
+      Object.values(session.topology.lineblockLinks)
+        .filter((link) => !stationId || link.a.stationId === stationId || link.b.stationId === stationId)
+        .forEach((link) => {
+        const stationA = stations.find((station) => station.stationId === link.a.stationId);
+        const stationB = stations.find((station) => station.stationId === link.b.stationId);
+        if (stationA && stationB) {
+          applyLineblockDefaultFlowToStations(link.defaultFlow, stationA, link.a.pieceId, stationB, link.b.pieceId);
+          affectedStationIds.add(stationA.stationId);
+          affectedStationIds.add(stationB.stationId);
+        }
+        });
+    }
+
+    session.updatedAt = nowIso();
+    await saveSession(session, { skipRuntimeNotify: true });
+    await Promise.all(
+      stations.map(async (station) => {
+        if (!affectedStationIds.has(station.stationId)) return;
+        applyRuntimeStateWithTrainOccupations(station, session);
+        bumpRevision(station);
+        await saveStation(station, { skipRuntimeNotify: true });
+      }),
+    );
+    void notifyRuntimeInterpreter(sessionId, () => buildRobloxPhysicalSnapshot(sessionId));
+
+    return { action, stationId: stationId ?? null, stationsUpdated: affectedStationIds.size };
   },
 
   async createMockTrain(

@@ -166,6 +166,12 @@ export default function SessionEntryForm() {
                     </div>
 
                     <div className="mt-4 flex flex-wrap gap-3">
+                      <Link
+                        href={`/admin/${encodeSegment(session.sessionId)}`}
+                        className="rounded-full border border-red-700/70 px-4 py-2 text-sm font-medium text-red-200 transition hover:bg-red-950/50"
+                      >
+                        Admin Console
+                      </Link>
                       {session.stations.map((station) => (
                         <Link
                           key={station.stationId}

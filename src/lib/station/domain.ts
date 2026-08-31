@@ -796,6 +796,11 @@ export const robloxSwitchFeedbackBatchSchema = z.object({
   events: z.array(robloxSwitchFeedbackSchema).min(1),
 });
 
+export const adminRecoveryActionSchema = z.object({
+  action: z.enum(['clear-physical-occupations', 'clear-routes', 'reset-session-state']),
+  stationId: stationIdSchema.optional(),
+});
+
 export const switchSetPositionCommandSchema = z.object({
   commandId: z.string().trim().min(1),
   sessionId: sessionIdSchema,
