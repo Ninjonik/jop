@@ -15,6 +15,7 @@ export type RuntimeInterpreter =
   | { kind: 'mock' }
   | {
       kind: 'roblox';
+      universeId: string;
       placeId: string;
       serverId: string;
       heartbeat: RobloxSessionHeartbeat;
@@ -295,6 +296,7 @@ export type SessionSchemaDocument = {
 
 export type PlaceTemplateDocument = {
   _id: string;
+  universeId: string;
   placeId: string;
   schema: SessionSchemaDocument;
   revision: number;
@@ -459,6 +461,8 @@ export const robloxPlaceIdSchema = z
   .trim()
   .regex(/^\d{1,20}$/);
 
+export const robloxUniverseIdSchema = robloxPlaceIdSchema;
+
 export const pendingActionSchema = z.object({
   id: z.string(),
   type: z.string(),
@@ -605,6 +609,7 @@ export const sessionDocumentSchema = z.object({
       z.object({ kind: z.literal('mock') }),
       z.object({
         kind: z.literal('roblox'),
+        universeId: robloxUniverseIdSchema,
         placeId: robloxPlaceIdSchema,
         serverId: sessionIdSchema,
         heartbeat: z
@@ -758,6 +763,7 @@ export const sessionSchemaDocumentSchema = z.object({
 
 export const robloxSessionRegistrationSchema = z.object({
   sessionId: sessionIdSchema,
+  universeId: robloxUniverseIdSchema,
   placeId: robloxPlaceIdSchema,
   serverId: sessionIdSchema,
 });

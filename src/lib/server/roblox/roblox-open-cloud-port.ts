@@ -1,15 +1,15 @@
 import type { RuntimeInterpreterPort, RuntimeInvalidation } from './runtime-interpreter';
+import { sessionRepository } from '../repositories/session-repository';
 
 const DEFAULT_TOPIC = 'JOPRuntime';
 
-function getOpenCloudConfiguration() {
-  const universeId = process.env.ROBLOX_UNIVERSE_ID?.trim();
+function getOpenCloudConfiguration(universeId: string) {
   const apiKey = process.env.ROBLOX_OPEN_CLOUD_API_KEY?.trim();
   const topic = process.env.ROBLOX_MESSAGING_TOPIC?.trim() || DEFAULT_TOPIC;
 
-  if (!universeId || !apiKey) {
+  if (!apiKey) {
     throw new Error(
-      'ROBLOX_UNIVERSE_ID and ROBLOX_OPEN_CLOUD_API_KEY are required for Roblox sessions.',
+      'ROBLOX_OPEN_CLOUD_API_KEY is required for Roblox sessions.',
     );
   }
 
@@ -17,7 +17,11 @@ function getOpenCloudConfiguration() {
 }
 
 async function publishInvalidation(event: RuntimeInvalidation) {
-  const { universeId, apiKey, topic } = getOpenCloudConfiguration();
+  const session = await sessionRepository.findById(event.sessionId);
+  if (!session || session.interpreter.kind !== 'roblox') {
+    return;
+  }
+  const { universeId, apiKey, topic } = getOpenCloudConfiguration(session.interpreter.universeId);
   const response = await fetch(
     `https://apis.roblox.com/cloud/v2/universes/${encodeURIComponent(universeId)}:publishMessage`,
     {

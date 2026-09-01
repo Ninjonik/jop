@@ -13,19 +13,18 @@ Before running it:
    the web server's `ROBLOX_INBOUND_SECRET` environment variable and its domain
    should be restricted to the JOP host.
 4. Keep `MessagingTopic` equal to the web server's `ROBLOX_MESSAGING_TOPIC`.
-5. Save a map template for this game's `PlaceId` from the JOP `/map` page.
+5. Save a map template for this game's `UniverseId` and `PlaceId` from the JOP `/map` page.
 
 On the web server, create an Open Cloud API key scoped to the experience with
-`universe-messaging-service:publish`, then configure `ROBLOX_UNIVERSE_ID`,
-`ROBLOX_OPEN_CLOUD_API_KEY`, `ROBLOX_INBOUND_SECRET`, and
+`universe-messaging-service:publish`, then configure `ROBLOX_OPEN_CLOUD_API_KEY`, `ROBLOX_INBOUND_SECRET`, and
 `ROBLOX_MESSAGING_TOPIC`. The topic must be no longer than 80 characters.
 
 When a Roblox server starts, `Main.server.lua` registers `game.JobId` as the
-runtime `sessionId` and `game.PlaceId` as the template key. If a saved JOP
-place template exists for that `PlaceId`, the backend creates a fresh Roblox
+runtime `sessionId`, `game.GameId` as the UniverseId, and `game.PlaceId` as the
+template key. If a saved JOP place template exists for that UniverseId and PlaceId, the backend creates a fresh Roblox
 session in MongoDB from that template and returns one full initialization
 payload containing the entire physical state plus the current update cursor. If
-no template exists for that `PlaceId`, the bridge disables itself instead of
+no template exists for that UniverseId and PlaceId, the bridge disables itself instead of
 retrying forever.
 
 After initialization, Roblox no longer performs periodic full-state refreshes.

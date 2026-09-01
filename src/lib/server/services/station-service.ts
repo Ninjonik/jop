@@ -3037,12 +3037,13 @@ export const stationService = {
     return importedSession;
   },
 
-  async savePlaceTemplate(placeId: string, sessionId: string) {
+  async savePlaceTemplate(universeId: string, placeId: string, sessionId: string) {
     const schema = await this.exportSessionSchema(sessionId);
-    const existing = await placeTemplateRepository.findByPlaceId(placeId);
+    const existing = await placeTemplateRepository.findByUniverseAndPlaceId(universeId, placeId);
     const timestamp = nowIso();
     const template: PlaceTemplateDocument = {
-      _id: placeId,
+      _id: `${universeId}:${placeId}`,
+      universeId,
       placeId,
       schema,
       revision: (existing?.revision ?? 0) + 1,
@@ -3053,17 +3054,18 @@ export const stationService = {
     return template;
   },
 
-  async getPlaceTemplate(placeId: string) {
-    return placeTemplateRepository.findByPlaceId(placeId);
+  async getPlaceTemplate(universeId: string, placeId: string) {
+    return placeTemplateRepository.findByUniverseAndPlaceId(universeId, placeId);
   },
 
-  async registerRobloxSession(sessionId: string, placeId: string, serverId: string) {
+  async registerRobloxSession(sessionId: string, universeId: string, placeId: string, serverId: string) {
     const heartbeatAt = nowIso();
     const existing = await sessionRepository.findById(sessionId);
     if (existing) {
       const session = ensureSessionRuntimeState(existing);
       if (
         session.interpreter.kind !== 'roblox' ||
+        session.interpreter.universeId !== universeId ||
         session.interpreter.placeId !== placeId ||
         session.interpreter.serverId !== serverId
       ) {
@@ -3075,9 +3077,9 @@ export const stationService = {
       return session;
     }
 
-    const template = await placeTemplateRepository.findByPlaceId(placeId);
+    const template = await placeTemplateRepository.findByUniverseAndPlaceId(universeId, placeId);
     if (!template) {
-      throw new Error(`No Roblox map template is configured for PlaceId ${placeId}.`);
+      throw new Error(`No Roblox map template is configured for UniverseId ${universeId} and PlaceId ${placeId}.`);
     }
 
     const createdAt = nowIso();
@@ -3089,6 +3091,7 @@ export const stationService = {
       mockMode: false,
       interpreter: {
         kind: 'roblox',
+        universeId,
         placeId,
         serverId,
         heartbeat: {

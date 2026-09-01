@@ -67,6 +67,7 @@ export default function SessionMapClient() {
   const [error, setError] = useState<string | null>(null);
   const [sessionIdDraft, setSessionIdDraft] = useState('');
   const [stationIdDraft, setStationIdDraft] = useState('station-a');
+  const [universeIdDraft, setUniverseIdDraft] = useState('');
   const [placeIdDraft, setPlaceIdDraft] = useState('');
   const [savedPlaceTemplate, setSavedPlaceTemplate] = useState<PlaceTemplateDocument | null>(null);
   const [isBusy, setIsBusy] = useState(false);
@@ -374,7 +375,7 @@ export default function SessionMapClient() {
   }
 
   async function savePlaceTemplate() {
-    if (!session?._id || !placeIdDraft.trim()) {
+    if (!session?._id || !universeIdDraft.trim() || !placeIdDraft.trim()) {
       return;
     }
 
@@ -385,7 +386,7 @@ export default function SessionMapClient() {
         {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ sessionId: session._id }),
+          body: JSON.stringify({ sessionId: session._id, universeId: universeIdDraft.trim() }),
         },
       );
       const payload = (await response.json()) as
@@ -403,6 +404,52 @@ export default function SessionMapClient() {
       setError(
         saveError instanceof Error ? saveError.message : 'Failed to save Roblox place template.',
       );
+    } finally {
+      setIsBusy(false);
+    }
+  }
+
+  async function loadPlaceTemplate() {
+    if (!universeIdDraft.trim() || !placeIdDraft.trim()) {
+      return;
+    }
+
+    setIsBusy(true);
+    try {
+      const response = await fetch(
+        `/api/roblox/place-templates/${encodeURIComponent(placeIdDraft.trim())}?universeId=${encodeURIComponent(universeIdDraft.trim())}`,
+        { cache: 'no-store' },
+      );
+      const payload = (await response.json()) as
+        { template: PlaceTemplateDocument } | { error?: { message?: string } };
+      if (!response.ok || !('template' in payload)) {
+        throw new Error(
+          'error' in payload
+            ? (payload.error?.message ?? 'Failed to load Roblox map template.')
+            : 'Failed to load Roblox map template.',
+        );
+      }
+
+      const importResponse = await fetch('/api/sessions/schema', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload.template.schema),
+      });
+      const imported = (await importResponse.json()) as
+        { session: SessionDocument } | { error?: { message?: string } };
+      if (!importResponse.ok || !('session' in imported)) {
+        throw new Error(
+          'error' in imported
+            ? (imported.error?.message ?? 'Failed to open map template for editing.')
+            : 'Failed to open map template for editing.',
+        );
+      }
+
+      setSavedPlaceTemplate(payload.template);
+      openSession(imported.session._id);
+      setError(null);
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : 'Failed to load Roblox map template.');
     } finally {
       setIsBusy(false);
     }
@@ -499,6 +546,30 @@ export default function SessionMapClient() {
             Open Station Editor
           </Link>
         </div>
+        <div className="mt-4 grid gap-3 border-t border-neutral-800 pt-4 md:grid-cols-[minmax(0,220px)_minmax(0,220px)_auto]">
+          <input
+            value={universeIdDraft}
+            onChange={(event) => setUniverseIdDraft(event.target.value.replace(/\D/g, ''))}
+            inputMode="numeric"
+            className="rounded-xl border border-neutral-700 bg-neutral-950 px-4 py-3 font-mono text-sm text-neutral-100 outline-none transition focus:border-amber-400"
+            placeholder="Roblox UniverseId"
+          />
+          <input
+            value={placeIdDraft}
+            onChange={(event) => setPlaceIdDraft(event.target.value.replace(/\D/g, ''))}
+            inputMode="numeric"
+            className="rounded-xl border border-neutral-700 bg-neutral-950 px-4 py-3 font-mono text-sm text-neutral-100 outline-none transition focus:border-amber-400"
+            placeholder="Roblox PlaceId"
+          />
+          <button
+            type="button"
+            disabled={isBusy || !universeIdDraft || !placeIdDraft}
+            onClick={() => void loadPlaceTemplate()}
+            className="rounded-full border border-neutral-700 px-4 py-2 text-sm font-medium text-neutral-200 transition hover:border-amber-400 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Load Template To Edit
+          </button>
+        </div>
         {error ? <div className="mt-3 text-sm text-red-300">{error}</div> : null}
         <input
           ref={sessionSchemaInputRef}
@@ -545,10 +616,17 @@ export default function SessionMapClient() {
           Roblox Place Template
         </h2>
         <p className="mt-2 text-sm text-neutral-500">
-          Save this complete station map and topology as the startup template for a Roblox PlaceId.
-          Every new Roblox server for that place receives a fresh session keyed by its JobId.
+          Save this complete station map and topology for a Roblox UniverseId and PlaceId. Every new
+          Roblox server for that place receives a fresh session keyed by its JobId.
         </p>
-        <div className="mt-4 grid gap-3 md:grid-cols-[minmax(0,260px)_auto]">
+        <div className="mt-4 grid gap-3 md:grid-cols-[minmax(0,260px)_minmax(0,260px)_auto_auto]">
+          <input
+            value={universeIdDraft}
+            onChange={(event) => setUniverseIdDraft(event.target.value.replace(/\D/g, ''))}
+            inputMode="numeric"
+            className="rounded-xl border border-neutral-700 bg-neutral-950 px-4 py-3 font-mono text-sm text-neutral-100 outline-none transition focus:border-amber-400"
+            placeholder="Roblox UniverseId"
+          />
           <input
             value={placeIdDraft}
             onChange={(event) => setPlaceIdDraft(event.target.value.replace(/\D/g, ''))}
@@ -558,16 +636,24 @@ export default function SessionMapClient() {
           />
           <button
             type="button"
-            disabled={isBusy || !session?._id || !placeIdDraft}
+            disabled={isBusy || !session?._id || !universeIdDraft || !placeIdDraft}
             onClick={() => void savePlaceTemplate()}
             className="rounded-full bg-amber-400 px-4 py-2 text-sm font-medium text-neutral-950 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            Save Template For PlaceId
+            Save Template
+          </button>
+          <button
+            type="button"
+            disabled={isBusy || !universeIdDraft || !placeIdDraft}
+            onClick={() => void loadPlaceTemplate()}
+            className="rounded-full border border-neutral-700 px-4 py-2 text-sm font-medium text-neutral-200 transition hover:border-amber-400 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Load Template To Edit
           </button>
         </div>
         {savedPlaceTemplate ? (
           <p className="mt-3 text-xs text-emerald-300">
-            PlaceId {savedPlaceTemplate.placeId} saved at revision {savedPlaceTemplate.revision}.
+            UniverseId {savedPlaceTemplate.universeId} / PlaceId {savedPlaceTemplate.placeId} saved at revision {savedPlaceTemplate.revision}.
           </p>
         ) : null}
       </section>

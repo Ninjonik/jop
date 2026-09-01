@@ -42,9 +42,10 @@ function ApiClient:_request(method, path, body)
 	error(lastError)
 end
 
-function ApiClient:Register(sessionId, placeId)
+function ApiClient:Register(sessionId, universeId, placeId)
 	return self:_request("POST", "/api/roblox/sessions/register", {
 		sessionId = sessionId,
+		universeId = universeId,
 		placeId = placeId,
 		serverId = sessionId,
 	})

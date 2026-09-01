@@ -646,7 +646,7 @@ projection over authenticated HTTPS. Registration returns the initial projection
 repairs missed notifications.
 
 `/map` can save a complete `SessionSchemaDocument` to `roblox_place_templates`, keyed by Roblox
-`PlaceId`. On registration, a new JobId session is instantiated from that template. Tile links in Roblox
+`UniverseId` and `PlaceId`. On registration, a new JobId session is instantiated from that template. Tile links in Roblox
 use the `JOPPieceLinks` JSON attribute and contain `{ stationId, pieceId }` pairs, so one Instance can
 represent multiple JOP tiles without relying on globally unique piece IDs.
 

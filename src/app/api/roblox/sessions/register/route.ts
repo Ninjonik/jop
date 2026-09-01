@@ -9,7 +9,12 @@ export async function POST(request: Request) {
   try {
     assertRobloxRequestAuthorized(request);
     const body = await parseJsonRequest(request, robloxSessionRegistrationSchema);
-    await stationService.registerRobloxSession(body.sessionId, body.placeId, body.serverId);
+    await stationService.registerRobloxSession(
+      body.sessionId,
+      body.universeId,
+      body.placeId,
+      body.serverId,
+    );
     const init = await stationService.getRobloxRuntimeInit(body.sessionId);
     return Response.json(init, { status: 201 });
   } catch (error) {

@@ -11,6 +11,7 @@ if sessionId == "" then
 	sessionId = "studio-" .. string.gsub(HttpService:GenerateGUID(false), "[{}]", "")
 end
 local placeId = tostring(game.PlaceId)
+local universeId = tostring(game.GameId)
 local api = ApiClient.new(Config)
 local updateFetchInProgress = false
 local updateFetchRequested = false
@@ -362,7 +363,7 @@ end
 task.spawn(function()
 	while true do
 		local success, response = pcall(function()
-			return api:Register(sessionId, placeId)
+			return api:Register(sessionId, universeId, placeId)
 		end)
 		if success then
 			applyInit(response)
