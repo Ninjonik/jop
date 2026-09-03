@@ -1,5 +1,7 @@
 'use client';
 
+import { useLayoutEffect, useRef, useState } from 'react';
+
 import type { PieceContextMenuState } from '../types';
 
 interface Props {
@@ -15,6 +17,8 @@ interface Props {
   onRemove: () => void;
 }
 
+const VIEWPORT_MARGIN = 8;
+
 export default function PieceContextMenu({
   contextMenu,
   pendingConnectionPieceId,
@@ -27,16 +31,50 @@ export default function PieceContextMenu({
   onDisconnect,
   onRemove,
 }: Props) {
+  const menuRef = useRef<HTMLDivElement | null>(null);
+  const [position, setPosition] = useState({ left: 0, top: 0 });
+
+  useLayoutEffect(() => {
+    if (!contextMenu) {
+      return;
+    }
+
+    const updatePosition = () => {
+      const menu = menuRef.current;
+      if (!menu) {
+        return;
+      }
+
+      const { width, height } = menu.getBoundingClientRect();
+      const left = Math.max(
+        VIEWPORT_MARGIN,
+        Math.min(contextMenu.x, window.innerWidth - width - VIEWPORT_MARGIN),
+      );
+      const opensAbove = contextMenu.y + height > window.innerHeight - VIEWPORT_MARGIN;
+      const top = opensAbove
+        ? Math.max(VIEWPORT_MARGIN, contextMenu.y - height)
+        : Math.max(VIEWPORT_MARGIN, contextMenu.y);
+
+      setPosition({ left, top });
+    };
+
+    updatePosition();
+    window.addEventListener('resize', updatePosition);
+    return () => window.removeEventListener('resize', updatePosition);
+  }, [contextMenu]);
+
   if (!contextMenu) {
     return null;
   }
 
   return (
     <div
-      className="fixed z-30 flex min-w-24 flex-col border border-neutral-800 bg-white shadow-md"
+      ref={menuRef}
+      className="fixed z-30 flex min-w-24 max-w-[calc(100vw-1rem)] flex-col overflow-y-auto border border-neutral-800 bg-white shadow-md"
       style={{
-        left: contextMenu.x,
-        top: contextMenu.y,
+        left: position.left,
+        top: position.top,
+        maxHeight: `calc(100vh - ${VIEWPORT_MARGIN * 2}px)`,
       }}
     >
       <div className="border-b border-neutral-300 bg-neutral-100 px-2 py-1 text-left font-mono text-sm text-black">

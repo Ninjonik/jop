@@ -59,13 +59,10 @@ local function formatMotorPositions(alignment)
 end
 
 local function ensureCountersCollisionGroup()
-	local groupId = PhysicsService:GetCollisionGroupId(COUNTERS_GROUP_NAME)
-	if groupId == -1 then
+	if not PhysicsService:IsCollisionGroupRegistered(COUNTERS_GROUP_NAME) then
 		warn("[JOP] Creating missing collision group: " .. COUNTERS_GROUP_NAME)
-		PhysicsService:CreateCollisionGroup(COUNTERS_GROUP_NAME)
-		groupId = PhysicsService:GetCollisionGroupId(COUNTERS_GROUP_NAME)
+		PhysicsService:RegisterCollisionGroup(COUNTERS_GROUP_NAME)
 	end
-	return groupId
 end
 
 local function isSignalState(state)
@@ -279,7 +276,7 @@ local function getSectionTouchCount(section)
 	return total
 end
 
-local function sampleSectionOccupied(section, countersGroupId)
+local function sampleSectionOccupied(section)
 	local touchingParts = {}
 
 	for _, block in ipairs(section.parts) do
@@ -287,7 +284,7 @@ local function sampleSectionOccupied(section, countersGroupId)
 			local params = OverlapParams.new()
 			params.FilterType = Enum.RaycastFilterType.Exclude
 			params.FilterDescendantsInstances = { block }
-			params.CollisionGroup = countersGroupId
+			params.CollisionGroup = COUNTERS_GROUP_NAME
 			params.RespectCanCollide = false
 
 			local parts = workspace:GetPartBoundsInBox(
@@ -444,17 +441,6 @@ function HardwareDriver.ApplyInstanceState(instance, linkedStates, capabilities)
 		end
 	end
 
-	if firstSignal and #capabilities.signals == 0 then
-		warn(
-			string.format(
-				"[JOP][Apply] No signal components discovered for %s piece=%s station=%s",
-				instance:GetFullName(),
-				tostring(firstSignal.pieceId),
-				tostring(firstSignal.stationId)
-			)
-		)
-	end
-
 	for _, switchComponent in ipairs(capabilities.switches) do
 		if firstSwitch then
 			local alignment = firstSwitch.switchAlignment or {}
@@ -480,17 +466,6 @@ function HardwareDriver.ApplyInstanceState(instance, linkedStates, capabilities)
 			switchComponent:SetAttribute("JOPResolvedUpperPosition", nil)
 			switchComponent:SetAttribute("JOPResolvedLowerPosition", nil)
 		end
-	end
-
-	if firstSwitch and #capabilities.switches == 0 then
-		warn(
-			string.format(
-				"[JOP][Apply] No switch components discovered for %s piece=%s station=%s",
-				instance:GetFullName(),
-				tostring(firstSwitch.pieceId),
-				tostring(firstSwitch.stationId)
-			)
-		)
 	end
 
 	if firstSwitch and firstSwitch.switchAlignment and firstSwitch.switchAlignment.traversableState then
@@ -532,7 +507,7 @@ function HardwareDriver.ObserveOccupation(instance, report, capabilities)
 		return function() end
 	end
 
-	local countersGroupId = ensureCountersCollisionGroup()
+	ensureCountersCollisionGroup()
 	local running = true
 	local disconnectors = {}
 
@@ -541,7 +516,7 @@ function HardwareDriver.ObserveOccupation(instance, report, capabilities)
 		section.occupied = false
 		section.clearGeneration = 0
 
-		local initiallyOccupied, sampledTouchingParts = sampleSectionOccupied(section, countersGroupId)
+		local initiallyOccupied, sampledTouchingParts = sampleSectionOccupied(section)
 		for part, _ in pairs(sampledTouchingParts) do
 			section.touchCounts[part] = 1
 		end
@@ -585,7 +560,7 @@ function HardwareDriver.ObserveOccupation(instance, report, capabilities)
 					return
 				end
 
-				local occupied, resampledTouchingParts = sampleSectionOccupied(section, countersGroupId)
+				local occupied, resampledTouchingParts = sampleSectionOccupied(section)
 				section.touchCounts = {}
 				for sampledPart, _ in pairs(resampledTouchingParts) do
 					section.touchCounts[sampledPart] = 1
@@ -613,7 +588,7 @@ function HardwareDriver.ObserveOccupation(instance, report, capabilities)
 					continue
 				end
 
-				local occupied, touchingParts = sampleSectionOccupied(section, countersGroupId)
+				local occupied, touchingParts = sampleSectionOccupied(section)
 				section.touchCounts = {}
 				for sampledPart, _ in pairs(touchingParts) do
 					section.touchCounts[sampledPart] = 1

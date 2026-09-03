@@ -64,6 +64,7 @@ function InstanceRegistry.new(config, hardwareDriver, onOccupation, onSwitchFeed
 	self._linkValueConnections = {}
 	self._statesByKey = {}
 	self._instancesByPieceKey = {}
+	self._warnedMissingSignalComponents = {}
 	return self
 end
 
@@ -329,6 +330,38 @@ function InstanceRegistry:DebugPrintLinks()
 	end
 end
 
+local function isSignalState(state)
+	return type(state) == "table" and type(state.groups) == "table" and type(state.groups.signal) == "table"
+end
+
+function InstanceRegistry:_warnMissingSignalComponents()
+	local representedPieceKeys = {}
+	for _, entry in pairs(self._entries) do
+		if entry.capabilities and entry.capabilities.hasSignals then
+			for _, link in ipairs(entry.links) do
+				representedPieceKeys[link.stationId .. "\0" .. link.pieceId] = true
+			end
+		end
+	end
+
+	for pieceKey, state in pairs(self._statesByKey) do
+		if isSignalState(state) and not representedPieceKeys[pieceKey] then
+			if not self._warnedMissingSignalComponents[pieceKey] then
+				warn(
+					string.format(
+						"[JOP][Apply] No linked signal component discovered for piece=%s station=%s",
+						tostring(state.pieceId),
+						tostring(state.stationId)
+					)
+				)
+				self._warnedMissingSignalComponents[pieceKey] = true
+			end
+		else
+			self._warnedMissingSignalComponents[pieceKey] = nil
+		end
+	end
+end
+
 function InstanceRegistry:ApplySnapshot(snapshot)
 	print(
 		string.format(
@@ -367,6 +400,7 @@ function InstanceRegistry:ApplySnapshot(snapshot)
 	for instance, entry in pairs(self._entries) do
 		self:_applyEntry(instance, entry)
 	end
+	self:_warnMissingSignalComponents()
 end
 
 function InstanceRegistry:ApplyUpdates(updateBatch)
@@ -424,6 +458,7 @@ function InstanceRegistry:ApplyUpdates(updateBatch)
 			self:_applyEntry(instance, entry)
 		end
 	end
+	self:_warnMissingSignalComponents()
 end
 
 return InstanceRegistry
