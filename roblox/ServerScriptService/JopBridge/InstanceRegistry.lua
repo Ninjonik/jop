@@ -16,8 +16,13 @@ local function normalizeStationId(value)
 	return string.lower(trimmed)
 end
 
-local function decodeLinks(instance, attributeName)
-	local encoded = instance:GetAttribute(attributeName)
+local function decodeLinks(instance, linkValueName)
+	local linkValue = instance:FindFirstChild(linkValueName)
+	if not linkValue or not linkValue:IsA("StringValue") then
+		return nil
+	end
+
+	local encoded = linkValue.Value
 	if type(encoded) ~= "string" or encoded == "" then
 		return nil
 	end
@@ -26,7 +31,7 @@ local function decodeLinks(instance, attributeName)
 		return HttpService:JSONDecode(encoded)
 	end)
 	if not success or type(links) ~= "table" then
-		warn(string.format("[JOP] Invalid %s JSON on %s", attributeName, instance:GetFullName()))
+		warn(string.format("[JOP] Invalid %s StringValue JSON on %s", linkValueName, instance:GetFullName()))
 		return nil
 	end
 
@@ -50,13 +55,13 @@ end
 
 function InstanceRegistry.new(config, hardwareDriver, onOccupation, onSwitchFeedback)
 	local self = setmetatable({}, InstanceRegistry)
-	self._attributeName = config.LinkAttributeName
+	self._linkValueName = config.LinkValueName
 	self._driver = hardwareDriver
 	self._onOccupation = onOccupation
 	self._onSwitchFeedback = onSwitchFeedback
 	self._entries = {}
 	self._connections = {}
-	self._attributeConnections = {}
+	self._linkValueConnections = {}
 	self._statesByKey = {}
 	self._instancesByPieceKey = {}
 	return self
@@ -182,9 +187,50 @@ function InstanceRegistry:_remove(instance)
 	self._entries[instance] = nil
 end
 
+function InstanceRegistry:_bindLinkValue(instance)
+	local watcher = self._linkValueConnections[instance]
+	if not watcher then
+		return
+	end
+
+	local linkValue = instance:FindFirstChild(self._linkValueName)
+	if linkValue and not linkValue:IsA("StringValue") then
+		linkValue = nil
+	end
+	if watcher.value == linkValue then
+		return
+	end
+
+	if watcher.valueConnection then
+		watcher.valueConnection:Disconnect()
+		watcher.valueConnection = nil
+	end
+
+	watcher.value = linkValue
+	if linkValue then
+		watcher.valueConnection = linkValue.Changed:Connect(function()
+			self:_refresh(instance)
+		end)
+	end
+end
+
+function InstanceRegistry:_unwatch(instance)
+	local watcher = self._linkValueConnections[instance]
+	if not watcher then
+		return
+	end
+
+	watcher.childAddedConnection:Disconnect()
+	watcher.childRemovedConnection:Disconnect()
+	if watcher.valueConnection then
+		watcher.valueConnection:Disconnect()
+	end
+	self._linkValueConnections[instance] = nil
+end
+
 function InstanceRegistry:_refresh(instance)
 	self:_remove(instance)
-	local links = decodeLinks(instance, self._attributeName)
+	local links = decodeLinks(instance, self._linkValueName)
 	if not links then
 		return
 	end
@@ -229,12 +275,26 @@ function InstanceRegistry:_refresh(instance)
 end
 
 function InstanceRegistry:_watch(instance)
-	if self._attributeConnections[instance] then
+	if self._linkValueConnections[instance] then
 		return
 	end
-	self._attributeConnections[instance] = instance:GetAttributeChangedSignal(self._attributeName):Connect(function()
-		self:_refresh(instance)
-	end)
+	self._linkValueConnections[instance] = {
+		value = nil,
+		valueConnection = nil,
+		childAddedConnection = instance.ChildAdded:Connect(function(child)
+			if child.Name == self._linkValueName and child:IsA("StringValue") then
+				self:_bindLinkValue(instance)
+				self:_refresh(instance)
+			end
+		end),
+		childRemovedConnection = instance.ChildRemoved:Connect(function(child)
+			if child.Name == self._linkValueName and child:IsA("StringValue") then
+				self:_bindLinkValue(instance)
+				self:_refresh(instance)
+			end
+		end),
+	}
+	self:_bindLinkValue(instance)
 	self:_refresh(instance)
 end
 
@@ -247,11 +307,7 @@ function InstanceRegistry:Start()
 	end))
 	table.insert(self._connections, game.DescendantRemoving:Connect(function(instance)
 		self:_remove(instance)
-		local connection = self._attributeConnections[instance]
-		if connection then
-			connection:Disconnect()
-			self._attributeConnections[instance] = nil
-		end
+		self:_unwatch(instance)
 	end))
 end
 

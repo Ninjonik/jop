@@ -647,7 +647,7 @@ repairs missed notifications.
 
 `/map` can save a complete `SessionSchemaDocument` to `roblox_place_templates`, keyed by Roblox
 `UniverseId` and `PlaceId`. On registration, a new JobId session is instantiated from that template. Tile links in Roblox
-use the `JOPPieceLinks` JSON attribute and contain `{ stationId, pieceId }` pairs, so one Instance can
+use a child `JOPPieceLinks` `StringValue` containing JSON `{ stationId, pieceId }` pairs, so one Instance can
 represent multiple JOP tiles without relying on globally unique piece IDs.
 
 Roblox occupation events persist in `SessionDocument.runtime.physicalOccupations`. An optional

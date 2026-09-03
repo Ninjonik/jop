@@ -33,8 +33,8 @@ MessagingService. On each invalidation, Roblox fetches queued piece updates from
 `/api/roblox/sessions/[sessionId]/updates?afterSequence=...` and applies only
 those changed pieces locally.
 
-Link any `Instance` to one or more station pieces with a string attribute named
-`JOPPieceLinks`. The value is JSON:
+Link any `Instance` to one or more station pieces with a child `StringValue`
+named `JOPPieceLinks`. Its `Value` is JSON:
 
 ```json
 [

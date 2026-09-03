@@ -14,11 +14,7 @@ import type {
 } from '@/lib/station/domain';
 import type { StationLayout } from '@/lib/station/layout';
 
-type StationSummary = {
-  stationId: string;
-  lineblockPieceIds: string[];
-  premainSignalPieceIds: string[];
-};
+import StationTopologyBoard from './StationTopologyBoard';
 
 function getLineblockPieceIds(station: StationDocument): string[] {
   return Object.entries(station.layout.pieces)
@@ -32,19 +28,6 @@ function getPremainSignalPieceIds(station: StationDocument): string[] {
     .filter(([, piece]) => piece.type === 'premainSignal' || piece.type === 'premainSignalNoOcp')
     .map(([pieceId]) => pieceId)
     .sort();
-}
-
-function makeDefaultInterStationLinkDraft(stations: StationSummary[]) {
-  const firstStation = stations[0];
-  const secondStation = stations[1] ?? stations[0];
-
-  return {
-    aStationId: firstStation?.stationId ?? '',
-    aPieceId: firstStation?.lineblockPieceIds[0] ?? '',
-    bStationId: secondStation?.stationId ?? '',
-    bPieceId: secondStation?.lineblockPieceIds[0] ?? '',
-    defaultFlow: 'neutral' as SessionLineblockLink['defaultFlow'],
-  };
 }
 
 function getLineblockDefaultFlowLabel(defaultFlow: SessionLineblockLink['defaultFlow']) {
@@ -71,25 +54,15 @@ export default function SessionMapClient() {
   const [placeIdDraft, setPlaceIdDraft] = useState('');
   const [savedPlaceTemplate, setSavedPlaceTemplate] = useState<PlaceTemplateDocument | null>(null);
   const [isBusy, setIsBusy] = useState(false);
-  const [interStationLinkDraft, setInterStationLinkDraft] = useState({
-    aStationId: '',
-    aPieceId: '',
-    bStationId: '',
-    bPieceId: '',
-    defaultFlow: 'neutral' as SessionLineblockLink['defaultFlow'],
-  });
+  const [stationOrder, setStationOrder] = useState<string[]>([]);
+  const [pendingLineblockEndpoint, setPendingLineblockEndpoint] = useState<{
+    stationId: string;
+    pieceId: string;
+  } | null>(null);
+  const [lineblockDefaultFlow, setLineblockDefaultFlow] =
+    useState<SessionLineblockLink['defaultFlow']>('neutral');
   const stationLayoutInputRef = useRef<HTMLInputElement | null>(null);
   const sessionSchemaInputRef = useRef<HTMLInputElement | null>(null);
-
-  const stationSummaries = useMemo<StationSummary[]>(
-    () =>
-      stations.map((station) => ({
-        stationId: station.stationId,
-        lineblockPieceIds: getLineblockPieceIds(station),
-        premainSignalPieceIds: getPremainSignalPieceIds(station),
-      })),
-    [stations],
-  );
 
   const selectedStation = useMemo(
     () => stations.find((station) => station.stationId === selectedStationId) ?? null,
@@ -98,12 +71,6 @@ export default function SessionMapClient() {
 
   function openSession(nextSessionId: string) {
     router.replace(`/map?sessionId=${encodeURIComponent(nextSessionId)}`);
-  }
-
-  function getLineblockOptions(stationId: string) {
-    return (
-      stationSummaries.find((station) => station.stationId === stationId)?.lineblockPieceIds ?? []
-    );
   }
 
   async function refreshSession(nextSessionId: string) {
@@ -143,19 +110,15 @@ export default function SessionMapClient() {
         : (stationsPayload.stations[0]?.stationId ?? '');
     setSelectedStationId(nextSelectedStationId);
 
-    const summaries = stationsPayload.stations.map((station) => ({
-      stationId: station.stationId,
-      lineblockPieceIds: getLineblockPieceIds(station),
-      premainSignalPieceIds: getPremainSignalPieceIds(station),
-    }));
-    const defaultInterStationLinkDraft = makeDefaultInterStationLinkDraft(summaries);
-    setInterStationLinkDraft((current) => ({
-      aStationId: current.aStationId || defaultInterStationLinkDraft.aStationId,
-      aPieceId: current.aPieceId || defaultInterStationLinkDraft.aPieceId,
-      bStationId: current.bStationId || defaultInterStationLinkDraft.bStationId,
-      bPieceId: current.bPieceId || defaultInterStationLinkDraft.bPieceId,
-      defaultFlow: current.defaultFlow,
-    }));
+    setStationOrder((current) => {
+      const existing = current.filter((stationId) =>
+        stationsPayload.stations.some((station) => station.stationId === stationId),
+      );
+      const added = stationsPayload.stations
+        .map((station) => station.stationId)
+        .filter((stationId) => !existing.includes(stationId));
+      return [...existing, ...added];
+    });
   }
 
   const refreshSessionEvent = useEffectEvent(async (nextSessionId: string) => {
@@ -289,7 +252,10 @@ export default function SessionMapClient() {
     }
   }
 
-  async function createInterStationLineblockLink() {
+  async function createInterStationLineblockLink(
+    a: { stationId: string; pieceId: string },
+    b: { stationId: string; pieceId: string },
+  ) {
     if (!session?._id) {
       return;
     }
@@ -303,15 +269,9 @@ export default function SessionMapClient() {
         },
         body: JSON.stringify({
           sessionId: session._id,
-          a: {
-            stationId: interStationLinkDraft.aStationId,
-            pieceId: interStationLinkDraft.aPieceId,
-          },
-          b: {
-            stationId: interStationLinkDraft.bStationId,
-            pieceId: interStationLinkDraft.bPieceId,
-          },
-          defaultFlow: interStationLinkDraft.defaultFlow,
+          a,
+          b,
+          defaultFlow: lineblockDefaultFlow,
         }),
       });
 
@@ -334,6 +294,47 @@ export default function SessionMapClient() {
       setIsBusy(false);
     }
   }
+
+  function handleLineblockContextMenu(endpoint: { stationId: string; pieceId: string }) {
+    if (!pendingLineblockEndpoint) {
+      setPendingLineblockEndpoint(endpoint);
+      setError(null);
+      return;
+    }
+
+    if (
+      pendingLineblockEndpoint.stationId === endpoint.stationId &&
+      pendingLineblockEndpoint.pieceId === endpoint.pieceId
+    ) {
+      setPendingLineblockEndpoint(null);
+      return;
+    }
+
+    const pending = pendingLineblockEndpoint;
+    setPendingLineblockEndpoint(null);
+    void createInterStationLineblockLink(pending, endpoint);
+  }
+
+  function moveStation(stationId: string, direction: -1 | 1) {
+    setStationOrder((current) => {
+      const index = current.indexOf(stationId);
+      const destination = index + direction;
+      if (index < 0 || destination < 0 || destination >= current.length) {
+        return current;
+      }
+      const next = [...current];
+      [next[index], next[destination]] = [next[destination], next[index]];
+      return next;
+    });
+  }
+
+  const orderedStations = useMemo(
+    () =>
+      stationOrder
+        .map((stationId) => stations.find((station) => station.stationId === stationId))
+        .filter((station): station is StationDocument => Boolean(station)),
+    [stationOrder, stations],
+  );
 
   async function exportSessionSchema() {
     if (!session?._id) {
@@ -449,7 +450,9 @@ export default function SessionMapClient() {
       openSession(imported.session._id);
       setError(null);
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : 'Failed to load Roblox map template.');
+      setError(
+        loadError instanceof Error ? loadError.message : 'Failed to load Roblox map template.',
+      );
     } finally {
       setIsBusy(false);
     }
@@ -653,7 +656,8 @@ export default function SessionMapClient() {
         </div>
         {savedPlaceTemplate ? (
           <p className="mt-3 text-xs text-emerald-300">
-            UniverseId {savedPlaceTemplate.universeId} / PlaceId {savedPlaceTemplate.placeId} saved at revision {savedPlaceTemplate.revision}.
+            UniverseId {savedPlaceTemplate.universeId} / PlaceId {savedPlaceTemplate.placeId} saved
+            at revision {savedPlaceTemplate.revision}.
           </p>
         ) : null}
       </section>
@@ -686,90 +690,63 @@ export default function SessionMapClient() {
             Import Station JSON
           </button>
         </div>
-        <div className="mt-4 grid gap-3 lg:grid-cols-2">
-          {stations.length === 0 ? (
+        <p className="mt-4 text-sm text-neutral-500">
+          Arrange stations left-to-right, then right-click one lineblock and right-click another to
+          connect them. Right-click the selected lineblock again to cancel.
+        </p>
+        <div className="mt-4 flex gap-4 overflow-x-auto pb-2">
+          {orderedStations.length === 0 ? (
             <p className="text-sm text-neutral-500">No stations yet.</p>
           ) : (
-            stations.map((station) => {
-              const lineblocks = getLineblockPieceIds(station);
-              const premains = getPremainSignalPieceIds(station);
-              const isSelected = station.stationId === selectedStationId;
-
-              return (
-                <div
-                  key={station.stationId}
-                  className={`rounded-2xl border p-4 ${
-                    isSelected
-                      ? 'border-amber-400 bg-neutral-950/90'
-                      : 'border-neutral-800 bg-neutral-950/70'
-                  }`}
-                >
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <div className="font-mono text-sm text-neutral-100">{station.stationId}</div>
-                      <div className="text-xs text-neutral-500">
-                        {lineblocks.length} lineblock{lineblocks.length === 1 ? '' : 's'} /{' '}
-                        {premains.length} premain
-                        {premains.length === 1 ? '' : 's'}
-                      </div>
-                    </div>
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setSelectedStationId(station.stationId)}
-                        className="rounded-full border border-neutral-700 px-3 py-2 text-xs text-neutral-200"
-                      >
-                        Inspect
-                      </button>
-                      <Link
-                        href="/editor"
-                        className="rounded-full border border-neutral-700 px-3 py-2 text-xs text-neutral-200 transition hover:border-amber-400 hover:text-white"
-                      >
-                        Edit Layout
-                      </Link>
-                      <Link
-                        href={session ? `/runtime/${session._id}/${station.stationId}` : '#'}
-                        className="rounded-full bg-amber-400 px-3 py-2 text-xs font-medium text-neutral-950"
-                      >
-                        Open Runtime
-                      </Link>
-                    </div>
-                  </div>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {lineblocks.length === 0 ? (
-                      <span className="text-xs text-neutral-500">
-                        No lineblocks in this station.
-                      </span>
-                    ) : (
-                      lineblocks.map((pieceId) => (
-                        <span
-                          key={pieceId}
-                          className="rounded-full border border-neutral-800 bg-neutral-900 px-3 py-1 text-xs text-neutral-300"
-                        >
-                          {pieceId}
-                        </span>
-                      ))
-                    )}
-                  </div>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {premains.length === 0 ? (
-                      <span className="text-xs text-neutral-500">
-                        No premain signals in this station.
-                      </span>
-                    ) : (
-                      premains.map((pieceId) => (
-                        <span
-                          key={pieceId}
-                          className="rounded-full border border-neutral-800 bg-neutral-900 px-3 py-1 text-xs text-neutral-300"
-                        >
-                          premain:{pieceId}
-                        </span>
-                      ))
-                    )}
+            orderedStations.map((station, index) => (
+              <article
+                key={station.stationId}
+                className={`w-[min(34rem,85vw)] shrink-0 rounded-2xl border p-3 ${
+                  station.stationId === selectedStationId
+                    ? 'border-amber-400 bg-neutral-950/90'
+                    : 'border-neutral-800 bg-neutral-950/70'
+                }`}
+              >
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedStationId(station.stationId)}
+                    className="font-mono text-sm text-neutral-100"
+                  >
+                    {index + 1}. {station.stationId}
+                  </button>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      disabled={index === 0}
+                      onClick={() => moveStation(station.stationId, -1)}
+                      className="rounded-full border border-neutral-700 px-3 py-1 text-xs text-neutral-200 disabled:opacity-40"
+                    >
+                      ←
+                    </button>
+                    <button
+                      type="button"
+                      disabled={index === orderedStations.length - 1}
+                      onClick={() => moveStation(station.stationId, 1)}
+                      className="rounded-full border border-neutral-700 px-3 py-1 text-xs text-neutral-200 disabled:opacity-40"
+                    >
+                      →
+                    </button>
+                    <Link
+                      href={session ? `/runtime/${session._id}/${station.stationId}` : '#'}
+                      className="rounded-full bg-amber-400 px-3 py-1 text-xs font-medium text-neutral-950"
+                    >
+                      Runtime
+                    </Link>
                   </div>
                 </div>
-              );
-            })
+                <StationTopologyBoard
+                  station={station}
+                  pendingEndpoint={pendingLineblockEndpoint}
+                  onLineblockContextMenu={handleLineblockContextMenu}
+                />
+              </article>
+            ))
           )}
         </div>
         <input
@@ -783,93 +760,13 @@ export default function SessionMapClient() {
 
       <section className="rounded-3xl border border-neutral-800 bg-neutral-900/80 p-4">
         <h2 className="text-sm font-semibold uppercase tracking-[0.2em] text-neutral-400">
-          Lineblock Links Between Stations
+          Inter-station lineblock links
         </h2>
-        <div className="mt-4 grid gap-3 md:grid-cols-2">
-          <div className="grid gap-2">
-            <select
-              value={interStationLinkDraft.aStationId}
-              onChange={(event) =>
-                setInterStationLinkDraft((current) => ({
-                  ...current,
-                  aStationId: event.target.value,
-                  aPieceId: getLineblockOptions(event.target.value)[0] ?? '',
-                }))
-              }
-              className="rounded-xl border border-neutral-700 bg-neutral-950 px-4 py-3 text-sm text-neutral-100"
-            >
-              <option value="">Station A</option>
-              {stationSummaries.map((station) => (
-                <option key={station.stationId} value={station.stationId}>
-                  {station.stationId}
-                </option>
-              ))}
-            </select>
-            <select
-              value={interStationLinkDraft.aPieceId}
-              onChange={(event) =>
-                setInterStationLinkDraft((current) => ({
-                  ...current,
-                  aPieceId: event.target.value,
-                }))
-              }
-              className="rounded-xl border border-neutral-700 bg-neutral-950 px-4 py-3 text-sm text-neutral-100"
-            >
-              <option value="">Lineblock A</option>
-              {getLineblockOptions(interStationLinkDraft.aStationId).map((pieceId) => (
-                <option key={pieceId} value={pieceId}>
-                  {pieceId}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="grid gap-2">
-            <select
-              value={interStationLinkDraft.bStationId}
-              onChange={(event) =>
-                setInterStationLinkDraft((current) => ({
-                  ...current,
-                  bStationId: event.target.value,
-                  bPieceId: getLineblockOptions(event.target.value)[0] ?? '',
-                }))
-              }
-              className="rounded-xl border border-neutral-700 bg-neutral-950 px-4 py-3 text-sm text-neutral-100"
-            >
-              <option value="">Station B</option>
-              {stationSummaries.map((station) => (
-                <option key={station.stationId} value={station.stationId}>
-                  {station.stationId}
-                </option>
-              ))}
-            </select>
-            <select
-              value={interStationLinkDraft.bPieceId}
-              onChange={(event) =>
-                setInterStationLinkDraft((current) => ({
-                  ...current,
-                  bPieceId: event.target.value,
-                }))
-              }
-              className="rounded-xl border border-neutral-700 bg-neutral-950 px-4 py-3 text-sm text-neutral-100"
-            >
-              <option value="">Lineblock B</option>
-              {getLineblockOptions(interStationLinkDraft.bStationId).map((pieceId) => (
-                <option key={pieceId} value={pieceId}>
-                  {pieceId}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
         <div className="mt-3 max-w-sm">
           <select
-            value={interStationLinkDraft.defaultFlow}
+            value={lineblockDefaultFlow}
             onChange={(event) =>
-              setInterStationLinkDraft((current) => ({
-                ...current,
-                defaultFlow: event.target.value as SessionLineblockLink['defaultFlow'],
-              }))
+              setLineblockDefaultFlow(event.target.value as SessionLineblockLink['defaultFlow'])
             }
             className="rounded-xl border border-neutral-700 bg-neutral-950 px-4 py-3 text-sm text-neutral-100"
           >
@@ -878,20 +775,6 @@ export default function SessionMapClient() {
             <option value="b-receiving">Station B receiving by default</option>
           </select>
         </div>
-        <button
-          type="button"
-          disabled={
-            isBusy ||
-            !interStationLinkDraft.aStationId ||
-            !interStationLinkDraft.aPieceId ||
-            !interStationLinkDraft.bStationId ||
-            !interStationLinkDraft.bPieceId
-          }
-          onClick={() => void createInterStationLineblockLink()}
-          className="mt-4 rounded-full bg-amber-400 px-4 py-2 text-sm font-medium text-neutral-950 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          Create Inter-Station Lineblock Link
-        </button>
         <div className="mt-4 space-y-3">
           {Object.values(session?.topology.lineblockLinks ?? {}).length === 0 ? (
             <p className="text-sm text-neutral-500">No inter-station lineblock links configured.</p>
