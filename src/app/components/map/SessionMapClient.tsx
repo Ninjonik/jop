@@ -30,12 +30,12 @@ function getPremainSignalPieceIds(station: StationDocument): string[] {
     .sort();
 }
 
-function getLineblockDefaultFlowLabel(defaultFlow: SessionLineblockLink['defaultFlow']) {
-  if (defaultFlow === 'a-receiving') {
-    return 'Station A receiving';
+function getLineblockDefaultFlowLabel(link: SessionLineblockLink) {
+  if (link.defaultFlow === 'a-receiving') {
+    return `${link.a.stationId} receiving`;
   }
-  if (defaultFlow === 'b-receiving') {
-    return 'Station B receiving';
+  if (link.defaultFlow === 'b-receiving') {
+    return `${link.b.stationId} receiving`;
   }
   return 'Neutral';
 }
@@ -295,7 +295,106 @@ export default function SessionMapClient() {
     }
   }
 
-  function handleLineblockContextMenu(endpoint: { stationId: string; pieceId: string }) {
+  async function updateLineblockDefaultFlow(
+    linkId: string,
+    defaultFlow: SessionLineblockLink['defaultFlow'],
+  ) {
+    if (!session?._id) return;
+
+    setIsBusy(true);
+    try {
+      const response = await fetch(`/api/sessions/${session._id}/lineblock-links/${linkId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ defaultFlow }),
+      });
+      if (!response.ok) {
+        const payload = (await response.json()) as { error?: { message?: string } };
+        throw new Error(payload.error?.message ?? 'Failed to update lineblock direction.');
+      }
+      await refreshSession(session._id);
+      setError(null);
+    } catch (updateError) {
+      setError(updateError instanceof Error ? updateError.message : 'Failed to update lineblock direction.');
+    } finally {
+      setIsBusy(false);
+    }
+  }
+
+  async function removeLineblockLink(link: SessionLineblockLink) {
+    if (!session?._id || !window.confirm(`Remove the link between ${link.a.stationId} and ${link.b.stationId}?`)) {
+      return;
+    }
+
+    setIsBusy(true);
+    try {
+      const response = await fetch(`/api/sessions/${session._id}/lineblock-links/${link.id}`, {
+        method: 'DELETE',
+      });
+      if (!response.ok) {
+        const payload = (await response.json()) as { error?: { message?: string } };
+        throw new Error(payload.error?.message ?? 'Failed to remove lineblock link.');
+      }
+      await refreshSession(session._id);
+      setError(null);
+    } catch (removeError) {
+      setError(removeError instanceof Error ? removeError.message : 'Failed to remove lineblock link.');
+    } finally {
+      setIsBusy(false);
+    }
+  }
+
+  async function renameStation(stationId: string) {
+    if (!session?._id) return;
+    const nextStationId = window.prompt('Station ID', stationId)?.trim();
+    if (!nextStationId || nextStationId === stationId) return;
+
+    setIsBusy(true);
+    try {
+      const response = await fetch(`/api/stations/${session._id}/${encodeURIComponent(stationId)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ stationId: nextStationId }),
+      });
+      if (!response.ok) {
+        const payload = (await response.json()) as { error?: { message?: string } };
+        throw new Error(payload.error?.message ?? 'Failed to rename station.');
+      }
+      setStationOrder((current) => current.map((id) => (id === stationId ? nextStationId : id)));
+      setSelectedStationId(nextStationId);
+      await refreshSession(session._id);
+      setError(null);
+    } catch (renameError) {
+      setError(renameError instanceof Error ? renameError.message : 'Failed to rename station.');
+    } finally {
+      setIsBusy(false);
+    }
+  }
+
+  async function removeStation(stationId: string) {
+    if (!session?._id || !window.confirm(`Remove station ${stationId} and all of its lineblock links?`)) {
+      return;
+    }
+
+    setIsBusy(true);
+    try {
+      const response = await fetch(`/api/stations/${session._id}/${encodeURIComponent(stationId)}`, {
+        method: 'DELETE',
+      });
+      if (!response.ok) {
+        const payload = (await response.json()) as { error?: { message?: string } };
+        throw new Error(payload.error?.message ?? 'Failed to remove station.');
+      }
+      await refreshSession(session._id);
+      setError(null);
+    } catch (removeError) {
+      setError(removeError instanceof Error ? removeError.message : 'Failed to remove station.');
+    } finally {
+      setIsBusy(false);
+    }
+  }
+
+  function handleLineblockSelect(endpoint: { stationId: string; pieceId: string }) {
     if (!pendingLineblockEndpoint) {
       setPendingLineblockEndpoint(endpoint);
       setError(null);
@@ -550,6 +649,7 @@ export default function SessionMapClient() {
           </Link>
         </div>
         <div className="mt-4 grid gap-3 border-t border-neutral-800 pt-4 md:grid-cols-[minmax(0,220px)_minmax(0,220px)_auto]">
+          <div className="md:col-span-3 text-sm font-medium text-neutral-200">Open saved Roblox configuration</div>
           <input
             value={universeIdDraft}
             onChange={(event) => setUniverseIdDraft(event.target.value.replace(/\D/g, ''))}
@@ -619,8 +719,8 @@ export default function SessionMapClient() {
           Roblox Place Template
         </h2>
         <p className="mt-2 text-sm text-neutral-500">
-          Save this complete station map and topology for a Roblox UniverseId and PlaceId. Every new
-          Roblox server for that place receives a fresh session keyed by its JobId.
+          Enter a UniverseId and PlaceId, then load the saved configuration to edit it. Save Template
+          writes your current stations and links back to that Roblox place.
         </p>
         <div className="mt-4 grid gap-3 md:grid-cols-[minmax(0,260px)_minmax(0,260px)_auto_auto]">
           <input
@@ -691,9 +791,23 @@ export default function SessionMapClient() {
           </button>
         </div>
         <p className="mt-4 text-sm text-neutral-500">
-          Arrange stations left-to-right, then right-click one lineblock and right-click another to
-          connect them. Right-click the selected lineblock again to cancel.
+          Click a lineblock, then click a lineblock in another station to connect them. Use the station
+          controls to rename or remove a station.
         </p>
+        {pendingLineblockEndpoint ? (
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-400/60 bg-amber-400/10 px-3 py-2 text-sm text-amber-100">
+            <span>
+              Connecting from <span className="font-mono">{pendingLineblockEndpoint.stationId}:{pendingLineblockEndpoint.pieceId}</span> — now click the destination lineblock.
+            </span>
+            <button
+              type="button"
+              onClick={() => setPendingLineblockEndpoint(null)}
+              className="rounded-full border border-amber-300/60 px-3 py-1 text-xs font-medium"
+            >
+              Cancel
+            </button>
+          </div>
+        ) : null}
         <div className="mt-4 flex gap-4 overflow-x-auto pb-2">
           {orderedStations.length === 0 ? (
             <p className="text-sm text-neutral-500">No stations yet.</p>
@@ -738,12 +852,28 @@ export default function SessionMapClient() {
                     >
                       Runtime
                     </Link>
+                    <button
+                      type="button"
+                      disabled={isBusy}
+                      onClick={() => void renameStation(station.stationId)}
+                      className="rounded-full border border-neutral-700 px-3 py-1 text-xs text-neutral-200 disabled:opacity-40"
+                    >
+                      Rename
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isBusy}
+                      onClick={() => void removeStation(station.stationId)}
+                      className="rounded-full border border-red-900 px-3 py-1 text-xs text-red-300 disabled:opacity-40"
+                    >
+                      Remove
+                    </button>
                   </div>
                 </div>
                 <StationTopologyBoard
                   station={station}
                   pendingEndpoint={pendingLineblockEndpoint}
-                  onLineblockContextMenu={handleLineblockContextMenu}
+                  onLineblockSelect={handleLineblockSelect}
                 />
               </article>
             ))
@@ -762,6 +892,10 @@ export default function SessionMapClient() {
         <h2 className="text-sm font-semibold uppercase tracking-[0.2em] text-neutral-400">
           Inter-station lineblock links
         </h2>
+        <p className="mt-2 text-sm text-neutral-500">
+          This only chooses the initial direction for the next link you create. Each existing link can be
+          changed independently below.
+        </p>
         <div className="mt-3 max-w-sm">
           <select
             value={lineblockDefaultFlow}
@@ -770,9 +904,9 @@ export default function SessionMapClient() {
             }
             className="rounded-xl border border-neutral-700 bg-neutral-950 px-4 py-3 text-sm text-neutral-100"
           >
-            <option value="neutral">Neutral default state</option>
-            <option value="a-receiving">Station A receiving by default</option>
-            <option value="b-receiving">Station B receiving by default</option>
+            <option value="neutral">New link: neutral</option>
+            <option value="a-receiving">New link: endpoint A receiving</option>
+            <option value="b-receiving">New link: endpoint B receiving</option>
           </select>
         </div>
         <div className="mt-4 space-y-3">
@@ -787,8 +921,34 @@ export default function SessionMapClient() {
                 <div className="text-sm font-medium text-neutral-100">
                   {link.a.stationId}:{link.a.pieceId} {'<->'} {link.b.stationId}:{link.b.pieceId}
                 </div>
-                <div className="text-xs text-neutral-500">
-                  {getLineblockDefaultFlowLabel(link.defaultFlow)} / {link.createdAt}
+                <div className="mt-3 flex flex-wrap items-center gap-3">
+                  <select
+                    value={link.defaultFlow}
+                    disabled={isBusy}
+                    onChange={(event) =>
+                      void updateLineblockDefaultFlow(
+                        link.id,
+                        event.target.value as SessionLineblockLink['defaultFlow'],
+                      )
+                    }
+                    className="rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-2 text-xs text-neutral-100 disabled:opacity-40"
+                    aria-label={`Default receiving station for ${link.a.stationId} and ${link.b.stationId}`}
+                  >
+                    <option value="neutral">Neutral</option>
+                    <option value="a-receiving">{link.a.stationId} receiving</option>
+                    <option value="b-receiving">{link.b.stationId} receiving</option>
+                  </select>
+                  <button
+                    type="button"
+                    disabled={isBusy}
+                    onClick={() => void removeLineblockLink(link)}
+                    className="rounded-lg border border-red-900 px-3 py-2 text-xs text-red-300 disabled:opacity-40"
+                  >
+                    Remove link
+                  </button>
+                  <div className="text-xs text-neutral-500">
+                    {getLineblockDefaultFlowLabel(link)} / {link.createdAt}
+                  </div>
                 </div>
               </div>
             ))

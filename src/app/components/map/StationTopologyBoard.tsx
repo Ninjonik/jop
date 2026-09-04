@@ -10,13 +10,13 @@ type LineblockEndpoint = { stationId: string; pieceId: string };
 interface Props {
   station: StationDocument;
   pendingEndpoint: LineblockEndpoint | null;
-  onLineblockContextMenu: (endpoint: LineblockEndpoint) => void;
+  onLineblockSelect: (endpoint: LineblockEndpoint) => void;
 }
 
 export default function StationTopologyBoard({
   station,
   pendingEndpoint,
-  onLineblockContextMenu,
+  onLineblockSelect,
 }: Props) {
   const tileSize = Math.max(
     6,
@@ -69,16 +69,17 @@ export default function StationTopologyBoard({
               {isLineblock ? (
                 <button
                   type="button"
-                  aria-label={`Connect lineblock in ${station.stationId}`}
-                  title="Right-click to select or connect this lineblock"
+                  aria-label={`Select lineblock ${pieceId} in ${station.stationId}`}
+                  title="Click to select or connect this lineblock"
+                  onClick={() => onLineblockSelect({ stationId: station.stationId, pieceId })}
                   onContextMenu={(event) => {
                     event.preventDefault();
-                    onLineblockContextMenu({ stationId: station.stationId, pieceId });
+                    onLineblockSelect({ stationId: station.stationId, pieceId });
                   }}
                   className={`absolute inset-0 border-2 ${
                     isPending
                       ? 'border-amber-300 bg-amber-300/25'
-                      : 'border-transparent hover:border-sky-300'
+                      : 'border-transparent hover:border-sky-300 focus:border-sky-300'
                   }`}
                 />
               ) : null}

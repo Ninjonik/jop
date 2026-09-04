@@ -3947,6 +3947,148 @@ export const stationService = {
     return session.topology.lineblockLinks[linkId];
   },
 
+  async updateLineblockLinkDefaultFlow(
+    sessionId: string,
+    linkId: string,
+    defaultFlow: SessionLineblockLink['defaultFlow'],
+  ) {
+    const rawSession = await sessionRepository.findById(sessionId);
+    if (!rawSession) throw new Error('Session not found.');
+    const session = ensureSessionRuntimeState(rawSession);
+    const link = session.topology.lineblockLinks[linkId];
+    if (!link) throw new Error('Lineblock link was not found.');
+    if (session.runtime.lineblocks[linkId]?.trainId) {
+      throw new Error('Cannot change a lineblock default while a train is using it.');
+    }
+
+    const stations = await stationRepository.listBySessionId(sessionId);
+    const stationA = stations.find((station) => station.stationId === link.a.stationId);
+    const stationB = stations.find((station) => station.stationId === link.b.stationId);
+    if (!stationA || !stationB) throw new Error('Both stations for this lineblock link must exist.');
+
+    ensureStationRuntimeState(stationA);
+    ensureStationRuntimeState(stationB);
+    link.defaultFlow = normalizeLineblockDefaultFlow(defaultFlow);
+    session.updatedAt = nowIso();
+    applyLineblockDefaultFlowToStations(link.defaultFlow, stationA, link.a.pieceId, stationB, link.b.pieceId);
+    syncPremainAvailability(stationA);
+    syncPremainAvailability(stationB);
+    applyRuntimeState(stationA);
+    applyRuntimeState(stationB);
+    bumpRevision(stationA);
+    bumpRevision(stationB);
+    await saveSession(session);
+    await saveStation(stationA);
+    await saveStation(stationB);
+    return link;
+  },
+
+  async removeLineblockLink(sessionId: string, linkId: string) {
+    const rawSession = await sessionRepository.findById(sessionId);
+    if (!rawSession) throw new Error('Session not found.');
+    const session = ensureSessionRuntimeState(rawSession);
+    const link = session.topology.lineblockLinks[linkId];
+    if (!link) throw new Error('Lineblock link was not found.');
+    if (session.runtime.lineblocks[linkId]?.trainId) {
+      throw new Error('Cannot remove a lineblock link while a train is using it.');
+    }
+
+    const stations = await stationRepository.listBySessionId(sessionId);
+    const stationA = stations.find((station) => station.stationId === link.a.stationId);
+    const stationB = stations.find((station) => station.stationId === link.b.stationId);
+    if (stationA) {
+      setLineblockVisualState(stationA, link.a.pieceId, 'default');
+      syncPremainAvailability(stationA);
+      applyRuntimeState(stationA);
+      bumpRevision(stationA);
+      await saveStation(stationA);
+    }
+    if (stationB) {
+      setLineblockVisualState(stationB, link.b.pieceId, 'default');
+      syncPremainAvailability(stationB);
+      applyRuntimeState(stationB);
+      bumpRevision(stationB);
+      await saveStation(stationB);
+    }
+
+    delete session.topology.lineblockLinks[linkId];
+    delete session.runtime.lineblocks[linkId];
+    session.updatedAt = nowIso();
+    await saveSession(session);
+  },
+
+  async renameStation(sessionId: string, stationId: string, nextStationId: string) {
+    if (stationId === nextStationId) return this.getStation(sessionId, stationId);
+    const rawSession = await sessionRepository.findById(sessionId);
+    if (!rawSession) throw new Error('Session not found.');
+    const session = ensureSessionRuntimeState(rawSession);
+    if (Object.keys(session.runtime.trains).length > 0) {
+      throw new Error('Stations can only be renamed when the session has no trains.');
+    }
+    const station = await stationRepository.findBySessionAndStationId(sessionId, stationId);
+    if (!station) throw new Error('Station not found.');
+    if (await stationRepository.findBySessionAndStationId(sessionId, nextStationId)) {
+      throw new Error(`Station ${nextStationId} already exists.`);
+    }
+
+    station.stationId = nextStationId;
+    Object.values(session.topology.lineblockLinks).forEach((link) => {
+      if (link.a.stationId === stationId) link.a.stationId = nextStationId;
+      if (link.b.stationId === stationId) link.b.stationId = nextStationId;
+    });
+    Object.values(session.runtime.physicalOccupations).forEach((occupation) => {
+      if (occupation.stationId === stationId) occupation.stationId = nextStationId;
+    });
+    session.updatedAt = nowIso();
+    await saveSession(session);
+    await saveStation(station);
+    return station;
+  },
+
+  async removeStation(sessionId: string, stationId: string) {
+    const rawSession = await sessionRepository.findById(sessionId);
+    if (!rawSession) throw new Error('Session not found.');
+    const session = ensureSessionRuntimeState(rawSession);
+    if (Object.keys(session.runtime.trains).length > 0) {
+      throw new Error('Stations can only be removed when the session has no trains.');
+    }
+    if (Object.values(session.runtime.physicalOccupations).some(
+      (occupation) => occupation.stationId === stationId && occupation.occupied,
+    )) {
+      throw new Error('Stations can only be removed when they have no physical occupations.');
+    }
+    const station = await stationRepository.findBySessionAndStationId(sessionId, stationId);
+    if (!station) throw new Error('Station not found.');
+
+    const stations = await stationRepository.listBySessionId(sessionId);
+    const links = Object.values(session.topology.lineblockLinks)
+      .filter((link) => link.a.stationId === stationId || link.b.stationId === stationId)
+    links.forEach((link) => {
+      const remoteEndpoint = link.a.stationId === stationId ? link.b : link.a;
+      const remoteStation = stations.find((candidate) => candidate.stationId === remoteEndpoint.stationId);
+      if (remoteStation) {
+        setLineblockVisualState(remoteStation, remoteEndpoint.pieceId, 'default');
+        syncPremainAvailability(remoteStation);
+        applyRuntimeState(remoteStation);
+        bumpRevision(remoteStation);
+      }
+      delete session.topology.lineblockLinks[link.id];
+      delete session.runtime.lineblocks[link.id];
+    });
+    Object.entries(session.runtime.physicalOccupations).forEach(([key, occupation]) => {
+      if (occupation.stationId === stationId) delete session.runtime.physicalOccupations[key];
+    });
+    session.updatedAt = nowIso();
+    await saveSession(session);
+    await Promise.all(
+      stations
+        .filter((candidate) => candidate.stationId !== stationId)
+        .filter((candidate) => links.some((link) => link.a.stationId === candidate.stationId || link.b.stationId === candidate.stationId))
+        .map((candidate) => saveStation(candidate)),
+    );
+    await stationRepository.removeBySessionAndStationId(sessionId, stationId);
+  },
+
   async submitLineblockAction(command: LineblockActionCommand) {
     const localStation = await stationRepository.findBySessionAndStationId(
       command.sessionId,

@@ -1,5 +1,5 @@
-import { sessionIdSchema, stationIdSchema } from '@/lib/station/domain';
-import { jsonErrorResponse } from '@/lib/server/http';
+import { renameStationSchema, sessionIdSchema, stationIdSchema } from '@/lib/station/domain';
+import { jsonErrorResponse, parseJsonRequest } from '@/lib/server/http';
 import { stationService } from '@/lib/server/services/station-service';
 
 export const runtime = 'nodejs';
@@ -31,6 +31,30 @@ export async function GET(_request: Request, { params }: StationRouteProps) {
     }
 
     return Response.json({ station });
+  } catch (error) {
+    return jsonErrorResponse(error);
+  }
+}
+
+export async function PATCH(request: Request, { params }: StationRouteProps) {
+  try {
+    const { sessionId, stationId } = await params;
+    const station = await stationService.renameStation(
+      sessionIdSchema.parse(sessionId),
+      stationIdSchema.parse(stationId),
+      (await parseJsonRequest(request, renameStationSchema)).stationId,
+    );
+    return Response.json({ station });
+  } catch (error) {
+    return jsonErrorResponse(error);
+  }
+}
+
+export async function DELETE(_request: Request, { params }: StationRouteProps) {
+  try {
+    const { sessionId, stationId } = await params;
+    await stationService.removeStation(sessionIdSchema.parse(sessionId), stationIdSchema.parse(stationId));
+    return new Response(null, { status: 204 });
   } catch (error) {
     return jsonErrorResponse(error);
   }

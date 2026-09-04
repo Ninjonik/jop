@@ -48,4 +48,9 @@ export const stationRepository = {
     await collection.replaceOne({ _id: station._id }, station, { upsert: false });
     return station;
   },
+
+  async removeBySessionAndStationId(sessionId: string, stationId: string) {
+    const collection = await getCollection();
+    await collection.deleteOne({ sessionId, stationId });
+  },
 };

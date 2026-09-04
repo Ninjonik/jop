@@ -827,6 +827,7 @@ function tracePlatformToNextControl(
   startEntry: ExitPoint,
   directionSign: number,
   tiles: TileCatalog,
+  stopAtShuntControls: boolean,
 ) {
   const reservedMap: Record<string, ActiveTrainRouteOccupation> = {};
   const debugSteps: RouteDebugStep[] = [];
@@ -846,7 +847,11 @@ function tracePlatformToNextControl(
       break;
     }
 
-    if (isRouteControlPieceType(piece.type)) {
+    // A normal train route reserves through intermediate shunt controls until
+    // the next departure control; a shunt route terminates at any route control.
+    const isPlatformEndpoint =
+      piece.type === 'departureButton' || piece.type === 'shuntSignalButtonBuffer';
+    if (isPlatformEndpoint || (stopAtShuntControls && isRouteControlPieceType(piece.type))) {
       if (isOccupiablePiece(station, currentPieceId, tiles)) {
         pushReservation(station, reservedMap, currentPieceId, {
           pieceId: currentPieceId,
@@ -1660,6 +1665,7 @@ export function buildRouteFromSelection(
             platformStart.entryFromSource,
             directionSign,
             tiles,
+            false,
           );
           platform.reservedOccupations.forEach((occupation) => {
             pushReservation(station, extraReservedMap, occupation.pieceId, occupation);
@@ -1683,6 +1689,7 @@ export function buildRouteFromSelection(
             platformStart.entryFromSource,
             directionSign,
             tiles,
+            true,
           );
           platform.reservedOccupations.forEach((occupation) => {
             pushReservation(station, extraReservedMap, occupation.pieceId, occupation);

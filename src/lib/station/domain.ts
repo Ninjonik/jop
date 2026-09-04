@@ -738,6 +738,14 @@ export const createLineblockLinkSchema = z.object({
   defaultFlow: z.enum(['neutral', 'a-receiving', 'b-receiving']).default('neutral'),
 });
 
+export const updateLineblockLinkSchema = z.object({
+  defaultFlow: z.enum(['neutral', 'a-receiving', 'b-receiving']),
+});
+
+export const renameStationSchema = z.object({
+  stationId: stationIdSchema,
+});
+
 export const sessionSchemaDocumentSchema = z.object({
   version: z.literal(1),
   stations: z.array(
