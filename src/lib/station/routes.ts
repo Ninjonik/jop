@@ -834,6 +834,7 @@ function tracePlatformToNextControl(
   const visited = new Set<string>();
   let currentPieceId: string | null = startPieceId;
   let currentEntry: ExitPoint | null = startEntry;
+  let terminalPieceId: string | null = null;
 
   while (currentPieceId && currentEntry) {
     const visitedKey = `${currentPieceId}:${toOffsetKey(currentEntry)}`;
@@ -852,6 +853,7 @@ function tracePlatformToNextControl(
     const isPlatformEndpoint =
       piece.type === 'departureButton' || piece.type === 'shuntSignalButtonBuffer';
     if (isPlatformEndpoint || (stopAtShuntControls && isRouteControlPieceType(piece.type))) {
+      terminalPieceId = currentPieceId;
       if (isOccupiablePiece(station, currentPieceId, tiles)) {
         pushReservation(station, reservedMap, currentPieceId, {
           pieceId: currentPieceId,
@@ -908,6 +910,7 @@ function tracePlatformToNextControl(
   return {
     reservedOccupations: Object.values(reservedMap),
     debugSteps,
+    terminalPieceId,
   };
 }
 
@@ -1637,6 +1640,8 @@ export function buildRouteFromSelection(
         }
       }
 
+      let movementTargetPieceId = targetPieceId;
+
       if (routeClass === 'premain-to-platform') {
         const approachStart = getAdjacentTraversal(station, sourcePieceId, startTraversal.entry);
         if (approachStart) {
@@ -1671,6 +1676,10 @@ export function buildRouteFromSelection(
             pushReservation(station, extraReservedMap, occupation.pieceId, occupation);
           });
           extraDebugSteps = [...extraDebugSteps, ...platform.debugSteps];
+          // The selected arrival control establishes the route, but a normal
+          // entrance continues through the platform to its next departure
+          // button. Include that physical endpoint in the train path.
+          movementTargetPieceId = platform.terminalPieceId ?? targetPieceId;
         }
       }
 
@@ -1702,7 +1711,7 @@ export function buildRouteFromSelection(
       const path = buildOrderedRoutePath(
         station,
         sourcePieceId,
-        targetPieceId,
+        movementTargetPieceId,
         extraDebugSteps,
         reservedOccupations,
       );
