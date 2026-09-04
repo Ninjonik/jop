@@ -113,6 +113,7 @@ function logRouteBuildDebug(
     `[route-debug] ${station.sessionId}/${station.stationId}`,
     `  routeType=${builtRoute.routeType} routeClass=${builtRoute.routeClass} direction=${builtRoute.direction}`,
     `  source=${builtRoute.sourcePieceId} target=${builtRoute.targetPieceId}`,
+    `  movementPath=${builtRoute.path.map((step) => step.pieceId).join(' -> ') || 'none'}`,
     `  targetPlatformDepartureSignal=${builtRoute.targetPlatformDepartureSignalPieceId ?? 'none'}`,
     `  signalPieceIds=${builtRoute.signalPieceIds.join(', ') || 'none'}`,
     `  reservedOccupations=${

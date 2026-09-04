@@ -844,14 +844,13 @@ function tracePlatformToNextControl(
     visited.add(visitedKey);
 
     const piece = station.layout.pieces[currentPieceId];
-    if (!piece || isSignalPieceType(piece.type)) {
+    if (!piece || (stopAtShuntControls && isSignalPieceType(piece.type))) {
       break;
     }
 
     // A normal train route reserves through intermediate shunt controls until
     // the next departure control; a shunt route terminates at any route control.
-    const isPlatformEndpoint =
-      piece.type === 'departureButton' || piece.type === 'shuntSignalButtonBuffer';
+    const isPlatformEndpoint = piece.type === 'departureButton';
     if (isPlatformEndpoint || (stopAtShuntControls && isRouteControlPieceType(piece.type))) {
       terminalPieceId = currentPieceId;
       if (isOccupiablePiece(station, currentPieceId, tiles)) {

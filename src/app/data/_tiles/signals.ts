@@ -293,7 +293,14 @@ export const signalTiles: TileCatalog = {
     component: ShuntButtonSignalBUFFER1Square,
     space: { x: 1, y: 1 },
     usedSpace: [[0, 0]],
-    traversable: false,
+    // This combined shunt signal/button can be an intermediate control on a
+    // platform track. Normal routes pass through it; shunt routes stop there.
+    traversable: {
+      0: {
+        '1,0': '-1,0',
+        '-1,0': '1,0',
+      },
+    },
     staticStyles: {
       ...boardColorsDark,
       ...boardColorsWithStripe,
