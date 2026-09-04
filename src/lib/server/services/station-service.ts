@@ -48,6 +48,7 @@ import {
   buildSignalRoutePlans,
   buildRouteFromSelection,
   crossoverTraversalStatesConflict,
+  getTraversableNeighborPieceIds,
 } from '@/lib/station/routes';
 import {
   getConnectedSwitchControl,
@@ -223,6 +224,7 @@ async function buildRobloxPhysicalSnapshot(sessionId: string): Promise<RobloxPhy
     ensureStationRuntimeState(station);
     applySessionTrainOccupations(station, session);
     const resolvedSignalAspects = buildResolvedRobloxSignalAspects(station);
+    const activeLevelCrossingPieceIds = getActiveLevelCrossingPieceIds(station, session);
     return {
       stationId: station.stationId,
       revision: station.revision,
@@ -236,6 +238,7 @@ async function buildRobloxPhysicalSnapshot(sessionId: string): Promise<RobloxPhy
             switchAlignment: station.runtime.switchAlignments[pieceId] ?? null,
             resolvedSignalFamily: resolvedSignalAspects.get(pieceId)?.family ?? null,
             resolvedSignalAspect: resolvedSignalAspects.get(pieceId)?.aspect ?? null,
+            levelCrossingActive: activeLevelCrossingPieceIds.has(pieceId),
           },
         ]),
       ),
@@ -249,6 +252,53 @@ async function buildRobloxPhysicalSnapshot(sessionId: string): Promise<RobloxPhy
     generatedAt: nowIso(),
     stations,
   };
+}
+
+function isTrackCrossingPieceType(pieceType: string) {
+  return pieceType === 'trackCrossing' || pieceType === 'trackCrossingNoOcp';
+}
+
+function getActiveLevelCrossingPieceIds(station: StationDocument, session: SessionDocument) {
+  const occupiedPieceIds = new Set<string>();
+  Object.values(session.runtime.trains).forEach((train) => {
+    train.occupiedSensors.forEach((sensor) => {
+      if (sensor.stationId === station.stationId) occupiedPieceIds.add(sensor.pieceId);
+    });
+  });
+  Object.values(session.runtime.physicalOccupations).forEach((occupation) => {
+    if (occupation.occupied && occupation.stationId === station.stationId) {
+      occupiedPieceIds.add(occupation.pieceId);
+    }
+  });
+
+  const activeColumns = new Set<number>();
+  Object.entries(station.layout.pieces).forEach(([pieceId, piece]) => {
+    if (!isTrackCrossingPieceType(piece.type)) return;
+
+    const range = piece.levelCrossingActivationRange ?? 1;
+    const searchedPieceIds = new Set([pieceId]);
+    let frontier = [pieceId];
+    for (let distance = 0; distance < range; distance += 1) {
+      frontier = frontier.flatMap((currentPieceId) =>
+        getTraversableNeighborPieceIds(station, currentPieceId, tiles),
+      ).filter((neighborPieceId) => {
+        if (searchedPieceIds.has(neighborPieceId)) return false;
+        searchedPieceIds.add(neighborPieceId);
+        return true;
+      });
+    }
+
+    if ([...searchedPieceIds].some((candidatePieceId) => occupiedPieceIds.has(candidatePieceId))) {
+      activeColumns.add(getPieceAnchor(station.layout, pieceId).x);
+    }
+  });
+
+  return new Set(
+    Object.entries(station.layout.pieces)
+      .filter(([, piece]) => isTrackCrossingPieceType(piece.type))
+      .filter(([pieceId]) => activeColumns.has(getPieceAnchor(station.layout, pieceId).x))
+      .map(([pieceId]) => pieceId),
+  );
 }
 
 async function saveStation(station: StationDocument, options?: { skipRuntimeNotify?: boolean }) {

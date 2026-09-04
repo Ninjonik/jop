@@ -30,6 +30,7 @@ interface Props {
   onContextMenuRotate: () => void;
   onContextMenuMirror: () => void;
   onContextMenuEditText: (textKey: string) => void;
+  onSetLevelCrossingActivationRange: () => void;
   onContextMenuStartConnection: () => void;
   onContextMenuCancelConnection: () => void;
   onContextMenuConnect: () => void;
@@ -53,6 +54,7 @@ export default function StationCanvas({
   onContextMenuRotate,
   onContextMenuMirror,
   onContextMenuEditText,
+  onSetLevelCrossingActivationRange,
   onContextMenuStartConnection,
   onContextMenuCancelConnection,
   onContextMenuConnect,
@@ -151,6 +153,7 @@ export default function StationCanvas({
           onRotate={onContextMenuRotate}
           onMirror={onContextMenuMirror}
           onEditText={onContextMenuEditText}
+          onSetLevelCrossingActivationRange={onSetLevelCrossingActivationRange}
           onStartConnection={onContextMenuStartConnection}
           onCancelConnection={onContextMenuCancelConnection}
           onConnect={onContextMenuConnect}

@@ -10,6 +10,7 @@ interface Props {
   onRotate: () => void;
   onMirror: () => void;
   onEditText: (textKey: string) => void;
+  onSetLevelCrossingActivationRange: () => void;
   onStartConnection: () => void;
   onCancelConnection: () => void;
   onConnect: () => void;
@@ -25,6 +26,7 @@ export default function PieceContextMenu({
   onRotate,
   onMirror,
   onEditText,
+  onSetLevelCrossingActivationRange,
   onStartConnection,
   onCancelConnection,
   onConnect,
@@ -108,6 +110,15 @@ export default function PieceContextMenu({
           {`edit ${textKey}`}
         </button>
       ))}
+      {contextMenu.isTrackCrossing ? (
+        <button
+          type="button"
+          onClick={onSetLevelCrossingActivationRange}
+          className="border-b border-neutral-300 px-2 py-1 text-left text-sm text-black"
+        >
+          {`activation range: ${contextMenu.levelCrossingActivationRange}`}
+        </button>
+      ) : null}
       {contextMenu.connectedPieceIds.length > 0 ? (
         <button
           type="button"

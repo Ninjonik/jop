@@ -307,6 +307,22 @@ function getAdjacentTraversal(station: StationDocument, sourcePieceId: string, e
   };
 }
 
+/** Returns every directly connected traversable piece, independent of route reservations. */
+export function getTraversableNeighborPieceIds(
+  station: StationDocument,
+  pieceId: string,
+  tiles: TileCatalog,
+) {
+  const neighbors = new Set<string>();
+  getTraversalOptions(station, pieceId, tiles).forEach((option) => {
+    const neighbor = getNeighborTraversal(station, pieceId, option.exit);
+    if (neighbor && getTraversalOptions(station, neighbor.pieceId, tiles).length > 0) {
+      neighbors.add(neighbor.pieceId);
+    }
+  });
+  return [...neighbors];
+}
+
 function getTraversalEdgeStep(
   station: StationDocument,
   pieceId: string,

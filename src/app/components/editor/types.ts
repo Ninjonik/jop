@@ -20,6 +20,8 @@ export interface PieceContextMenuState {
   y: number;
   supportsOrientationChange: boolean;
   textKeys: string[];
+  isTrackCrossing: boolean;
+  levelCrossingActivationRange: number;
   canStartConnection: boolean;
   canConnectToPending: boolean;
   canCancelPendingConnection: boolean;

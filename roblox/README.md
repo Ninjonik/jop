@@ -44,6 +44,12 @@ named `JOPPieceLinks`. Its `Value` is JSON:
 ]
 ```
 
+For a level-crossing controller, set `JOPComponentType` to `levelCrossing` on
+the controller instance and link it to every stacked `trackCrossing` tile that
+belongs to that physical crossing. The bridge currently exposes the aggregate
+state through `JOPResolvedLevelCrossingActive` and logs the intended on/off
+transition; physical barrier/light wiring is deliberately still a stub.
+
 `traversalState` is optional. The default `HardwareDriver.lua` can now infer
 occupation traversal sections directly from part names on the linked Roblox
 model, so you usually do not need to encode it manually for occupation sensor

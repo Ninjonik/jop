@@ -311,6 +311,7 @@ export type RobloxPhysicalPieceState = {
   switchAlignment: PhysicalSwitchAlignment | null;
   resolvedSignalFamily: RobloxResolvedSignalFamily | null;
   resolvedSignalAspect: RobloxResolvedSignalAspect | null;
+  levelCrossingActive: boolean;
 };
 
 export type RobloxPhysicalSnapshot = {

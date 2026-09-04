@@ -325,6 +325,8 @@ export default function StationEditorClient({ tiles, stateGroups }: Props) {
       y: event.clientY,
       supportsOrientationChange,
       textKeys,
+      isTrackCrossing: piece.type === 'trackCrossing' || piece.type === 'trackCrossingNoOcp',
+      levelCrossingActivationRange: piece.levelCrossingActivationRange ?? 1,
       canStartConnection,
       canConnectToPending,
       canCancelPendingConnection,
@@ -400,6 +402,19 @@ export default function StationEditorClient({ tiles, stateGroups }: Props) {
         },
       },
     }));
+  };
+
+  const handleSetLevelCrossingActivationRange = () => {
+    if (!contextMenu) return;
+    const currentValue = editorState.pieces[contextMenu.pieceId]?.levelCrossingActivationRange ?? 1;
+    const nextValue = window.prompt('Activation range in neighboring traversable tiles', String(currentValue));
+    if (nextValue === null) return;
+    const range = Number(nextValue);
+    if (!Number.isInteger(range) || range < 0 || range > 100) {
+      window.alert('Activation range must be a whole number from 0 to 100.');
+      return;
+    }
+    updateContextPiece((piece) => ({ ...piece, levelCrossingActivationRange: range }));
   };
 
   const handleContextMenuRemove = () => {
@@ -646,6 +661,7 @@ export default function StationEditorClient({ tiles, stateGroups }: Props) {
         onContextMenuRotate={handleContextMenuRotate}
         onContextMenuMirror={handleContextMenuMirror}
         onContextMenuEditText={handleContextMenuEditText}
+        onSetLevelCrossingActivationRange={handleSetLevelCrossingActivationRange}
         onContextMenuStartConnection={handleContextMenuStartConnection}
         onContextMenuCancelConnection={handleContextMenuCancelConnection}
         onContextMenuConnect={handleContextMenuConnect}

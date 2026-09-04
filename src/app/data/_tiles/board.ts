@@ -4,8 +4,22 @@ import type { TileCatalog } from '@/app/components/tiles/tile-catalog';
 
 import Board1Square from '@/app/assets/board/Board1Square';
 import DispatcherBuilding1Square from '@/app/assets/board/DispatcherBuilding1Square';
+import LevelCrossing from '@/app/assets/board/LevelCrossing';
+import LevelCrossingEnd from '@/app/assets/board/LevelCrossingEnd';
 
 export const boardTiles: TileCatalog = {
+  levelCrossing: {
+    component: LevelCrossing,
+    space: { x: 1, y: 1 },
+    usedSpace: [[0, 0]],
+    traversable: false,
+  },
+  levelCrossingEnd: {
+    component: LevelCrossingEnd,
+    space: { x: 1, y: 1 },
+    usedSpace: [[0, 0]],
+    traversable: false,
+  },
   filler: {
     component: Board1Square,
     space: { x: 1, y: 1 },

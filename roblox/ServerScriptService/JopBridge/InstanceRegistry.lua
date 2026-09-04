@@ -241,6 +241,7 @@ function InstanceRegistry:_refresh(instance)
 		and not capabilities.hasSignals
 		and not capabilities.hasOccupations
 		and not capabilities.hasSwitches
+		and not capabilities.hasLevelCrossings
 	then
 		local linkStrings = {}
 		for _, link in ipairs(links) do
@@ -405,6 +406,7 @@ function InstanceRegistry:ApplySnapshot(snapshot)
 				switchAlignment = piece.switchAlignment,
 				resolvedSignalFamily = piece.resolvedSignalFamily,
 				resolvedSignalAspect = piece.resolvedSignalAspect,
+				levelCrossingActive = piece.levelCrossingActive,
 			}
 				print(
 					string.format(
@@ -456,6 +458,7 @@ function InstanceRegistry:ApplyUpdates(updateBatch)
 			switchAlignment = update.piece.switchAlignment,
 			resolvedSignalFamily = update.piece.resolvedSignalFamily,
 			resolvedSignalAspect = update.piece.resolvedSignalAspect,
+			levelCrossingActive = update.piece.levelCrossingActive,
 		}
 		print(
 			string.format(

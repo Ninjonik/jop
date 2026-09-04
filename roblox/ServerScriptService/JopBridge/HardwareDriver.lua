@@ -15,6 +15,7 @@ local SIGNAL_PIECE_ID_ATTRIBUTE = "JOPResolvedSignalPieceId"
 local SIGNAL_TEXT_ATTRIBUTE = "JOPResolvedSignalText"
 local SWITCH_STATE_ATTRIBUTE = "JOPResolvedSwitchState"
 local SWITCH_PIECE_ID_ATTRIBUTE = "JOPResolvedSwitchPieceId"
+local LEVEL_CROSSING_ACTIVE_ATTRIBUTE = "JOPResolvedLevelCrossingActive"
 
 local SIGNAL_COMPONENT_TYPES = {
 	signal = true,
@@ -27,12 +28,18 @@ local SWITCH_COMPONENT_TYPES = {
 	switchFeedback = true,
 }
 
+local LEVEL_CROSSING_COMPONENT_TYPES = {
+	levelCrossing = true,
+	levelcrossing = true,
+}
+
 local COUNTERS_GROUP_NAME = "Counters"
 local OCCUPANCY_INFLATION = Vector3.new(1, 1, 1)
 local OCCUPANCY_CLEAR_SETTLE_SECONDS = 0.5
 local OCCUPANCY_RECONCILE_SECONDS = 1
 
 local switchVisualStateByInstance = setmetatable({}, { __mode = "k" })
+local levelCrossingActiveByInstance = setmetatable({}, { __mode = "k" })
 
 local function push(target, value)
 	target[#target + 1] = value
@@ -320,11 +327,30 @@ local function refreshSectionFromTouchState(section, report)
 	reportSectionOccupiedChange(section, report, getSectionTouchCount(section) > 0)
 end
 
+-- Physical gate/light wiring is intentionally deferred until the crossing model
+-- contract is finalized. Keep this boundary so backend state can be tested now.
+local function activateLevelCrossing(component, linkedStates)
+	print(string.format(
+		"[JOP][Apply] - Would activate level crossing %s for %d linked tile(s)",
+		component:GetFullName(),
+		#linkedStates
+	))
+end
+
+local function deactivateLevelCrossing(component, linkedStates)
+	print(string.format(
+		"[JOP][Apply] - Would deactivate level crossing %s for %d linked tile(s)",
+		component:GetFullName(),
+		#linkedStates
+	))
+end
+
 local function collectTaggedComponents(instance)
 	local components = {
 		signals = {},
 		occupations = buildOccupationSections(instance),
 		switches = {},
+		levelCrossings = {},
 	}
 
 	local function visit(candidate)
@@ -338,6 +364,9 @@ local function collectTaggedComponents(instance)
 		end
 		if SWITCH_COMPONENT_TYPES[componentType] then
 			push(components.switches, candidate)
+		end
+		if LEVEL_CROSSING_COMPONENT_TYPES[componentType] then
+			push(components.levelCrossings, candidate)
 		end
 	end
 
@@ -385,9 +414,11 @@ function HardwareDriver.DescribeInstance(instance)
 		signals = components.signals,
 		occupations = components.occupations,
 		switches = components.switches,
+		levelCrossings = components.levelCrossings,
 		hasSignals = #components.signals > 0,
 		hasOccupations = #components.occupations > 0,
 		hasSwitches = #components.switches > 0,
+		hasLevelCrossings = #components.levelCrossings > 0,
 	}
 end
 
@@ -399,6 +430,7 @@ function HardwareDriver.ApplyInstanceState(instance, linkedStates, capabilities)
 	local firstSignal = nil
 	local firstSwitch = nil
 	local firstOccupation = nil
+	local levelCrossingActive = false
 	for _, state in ipairs(linkedStates) do
 		if not firstSignal and isSignalState(state) then
 			firstSignal = state
@@ -408,6 +440,22 @@ function HardwareDriver.ApplyInstanceState(instance, linkedStates, capabilities)
 		end
 		if not firstOccupation and isOccupationState(state) then
 			firstOccupation = state
+		end
+		if state.levelCrossingActive == true then
+			levelCrossingActive = true
+		end
+	end
+
+	for _, levelCrossingComponent in ipairs(capabilities.levelCrossings or {}) do
+		local wasActive = levelCrossingActiveByInstance[levelCrossingComponent]
+		if wasActive ~= levelCrossingActive then
+			levelCrossingActiveByInstance[levelCrossingComponent] = levelCrossingActive
+			levelCrossingComponent:SetAttribute(LEVEL_CROSSING_ACTIVE_ATTRIBUTE, levelCrossingActive)
+			if levelCrossingActive then
+				activateLevelCrossing(levelCrossingComponent, linkedStates)
+			else
+				deactivateLevelCrossing(levelCrossingComponent, linkedStates)
+			end
 		end
 	end
 
