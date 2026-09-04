@@ -65,6 +65,7 @@ function InstanceRegistry.new(config, hardwareDriver, onOccupation, onSwitchFeed
 	self._statesByKey = {}
 	self._instancesByPieceKey = {}
 	self._warnedMissingSignalComponents = {}
+	self._warnedUnknownSnapshotLinks = {}
 	return self
 end
 
@@ -362,6 +363,26 @@ function InstanceRegistry:_warnMissingSignalComponents()
 	end
 end
 
+function InstanceRegistry:_warnUnknownSnapshotLinks()
+	for instance, entry in pairs(self._entries) do
+		for _, link in ipairs(entry.links) do
+			local pieceKey = link.stationId .. "\0" .. link.pieceId
+			if self._statesByKey[pieceKey] then
+				self._warnedUnknownSnapshotLinks[pieceKey] = nil
+			elseif not self._warnedUnknownSnapshotLinks[pieceKey] then
+				warn(
+					string.format(
+						"[JOP][Link] Backend snapshot has no matching station/piece for %s -> %s",
+						instance:GetFullName(),
+						formatLink(link)
+					)
+				)
+				self._warnedUnknownSnapshotLinks[pieceKey] = true
+			end
+		end
+	end
+end
+
 function InstanceRegistry:ApplySnapshot(snapshot)
 	print(
 		string.format(
@@ -400,6 +421,7 @@ function InstanceRegistry:ApplySnapshot(snapshot)
 	for instance, entry in pairs(self._entries) do
 		self:_applyEntry(instance, entry)
 	end
+	self:_warnUnknownSnapshotLinks()
 	self:_warnMissingSignalComponents()
 end
 

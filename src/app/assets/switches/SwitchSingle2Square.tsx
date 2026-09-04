@@ -17,7 +17,7 @@ const SwitchSingle2Square = ({ text, ...props }: SVGProps<SVGSVGElement> & { tex
       points="75 30 75 45 72.46 45 22.11 105 2.53 105 65.46 30.01 65.46 30 75 30"
     />
     <rect fill="var(--stripe-color, #3b3b3b)" x={0} y={105} width={75} height={15} />
-    <rect fill="var(--occupation-bottom-color, #6e6e6e)" x={5} y={108.5} width={65} height={8} rx={4} ry={4} />
+    <rect fill="var(--occupation-bottomLeft-color, #6e6e6e)" x={5} y={108.5} width={65} height={8} rx={4} ry={4} />
     <rect
       fill="var(--occupation-top-color, #6e6e6e)"
       x={5}
