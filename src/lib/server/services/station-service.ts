@@ -3218,7 +3218,10 @@ export const stationService = {
 
     const piece = station.layout.pieces[input.pieceId];
     if (!piece?.state.groups.occupation) {
-      throw new Error(`Occupation-capable piece "${input.pieceId}" was not found.`);
+      // One physical Roblox occupancy sensor may be linked to visual/control
+      // tiles alongside occupation-capable tiles. Ignore those non-sensor
+      // links so they cannot reject the complete reported sensor batch.
+      return { applied: false, station };
     }
 
     const traversalState = input.traversalState ?? null;
