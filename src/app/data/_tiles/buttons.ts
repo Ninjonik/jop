@@ -98,7 +98,14 @@ export const buttonTiles: TileCatalog = {
     component: ShuntButtonNOOCP1Square,
     space: { x: 1, y: 1 },
     usedSpace: [[0, 0]],
-    traversable: false,
+    // This is a shunt control without an occupation sensor, not a track break.
+    // Normal platform routes must be able to pass it on the way to a departure button.
+    traversable: {
+      0: {
+        '1,0': '-1,0',
+        '-1,0': '1,0',
+      },
+    },
     staticStyles: {
       ...boardColorsWithStripe,
       '--color-696969': '#696969',
