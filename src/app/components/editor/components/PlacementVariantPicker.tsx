@@ -34,8 +34,8 @@ export default function PlacementVariantPicker({
           onClick={() => onPick(variant)}
           className="border border-neutral-700 px-2 py-0.5 text-xs text-black"
         >
-          {variant.orientation.rotation === 180 ? 'r' : '0'}
-          {variant.orientation.mirrored ? 'm' : ''}
+          {variant.orientation.rotation === 180 ? '180°' : '0°'}
+          {variant.orientation.mirrored ? ' mirror' : ''}
         </button>
       ))}
     </div>

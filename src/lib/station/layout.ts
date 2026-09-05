@@ -144,7 +144,12 @@ export function buildPlacementVariants(tiles: TileCatalog) {
       const signature = sortCells(normalized)
         .map(([x, y]) => `${x},${y}`)
         .join('|');
-      const dedupeKey = `${tileKey}:${signature}`;
+      // Switch orientation changes traversal endpoints even when its occupied
+      // cells have the same footprint (for example a 1×2 single switch).
+      // Preserve every switch orientation for editor placement.
+      const dedupeKey = SWITCH_TILE_KEYS.has(tileKey)
+        ? `${tileKey}:${orientation.rotation}:${orientation.mirrored}`
+        : `${tileKey}:${signature}`;
 
       if (seen.has(dedupeKey)) {
         return;
