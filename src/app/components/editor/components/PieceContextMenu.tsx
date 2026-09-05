@@ -116,7 +116,9 @@ export default function PieceContextMenu({
           onClick={onSetLevelCrossingActivationRange}
           className="border-b border-neutral-300 px-2 py-1 text-left text-sm text-black"
         >
-          {`activation range: ${contextMenu.levelCrossingActivationRange}`}
+          {contextMenu.levelCrossingActivationRange === null
+            ? 'activation: station route'
+            : `activation: inter-station range ${contextMenu.levelCrossingActivationRange}`}
         </button>
       ) : null}
       {contextMenu.connectedPieceIds.length > 0 ? (

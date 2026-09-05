@@ -35,7 +35,7 @@ export interface PieceRecord {
   type: string;
   rotation: 0 | 180;
   mirrored: boolean;
-  /** Number of traversable tiles on either side that activate a track crossing. */
+  /** When set, this crossing uses inter-station sensor-range activation. */
   levelCrossingActivationRange?: number;
   state: {
     groups: Record<string, GroupSelection>;
@@ -194,9 +194,6 @@ export function createPieceRecord(
     type: tileKey,
     rotation: 0,
     mirrored: false,
-    ...(tileKey === 'trackCrossing' || tileKey === 'trackCrossingNoOcp'
-      ? { levelCrossingActivationRange: 1 }
-      : {}),
     state: {
       groups: getInitialGroupSelections(tile, stateGroups),
       texts: getDefaultTextValues(tile),

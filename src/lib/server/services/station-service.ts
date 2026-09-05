@@ -270,12 +270,26 @@ function getActiveLevelCrossingPieceIds(station: StationDocument, session: Sessi
       occupiedPieceIds.add(occupation.pieceId);
     }
   });
+  const reservedCrossingPieceIds = new Set(
+    Object.values(station.runtime.activeTrainRoutes).flatMap((route) =>
+      route.reservedOccupations.map((occupation) => occupation.pieceId),
+    ),
+  );
 
   const activeColumns = new Set<number>();
   Object.entries(station.layout.pieces).forEach(([pieceId, piece]) => {
     if (!isTrackCrossingPieceType(piece.type)) return;
 
-    const range = piece.levelCrossingActivationRange ?? 1;
+    const range = piece.levelCrossingActivationRange;
+    if (range === undefined) {
+      // Station crossings close as soon as a normal or shunt route reserves
+      // their sensor, and remain closed while that sensor is occupied.
+      if (reservedCrossingPieceIds.has(pieceId) || occupiedPieceIds.has(pieceId)) {
+        activeColumns.add(getPieceAnchor(station.layout, pieceId).x);
+      }
+      return;
+    }
+
     const searchedPieceIds = new Set([pieceId]);
     let frontier = [pieceId];
     for (let distance = 0; distance < range; distance += 1) {

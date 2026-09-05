@@ -326,7 +326,7 @@ export default function StationEditorClient({ tiles, stateGroups }: Props) {
       supportsOrientationChange,
       textKeys,
       isTrackCrossing: piece.type === 'trackCrossing' || piece.type === 'trackCrossingNoOcp',
-      levelCrossingActivationRange: piece.levelCrossingActivationRange ?? 1,
+      levelCrossingActivationRange: piece.levelCrossingActivationRange ?? null,
       canStartConnection,
       canConnectToPending,
       canCancelPendingConnection,
@@ -406,9 +406,20 @@ export default function StationEditorClient({ tiles, stateGroups }: Props) {
 
   const handleSetLevelCrossingActivationRange = () => {
     if (!contextMenu) return;
-    const currentValue = editorState.pieces[contextMenu.pieceId]?.levelCrossingActivationRange ?? 1;
-    const nextValue = window.prompt('Activation range in neighboring traversable tiles', String(currentValue));
+    const currentRange = editorState.pieces[contextMenu.pieceId]?.levelCrossingActivationRange;
+    const nextValue = window.prompt(
+      'Use "station" for route reservation activation, or enter an inter-station sensor range.',
+      currentRange === undefined ? 'station' : String(currentRange),
+    );
     if (nextValue === null) return;
+    if (nextValue.trim().toLowerCase() === 'station') {
+      updateContextPiece((piece) => {
+        const stationCrossing = { ...piece };
+        delete stationCrossing.levelCrossingActivationRange;
+        return stationCrossing;
+      });
+      return;
+    }
     const range = Number(nextValue);
     if (!Number.isInteger(range) || range < 0 || range > 100) {
       window.alert('Activation range must be a whole number from 0 to 100.');
