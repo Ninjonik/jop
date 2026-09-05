@@ -277,6 +277,7 @@ function getActiveLevelCrossingPieceIds(station: StationDocument, session: Sessi
   );
 
   const activeColumns = new Set<number>();
+  const levelCrossingDirectionLocks = (session.runtime.levelCrossingDirectionLocks ??= {});
   Object.entries(station.layout.pieces).forEach(([pieceId, piece]) => {
     if (!isTrackCrossingPieceType(piece.type)) return;
 
@@ -302,8 +303,38 @@ function getActiveLevelCrossingPieceIds(station: StationDocument, session: Sessi
       });
     }
 
-    if ([...searchedPieceIds].some((candidatePieceId) => occupiedPieceIds.has(candidatePieceId))) {
-      activeColumns.add(getPieceAnchor(station.layout, pieceId).x);
+    const crossingOccupied = occupiedPieceIds.has(pieceId);
+    const rangeOccupied = [...searchedPieceIds].some((candidatePieceId) =>
+      occupiedPieceIds.has(candidatePieceId),
+    );
+    const lockKey = `${station.stationId}:${pieceId}`;
+    const existingLock = levelCrossingDirectionLocks[lockKey];
+
+    if (!rangeOccupied) {
+      delete levelCrossingDirectionLocks[lockKey];
+      return;
+    }
+
+    const crossingX = getPieceAnchor(station.layout, pieceId).x;
+    const direction = [...searchedPieceIds].reduce<TrainDirection | null>((current, candidatePieceId) => {
+      if (current || !occupiedPieceIds.has(candidatePieceId)) return current;
+      const candidateX = getPieceAnchor(station.layout, candidatePieceId).x;
+      if (candidateX < crossingX) return 'left-to-right';
+      if (candidateX > crossingX) return 'right-to-left';
+      return null;
+    }, existingLock?.direction ?? null);
+    const lock = {
+      direction,
+      crossingOccupied: crossingOccupied || existingLock?.crossingOccupied === true,
+      updatedAt: nowIso(),
+    };
+    levelCrossingDirectionLocks[lockKey] = lock;
+
+    // The rear can remain inside the approach range after the crossing itself
+    // clears. Retain the direction lock but do not reactivate until this whole
+    // range becomes clear and the crossing can re-arm.
+    if (!lock.crossingOccupied || crossingOccupied) {
+      activeColumns.add(crossingX);
     }
   });
 
@@ -1236,6 +1267,7 @@ function ensureSessionRuntimeState(session: SessionDocument) {
   session.runtime.trains ??= {};
   session.runtime.lineblocks ??= {};
   session.runtime.physicalOccupations ??= {};
+  session.runtime.levelCrossingDirectionLocks ??= {};
 
   Object.values(session.topology.lineblockLinks).forEach((link) => {
     link.defaultFlow = normalizeLineblockDefaultFlow(link.defaultFlow);
@@ -3009,6 +3041,7 @@ async function advanceTrainMovement(sessionId: string, trainId: string) {
     movement.dueAt = new Date(Date.now() + 2000).toISOString();
   }
   session.updatedAt = nowIso();
+  stations.forEach((candidateStation) => getActiveLevelCrossingPieceIds(candidateStation, session));
   await saveSession(session);
   await saveTrainStationSnapshots(session, stations, affectedStationIds);
 
@@ -3303,6 +3336,7 @@ export const stationService = {
       eventId: input.eventId,
       observedAt: input.observedAt,
     };
+    getActiveLevelCrossingPieceIds(station, session);
     session.updatedAt = nowIso();
 
     applyRouteProgressFromOccupationEvent(station, input.pieceId, traversalState, input.occupied);

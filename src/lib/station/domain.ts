@@ -35,6 +35,7 @@ export type SessionDocument = {
     trains: Record<string, MockTrain>;
     lineblocks: Record<string, SessionLineblockRuntimeState>;
     physicalOccupations: Record<string, PhysicalOccupation>;
+    levelCrossingDirectionLocks?: Record<string, LevelCrossingDirectionLock>;
   };
 };
 
@@ -45,6 +46,12 @@ export type PhysicalOccupation = {
   occupied: boolean;
   eventId: string;
   observedAt: string;
+};
+
+export type LevelCrossingDirectionLock = {
+  direction: TrainDirection | null;
+  crossingOccupied: boolean;
+  updatedAt: string;
 };
 
 export type SessionLineblockEndpoint = {
@@ -700,6 +707,16 @@ export const sessionDocumentSchema = z.object({
           occupied: z.boolean(),
           eventId: z.string().trim().min(1),
           observedAt: z.string(),
+        }),
+      )
+      .default({}),
+    levelCrossingDirectionLocks: z
+      .record(
+        z.string(),
+        z.object({
+          direction: z.enum(['left-to-right', 'right-to-left']).nullable(),
+          crossingOccupied: z.boolean(),
+          updatedAt: z.string(),
         }),
       )
       .default({}),
