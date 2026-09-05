@@ -65,6 +65,7 @@ const TRAVERSAL_FALLBACK_TYPES: Record<string, string> = {
   departureSignalNoOcp: 'departureSignal',
   entrySignalNoOcp: 'entrySignal',
   extendedSwitchNoOcp: 'extendedSwitch',
+  singleExtendedSwitchNoOcp: 'singleExtendedSwitch',
   premainSignalNoOcp: 'premainSignal',
   shuntButtonNoOcp: 'shuntButton',
   shuntSignalNoOcp: 'shuntSignal',

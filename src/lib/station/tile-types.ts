@@ -38,6 +38,7 @@ export interface ComponentGroups {
     states: string[];
     defaultState?: string;
     defaultVariant?: string;
+    variants?: Record<string, string[]>;
   };
 }
 

@@ -20,6 +20,7 @@ export function isPhysicalSwitchType(pieceType: string) {
   return (
     normalized === 'singleSwitch' ||
     normalized === 'extendedSwitch' ||
+    normalized === 'singleExtendedSwitch' ||
     normalized === 'crossoverSwitch'
   );
 }
@@ -30,7 +31,11 @@ export function isCrossoverSwitchType(pieceType: string) {
 
 export function isDivergingSwitchTraversal(pieceType: string, traversalState: string) {
   const normalized = normalizeSwitchType(pieceType);
-  if (normalized === 'singleSwitch' || normalized === 'extendedSwitch') {
+  if (
+    normalized === 'singleSwitch' ||
+    normalized === 'extendedSwitch' ||
+    normalized === 'singleExtendedSwitch'
+  ) {
     return traversalState !== 'blTbr';
   }
   if (normalized === 'crossoverSwitch') {
@@ -45,7 +50,7 @@ export function isOccupationVisibleForSwitchAlignment(
   alignedState: string | null | undefined,
 ) {
   const normalized = normalizeSwitchType(pieceType);
-  if (normalized === 'singleSwitch') {
+  if (normalized === 'singleSwitch' || normalized === 'singleExtendedSwitch') {
     return alignedState === 'blTtr'
       ? occupationState === 't' || occupationState === 'blTtr'
       : occupationState === 'blTbr';
@@ -118,7 +123,7 @@ export function getRequiredSwitchMotorPositions(
 ): SwitchMotorPositions {
   const normalized = normalizeSwitchType(pieceType);
 
-  if (normalized === 'singleSwitch') {
+  if (normalized === 'singleSwitch' || normalized === 'singleExtendedSwitch') {
     if (traversableState === 'blTbr') return { main: 'left' };
     if (traversableState === 'blTtr') return { main: 'right' };
     return {};
@@ -147,8 +152,10 @@ export function getRequiredSwitchMotorPositions(
 
 export function getDefaultSwitchMotorPositions(pieceType: string): SwitchMotorPositions {
   const normalized = normalizeSwitchType(pieceType);
-  if (normalized === 'singleSwitch') return { main: 'left' };
-  if (normalized === 'extendedSwitch') return { lower: 'left', upper: 'right' };
+  if (normalized === 'singleSwitch' || normalized === 'singleExtendedSwitch') return { main: 'left' };
+  if (normalized === 'extendedSwitch') {
+    return { lower: 'left', upper: 'right' };
+  }
   if (normalized === 'crossoverSwitch') return { main: 'left' };
   return {};
 }
@@ -178,7 +185,7 @@ export function getTraversableStateForMotorPositions(
 ) {
   const normalized = normalizeSwitchType(pieceType);
 
-  if (normalized === 'singleSwitch') {
+  if (normalized === 'singleSwitch' || normalized === 'singleExtendedSwitch') {
     return positions.main === 'right' ? 'blTtr' : 'blTbr';
   }
 

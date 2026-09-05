@@ -75,7 +75,8 @@ function getGroupVariantOptions(
   const state = group?.states[stateName];
   if (!state) return [];
 
-  return ['normal', ...Object.keys(state.variants || {})];
+  const supportedVariants = tile.groups[groupKey].variants?.[stateName];
+  return ['normal', ...(supportedVariants ?? Object.keys(state.variants || {}))];
 }
 
 export default function TileCatalogTileCard({

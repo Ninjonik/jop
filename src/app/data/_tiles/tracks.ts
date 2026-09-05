@@ -2,6 +2,7 @@ import { boardColors, boardColorsDark, boardColorsWithStripe, signalColors } fro
 
 import type { TileCatalog } from '@/app/components/tiles/tile-catalog';
 
+import Buffer1Square from '@/app/assets/tracks/Buffer1Square';
 import Track1Square from '@/app/assets/tracks/Track1Square';
 import TrackCrossing1Square from '@/app/assets/tracks/TrackCrossing1Square';
 import TrackCrossingNOOCP1Square from '@/app/assets/tracks/TrackCrossingNOOCP1Square';
@@ -14,6 +15,14 @@ import TrackZigZag2Square from '@/app/assets/tracks/TrackZigZag2Square';
 import TrackZigZagNOOCP2Square from '@/app/assets/tracks/TrackZigZagNOOCP2Square';
 
 export const trackTiles: TileCatalog = {
+  buffer: {
+    component: Buffer1Square,
+    space: { x: 1, y: 1 },
+    usedSpace: [[0, 0]],
+    traversable: false,
+    staticStyles: { ...boardColors, '--stripe-color': '#3b3b3b' },
+  },
+
   trackDiagonalLongNoOcp: {
     component: TrackDiagonalLongNOOCP6Square,
     space: { x: 2, y: 3 },

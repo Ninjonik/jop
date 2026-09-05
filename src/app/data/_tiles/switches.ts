@@ -7,6 +7,8 @@ import SwitchCrossoverNOOCP2Square from '@/app/assets/switches/SwitchCrossoverNO
 import SwitchExtended6Square from '@/app/assets/switches/SwitchExtended6Square';
 import SwitchExtendedNOOCP6Square from '@/app/assets/switches/SwitchExtendedNOOCP6Square';
 import SwitchSingle2Square from '@/app/assets/switches/SwitchSingle2Square';
+import SwitchSingleExtended6Square from '@/app/assets/switches/SwitchSingleExtended6Square';
+import SwitchSingleExtendedNOOCP6Square from '@/app/assets/switches/SwitchSingleExtendedNOOCP6Square';
 import SwitchSingleNOOCP2Square from '@/app/assets/switches/SwitchSingleNOOCP2Square';
 
 export const switchTiles: TileCatalog = {
@@ -158,6 +160,56 @@ export const switchTiles: TileCatalog = {
         fill: '#000000',
         size: '10px',
         text: 'Upper Switch Text',
+      },
+    },
+  },
+
+  singleExtendedSwitchNoOcp: {
+    component: SwitchSingleExtendedNOOCP6Square,
+    space: { x: 2, y: 3 },
+    usedSpace: [[0, 0], [0, 1], [1, 1], [0, 2], [1, 2]],
+    traversable: false,
+    staticStyles: { ...boardColorsDark, ...boardColorsWithStripe },
+    texts: {
+      bottomswitchtext: {
+        fill: '#000000',
+        size: '10px',
+        text: 'Lower Switch Text',
+      },
+    },
+  },
+
+  singleExtendedSwitch: {
+    component: SwitchSingleExtended6Square,
+    space: { x: 2, y: 3 },
+    usedSpace: [[0, 0], [0, 1], [1, 1], [0, 2], [1, 2]],
+    // The source SVG is the mirrored extended-switch orientation.
+    traversable: {
+      blTbr: {
+        '2,2': '-1,2',
+        '-1,2': '2,2',
+      },
+      blTtr: {
+        '2,2': '-1,0',
+        '-1,0': '2,2',
+      },
+    },
+    groups: {
+      occupation: {
+        states: ['default', 'setting', 'blTbr', 'blTtr'],
+        defaultState: 'default',
+        variants: {
+          blTbr: ['occupied', 'reserved'],
+          blTtr: ['occupied', 'reserved'],
+        },
+      },
+    },
+    staticStyles: { ...boardColorsDark, ...boardColorsWithStripe },
+    texts: {
+      bottomswitchtext: {
+        fill: '#000000',
+        size: '10px',
+        text: 'Lower Switch Text',
       },
     },
   },

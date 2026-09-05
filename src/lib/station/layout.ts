@@ -14,6 +14,8 @@ const SWITCH_TILE_KEYS = new Set([
   'crossoverSwitch',
   'extendedSwitchNoOcp',
   'extendedSwitch',
+  'singleExtendedSwitchNoOcp',
+  'singleExtendedSwitch',
   'singleSwitchNoOcp',
   'singleSwitch',
 ]);
@@ -467,7 +469,12 @@ function getSwitchEndpointSlot(
 ): 'upper' | 'lower' | 'main' {
   void _localY;
 
-  if (tileKey === 'singleSwitch' || tileKey === 'singleSwitchNoOcp') {
+  if (
+    tileKey === 'singleSwitch' ||
+    tileKey === 'singleSwitchNoOcp' ||
+    tileKey === 'singleExtendedSwitch' ||
+    tileKey === 'singleExtendedSwitchNoOcp'
+  ) {
     return 'main';
   }
 
@@ -475,7 +482,12 @@ function getSwitchEndpointSlot(
     return 'main';
   }
 
-  if (tileKey === 'extendedSwitch' || tileKey === 'extendedSwitchNoOcp') {
+  if (
+    tileKey === 'extendedSwitch' ||
+    tileKey === 'extendedSwitchNoOcp' ||
+    tileKey === 'singleExtendedSwitch' ||
+    tileKey === 'singleExtendedSwitchNoOcp'
+  ) {
     return localX === 0 ? 'lower' : 'upper';
   }
 
@@ -559,7 +571,12 @@ export function getAllConnectionEndpointKeysForPiece(layout: StationLayout, piec
     return [pieceId];
   }
 
-  if (piece.type === 'singleSwitch' || piece.type === 'singleSwitchNoOcp') {
+  if (
+    piece.type === 'singleSwitch' ||
+    piece.type === 'singleSwitchNoOcp' ||
+    piece.type === 'singleExtendedSwitch' ||
+    piece.type === 'singleExtendedSwitchNoOcp'
+  ) {
     return [`${pieceId}:main`];
   }
 
