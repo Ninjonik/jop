@@ -58,6 +58,8 @@ export interface PlacementVariant {
   partsByKey: Record<string, number>;
 }
 
+export type LayoutExpansionDirection = 'left' | 'right' | 'top' | 'bottom';
+
 export function createId() {
   return Math.random().toString(36).slice(2, 12);
 }
@@ -282,6 +284,69 @@ export function createInitialStationLayout(
   }
 
   return { width, height, pieces, map, connections: {} };
+}
+
+/**
+ * Adds one or more empty cells at a board edge without changing any existing
+ * piece IDs or connections. Adding left/top naturally shifts every piece's
+ * rendered position because the map gains cells before the existing map.
+ */
+export function expandStationLayout(
+  layout: StationLayout,
+  direction: LayoutExpansionDirection,
+  amount: number,
+  tiles: TileCatalog,
+  stateGroups: StateGroupRegistry,
+): StationLayout {
+  if (!Number.isInteger(amount) || amount < 1) {
+    return layout;
+  }
+
+  const fillerTile = tiles[FILLER_TILE_KEY];
+  if (!fillerTile) {
+    throw new Error(`Missing required filler tile "${FILLER_TILE_KEY}".`);
+  }
+
+  const pieces = { ...layout.pieces };
+  const createFillerCell = () => {
+    const pieceId = createId();
+    pieces[pieceId] = createPieceRecord(FILLER_TILE_KEY, fillerTile, stateGroups);
+    return `${pieceId}.0` as GridCellRef;
+  };
+  const createFillerRow = (width: number) =>
+    Array.from({ length: width }, () => createFillerCell());
+
+  let map: GridCellRef[][];
+  let width = layout.width;
+  let height = layout.height;
+
+  if (direction === 'left') {
+    map = layout.map.map((row) => [
+      ...Array.from({ length: amount }, () => createFillerCell()),
+      ...row,
+    ]);
+    width += amount;
+  } else if (direction === 'right') {
+    map = layout.map.map((row) => [
+      ...row,
+      ...Array.from({ length: amount }, () => createFillerCell()),
+    ]);
+    width += amount;
+  } else if (direction === 'top') {
+    map = [
+      ...Array.from({ length: amount }, () => createFillerRow(width)),
+      ...layout.map.map((row) => [...row]),
+    ];
+    height += amount;
+  } else {
+    map = [
+      ...layout.map.map((row) => [...row]),
+      ...Array.from({ length: amount }, () => createFillerRow(width)),
+    ];
+    height += amount;
+  }
+
+  return { width, height, map, pieces, connections: { ...layout.connections } };
 }
 
 export function getRenderablePieces(layout: StationLayout) {

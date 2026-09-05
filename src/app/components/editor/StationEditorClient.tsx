@@ -23,6 +23,7 @@ import {
   createId,
   createInitialEditorState,
   createPieceRecord,
+  expandStationLayout,
   getAllConnectionEndpointKeysForPiece,
   getAllowedPlacements,
   getConnectedPieceIdsForEndpointKey,
@@ -38,6 +39,7 @@ import {
   isSwitchPieceType,
   parseCellRef,
   toCellKey,
+  type LayoutExpansionDirection,
 } from './utils';
 
 interface Props {
@@ -218,6 +220,16 @@ export default function StationEditorClient({ tiles, stateGroups }: Props) {
 
   const handleResetBoard = () => {
     setEditorState(createInitialEditorState(draftWidth, draftHeight, tiles, stateGroups));
+    setSelectedCells([]);
+    clearPlacementUi();
+    clearContextMenu();
+    setPendingConnectionEndpointKey(null);
+  };
+
+  const handleExpandBoard = (direction: LayoutExpansionDirection) => {
+    setEditorState((current) => expandStationLayout(current, direction, 1, tiles, stateGroups));
+    setDraftWidth(editorState.width + (direction === 'left' || direction === 'right' ? 1 : 0));
+    setDraftHeight(editorState.height + (direction === 'top' || direction === 'bottom' ? 1 : 0));
     setSelectedCells([]);
     clearPlacementUi();
     clearContextMenu();
@@ -652,6 +664,7 @@ export default function StationEditorClient({ tiles, stateGroups }: Props) {
         onJopPieceLinksInputChange={setJopPieceLinksInput}
         onHighlightJopPieceLinks={handleHighlightJopPieceLinks}
         onSet={handleResetBoard}
+        onExpand={handleExpandBoard}
         onImport={() => fileInputRef.current?.click()}
         onExport={handleExport}
       />

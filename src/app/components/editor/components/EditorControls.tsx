@@ -1,5 +1,7 @@
 'use client';
 
+import type { LayoutExpansionDirection } from '../utils';
+
 interface Props {
   width: number;
   height: number;
@@ -13,6 +15,7 @@ interface Props {
   onJopPieceLinksInputChange: (value: string) => void;
   onHighlightJopPieceLinks: () => void;
   onSet: () => void;
+  onExpand: (direction: LayoutExpansionDirection) => void;
   onImport: () => void;
   onExport: () => void;
 }
@@ -30,6 +33,7 @@ export default function EditorControls({
   onJopPieceLinksInputChange,
   onHighlightJopPieceLinks,
   onSet,
+  onExpand,
   onImport,
   onExport,
 }: Props) {
@@ -53,6 +57,17 @@ export default function EditorControls({
         <button type="button" onClick={onSet} className="border border-neutral-700 bg-white px-2 py-0.5 text-sm text-black">
           set
         </button>
+        <div className="grid grid-cols-3 gap-px text-sm text-black">
+          <span />
+          <button type="button" onClick={() => onExpand('top')} className="border border-neutral-700 bg-white px-2 py-0.5" aria-label="Expand upward">↑</button>
+          <span />
+          <button type="button" onClick={() => onExpand('left')} className="border border-neutral-700 bg-white px-2 py-0.5" aria-label="Expand left">←</button>
+          <span className="px-1 text-xs"></span>
+          <button type="button" onClick={() => onExpand('right')} className="border border-neutral-700 bg-white px-2 py-0.5" aria-label="Expand right">→</button>
+          <span />
+          <button type="button" onClick={() => onExpand('bottom')} className="border border-neutral-700 bg-white px-2 py-0.5" aria-label="Expand downward">↓</button>
+          <span />
+        </div>
         <button type="button" onClick={onImport} className="border border-neutral-700 bg-white px-2 py-0.5 text-sm text-black">
           import
         </button>
@@ -78,27 +93,25 @@ export default function EditorControls({
         >
           find
         </button>
-      </div>
-
-      <div className="flex items-start gap-2">
         <textarea
-          value={jopPieceLinksInput}
-          onChange={(event) => onJopPieceLinksInputChange(event.target.value)}
-          placeholder={'JOPPieceLinks JSON\n[\n  {\n    "stationId": "borinka",\n    "pieceId": "3r38hb4sw5"\n  }\n]'}
-          className="h-28 w-96 resize-y border border-neutral-500 bg-white px-2 py-1 font-mono text-xs text-black"
+            value={jopPieceLinksInput}
+            onChange={(event) => onJopPieceLinksInputChange(event.target.value)}
+            placeholder="JOPPieceLinks as JSON"
+            className="w-96 resize-y border border-neutral-500 bg-white px-2 py-1 font-mono text-xs text-black"
+            rows={1}
         />
         <div className="flex flex-col gap-2">
           <button
-            type="button"
-            onClick={onHighlightJopPieceLinks}
-            className="border border-neutral-700 bg-white px-2 py-1 text-sm text-black"
+              type="button"
+              onClick={onHighlightJopPieceLinks}
+              className="border border-neutral-700 bg-white px-2 py-1 text-sm text-black"
           >
             highlight links
           </button>
           {jopPieceLinksError ? (
-            <div className="max-w-72 border border-red-300 bg-red-50 px-2 py-1 text-xs text-red-700">
-              {jopPieceLinksError}
-            </div>
+              <div className="max-w-72 border border-red-300 bg-red-50 px-2 py-1 text-xs text-red-700">
+                {jopPieceLinksError}
+              </div>
           ) : null}
         </div>
       </div>

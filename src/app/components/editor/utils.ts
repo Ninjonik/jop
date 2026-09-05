@@ -5,6 +5,7 @@ export {
   createId,
   createInitialStationLayout as createInitialEditorState,
   createPieceRecord,
+  expandStationLayout,
   getAllConnectionEndpointKeysForPiece,
   getAllowedPlacements,
   getConnectedPieceIdsForEndpointKey,
@@ -23,3 +24,4 @@ export {
   parseCellRef,
   toCellKey,
 } from '@/lib/station/layout';
+export type { LayoutExpansionDirection } from '@/lib/station/layout';
