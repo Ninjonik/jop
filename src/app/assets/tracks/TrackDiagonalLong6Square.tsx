@@ -4,7 +4,10 @@ import type { SVGProps } from 'react';
 
 const TrackDiagonalLong6Square = (props: SVGProps<SVGSVGElement>) => (
   <svg viewBox="0 0 150 225" xmlns="http://www.w3.org/2000/svg" {...props}>
-    <rect fill="var(--bg-color, #b4bbbd)" width={150} height={225} />
+    <rect fill="var(--bg-color, #b4bbbd)" width={75} height={75} />
+    <rect fill="var(--bg-color, #b4bbbd)" y={75} width={75} height={75} />
+    <rect fill="var(--bg-color, #b4bbbd)" x={75} y={75} width={75} height={75} />
+    <rect fill="var(--bg-color, #b4bbbd)" x={75} y={150} width={75} height={75} />
     <polygon
       fill="var(--stripe-color, #3b3b3b)"
       points="0 30 21.61 30.01 84.54 105 147.47 180 150 180 150 195 140.48 195 75 116.96 14.61 45 0 45"

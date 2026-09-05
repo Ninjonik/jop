@@ -17,7 +17,7 @@ export const trackTiles: TileCatalog = {
   trackDiagonalLongNoOcp: {
     component: TrackDiagonalLongNOOCP6Square,
     space: { x: 2, y: 3 },
-    usedSpace: [[0, 0], [1, 0], [0, 1], [1, 1], [0, 2], [1, 2]],
+    usedSpace: [[0, 0], [0, 1], [1, 1], [1, 2]],
     // Mirroring this mapping yields the normal extended-switch blTtr route.
     traversable: { blTtr: { '2,2': '-1,0', '-1,0': '2,2' } },
     staticStyles: { ...boardColors, '--stripe-color': '#3b3b3b' },
@@ -26,7 +26,7 @@ export const trackTiles: TileCatalog = {
   trackDiagonalLong: {
     component: TrackDiagonalLong6Square,
     space: { x: 2, y: 3 },
-    usedSpace: [[0, 0], [1, 0], [0, 1], [1, 1], [0, 2], [1, 2]],
+    usedSpace: [[0, 0], [0, 1], [1, 1], [1, 2]],
     // Base direction matches a mirrored extended-switch blTtr route.
     traversable: { blTtr: { '2,2': '-1,0', '-1,0': '2,2' } },
     staticStyles: { ...boardColorsDark, ...signalColors, ...boardColorsWithStripe },
