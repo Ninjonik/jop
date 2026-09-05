@@ -187,7 +187,10 @@ function getOccupationState(
     return 't';
   }
 
-  if (pieceType === 'trackZigZag' && traversableState === 'blTtr') {
+  if (
+    (pieceType === 'trackZigZag' || pieceType === 'trackDiagonalLong') &&
+    traversableState === 'blTtr'
+  ) {
     return 'reserved';
   }
 
