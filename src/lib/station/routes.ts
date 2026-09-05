@@ -187,6 +187,10 @@ function getOccupationState(
     return 't';
   }
 
+  if (pieceType === 'trackZigZag' && traversableState === 'blTtr') {
+    return 'reserved';
+  }
+
   if (
     pieceType === 'crossoverSwitch' &&
     traversableState === 'tlTtrAblTbr' &&
