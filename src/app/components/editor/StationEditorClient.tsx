@@ -644,7 +644,12 @@ export default function StationEditorClient({ tiles, stateGroups }: Props) {
         onImport={() => fileInputRef.current?.click()}
         onExport={handleExport}
       />
-      <PlacementToolbar tileKeys={toolbarTileKeys} onSelect={handleToolbarTileClick} />
+      <PlacementToolbar
+        tileKeys={toolbarTileKeys}
+        tiles={tiles}
+        stateGroups={stateGroups}
+        onSelect={handleToolbarTileClick}
+      />
       <StationCanvas
         editorState={editorState}
         tiles={tiles}
