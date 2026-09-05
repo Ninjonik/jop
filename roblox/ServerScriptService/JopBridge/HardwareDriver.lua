@@ -4,6 +4,7 @@
 local HardwareDriver = {}
 local SignalController = require(script.Parent.SignalController)
 local PhysicsService = game:GetService("PhysicsService")
+local TweenService = game:GetService("TweenService")
 
 local COMPONENT_TYPE_ATTRIBUTE = "JOPComponentType"
 local OCCUPIED_ATTRIBUTE = "JOPOccupied"
@@ -40,6 +41,7 @@ local OCCUPANCY_RECONCILE_SECONDS = 1
 
 local switchVisualStateByInstance = setmetatable({}, { __mode = "k" })
 local levelCrossingActiveByInstance = setmetatable({}, { __mode = "k" })
+local levelCrossingStateByInstance = setmetatable({}, { __mode = "k" })
 
 local function push(target, value)
 	target[#target + 1] = value
@@ -327,22 +329,254 @@ local function refreshSectionFromTouchState(section, report)
 	reportSectionOccupiedChange(section, report, getSectionTouchCount(section) > 0)
 end
 
--- Physical gate/light wiring is intentionally deferred until the crossing model
--- contract is finalized. Keep this boundary so backend state can be tested now.
+-- AŽD 71 crossing controller. It intentionally accepts both known model
+-- families: modern models name lamps WhiteLight/RedLightA/RedLightB, while
+-- AŽD 71 models use W/R/R1. A model with no ZÁV descendant simply operates
+-- as a lights-only crossing.
+local BULB_TWEEN_INFO = TweenInfo.new(0.15, Enum.EasingStyle.Sine, Enum.EasingDirection.Out)
+local BARRIER_LOWER_TWEEN_INFO = TweenInfo.new(10, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut)
+local BARRIER_RAISE_TWEEN_INFO = TweenInfo.new(7, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+local BARRIER_UP_X = math.rad(-84)
+local BARRIER_DOWN_X = 0
+
+local function findNamedDescendants(instance, targetNames, className)
+	local found = {}
+	local names = {}
+	for _, name in ipairs(targetNames) do
+		names[name] = true
+	end
+
+	local function visit(candidate)
+		if names[candidate.Name] and (not className or candidate:IsA(className)) then
+			push(found, candidate)
+		end
+	end
+
+	visit(instance)
+	for _, descendant in ipairs(instance:GetDescendants()) do
+		visit(descendant)
+	end
+	return found
+end
+
+local function getLevelCrossingHardware(component)
+	local whiteParts = findNamedDescendants(component, { "WhiteLight", "W" }, "BasePart")
+	local redAParts = findNamedDescendants(component, { "RedLightA", "R" }, "BasePart")
+	local redBParts = findNamedDescendants(component, { "RedLightB", "R1" }, "BasePart")
+	local barriers = findNamedDescendants(component, { "ZÁV" }, "Model")
+	local bells = {}
+	for _, descendant in ipairs(component:GetDescendants()) do
+		if descendant:IsA("Sound") then
+			push(bells, descendant)
+		end
+	end
+
+	return {
+		whiteParts = whiteParts,
+		redAParts = redAParts,
+		redBParts = redBParts,
+		barriers = barriers,
+		bells = bells,
+	}
+end
+
+local function getLampLights(part)
+	local lights = {}
+	for _, descendant in ipairs(part:GetDescendants()) do
+		if descendant:IsA("Light") then
+			push(lights, descendant)
+		end
+	end
+	return lights
+end
+
+local function setLampParts(parts, enabled, immediate)
+	for _, part in ipairs(parts) do
+		local targetTransparency = enabled and 0 or 1
+		if immediate then
+			part.Transparency = targetTransparency
+		else
+			TweenService:Create(part, BULB_TWEEN_INFO, { Transparency = targetTransparency }):Play()
+		end
+
+		for _, light in ipairs(getLampLights(part)) do
+			local targetBrightness = enabled and (light:GetAttribute("JOPNormalBrightness") or light.Brightness or 1) or 0
+			if light:GetAttribute("JOPNormalBrightness") == nil and light.Brightness > 0 then
+				light:SetAttribute("JOPNormalBrightness", light.Brightness)
+			end
+			if immediate then
+				light.Brightness = targetBrightness
+			else
+				TweenService:Create(light, BULB_TWEEN_INFO, { Brightness = targetBrightness }):Play()
+			end
+		end
+	end
+end
+
+local function setBellsActive(bells, active)
+	for _, bell in ipairs(bells) do
+		if active then
+			bell.Looped = true
+			if not bell.IsPlaying then bell:Play() end
+		else
+			bell:Stop()
+		end
+	end
+end
+
+local function getBarrierTargetCFrame(barrier, xAngle)
+	local pivot = barrier:GetPivot()
+	local _, yAngle, zAngle = pivot:ToOrientation()
+	return CFrame.new(pivot.Position) * CFrame.fromOrientation(xAngle, yAngle, zAngle)
+end
+
+local function setBarrierPosition(barrier, xAngle)
+	barrier:PivotTo(getBarrierTargetCFrame(barrier, xAngle))
+end
+
+local function tweenBarriers(state, xAngle, tweenInfo)
+	local tweens = {}
+	for _, barrier in ipairs(state.hardware.barriers) do
+		if barrier.Parent then
+			local driver = Instance.new("CFrameValue")
+			driver.Value = barrier:GetPivot()
+			local connection = driver:GetPropertyChangedSignal("Value"):Connect(function()
+				if barrier.Parent then barrier:PivotTo(driver.Value) end
+			end)
+			local tween = TweenService:Create(driver, tweenInfo, { Value = getBarrierTargetCFrame(barrier, xAngle) })
+			push(tweens, { tween = tween, driver = driver, connection = connection })
+			tween:Play()
+		end
+	end
+	state.barrierTweens = tweens
+	return tweens
+end
+
+local function cancelBarrierTweens(state)
+	for _, entry in ipairs(state.barrierTweens or {}) do
+		entry.tween:Cancel()
+		entry.connection:Disconnect()
+		entry.driver:Destroy()
+	end
+	state.barrierTweens = {}
+end
+
+local function waitForBarrierTweens(tweens)
+	for _, entry in ipairs(tweens) do
+		entry.tween.Completed:Wait()
+		entry.connection:Disconnect()
+		entry.driver:Destroy()
+	end
+end
+
+local function stopAlternatingReds(state)
+	state.redGeneration += 1
+	setLampParts(state.hardware.redAParts, false, true)
+	setLampParts(state.hardware.redBParts, false, true)
+end
+
+local function startAlternatingReds(state)
+	state.redGeneration += 1
+	local generation = state.redGeneration
+	task.spawn(function()
+		local useA = true
+		while state.active and state.redGeneration == generation do
+			setLampParts(state.hardware.redAParts, useA, false)
+			setLampParts(state.hardware.redBParts, not useA, false)
+			task.wait(0.5)
+			useA = not useA
+		end
+	end)
+end
+
+local function stopWhiteBlink(state)
+	state.whiteGeneration += 1
+	setLampParts(state.hardware.whiteParts, false, true)
+end
+
+local function startWhiteBlink(state)
+	state.whiteGeneration += 1
+	local generation = state.whiteGeneration
+	task.spawn(function()
+		local enabled = true
+		while not state.active and state.whiteGeneration == generation do
+			setLampParts(state.hardware.whiteParts, enabled, false)
+			task.wait(0.5)
+			enabled = not enabled
+		end
+	end)
+end
+
 local function activateLevelCrossing(component, linkedStates)
-	print(string.format(
-		"[JOP][Apply] - Would activate level crossing %s for %d linked tile(s)",
-		component:GetFullName(),
-		#linkedStates
-	))
+	local state = levelCrossingStateByInstance[component]
+	if not state then
+		state = {
+			active = false,
+			generation = 0,
+			redGeneration = 0,
+			whiteGeneration = 0,
+			barrierTweens = {},
+			hardware = getLevelCrossingHardware(component),
+		}
+		levelCrossingStateByInstance[component] = state
+		for _, barrier in ipairs(state.hardware.barriers) do setBarrierPosition(barrier, BARRIER_UP_X) end
+	end
+	if state.active then return end
+
+	state.active = true
+	state.generation += 1
+	local generation = state.generation
+	cancelBarrierTweens(state)
+	stopWhiteBlink(state)
+	setBellsActive(state.hardware.bells, true)
+	startAlternatingReds(state)
+	print(string.format("[JOP][Crossing] Activating %s for %d linked tile(s)", component:GetFullName(), #linkedStates))
+
+	task.spawn(function()
+		task.wait(8)
+		if not state.active or state.generation ~= generation then return end
+		local tweens = tweenBarriers(state, BARRIER_DOWN_X, BARRIER_LOWER_TWEEN_INFO)
+		waitForBarrierTweens(tweens)
+		if not state.active or state.generation ~= generation then return end
+		state.barrierTweens = {}
+		print(string.format("[JOP][Crossing] Barriers down: %s", component:GetFullName()))
+	end)
 end
 
 local function deactivateLevelCrossing(component, linkedStates)
-	print(string.format(
-		"[JOP][Apply] - Would deactivate level crossing %s for %d linked tile(s)",
-		component:GetFullName(),
-		#linkedStates
-	))
+	local state = levelCrossingStateByInstance[component]
+	if not state then
+		state = {
+			active = false, generation = 0, redGeneration = 0, whiteGeneration = 0, barrierTweens = {},
+			hardware = getLevelCrossingHardware(component),
+		}
+		levelCrossingStateByInstance[component] = state
+		for _, barrier in ipairs(state.hardware.barriers) do setBarrierPosition(barrier, BARRIER_UP_X) end
+		startWhiteBlink(state)
+		return
+	end
+	if not state.active then return end
+
+	state.active = false
+	state.generation += 1
+	local generation = state.generation
+	cancelBarrierTweens(state)
+	print(string.format("[JOP][Crossing] Clearance received: %s for %d linked tile(s)", component:GetFullName(), #linkedStates))
+
+	task.spawn(function()
+		task.wait(2)
+		if state.active or state.generation ~= generation then return end
+		local tweens = tweenBarriers(state, BARRIER_UP_X, BARRIER_RAISE_TWEEN_INFO)
+		waitForBarrierTweens(tweens)
+		if state.active or state.generation ~= generation then return end
+		state.barrierTweens = {}
+		stopAlternatingReds(state)
+		setBellsActive(state.hardware.bells, false)
+		task.wait(1)
+		if state.active or state.generation ~= generation then return end
+		startWhiteBlink(state)
+		print(string.format("[JOP][Crossing] Idle: %s", component:GetFullName()))
+	end)
 end
 
 local function collectTaggedComponents(instance)
@@ -531,9 +765,9 @@ function HardwareDriver.ApplyInstanceState(instance, linkedStates, capabilities)
 		end
 	end
 
-	-- Later, when the final Roblox model contract is defined, replace these
-	-- switch and occupation attributes with concrete model wiring while keeping
-	-- the bridge protocol stable.
+	-- Switch and occupation components still expose their resolved state through
+	-- attributes; their physical model contracts remain independent of crossing
+	-- control.
 	return true
 end
 

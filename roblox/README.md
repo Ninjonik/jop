@@ -46,9 +46,18 @@ named `JOPPieceLinks`. Its `Value` is JSON:
 
 For a level-crossing controller, set `JOPComponentType` to `levelCrossing` on
 the controller instance and link it to every stacked `trackCrossing` tile that
-belongs to that physical crossing. The bridge currently exposes the aggregate
-state through `JOPResolvedLevelCrossingActive` and logs the intended on/off
-transition; physical barrier/light wiring is deliberately still a stub.
+belongs to that physical crossing. The bridge exposes the aggregate state
+through `JOPResolvedLevelCrossingActive` and drives the AŽD 71 sequence.
+
+- Lamps may be named `WhiteLight`, `RedLightA`, `RedLightB`, or the AŽD 71
+  names `W`, `R`, `R1`. They may be plain parts or contain Roblox `Light`
+  objects.
+- Any `Sound` below the tagged controller is treated as the warning bell.
+- A descendant model named `ZÁV` is optional. When present, its pivot rotates
+  on X from -84° (up) to 0° (down): 8 seconds of warning, a 10-second lowering
+  tween, then a 2-second clearance delay and a 7-second raising tween.
+- Models without `ZÁV` use the same white/red/bell sequence with no barrier
+  movement.
 
 `traversalState` is optional. The default `HardwareDriver.lua` can now infer
 occupation traversal sections directly from part names on the linked Roblox
