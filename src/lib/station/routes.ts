@@ -1046,7 +1046,9 @@ function canUseLineblockForRoute(
 ) {
   const premainState = station.runtime.premainSignalStates[premainSignalPieceId];
   if (!premainState) {
-    return false;
+    // A premain without a connected lineblock is an uncontrolled station edge.
+    // Its entrance and departure routes must not inherit lineblock restrictions.
+    return true;
   }
 
   const lineblockPiece = station.layout.pieces[premainState.linkedLineblockPieceId];
