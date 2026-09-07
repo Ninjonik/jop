@@ -489,6 +489,38 @@ function getArrivalTargetTraversal(station: StationDocument, departureButtonPiec
   return null;
 }
 
+function getShuntArrivalTargetTraversal(
+  station: StationDocument,
+  departureButtonPieceId: string,
+  directionSign: number,
+) {
+  const buttonAnchor = getPieceAnchor(station.layout, departureButtonPieceId);
+  const signalCell = {
+    x: buttonAnchor.x - directionSign,
+    y: buttonAnchor.y,
+  };
+
+  if (
+    signalCell.x < 0 ||
+    signalCell.y < 0 ||
+    signalCell.y >= station.layout.height ||
+    signalCell.x >= station.layout.width
+  ) {
+    return null;
+  }
+
+  const ref = parseCellRef(station.layout.map[signalCell.y][signalCell.x]);
+  const piece = station.layout.pieces[ref.pieceId];
+  if (piece?.type !== 'shuntSignal' && piece?.type !== 'shuntSignalNoOcp') {
+    return null;
+  }
+
+  return {
+    pieceId: ref.pieceId,
+    entry: directionSign > 0 ? { x: -1, y: 0 } : { x: 1, y: 0 },
+  };
+}
+
 function getShuntSourceTraversal(
   station: StationDocument,
   sourcePieceId: string,
@@ -852,6 +884,8 @@ function tracePlatformToNextControl(
   directionSign: number,
   tiles: TileCatalog,
   stopAtShuntControls: boolean,
+  requireDepartureSignalAfterTerminal = false,
+  passedDepartureSignalAndButtonBeforeStart = false,
 ) {
   const reservedMap: Record<string, ActiveTrainRouteOccupation> = {};
   const debugSteps: RouteDebugStep[] = [];
@@ -859,6 +893,9 @@ function tracePlatformToNextControl(
   let currentPieceId: string | null = startPieceId;
   let currentEntry: ExitPoint | null = startEntry;
   let terminalPieceId: string | null = null;
+  let failureReason: string | null = null;
+  let previousPieceType: string | null = null;
+  let passedDepartureSignalAndButton = passedDepartureSignalAndButtonBeforeStart;
 
   while (currentPieceId && currentEntry) {
     const visitedKey = `${currentPieceId}:${toOffsetKey(currentEntry)}`;
@@ -872,19 +909,81 @@ function tracePlatformToNextControl(
       break;
     }
 
+    // An entrance target marks one platform only. Its continuation may end
+    // at a departure-button/departure-signal pair, or at a buffer reached
+    // through a departure signal and button in that order. It must never
+    // choose a route through another shunt control, signal, or switch.
+    if (requireDepartureSignalAfterTerminal && piece.type === 'buffer') {
+      if (passedDepartureSignalAndButton) {
+        terminalPieceId = currentPieceId;
+      } else {
+        failureReason =
+          'The entrance target may end at a buffer only after passing a departure signal and departure button.';
+      }
+      break;
+    }
+
+    if (
+      requireDepartureSignalAfterTerminal &&
+      (piece.type.includes('Switch') ||
+        piece.type === 'shuntButton' ||
+        piece.type === 'shuntButtonNoOcp' ||
+        (isSignalPieceType(piece.type) &&
+          piece.type !== 'departureSignal' &&
+          piece.type !== 'departureSignalNoOcp'))
+    ) {
+      failureReason =
+        'The entrance target must not pass a shunt control, shunt signal, or switch.';
+      break;
+    }
+
     // A normal train route reserves through intermediate shunt controls until
     // the next departure control; a shunt route terminates at any route control.
     const isPlatformEndpoint = piece.type === 'departureButton';
     if (isPlatformEndpoint || (stopAtShuntControls && isRouteControlPieceType(piece.type))) {
-      terminalPieceId = currentPieceId;
-      if (isOccupiablePiece(station, currentPieceId, tiles)) {
+      if (requireDepartureSignalAfterTerminal) {
+        const nextNeighbor = getTrackSideNeighbor(station, currentPieceId, directionSign);
+        const nextPiece = nextNeighbor
+          ? station.layout.pieces[nextNeighbor.pieceId]
+          : null;
+        const isDepartureSignal =
+          nextPiece?.type === 'departureSignal' || nextPiece?.type === 'departureSignalNoOcp';
+        const followsDepartureSignal =
+          previousPieceType === 'departureSignal' || previousPieceType === 'departureSignalNoOcp';
+
+        if (followsDepartureSignal && !isDepartureSignal) {
+          // A buffer may be separated from this opposite-direction
+          // signal/button pair by ordinary track sections.
+          passedDepartureSignalAndButton = true;
+        } else if (!isDepartureSignal) {
+          failureReason =
+            'The entrance target must end at a departure button followed by a departure signal, or at a buffer after passing a departure signal and button.';
+          break;
+        } else {
+          terminalPieceId = currentPieceId;
+          if (isOccupiablePiece(station, currentPieceId, tiles)) {
+            pushReservation(station, reservedMap, currentPieceId, {
+              pieceId: currentPieceId,
+              state: 'reserved',
+              variant: 'normal',
+            });
+          }
+          break;
+        }
+      }
+      if (!requireDepartureSignalAfterTerminal) {
+        terminalPieceId = currentPieceId;
+      }
+      if (!requireDepartureSignalAfterTerminal && isOccupiablePiece(station, currentPieceId, tiles)) {
         pushReservation(station, reservedMap, currentPieceId, {
           pieceId: currentPieceId,
           state: 'reserved',
           variant: 'normal',
         });
       }
-      break;
+      if (!requireDepartureSignalAfterTerminal) {
+        break;
+      }
     }
 
     const option = getSortedMatchingTraversalOptions(
@@ -926,6 +1025,7 @@ function tracePlatformToNextControl(
     if (!neighbor) {
       break;
     }
+    previousPieceType = piece.type;
     currentPieceId = neighbor.pieceId;
     currentEntry = neighbor.entry;
   }
@@ -934,6 +1034,7 @@ function tracePlatformToNextControl(
     reservedOccupations: Object.values(reservedMap),
     debugSteps,
     terminalPieceId,
+    failureReason,
   };
 }
 
@@ -1517,6 +1618,7 @@ export function buildRouteFromSelection(
   tiles: TileCatalog,
   routeType: RuntimeRouteType = 'normal',
   validateRuntimeAvailability = true,
+  targetControl: 'normal' | 'shunt' = 'normal',
 ): StationRouteBuildResult {
   const sourcePiece = station.layout.pieces[sourcePieceId];
   const targetPiece = station.layout.pieces[targetPieceId];
@@ -1533,6 +1635,10 @@ export function buildRouteFromSelection(
         : 'platform-to-premain';
   const direction = getRouteDirection(station, sourcePieceId, targetPieceId);
   const directionSign = normalizeDirection(direction);
+  const targetUsesShuntControl =
+    routeClass === 'premain-to-platform' &&
+    targetPiece.type === 'departureButton' &&
+    targetControl === 'shunt';
 
   if (
     validateRuntimeAvailability &&
@@ -1559,9 +1665,16 @@ export function buildRouteFromSelection(
   const targetTraversal =
     routeType === 'shunt' && targetPiece.type === 'shuntSignalButtonBuffer'
       ? getTerminalTargetTraversal(station, targetPieceId, directionSign)
+      : routeType === 'shunt' &&
+          targetPiece.type === 'departureButton' &&
+          targetControl === 'shunt'
+        ? getShuntArrivalTargetTraversal(station, targetPieceId, directionSign)
       : routeType === 'shunt' && targetPiece.type !== 'departureButton'
       ? getInlineTargetTraversal(station, targetPieceId, sourcePieceId)
-      : routeClass === 'premain-to-platform' || routeType === 'shunt'
+      : (routeClass === 'premain-to-platform' &&
+          targetPiece.type === 'departureButton' &&
+          !targetUsesShuntControl) ||
+          routeType === 'shunt'
         ? getArrivalTargetTraversal(station, targetPieceId)
         : getInlineTargetTraversal(station, targetPieceId, sourcePieceId);
 
@@ -1696,7 +1809,17 @@ export function buildRouteFromSelection(
             directionSign,
             tiles,
             false,
+            true,
+            targetUsesShuntControl,
           );
+          if (platform.failureReason) {
+            throw new Error(platform.failureReason);
+          }
+          if (!platform.terminalPieceId) {
+            throw new Error(
+              'The entrance target must continue to a departure button immediately followed by a departure signal.',
+            );
+          }
           platform.reservedOccupations.forEach((occupation) => {
             pushReservation(station, extraReservedMap, occupation.pieceId, occupation);
           });

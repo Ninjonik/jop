@@ -299,6 +299,23 @@ export default function StationRuntimeBoard({ station, onErrorChange }: StationR
     return !!(signalPieceId && station.runtime.activePrivolavaciaSignals[signalPieceId]);
   }
 
+  function handlePremainContextMenu(pieceId: string) {
+    // Finding the entry signal uses route search. Keep that work on the PN
+    // interaction path instead of repeating it for every premain on every
+    // server snapshot (including ordinary route-selection snapshots).
+    if (Object.keys(station.runtime.activePrivolavaciaSignals).length === 0) {
+      void submitRouteInteract(pieceId, 'right', 'normal');
+      return;
+    }
+
+    const entrySignalPieceId = getEntrySignalPieceIdForPremain(station, pieceId);
+    if (hasActivePrivolavaciaSignal(entrySignalPieceId)) {
+      void submitPrivolavaciaInteract(pieceId, 'right');
+      return;
+    }
+    void submitRouteInteract(pieceId, 'right', 'normal');
+  }
+
   function isManualSwitchButtonState(state: string) {
     return (
       state === 'leftSet' ||
@@ -436,10 +453,6 @@ export default function StationRuntimeBoard({ station, onErrorChange }: StationR
           const bufferControlSide = getOrientedSide(piece.rotation, piece.mirrored, 'left');
           const departureSignalPieceId =
             piece.type === 'departureButton' ? getDepartureSignalPieceIdForButton(station, pieceId) : null;
-          const entrySignalPieceId =
-            piece.type === 'premainSignal' || piece.type === 'premainSignalNoOcp'
-              ? getEntrySignalPieceIdForPremain(station, pieceId)
-              : null;
           const hasServerPendingAction = Object.values(station.runtime.pendingActions).some(
             (action) => action.payload.pieceId === pieceId,
           );
@@ -595,11 +608,7 @@ export default function StationRuntimeBoard({ station, onErrorChange }: StationR
                   onClick={() => void submitRouteInteract(pieceId, 'left', 'normal')}
                   onContextMenu={(event) => {
                     event.preventDefault();
-                    if (hasActivePrivolavaciaSignal(entrySignalPieceId)) {
-                      void submitPrivolavaciaInteract(pieceId, 'right');
-                      return;
-                    }
-                    void submitRouteInteract(pieceId, 'right', 'normal');
+                    handlePremainContextMenu(pieceId);
                   }}
                   className="pointer-events-auto absolute inset-0 rounded-sm border border-transparent bg-transparent disabled:cursor-wait"
                 />
@@ -647,12 +656,22 @@ export default function StationRuntimeBoard({ station, onErrorChange }: StationR
               {piece.type === 'shuntButton' || piece.type === 'shuntButtonNoOcp' ? (
                 <button
                   type="button"
-                  aria-label={`Interact with shunting route endpoint ${pieceId}`}
+                  aria-label={`Interact with route endpoint ${pieceId}`}
                   disabled={isPiecePending}
-                  onClick={() => void submitRouteInteract(pieceId, 'left', 'shunt')}
+                  onClick={() =>
+                    void submitRouteInteract(
+                      pieceId,
+                      'left',
+                      station.runtime.routeSelection?.routeType === 'normal' ? 'normal' : 'shunt',
+                    )
+                  }
                   onContextMenu={(event) => {
                     event.preventDefault();
-                    void submitRouteInteract(pieceId, 'right', 'shunt');
+                    void submitRouteInteract(
+                      pieceId,
+                      'right',
+                      station.runtime.routeSelection?.routeType === 'normal' ? 'normal' : 'shunt',
+                    );
                   }}
                   className="pointer-events-auto absolute inset-0 rounded-sm border border-transparent bg-transparent disabled:cursor-wait"
                 />

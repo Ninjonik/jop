@@ -16,7 +16,15 @@ export const buttonTiles: TileCatalog = {
     component: DepartureButton1Square,
     space: { x: 1, y: 1 },
     usedSpace: [[0, 0]],
-    traversable: false,
+    // A departure button is a route control over the track, not a physical
+    // break. Entrance searches must be able to pass it to reach a selected
+    // downstream shunt-button platform target.
+    traversable: {
+      0: {
+        '1,0': '-1,0',
+        '-1,0': '1,0',
+      },
+    },
     staticStyles: {
       ...boardColorsWithStripe,
       '--color-shunt': '#696969',

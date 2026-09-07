@@ -4537,14 +4537,16 @@ export const stationService = {
         ? shuntEndpointTypes.has(targetPieceType)
         : ((selection.sourcePieceType === 'premainSignal' ||
             selection.sourcePieceType === 'premainSignalNoOcp') &&
-            targetPieceType === 'departureButton') ||
+            (targetPieceType === 'departureButton' ||
+              targetPieceType === 'shuntButton' ||
+              targetPieceType === 'shuntButtonNoOcp')) ||
           (selection.sourcePieceType === 'departureButton' &&
             (targetPieceType === 'shuntButton' || targetPieceType === 'shuntButtonNoOcp'));
     if (!validPair) {
       throw new Error(
         selection.routeType === 'shunt'
           ? 'Shunting routes must end at a shunt-capable route control.'
-          : 'Normal routes must run from a premain signal to a platform departure control, or from a platform departure control to a shunt button.',
+          : 'Normal routes must run from a premain signal to a platform departure or shunt control, or from a platform departure control to a shunt button.',
       );
     }
 
@@ -4555,6 +4557,8 @@ export const stationService = {
         command.payload.pieceId,
         tiles,
         selection.routeType,
+        true,
+        command.payload.control,
       );
       logRouteBuildDebug(station, builtRoute);
       const action: PendingAction = {
