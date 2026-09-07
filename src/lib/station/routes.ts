@@ -489,38 +489,6 @@ function getArrivalTargetTraversal(station: StationDocument, departureButtonPiec
   return null;
 }
 
-function getShuntArrivalTargetTraversal(
-  station: StationDocument,
-  departureButtonPieceId: string,
-  directionSign: number,
-) {
-  const buttonAnchor = getPieceAnchor(station.layout, departureButtonPieceId);
-  const signalCell = {
-    x: buttonAnchor.x - directionSign,
-    y: buttonAnchor.y,
-  };
-
-  if (
-    signalCell.x < 0 ||
-    signalCell.y < 0 ||
-    signalCell.y >= station.layout.height ||
-    signalCell.x >= station.layout.width
-  ) {
-    return null;
-  }
-
-  const ref = parseCellRef(station.layout.map[signalCell.y][signalCell.x]);
-  const piece = station.layout.pieces[ref.pieceId];
-  if (piece?.type !== 'shuntSignal' && piece?.type !== 'shuntSignalNoOcp') {
-    return null;
-  }
-
-  return {
-    pieceId: ref.pieceId,
-    entry: directionSign > 0 ? { x: -1, y: 0 } : { x: 1, y: 0 },
-  };
-}
-
 function getShuntSourceTraversal(
   station: StationDocument,
   sourcePieceId: string,
@@ -1665,10 +1633,6 @@ export function buildRouteFromSelection(
   const targetTraversal =
     routeType === 'shunt' && targetPiece.type === 'shuntSignalButtonBuffer'
       ? getTerminalTargetTraversal(station, targetPieceId, directionSign)
-      : routeType === 'shunt' &&
-          targetPiece.type === 'departureButton' &&
-          targetControl === 'shunt'
-        ? getShuntArrivalTargetTraversal(station, targetPieceId, directionSign)
       : routeType === 'shunt' && targetPiece.type !== 'departureButton'
       ? getInlineTargetTraversal(station, targetPieceId, sourcePieceId)
       : (routeClass === 'premain-to-platform' &&

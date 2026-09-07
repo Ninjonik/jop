@@ -532,7 +532,6 @@ function applyRouteSelectionVisualState(
         piece.type,
         selection.routeType,
         selection.sourcePieceType === 'departureButton' ? selection.sourceControl : null,
-        null,
       ),
       variant: 'blinking',
     };
@@ -566,13 +565,6 @@ function applyPendingRouteVisualState(station: StationDocument, action: PendingA
           piece.type,
           action.payload.routeType === 'shunt' ? 'shunt' : 'normal',
           explicitControl,
-          action.payload.routeClass === 'platform-to-premain'
-            ? 'platform-to-premain'
-            : action.payload.routeClass === 'premain-to-platform'
-              ? 'premain-to-platform'
-              : action.payload.routeClass === 'shunt'
-                ? 'shunt'
-                : null,
         ),
         variant: 'blinking',
       };
@@ -584,7 +576,6 @@ function getButtonVisualState(
   pieceType: string,
   routeType: RuntimeRouteType,
   explicitControl: 'normal' | 'shunt' | null,
-  routeClass: ActiveTrainRoute['routeClass'] | null,
 ) {
   if (pieceType === 'departureButton') {
     if (explicitControl) {
@@ -593,10 +584,7 @@ function getButtonVisualState(
     return routeType === 'shunt' ? 'shunt' : 'departure';
   }
 
-  if (
-    (pieceType === 'shuntButton' || pieceType === 'shuntButtonNoOcp') &&
-    routeClass === 'platform-to-premain'
-  ) {
+  if (pieceType === 'shuntButton' || pieceType === 'shuntButtonNoOcp') {
     return 'shunt';
   }
 
