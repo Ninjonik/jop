@@ -1006,6 +1006,94 @@ function tracePlatformToNextControl(
   };
 }
 
+function isTrackPieceType(pieceType: string) {
+  return pieceType.startsWith('track');
+}
+
+function isForwardShuntTailPieceType(pieceType: string) {
+  return (
+    isTrackPieceType(pieceType) ||
+    pieceType === 'shuntButton' ||
+    pieceType === 'shuntButtonNoOcp'
+  );
+}
+
+function traceShuntTargetTrackTail(
+  station: StationDocument,
+  startPieceId: string,
+  startEntry: ExitPoint,
+  directionSign: number,
+  tiles: TileCatalog,
+) {
+  const reservedMap: Record<string, ActiveTrainRouteOccupation> = {};
+  const debugSteps: RouteDebugStep[] = [];
+  const visited = new Set<string>();
+  let currentPieceId: string | null = startPieceId;
+  let currentEntry: ExitPoint | null = startEntry;
+
+  while (currentPieceId && currentEntry) {
+    const visitedKey = `${currentPieceId}:${toOffsetKey(currentEntry)}`;
+    if (visited.has(visitedKey)) {
+      break;
+    }
+    visited.add(visitedKey);
+
+    const piece = station.layout.pieces[currentPieceId];
+    // A shunt route ends at its selected button. Its tail protection may cover
+    // contiguous track and forward shunt buttons only; every other tile type
+    // is a boundary, irrespective of a signal's facing direction.
+    if (!piece || !isForwardShuntTailPieceType(piece.type)) {
+      break;
+    }
+
+    const option = getSortedMatchingTraversalOptions(
+      station,
+      currentPieceId,
+      currentEntry,
+      directionSign,
+      tiles,
+    )[0];
+    if (!option) {
+      break;
+    }
+
+    const occupation = isOccupiablePiece(station, currentPieceId, tiles)
+      ? {
+          pieceId: currentPieceId,
+          state: option.occupationState,
+          variant: option.occupationVariant,
+        }
+      : null;
+    pushReservation(station, reservedMap, currentPieceId, occupation);
+    debugSteps.push({
+      pieceId: currentPieceId,
+      pieceType: piece.type,
+      anchor: `${getPieceAnchor(station.layout, currentPieceId).x},${getPieceAnchor(station.layout, currentPieceId).y}`,
+      cells: getPieceCells(station.layout, currentPieceId).map(([x, y]) => `${x},${y}`),
+      rotation: piece.rotation,
+      mirrored: piece.mirrored,
+      entry: toOffsetKey(option.entry),
+      exit: toOffsetKey(option.exit),
+      traversableState: option.state,
+      occupationState: occupation?.state ?? null,
+      occupationVariant: occupation?.variant ?? null,
+      signalIncluded: false,
+    });
+
+    const neighbor = getNeighborTraversal(station, currentPieceId, option.exit);
+    if (!neighbor) {
+      break;
+    }
+    currentPieceId = neighbor.pieceId;
+    currentEntry = neighbor.entry;
+  }
+
+  return {
+    reservedOccupations: Object.values(reservedMap),
+    debugSteps,
+  };
+}
+
 function traceBackwardToBoundary(
   station: StationDocument,
   startPieceId: string,
@@ -1804,13 +1892,12 @@ export function buildRouteFromSelection(
               : null;
 
         if (platformStart) {
-          const platform = tracePlatformToNextControl(
+          const platform = traceShuntTargetTrackTail(
             station,
             platformStart.pieceId,
             platformStart.entryFromSource,
             directionSign,
             tiles,
-            true,
           );
           platform.reservedOccupations.forEach((occupation) => {
             pushReservation(station, extraReservedMap, occupation.pieceId, occupation);

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import TileSvg from '@/app/components/tiles/TileSvg';
 import { stateGroups, tiles } from '@/app/data/tiles';
@@ -31,7 +31,10 @@ function getOrientedSide(rotation: 0 | 180, mirrored: boolean, side: 'left' | 'r
   return horizontallyFlipped ? (side === 'left' ? 'right' : 'left') : side;
 }
 
-function getDepartureSignalPieceIdForButton(station: StationDocument, departureButtonPieceId: string) {
+function getDepartureSignalPieceIdForButton(
+  station: StationDocument,
+  departureButtonPieceId: string,
+) {
   const anchor = getPieceAnchor(station.layout, departureButtonPieceId);
 
   for (const directionX of [-1, 1]) {
@@ -90,10 +93,40 @@ function getEntrySignalPieceIdForPremain(station: StationDocument, premainSignal
 
 export default function StationRuntimeBoard({ station, onErrorChange }: StationRuntimeBoardProps) {
   const renderablePieces = getRenderablePieces(station.layout);
-  const tileSize = 75;
   const layout = station.layout;
+  const boardViewportRef = useRef<HTMLDivElement>(null);
+  const [fitWidth, setFitWidth] = useState(true);
+  const [viewportWidth, setViewportWidth] = useState(0);
+  const [manualTileSize, setManualTileSize] = useState(75);
   const [pendingActionKey, setPendingActionKey] = useState<string | null>(null);
   const [heldInspectionButtonId, setHeldInspectionButtonId] = useState<string | null>(null);
+  const fittedTileSize = viewportWidth > 0 ? viewportWidth / layout.width : 75;
+  const tileSize = fitWidth ? fittedTileSize : manualTileSize;
+
+  useEffect(() => {
+    const boardViewport = boardViewportRef.current;
+    if (!boardViewport) {
+      return;
+    }
+
+    const updateViewportWidth = () => setViewportWidth(boardViewport.clientWidth);
+    updateViewportWidth();
+
+    const observer = new ResizeObserver(updateViewportWidth);
+    observer.observe(boardViewport);
+    return () => observer.disconnect();
+  }, []);
+
+  function disableFitWidth() {
+    setManualTileSize(fittedTileSize);
+    setFitWidth(false);
+  }
+
+  function changeManualZoom(factor: number) {
+    setManualTileSize((currentSize) =>
+      Math.max(20, Math.min(180, Math.round(currentSize * factor))),
+    );
+  }
 
   async function submitLineblockAction(pieceId: string, type: LineblockActionType) {
     try {
@@ -397,16 +430,16 @@ export default function StationRuntimeBoard({ station, onErrorChange }: StationR
     }
 
     const alignment = station.runtime.switchAlignments[pieceId];
-    if (piece.state.groups.occupation.state !== 'default' || piece.state.groups.occupation.variant === 'occupied') {
+    if (
+      piece.state.groups.occupation.state !== 'default' ||
+      piece.state.groups.occupation.variant === 'occupied'
+    ) {
       return null;
     }
 
     const overlayState =
       alignment?.traversableState ??
-      getTraversableStateForMotorPositions(
-        piece.type,
-        getDefaultSwitchMotorPositions(piece.type),
-      );
+      getTraversableStateForMotorPositions(piece.type, getDefaultSwitchMotorPositions(piece.type));
     if (!overlayState) {
       return null;
     }
@@ -422,9 +455,54 @@ export default function StationRuntimeBoard({ station, onErrorChange }: StationR
 
   return (
     <div
-      className="relative flex flex-1 items-start justify-center overflow-auto bg-neutral-400"
+      ref={boardViewportRef}
+      className={`relative flex flex-1 items-start overflow-auto bg-neutral-400 ${fitWidth ? 'justify-center' : 'justify-start'}`}
       onContextMenu={(event) => event.preventDefault()}
     >
+      <div className="pointer-events-auto absolute top-2 left-2 z-10 flex gap-1 rounded border border-neutral-700 bg-white/95 p-1 shadow">
+        <button
+          type="button"
+          aria-pressed={fitWidth}
+          onClick={() => (fitWidth ? disableFitWidth() : setFitWidth(true))}
+          className="rounded border border-neutral-500 px-2 py-1 text-xs font-medium text-neutral-900 hover:bg-neutral-100"
+        >
+          Fit width
+        </button>
+        {!fitWidth ? (
+          <>
+            <button
+              type="button"
+              aria-label="Zoom out"
+              onClick={() => changeManualZoom(1 / 1.2)}
+              className="grid size-7 place-items-center rounded border border-neutral-500 text-neutral-900 hover:bg-neutral-100"
+            >
+              <svg
+                aria-hidden="true"
+                viewBox="0 0 24 24"
+                className="size-4 fill-none stroke-current stroke-2"
+              >
+                <circle cx="11" cy="11" r="6" />
+                <path d="m16 16 4 4M8 11h6" />
+              </svg>
+            </button>
+            <button
+              type="button"
+              aria-label="Zoom in"
+              onClick={() => changeManualZoom(1.2)}
+              className="grid size-7 place-items-center rounded border border-neutral-500 text-neutral-900 hover:bg-neutral-100"
+            >
+              <svg
+                aria-hidden="true"
+                viewBox="0 0 24 24"
+                className="size-4 fill-none stroke-current stroke-2"
+              >
+                <circle cx="11" cy="11" r="6" />
+                <path d="m16 16 4 4M8 11h6M11 8v6" />
+              </svg>
+            </button>
+          </>
+        ) : null}
+      </div>
       <div
         className="relative shrink-0 bg-neutral-500"
         style={{
@@ -452,7 +530,9 @@ export default function StationRuntimeBoard({ station, onErrorChange }: StationR
           const shuntControlSide = getOrientedSide(piece.rotation, piece.mirrored, 'right');
           const bufferControlSide = getOrientedSide(piece.rotation, piece.mirrored, 'left');
           const departureSignalPieceId =
-            piece.type === 'departureButton' ? getDepartureSignalPieceIdForButton(station, pieceId) : null;
+            piece.type === 'departureButton'
+              ? getDepartureSignalPieceIdForButton(station, pieceId)
+              : null;
           const hasServerPendingAction = Object.values(station.runtime.pendingActions).some(
             (action) => action.payload.pieceId === pieceId,
           );
@@ -617,27 +697,27 @@ export default function StationRuntimeBoard({ station, onErrorChange }: StationR
               {piece.type === 'departureButton' ? (
                 <>
                   <button
-                  type="button"
-                  aria-label={`Interact with normal route endpoint ${pieceId}`}
-                  disabled={isPiecePending}
-                  onClick={() => {
-                    if (station.runtime.privolavaciaSelection && departureSignalPieceId) {
-                      void submitPrivolavaciaInteract(pieceId, 'left');
-                      return;
-                    }
-                    void submitRouteInteract(pieceId, 'left', 'normal');
-                  }}
-                  onContextMenu={(event) => {
-                    event.preventDefault();
-                    if (hasActivePrivolavaciaSignal(departureSignalPieceId)) {
-                      void submitPrivolavaciaInteract(pieceId, 'right');
-                      return;
-                    }
-                    void submitRouteInteract(pieceId, 'right', 'normal');
-                  }}
-                  className="pointer-events-auto absolute inset-y-0 w-1/2 rounded-sm border border-transparent bg-transparent disabled:cursor-wait"
-                  style={{ [normalControlSide]: 0 }}
-                />
+                    type="button"
+                    aria-label={`Interact with normal route endpoint ${pieceId}`}
+                    disabled={isPiecePending}
+                    onClick={() => {
+                      if (station.runtime.privolavaciaSelection && departureSignalPieceId) {
+                        void submitPrivolavaciaInteract(pieceId, 'left');
+                        return;
+                      }
+                      void submitRouteInteract(pieceId, 'left', 'normal');
+                    }}
+                    onContextMenu={(event) => {
+                      event.preventDefault();
+                      if (hasActivePrivolavaciaSignal(departureSignalPieceId)) {
+                        void submitPrivolavaciaInteract(pieceId, 'right');
+                        return;
+                      }
+                      void submitRouteInteract(pieceId, 'right', 'normal');
+                    }}
+                    className="pointer-events-auto absolute inset-y-0 w-1/2 rounded-sm border border-transparent bg-transparent disabled:cursor-wait"
+                    style={{ [normalControlSide]: 0 }}
+                  />
                   <button
                     type="button"
                     aria-label={`Interact with shunting route endpoint ${pieceId}`}

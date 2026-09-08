@@ -6,14 +6,23 @@ type SwitchSingleExtendedProps = SVGProps<SVGSVGElement> & { bottomswitchtext?: 
 
 const SwitchSingleExtended6Square = ({ bottomswitchtext, ...props }: SwitchSingleExtendedProps) => (
   <svg viewBox="0 0 150 225" xmlns="http://www.w3.org/2000/svg" {...props}>
-    <rect fill="var(--bg-color, #b4bbbd)" width={150} height={225} />
+    <rect fill="var(--bg-color, #b4bbbd)" width={75} height={75} />
+    <rect fill="var(--bg-color, #b4bbbd)" y={75} width={75} height={75} />
+    <rect fill="var(--bg-color, #b4bbbd)" x={75} y={75} width={75} height={75} />
+    <rect fill="var(--bg-color, #b4bbbd)" x={75} y={150} width={75} height={75} />
     <polygon
       fill="var(--stripe-color, #3b3b3b)"
       points="0 30 21.61 30.01 84.54 105 147.47 180 150 180 150 195 140.48 195 75 116.97 14.61 45 0 45"
     />
-    <rect fill="var(--stripe-color, #3b3b3b)" y={180} width={150} height={15} />
-    <rect fill="var(--occupation-bottomLeft-color, #6e6e6e)" x={5} y={183.5} width={65} height={8} rx={4} />
-    <rect fill="var(--occupation-bottomLeft-color, #6e6e6e)" x={80} y={183.5} width={65} height={8} rx={4} />
+    <rect fill="var(--stripe-color, #3b3b3b)" x={75} y={180} width={75} height={15} />
+    <rect
+      fill="var(--occupation-bottomLeft-color, #6e6e6e)"
+      x={80}
+      y={183.5}
+      width={65}
+      height={8}
+      rx={4}
+    />
     <rect
       fill="var(--occupation-middleLeft-color, #6e6e6e)"
       x={45.56}

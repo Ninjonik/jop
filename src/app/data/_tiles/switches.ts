@@ -167,7 +167,7 @@ export const switchTiles: TileCatalog = {
   singleExtendedSwitchNoOcp: {
     component: SwitchSingleExtendedNOOCP6Square,
     space: { x: 2, y: 3 },
-    usedSpace: [[0, 0], [0, 1], [1, 1], [0, 2], [1, 2]],
+    usedSpace: [[0, 0], [0, 1], [1, 1], [1, 2]],
     traversable: false,
     staticStyles: { ...boardColorsDark, ...boardColorsWithStripe },
     texts: {
@@ -182,16 +182,16 @@ export const switchTiles: TileCatalog = {
   singleExtendedSwitch: {
     component: SwitchSingleExtended6Square,
     space: { x: 2, y: 3 },
-    usedSpace: [[0, 0], [0, 1], [1, 1], [0, 2], [1, 2]],
+    usedSpace: [[0, 0], [0, 1], [1, 1], [1, 2]],
     // The source SVG is the mirrored extended-switch orientation.
     traversable: {
       blTbr: {
-        '2,2': '-1,2',
-        '-1,2': '2,2',
+        '2,2': '0,2',
+        '0,2': '2,2',
       },
       blTtr: {
-        '2,2': '-1,0',
-        '-1,0': '2,2',
+        '2,2': '0,0',
+        '0,0': '2,2',
       },
     },
     groups: {

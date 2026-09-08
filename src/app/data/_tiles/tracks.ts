@@ -3,6 +3,7 @@ import { boardColors, boardColorsDark, boardColorsWithStripe, signalColors } fro
 import type { TileCatalog } from '@/app/components/tiles/tile-catalog';
 
 import Buffer1Square from '@/app/assets/tracks/Buffer1Square';
+import BufferSignal1Square from '@/app/assets/tracks/BufferSignal1Square';
 import Track1Square from '@/app/assets/tracks/Track1Square';
 import TrackCrossing1Square from '@/app/assets/tracks/TrackCrossing1Square';
 import TrackCrossingNOOCP1Square from '@/app/assets/tracks/TrackCrossingNOOCP1Square';
@@ -23,10 +24,37 @@ export const trackTiles: TileCatalog = {
     staticStyles: { ...boardColors, '--stripe-color': '#3b3b3b' },
   },
 
+  bufferSignal: {
+    component: BufferSignal1Square,
+    space: { x: 1, y: 1 },
+    usedSpace: [[0, 0]],
+    // This is a styled buffer stop, not a route control or a traversable signal.
+    traversable: false,
+    staticStyles: { ...boardColors, ...signalColors, '--stripe-color': '#3b3b3b' },
+    groups: {
+      signal: {
+        states: ['default'],
+        defaultState: 'default',
+      },
+    },
+    texts: {
+      text: {
+        fill: '#000000',
+        size: '10px',
+        text: 'Text',
+      },
+    },
+  },
+
   trackDiagonalLongNoOcp: {
     component: TrackDiagonalLongNOOCP6Square,
     space: { x: 2, y: 3 },
-    usedSpace: [[0, 0], [0, 1], [1, 1], [1, 2]],
+    usedSpace: [
+      [0, 0],
+      [0, 1],
+      [1, 1],
+      [1, 2],
+    ],
     // Mirroring this mapping yields the normal extended-switch blTtr route.
     traversable: { blTtr: { '2,2': '-1,0', '-1,0': '2,2' } },
     staticStyles: { ...boardColors, '--stripe-color': '#3b3b3b' },
@@ -35,17 +63,27 @@ export const trackTiles: TileCatalog = {
   trackDiagonalLong: {
     component: TrackDiagonalLong6Square,
     space: { x: 2, y: 3 },
-    usedSpace: [[0, 0], [0, 1], [1, 1], [1, 2]],
+    usedSpace: [
+      [0, 0],
+      [0, 1],
+      [1, 1],
+      [1, 2],
+    ],
     // Base direction matches a mirrored extended-switch blTtr route.
     traversable: { blTtr: { '2,2': '-1,0', '-1,0': '2,2' } },
     staticStyles: { ...boardColorsDark, ...signalColors, ...boardColorsWithStripe },
-    groups: { occupation: { states: ['default', 'reserved', 'occupied'], defaultState: 'default' } },
+    groups: {
+      occupation: { states: ['default', 'reserved', 'occupied'], defaultState: 'default' },
+    },
   },
 
   trackZigZagNoOcp: {
     component: TrackZigZagNOOCP2Square,
     space: { x: 1, y: 2 },
-    usedSpace: [[0, 0], [0, 1]],
+    usedSpace: [
+      [0, 0],
+      [0, 1],
+    ],
     traversable: {
       blTtr: { '-1,1': '1,0', '1,0': '-1,1' },
     },
@@ -55,12 +93,17 @@ export const trackTiles: TileCatalog = {
   trackZigZag: {
     component: TrackZigZag2Square,
     space: { x: 1, y: 2 },
-    usedSpace: [[0, 0], [0, 1]],
+    usedSpace: [
+      [0, 0],
+      [0, 1],
+    ],
     traversable: {
       blTtr: { '-1,1': '1,0', '1,0': '-1,1' },
     },
     staticStyles: { ...boardColorsDark, ...signalColors, ...boardColorsWithStripe },
-    groups: { occupation: { states: ['default', 'reserved', 'occupied'], defaultState: 'default' } },
+    groups: {
+      occupation: { states: ['default', 'reserved', 'occupied'], defaultState: 'default' },
+    },
   },
 
   trackCrossingNoOcp: {
@@ -81,7 +124,9 @@ export const trackTiles: TileCatalog = {
       0: { '1,0': '-1,0', '-1,0': '1,0' },
     },
     staticStyles: { ...boardColorsDark, ...signalColors, ...boardColorsWithStripe },
-    groups: { occupation: { states: ['default', 'reserved', 'occupied'], defaultState: 'default' } },
+    groups: {
+      occupation: { states: ['default', 'reserved', 'occupied'], defaultState: 'default' },
+    },
   },
 
   trackNoOcp: {
