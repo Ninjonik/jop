@@ -13,12 +13,14 @@ export const boardTiles: TileCatalog = {
     space: { x: 1, y: 1 },
     usedSpace: [[0, 0]],
     traversable: false,
+    staticStyles: boardColors,
   },
   levelCrossingEnd: {
     component: LevelCrossingEnd,
     space: { x: 1, y: 1 },
     usedSpace: [[0, 0]],
     traversable: false,
+    staticStyles: boardColors,
   },
   filler: {
     component: Board1Square,

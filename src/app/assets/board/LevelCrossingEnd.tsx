@@ -12,7 +12,7 @@ const LevelCrossingEnd = (props: SVGProps<SVGSVGElement>) => (
     <defs>
       <style>
         {
-          '\n      .cls-1 {\n        fill: #3b3b3b;\n      }\n\n      .cls-2 {\n        fill: #b4bbbd;\n      }\n    '
+          '\n      .cls-1 {\n        fill: #3b3b3b;\n      }\n\n      .cls-2 {\n        fill: var(--bg-color, #b4bbbd);\n      }\n    '
         }
       </style>
     </defs>
