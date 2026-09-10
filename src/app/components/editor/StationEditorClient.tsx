@@ -54,6 +54,7 @@ export default function StationEditorClient({ tiles, stateGroups }: Props) {
   const [pieceIdLookup, setPieceIdLookup] = useState('');
   const [jopPieceLinksInput, setJopPieceLinksInput] = useState('');
   const [jopPieceLinksError, setJopPieceLinksError] = useState<string | null>(null);
+  const [showTraversablePaths, setShowTraversablePaths] = useState(false);
   const [editorState, setEditorState] = useState<EditorState>(() =>
     createInitialEditorState(DEFAULT_WIDTH, DEFAULT_HEIGHT, tiles, stateGroups)
   );
@@ -663,6 +664,8 @@ export default function StationEditorClient({ tiles, stateGroups }: Props) {
         onFindPieceId={handleFindPieceId}
         onJopPieceLinksInputChange={setJopPieceLinksInput}
         onHighlightJopPieceLinks={handleHighlightJopPieceLinks}
+        showTraversablePaths={showTraversablePaths}
+        onShowTraversablePathsChange={setShowTraversablePaths}
         onSet={handleResetBoard}
         onExpand={handleExpandBoard}
         onImport={() => fileInputRef.current?.click()}
@@ -687,6 +690,7 @@ export default function StationEditorClient({ tiles, stateGroups }: Props) {
         onVariantPick={applyPlacement}
         contextMenu={contextMenu}
         pendingConnectionPieceId={pendingConnectionEndpointKey}
+        showTraversablePaths={showTraversablePaths}
         onContextMenuRotate={handleContextMenuRotate}
         onContextMenuMirror={handleContextMenuMirror}
         onContextMenuEditText={handleContextMenuEditText}

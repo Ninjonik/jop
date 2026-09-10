@@ -1,7 +1,7 @@
 'use client';
 
 import TileSvg from '@/app/components/tiles/TileSvg';
-import type { StateGroupRegistry, TileCatalog } from '@/app/components/tiles/tile-catalog';
+import type { StateGroupRegistry, TileData, TileCatalog } from '@/app/components/tiles/tile-catalog';
 
 import { FILLER_TILE_KEY } from '../constants';
 import type {
@@ -13,6 +13,99 @@ import type {
 import { getRenderablePieces, parseCellRef } from '../utils';
 import PieceContextMenu from './PieceContextMenu';
 import PlacementVariantPicker from './PlacementVariantPicker';
+
+const TRAVERSABLE_PATH_COLORS = ['#0ea5e9', '#f97316', '#a855f7', '#16a34a', '#e11d48'];
+
+function getPathEndpoint(
+  coordinate: string,
+  space: { x: number; y: number },
+  tileSize: number,
+) {
+  const [tileX, tileY] = coordinate.split(',').map(Number);
+  const width = space.x * tileSize;
+  const height = space.y * tileSize;
+
+  return {
+    x: tileX < 0 ? 0 : tileX >= space.x ? width : (tileX + 0.5) * tileSize,
+    y: tileY < 0 ? 0 : tileY >= space.y ? height : (tileY + 0.5) * tileSize,
+  };
+}
+
+function TraversablePathOverlay({
+  pieceId,
+  tile,
+  tileSize,
+  rotation,
+  mirrored,
+}: {
+  pieceId: string;
+  tile: TileData;
+  tileSize: number;
+  rotation: 0 | 180;
+  mirrored: boolean;
+}) {
+  if (!tile.traversable) {
+    return null;
+  }
+
+  const width = tile.space.x * tileSize;
+  const height = tile.space.y * tileSize;
+  const transform = [rotation === 180 ? 'rotate(180deg)' : '', mirrored ? 'scaleX(-1)' : '']
+    .filter(Boolean)
+    .join(' ');
+
+  return (
+    <svg
+      aria-label={`Traversable paths for ${pieceId}`}
+      className="pointer-events-none absolute inset-0"
+      width={width}
+      height={height}
+      viewBox={`0 0 ${width} ${height}`}
+      style={{ transform, transformOrigin: 'center' }}
+    >
+      {Object.entries(tile.traversable).flatMap(([stateName, paths], stateIndex) =>
+        Object.entries(paths ?? {}).map(([from, to], pathIndex) => {
+          const start = getPathEndpoint(from, tile.space, tileSize);
+          const end = getPathEndpoint(to, tile.space, tileSize);
+          const color = TRAVERSABLE_PATH_COLORS[stateIndex % TRAVERSABLE_PATH_COLORS.length];
+          const labelX = (start.x + end.x) / 2;
+          const labelY = (start.y + end.y) / 2;
+
+          return (
+            <g key={`${stateName}:${from}:${to}`}>
+              <line
+                x1={start.x}
+                y1={start.y}
+                x2={end.x}
+                y2={end.y}
+                stroke={color}
+                strokeWidth={3}
+                strokeDasharray="5 3"
+              />
+              <circle cx={start.x} cy={start.y} r={4} fill={color} />
+              <circle cx={end.x} cy={end.y} r={4} fill={color} />
+              {pathIndex === 0 ? (
+                <text
+                  x={labelX}
+                  y={labelY - 4}
+                  fill={color}
+                  fontSize={Math.max(9, tileSize * 0.14)}
+                  fontWeight="700"
+                  textAnchor="middle"
+                  stroke="#ffffff"
+                  strokeWidth={2}
+                  paintOrder="stroke"
+                >
+                  {stateName}
+                </text>
+              ) : null}
+            </g>
+          );
+        }),
+      )}
+    </svg>
+  );
+}
 
 interface Props {
   editorState: EditorState;
@@ -27,6 +120,7 @@ interface Props {
   onVariantPick: (variant: PlacementVariant) => void;
   contextMenu: PieceContextMenuState | null;
   pendingConnectionPieceId: string | null;
+  showTraversablePaths: boolean;
   onContextMenuRotate: () => void;
   onContextMenuMirror: () => void;
   onContextMenuEditText: (textKey: string) => void;
@@ -51,6 +145,7 @@ export default function StationCanvas({
   onVariantPick,
   contextMenu,
   pendingConnectionPieceId,
+  showTraversablePaths,
   onContextMenuRotate,
   onContextMenuMirror,
   onContextMenuEditText,
@@ -113,6 +208,15 @@ export default function StationCanvas({
                 }}
                 className="h-full w-full object-contain"
               />
+              {showTraversablePaths ? (
+                <TraversablePathOverlay
+                  pieceId={pieceId}
+                  tile={tile}
+                  tileSize={tileSize}
+                  rotation={piece.rotation}
+                  mirrored={piece.mirrored}
+                />
+              ) : null}
             </div>
           );
         })}

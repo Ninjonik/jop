@@ -8,12 +8,14 @@ interface Props {
   pieceIdLookup: string;
   jopPieceLinksInput: string;
   jopPieceLinksError: string | null;
+  showTraversablePaths: boolean;
   onWidthChange: (value: number) => void;
   onHeightChange: (value: number) => void;
   onPieceIdLookupChange: (value: string) => void;
   onFindPieceId: () => void;
   onJopPieceLinksInputChange: (value: string) => void;
   onHighlightJopPieceLinks: () => void;
+  onShowTraversablePathsChange: (value: boolean) => void;
   onSet: () => void;
   onExpand: (direction: LayoutExpansionDirection) => void;
   onImport: () => void;
@@ -26,12 +28,14 @@ export default function EditorControls({
   pieceIdLookup,
   jopPieceLinksInput,
   jopPieceLinksError,
+  showTraversablePaths,
   onWidthChange,
   onHeightChange,
   onPieceIdLookupChange,
   onFindPieceId,
   onJopPieceLinksInputChange,
   onHighlightJopPieceLinks,
+  onShowTraversablePathsChange,
   onSet,
   onExpand,
   onImport,
@@ -74,6 +78,14 @@ export default function EditorControls({
         <button type="button" onClick={onExport} className="border border-neutral-700 bg-white px-2 py-0.5 text-sm text-black">
           export
         </button>
+        <label className="flex cursor-pointer items-center gap-1 border border-neutral-700 bg-white px-2 py-0.5 text-sm text-black">
+          <input
+            type="checkbox"
+            checked={showTraversablePaths}
+            onChange={(event) => onShowTraversablePathsChange(event.target.checked)}
+          />
+          show paths
+        </label>
         <input
           type="text"
           value={pieceIdLookup}
