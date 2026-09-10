@@ -144,7 +144,7 @@ local function setAllBasePartsActive(instance, active)
 	end
 end
 
-local function blTtr(part)
+local function isMoverPart(part)
 	return typeof(part) == "Instance"
 		and part:IsA("BasePart")
 		and string.find(string.lower(part.Name), "mover", 1, true) ~= nil
