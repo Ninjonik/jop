@@ -881,7 +881,10 @@ function tracePlatformToNextControl(
     // at a departure-button/departure-signal pair, or at a buffer reached
     // through a departure signal and button in that order. It must never
     // choose a route through another shunt control, signal, or switch.
-    if (requireDepartureSignalAfterTerminal && piece.type === 'buffer') {
+    if (
+      requireDepartureSignalAfterTerminal &&
+      (piece.type === 'buffer' || piece.type === 'bufferSignal')
+    ) {
       if (passedDepartureSignalAndButton) {
         terminalPieceId = currentPieceId;
       } else {

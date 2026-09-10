@@ -186,12 +186,12 @@ export const switchTiles: TileCatalog = {
     // The source SVG is the mirrored extended-switch orientation.
     traversable: {
       blTbr: {
-        '2,2': '0,2',
         '0,2': '2,2',
+        '2,2': '0,2',
       },
       blTtr: {
-        '2,2': '0,0',
-        '0,0': '2,2',
+        '2,2': '-1,0',
+        '-1,0': '2,2',
       },
     },
     groups: {
