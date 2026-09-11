@@ -308,10 +308,6 @@ function getActiveLevelCrossingPieceIds(station: StationDocument, session: Sessi
         }));
       const leftTracks = linkedTracks.filter((track) => track.x < crossingX).sort((a, b) => a.x - b.x);
       const rightTracks = linkedTracks.filter((track) => track.x > crossingX).sort((a, b) => b.x - a.x);
-      const leftFar = leftTracks[0]?.pieceId;
-      const leftNear = leftTracks.at(-1)?.pieceId;
-      const rightFar = rightTracks[0]?.pieceId;
-      const rightNear = rightTracks.at(-1)?.pieceId;
       const rowPieceIds = [pieceId, ...linkedTrackPieceIds];
       const rowReserved = rowPieceIds.some((candidatePieceId) => reservedPieceIds.has(candidatePieceId));
       const crossingOccupied = occupiedPieceIds.has(pieceId);
@@ -323,31 +319,13 @@ function getActiveLevelCrossingPieceIds(station: StationDocument, session: Sessi
       const lock = {
         direction: existingLock?.direction ?? null,
         crossingOccupied,
-        leftFarSeen: existingLock?.leftFarSeen === true,
-        rightFarSeen: existingLock?.rightFarSeen === true,
         updatedAt: nowIso(),
       };
 
-      if (leftFar && occupiedPieceIds.has(leftFar)) lock.leftFarSeen = true;
-      if (rightFar && occupiedPieceIds.has(rightFar)) lock.rightFarSeen = true;
-      if (
-        !lock.direction &&
-        leftFar &&
-        leftNear &&
-        leftFar !== leftNear &&
-        occupiedPieceIds.has(leftNear) &&
-        lock.leftFarSeen
-      ) {
+      if (!lock.direction && leftTracks.some((track) => occupiedPieceIds.has(track.pieceId))) {
         lock.direction = 'left-to-right';
       }
-      if (
-        !lock.direction &&
-        rightFar &&
-        rightNear &&
-        rightFar !== rightNear &&
-        occupiedPieceIds.has(rightNear) &&
-        lock.rightFarSeen
-      ) {
+      if (!lock.direction && rightTracks.some((track) => occupiedPieceIds.has(track.pieceId))) {
         lock.direction = 'right-to-left';
       }
 
@@ -364,9 +342,8 @@ function getActiveLevelCrossingPieceIds(station: StationDocument, session: Sessi
         levelCrossingDirectionLocks[lockKey] = lock;
       }
 
-      // A crossing sensor is always a safety trigger even if an external train
-      // appears without the two-step approach sequence. A route reservation is
-      // also sufficient because it already carries an ordered train path.
+      // The linked approach sensor is an immediate safety trigger. A crossing
+      // sensor and a route reservation are independent safety triggers too.
       if (crossingOccupied || rowReserved || lock.direction !== null) {
         activeColumns.add(crossingX);
       }
