@@ -3,6 +3,7 @@
 
 local HardwareDriver = {}
 local SignalController = require(script.Parent.SignalController)
+local CollectionService = game:GetService("CollectionService")
 local PhysicsService = game:GetService("PhysicsService")
 local TweenService = game:GetService("TweenService")
 
@@ -12,11 +13,14 @@ local TRAVERSAL_STATE_ATTRIBUTE = "JOPTraversalState"
 local CONTROL_SLOT_ATTRIBUTE = "JOPControlSlot"
 local POSITION_ATTRIBUTE = "JOPPosition"
 local SIGNAL_STATE_ATTRIBUTE = "JOPResolvedSignalState"
+local SIGNAL_FAMILY_ATTRIBUTE = "JOPResolvedSignalFamily"
+local SIGNAL_CHANGED_AT_ATTRIBUTE = "JOPResolvedSignalChangedAt"
 local SIGNAL_PIECE_ID_ATTRIBUTE = "JOPResolvedSignalPieceId"
 local SIGNAL_TEXT_ATTRIBUTE = "JOPResolvedSignalText"
 local SWITCH_STATE_ATTRIBUTE = "JOPResolvedSwitchState"
 local SWITCH_PIECE_ID_ATTRIBUTE = "JOPResolvedSwitchPieceId"
 local LEVEL_CROSSING_ACTIVE_ATTRIBUTE = "JOPResolvedLevelCrossingActive"
+local SIGNAL_COMPONENT_TAG = "JOPSignalComponent"
 
 local SIGNAL_COMPONENT_TYPES = {
 	signal = true,
@@ -144,10 +148,10 @@ local function setAllBasePartsActive(instance, active)
 	end
 end
 
-local function isMoverPart(part)
+local function isSensorPart(part)
 	return typeof(part) == "Instance"
 		and part:IsA("BasePart")
-		and string.find(string.lower(part.Name), "mover", 1, true) ~= nil
+		and string.find(string.lower(part.Name), "VehicleSensor", 1, true) ~= nil
 end
 
 local function getSwitchVisualGroups(instance)
@@ -303,7 +307,7 @@ local function sampleSectionOccupied(section)
 			)
 
 			for _, part in ipairs(parts) do
-				if isMoverPart(part) then
+				if isSensorPart(part) then
 					touchingParts[part] = true
 				end
 			end
@@ -695,21 +699,19 @@ function HardwareDriver.ApplyInstanceState(instance, linkedStates, capabilities)
 
 	for _, signalComponent in ipairs(capabilities.signals) do
 		if firstSignal then
-			print(
-				string.format(
-					"[JOP][Apply] - Setting Signal %s piece=%s station=%s text=%s family=%s aspect=%s",
-					signalComponent:GetFullName(),
-					tostring(firstSignal.pieceId),
-					tostring(firstSignal.stationId),
-					tostring(firstSignal.texts and firstSignal.texts.text or ""),
-					tostring(firstSignal.resolvedSignalFamily),
-					tostring(firstSignal.resolvedSignalAspect)
-				)
-			)
+			CollectionService:AddTag(signalComponent, SIGNAL_COMPONENT_TAG)
+			local previousAspect = signalComponent:GetAttribute(SIGNAL_STATE_ATTRIBUTE)
+			local previousFamily = signalComponent:GetAttribute(SIGNAL_FAMILY_ATTRIBUTE)
 			signalComponent:SetAttribute(SIGNAL_STATE_ATTRIBUTE, firstSignal.resolvedSignalAspect)
+			signalComponent:SetAttribute(SIGNAL_FAMILY_ATTRIBUTE, firstSignal.resolvedSignalFamily)
 			signalComponent:SetAttribute(SIGNAL_PIECE_ID_ATTRIBUTE, firstSignal.pieceId)
 			signalComponent:SetAttribute(SIGNAL_TEXT_ATTRIBUTE, firstSignal.texts and firstSignal.texts.text or nil)
-			if firstSignal.resolvedSignalFamily and firstSignal.resolvedSignalAspect then
+			if
+				firstSignal.resolvedSignalFamily
+				and firstSignal.resolvedSignalAspect
+				and (previousAspect ~= firstSignal.resolvedSignalAspect or previousFamily ~= firstSignal.resolvedSignalFamily)
+			then
+				signalComponent:SetAttribute(SIGNAL_CHANGED_AT_ATTRIBUTE, workspace:GetServerTimeNow())
 				SignalController.Apply(
 					signalComponent,
 					firstSignal.resolvedSignalFamily,
@@ -717,7 +719,10 @@ function HardwareDriver.ApplyInstanceState(instance, linkedStates, capabilities)
 				)
 			end
 		else
+			CollectionService:RemoveTag(signalComponent, SIGNAL_COMPONENT_TAG)
 			signalComponent:SetAttribute(SIGNAL_STATE_ATTRIBUTE, nil)
+			signalComponent:SetAttribute(SIGNAL_FAMILY_ATTRIBUTE, nil)
+			signalComponent:SetAttribute(SIGNAL_CHANGED_AT_ATTRIBUTE, nil)
 			signalComponent:SetAttribute(SIGNAL_PIECE_ID_ATTRIBUTE, nil)
 			signalComponent:SetAttribute(SIGNAL_TEXT_ATTRIBUTE, nil)
 		end
@@ -805,7 +810,7 @@ function HardwareDriver.ObserveOccupation(instance, report, capabilities)
 		reportSectionOccupiedChange(section, report, initiallyOccupied)
 
 		local function noteTouch(part)
-			if not running or not isMoverPart(part) then
+			if not running or not isSensorPart(part) then
 				return
 			end
 
@@ -815,7 +820,7 @@ function HardwareDriver.ObserveOccupation(instance, report, capabilities)
 		end
 
 		local function noteTouchEnded(part)
-			if not running or not isMoverPart(part) then
+			if not running or not isSensorPart(part) then
 				return
 			end
 

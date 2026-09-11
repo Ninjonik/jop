@@ -1814,6 +1814,7 @@ export function buildRouteFromSelection(
           : current.debugSteps;
       const extraReservedMap = { ...reservedOccupationsMap };
       let extraDebugSteps = [...debugSteps];
+      const occupiedShuntTailPieceIds = new Set<string>();
 
       if (routeClass === 'platform-to-premain' && targetContribution.exit) {
         const tailStart = getNeighborTraversal(station, current.pieceId, targetContribution.exit);
@@ -1905,6 +1906,9 @@ export function buildRouteFromSelection(
           platform.reservedOccupations.forEach((occupation) => {
             pushReservation(station, extraReservedMap, occupation.pieceId, occupation);
           });
+          platform.debugSteps.forEach((step) => {
+            occupiedShuntTailPieceIds.add(step.pieceId);
+          });
           extraDebugSteps = [...extraDebugSteps, ...platform.debugSteps];
         }
       }
@@ -1942,6 +1946,7 @@ export function buildRouteFromSelection(
       const occupiedStep = extraDebugSteps.find(
         (step) =>
           step.occupationState &&
+          !occupiedShuntTailPieceIds.has(step.pieceId) &&
           isTraversalBlockedByOccupation(station, step.pieceId, step.occupationState),
       );
       if (validateRuntimeAvailability && occupiedStep) {

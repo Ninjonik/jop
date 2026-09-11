@@ -2914,16 +2914,20 @@ function updateLineblockArrivalEligibility(
   const receivingStationSensors = train.occupiedSensors.filter(
     (sensor) => sensor.stationId === transit.toStationId,
   );
-  if (receivingStationSensors.length === 0) {
-    return;
-  }
-
   const protectedPieceIds = new Set(transit.protectedPieceIds);
-  const completelyPastEntry = receivingStationSensors.every((sensor) => {
-    return !protectedPieceIds.has(sensor.pieceId);
-  });
+  const completelyPastEntry =
+    receivingStationSensors.length > 0 &&
+    receivingStationSensors.every((sensor) => !protectedPieceIds.has(sensor.pieceId));
+  const trainIsInReceivingStation = train.location.stationId === transit.toStationId;
+  const receivingRouteWasFullyReleased =
+    trainIsInReceivingStation &&
+    !receivingStation.runtime.activeTrainRoutes[transit.receivingRouteId];
 
-  if (completelyPastEntry) {
+  // Sensor positions are the primary proof that the rear has cleared the entry
+  // signal. Once the route itself has fully released, that is the same proof
+  // expressed by the route lifecycle and also covers sparse/missing sensor
+  // records after the train reaches a platform.
+  if (completelyPastEntry || receivingRouteWasFullyReleased) {
     setLineblockVisualState(
       receivingStation,
       transit.receivingLineblockPieceId,

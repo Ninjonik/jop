@@ -114,9 +114,9 @@ The current bridge sources are also exposed through a protected backend API:
 - `GET /api/roblox/bridge-scripts`
 - authorization: `Bearer <ROBLOX_INBOUND_SECRET>`
 
-The response contains the current `ServerScriptService/JopBridge` sources with
-their Roblox class names. You can use this to refresh the bridge directly from
-Studio instead of manually pasting every file.
+The response contains the current server bridge sources and the client signal
+renderer. You can use this to refresh both directly from Studio instead of
+manually pasting every file.
 
 Example Studio command-bar updater:
 
@@ -152,6 +152,15 @@ end
 for _, scriptInfo in ipairs(payload.scripts) do
 	if scriptInfo.name == "JopBridge" then
 		root.Source = scriptInfo.source
+	elseif scriptInfo.parentService == "StarterPlayer" then
+		local parent = game:GetService("StarterPlayer"):WaitForChild("StarterPlayerScripts")
+		local clientScript = parent:FindFirstChild(scriptInfo.name)
+		if not clientScript then
+			clientScript = Instance.new(scriptInfo.className)
+			clientScript.Name = scriptInfo.name
+			clientScript.Parent = parent
+		end
+		clientScript.Source = scriptInfo.source
 	else
 		local child = root:FindFirstChild(scriptInfo.name)
 		if not child then
@@ -163,6 +172,10 @@ for _, scriptInfo in ipairs(payload.scripts) do
 	end
 end
 ```
+
+`JopSignalVisualController` is installed in
+`StarterPlayer/StarterPlayerScripts`. The server remains authoritative for the
+resolved aspect, while clients render the lamp transitions and blinking locally.
 
 Only `HardwareDriver.lua` remains intentionally provisional. When the final
 Roblox model hierarchy is defined, keep the bridge protocol and these link

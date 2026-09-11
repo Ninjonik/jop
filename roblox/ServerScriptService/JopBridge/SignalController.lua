@@ -1,178 +1,64 @@
-local TweenService = game:GetService("TweenService")
+-- Server authority for signal aspects. Continuous blinking is rendered by
+-- StarterPlayerScripts/JopSignalVisualController.client.lua on each client.
 
 local SignalController = {}
 
 local OPEN_TRANSPARENCY = 0.05
 local CLOSED_TRANSPARENCY = 0.97
-local DEFAULT_TWEEN = 0.15
-local SLOW_BLINK = 0.575
-local FAST_BLINK = 0.275
+local CONTROLLED_LAMPS = { "z1", "z", "c", "b", "z2", "r3", "r4", "r5", "r6", "r8", "r10" }
 
-local signalStates = setmetatable({}, { __mode = "k" })
-
-local function getOrCreateState(instance)
-	local state = signalStates[instance]
-	if state then
-		return state
-	end
-
-	state = {
-		version = 0,
-	}
-	signalStates[instance] = state
-	return state
-end
+local RESOLVED_ASPECTS = {
+	danger = { c = "on" }, caution = { z1 = "on" }, proceed = { z = "on" }, shunt = { b = "on" },
+	callOn = { c = "on", b = "pulse2" },
+	proceed40Caution = { z1 = "on", z2 = "on", r4 = "on" },
+	proceed40Proceed = { z = "on", z2 = "on", r4 = "on" },
+	proceed40Expect40 = { z1 = "pulse2", z2 = "on", r4 = "on" },
+	proceed40Expect60 = { z1 = "pulse3", z2 = "on", r4 = "on" },
+	proceed40Expect80 = { z = "pulse2", z2 = "on", r4 = "on" },
+	proceed40Expect100 = { z = "pulse3", z2 = "on", r4 = "on" },
+	expect30 = { z1 = "pulse2" }, expect40 = { z1 = "pulse2" }, expect50 = { z1 = "pulse2" },
+	expect60 = { z1 = "pulse3" }, expect80 = { z = "pulse2" }, expect100 = { z = "pulse3" },
+}
 
 local function findLamp(instance, name)
 	local lamp = instance:FindFirstChild(name, true)
-	if lamp and lamp:IsA("BasePart") then
-		return lamp
-	end
-	return nil
+	return lamp and lamp:IsA("BasePart") and lamp or nil
 end
 
-local function setLampTransparency(lamp, transparency, duration)
-	local tween = TweenService:Create(
-		lamp,
-		TweenInfo.new(duration or DEFAULT_TWEEN, Enum.EasingStyle.Sine),
-		{ Transparency = transparency }
-	)
-	tween:Play()
-	return tween
+local function getOpenTransparency(family)
+	if family == "entry" or family == "shunt" then return 0 end
+	if family == "departure" then return 0.1 end
+	return OPEN_TRANSPARENCY
 end
 
-local function turnOn(lamp, duration, transparency)
-	setLampTransparency(lamp, transparency or OPEN_TRANSPARENCY, duration)
+local function getClosedTransparency(family)
+	return family == "premain" and 0.99 or CLOSED_TRANSPARENCY
 end
 
-local function turnOff(lamp, duration, transparency)
-	setLampTransparency(lamp, transparency or CLOSED_TRANSPARENCY, duration)
-end
-
-local function startBlink(instance, lamp, period, openTransparency, closedTransparency)
-	local state = getOrCreateState(instance)
-	local version = state.version
-
-	task.spawn(function()
-		while signalStates[instance] and signalStates[instance].version == version do
-			turnOn(lamp, period, openTransparency)
-			task.wait(period)
-			if not signalStates[instance] or signalStates[instance].version ~= version then
-				break
-			end
-			turnOff(lamp, period, closedTransparency)
-			task.wait(period)
-		end
-	end)
-end
-
-local function buildResolvedAspectTable()
-	-- These mappings mirror the canonical Roblox Aspects ModuleScript lamp codes.
-	-- The backend already resolves family/aspect meaning; this controller only
-	-- reflects the resolved aspect onto the physical lamps.
-	return {
-		danger = { c = "on" },
-		caution = { z1 = "on" },
-		proceed = { z = "on" },
-		shunt = { b = "on" },
-		callOn = { c = "on", b = "pulse2" },
-		proceed40Caution = { z1 = "on", z2 = "on", r4 = "on" },
-		proceed40Proceed = { z = "on", z2 = "on", r4 = "on" },
-		proceed40Expect40 = { z1 = "pulse2", z2 = "on", r4 = "on" },
-		proceed40Expect60 = { z1 = "pulse3", z2 = "on", r4 = "on" },
-		proceed40Expect80 = { z = "pulse2", z2 = "on", r4 = "on" },
-		proceed40Expect100 = { z = "pulse3", z2 = "on", r4 = "on" },
-		proceed30 = { z = "on", z2 = "on", r3 = "on" },
-		proceed40 = { z = "on", z2 = "on", r4 = "on" },
-		proceed50 = { z = "on", z2 = "on", r5 = "on" },
-		proceed60 = { z = "on", z2 = "on", r6 = "on" },
-		proceed80 = { z = "on", z2 = "on", r8 = "on" },
-		proceed100 = { z = "on", z2 = "on", r10 = "on" },
-		expect30 = { z1 = "pulse2" },
-		expect40 = { z1 = "pulse2" },
-		expect50 = { z1 = "pulse2" },
-		expect60 = { z1 = "pulse3" },
-		expect80 = { z = "pulse2" },
-		expect100 = { z = "pulse3" },
-	}
-end
-
-local RESOLVED_ASPECTS = buildResolvedAspectTable()
-local CONTROLLED_LAMPS = {
-	"z1",
-	"z",
-	"c",
-	"b",
-	"z2",
-	"r3",
-	"r4",
-	"r5",
-	"r6",
-	"r8",
-	"r10",
-}
-
-local function formatAspectConfig(aspectConfig)
-	local fragments = {}
-
+local function serializeLampModes(config)
+	local modes = {}
 	for _, lampName in ipairs(CONTROLLED_LAMPS) do
-		local mode = aspectConfig[lampName] or "off"
-		table.insert(fragments, string.format("%s=%s", lampName, mode))
+		table.insert(modes, lampName .. "=" .. (config[lampName] or "off"))
 	end
-
-	return table.concat(fragments, ", ")
+	return table.concat(modes, ";")
 end
 
 function SignalController.Apply(instance, family, aspect)
-	local state = getOrCreateState(instance)
-	state.version += 1
+	local config = RESOLVED_ASPECTS[aspect] or {}
+	local openTransparency = getOpenTransparency(family)
+	local closedTransparency = getClosedTransparency(family)
 
-	local aspectConfig = RESOLVED_ASPECTS[aspect] or {}
-	-- Preserve the legacy scripts' actual part transparency values per signal
-	-- family. In particular, entry/shunt lamps are fully visible when lit.
-	local openTransparency = OPEN_TRANSPARENCY
-	if family == "entry" or family == "shunt" then
-		openTransparency = 0
-	elseif family == "departure" then
-		openTransparency = 0.1
-	end
-	local closedTransparency = family == "premain" and 0.99 or CLOSED_TRANSPARENCY
-	print(
-		string.format(
-			"[JOP][Signal] Applying %s family=%s aspect=%s lamps=[%s]",
-			instance:GetFullName(),
-			tostring(family),
-			tostring(aspect),
-			formatAspectConfig(aspectConfig)
-		)
-	)
-
+	-- Immediate server fallback only; no server tween or blink loop.
 	for _, lampName in ipairs(CONTROLLED_LAMPS) do
 		local lamp = findLamp(instance, lampName)
 		if lamp then
-			local mode = aspectConfig[lampName]
-			if mode == "on" then
-				turnOn(lamp, DEFAULT_TWEEN, openTransparency)
-			elseif mode == "pulse2" then
-				turnOff(lamp, DEFAULT_TWEEN, closedTransparency)
-				startBlink(instance, lamp, SLOW_BLINK, openTransparency, closedTransparency)
-			elseif mode == "pulse3" then
-				turnOff(lamp, DEFAULT_TWEEN, closedTransparency)
-				startBlink(instance, lamp, FAST_BLINK, openTransparency, closedTransparency)
-			else
-				turnOff(lamp, DEFAULT_TWEEN, closedTransparency)
-			end
-
-			print(
-				string.format(
-					"[JOP][Signal] - %s lamp %s -> %s",
-					instance:GetFullName(),
-					lampName,
-					tostring(mode or "off")
-				)
-			)
+			lamp.Transparency = config[lampName] == "on" and openTransparency or closedTransparency
 		end
 	end
+
+	instance:SetAttribute("JOPResolvedSignalLampModes", serializeLampModes(config))
+	instance:SetAttribute("JOPResolvedSignalOpenTransparency", openTransparency)
+	instance:SetAttribute("JOPResolvedSignalClosedTransparency", closedTransparency)
 end
 
 return SignalController
