@@ -311,6 +311,11 @@ export type PlaceTemplateDocument = {
   updatedAt: string;
 };
 
+export type PlaceTemplateSummary = Pick<
+  PlaceTemplateDocument,
+  '_id' | 'universeId' | 'placeId' | 'revision' | 'updatedAt'
+>;
+
 export type RobloxPhysicalPieceState = {
   type: string;
   groups: PieceRecord['state']['groups'];

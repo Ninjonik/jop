@@ -3217,6 +3217,10 @@ export const stationService = {
     return placeTemplateRepository.findByUniverseAndPlaceId(universeId, placeId);
   },
 
+  async listPlaceTemplates() {
+    return placeTemplateRepository.list();
+  },
+
   async registerRobloxSession(sessionId: string, universeId: string, placeId: string, serverId: string) {
     const heartbeatAt = nowIso();
     const existing = await sessionRepository.findById(sessionId);

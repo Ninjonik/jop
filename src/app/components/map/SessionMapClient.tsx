@@ -7,6 +7,7 @@ import { useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
 
 import type {
   PlaceTemplateDocument,
+  PlaceTemplateSummary,
   SessionDocument,
   SessionLineblockLink,
   SessionSchemaDocument,
@@ -55,6 +56,8 @@ export default function SessionMapClient() {
   const [universeIdDraft, setUniverseIdDraft] = useState(universeIdFromUrl);
   const [placeIdDraft, setPlaceIdDraft] = useState(placeIdFromUrl);
   const [savedPlaceTemplate, setSavedPlaceTemplate] = useState<PlaceTemplateDocument | null>(null);
+  const [savedPlaceTemplates, setSavedPlaceTemplates] = useState<PlaceTemplateSummary[]>([]);
+  const [savedPlaceTemplatesLoading, setSavedPlaceTemplatesLoading] = useState(true);
   const [isBusy, setIsBusy] = useState(false);
   const [stationOrder, setStationOrder] = useState<string[]>([]);
   const [pendingLineblockEndpoint, setPendingLineblockEndpoint] = useState<{
@@ -70,6 +73,44 @@ export default function SessionMapClient() {
     () => stations.find((station) => station.stationId === selectedStationId) ?? null,
     [selectedStationId, stations],
   );
+
+  useEffect(() => {
+    let active = true;
+
+    void fetch('/api/roblox/place-templates', { cache: 'no-store' })
+      .then(async (response) => {
+        const payload = (await response.json()) as
+          { templates: PlaceTemplateSummary[] } | { error?: { message?: string } };
+        if (!response.ok || !('templates' in payload)) {
+          throw new Error(
+            'error' in payload
+              ? (payload.error?.message ?? 'Failed to load saved Roblox configurations.')
+              : 'Failed to load saved Roblox configurations.',
+          );
+        }
+        if (active) {
+          setSavedPlaceTemplates(payload.templates);
+        }
+      })
+      .catch((loadError: unknown) => {
+        if (active) {
+          setError(
+            loadError instanceof Error
+              ? loadError.message
+              : 'Failed to load saved Roblox configurations.',
+          );
+        }
+      })
+      .finally(() => {
+        if (active) {
+          setSavedPlaceTemplatesLoading(false);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   function openSession(
     nextSessionId: string,
@@ -509,6 +550,10 @@ export default function SessionMapClient() {
         );
       }
       setSavedPlaceTemplate(payload.template);
+      setSavedPlaceTemplates((current) => [
+        payload.template,
+        ...current.filter((template) => template._id !== payload.template._id),
+      ]);
       setError(null);
     } catch (saveError) {
       setError(
@@ -519,15 +564,17 @@ export default function SessionMapClient() {
     }
   }
 
-  async function loadPlaceTemplate() {
-    if (!universeIdDraft.trim() || !placeIdDraft.trim()) {
+  async function loadPlaceTemplate(templateIdentity?: Pick<PlaceTemplateSummary, 'universeId' | 'placeId'>) {
+    const universeId = templateIdentity?.universeId ?? universeIdDraft.trim();
+    const placeId = templateIdentity?.placeId ?? placeIdDraft.trim();
+    if (!universeId || !placeId) {
       return;
     }
 
     setIsBusy(true);
     try {
       const response = await fetch(
-        `/api/roblox/place-templates/${encodeURIComponent(placeIdDraft.trim())}?universeId=${encodeURIComponent(universeIdDraft.trim())}`,
+        `/api/roblox/place-templates/${encodeURIComponent(placeId)}?universeId=${encodeURIComponent(universeId)}`,
         { cache: 'no-store' },
       );
       const payload = (await response.json()) as
@@ -556,6 +603,8 @@ export default function SessionMapClient() {
       }
 
       setSavedPlaceTemplate(payload.template);
+      setUniverseIdDraft(payload.template.universeId);
+      setPlaceIdDraft(payload.template.placeId);
       openSession(imported.session._id, {
         universeId: payload.template.universeId,
         placeId: payload.template.placeId,
@@ -614,6 +663,34 @@ export default function SessionMapClient() {
 
     openSession(sessionIdDraft.trim());
   }
+
+  const savedTemplatePicker = (
+    <div className="mt-4 border-t border-neutral-800 pt-4">
+      <div className="text-sm font-medium text-neutral-200">Saved Roblox configurations</div>
+      {savedPlaceTemplatesLoading ? (
+        <p className="mt-2 text-sm text-neutral-500">Loading saved configurations...</p>
+      ) : savedPlaceTemplates.length === 0 ? (
+        <p className="mt-2 text-sm text-neutral-500">No saved Roblox configurations yet.</p>
+      ) : (
+        <div className="mt-3 grid gap-2 sm:grid-cols-2">
+          {savedPlaceTemplates.map((template) => (
+            <button
+              key={template._id}
+              type="button"
+              disabled={isBusy}
+              onClick={() => void loadPlaceTemplate(template)}
+              className="rounded-xl border border-neutral-700 bg-neutral-950 px-3 py-3 text-left text-sm transition hover:border-amber-400 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <div className="font-mono text-neutral-100">
+                {template.universeId} / {template.placeId}
+              </div>
+              <div className="mt-1 text-xs text-neutral-500">Revision {template.revision}</div>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 
   if (!sessionIdFromUrl) {
     return (
@@ -686,6 +763,7 @@ export default function SessionMapClient() {
             Load Template To Edit
           </button>
         </div>
+        {savedTemplatePicker}
         {error ? <div className="mt-3 text-sm text-red-300">{error}</div> : null}
         <input
           ref={sessionSchemaInputRef}
@@ -773,6 +851,7 @@ export default function SessionMapClient() {
             at revision {savedPlaceTemplate.revision}.
           </p>
         ) : null}
+        {savedTemplatePicker}
       </section>
 
       <section className="rounded-3xl border border-neutral-800 bg-neutral-900/80 p-4">

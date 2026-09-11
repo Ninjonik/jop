@@ -1,6 +1,6 @@
 import type { Collection } from 'mongodb';
 
-import type { PlaceTemplateDocument } from '@/lib/station/domain';
+import type { PlaceTemplateDocument, PlaceTemplateSummary } from '@/lib/station/domain';
 
 import { getMongoDb } from '../mongo';
 
@@ -27,6 +27,14 @@ export const placeTemplateRepository = {
   async findByUniverseAndPlaceId(universeId: string, placeId: string) {
     const collection = await getCollection();
     return collection.findOne({ universeId, placeId });
+  },
+
+  async list() {
+    const collection = await getCollection();
+    return collection
+      .find({}, { projection: { _id: 1, universeId: 1, placeId: 1, revision: 1, updatedAt: 1 } })
+      .sort({ updatedAt: -1 })
+      .toArray() as Promise<PlaceTemplateSummary[]>;
   },
 
   async save(template: PlaceTemplateDocument) {
