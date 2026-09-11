@@ -4430,6 +4430,21 @@ export const stationService = {
       piece.type === 'departureButton';
     const canStartShuntRoute = shuntEndpointTypes.has(piece.type);
 
+    if (mode === 'cancel' && command.payload.emergencyCancel) {
+      const pendingCancellation = Object.values(station.runtime.pendingActions).find(
+        (action) =>
+          action.type === (routeType === 'shunt' ? 'route:cancel-shunt' : 'route:cancel-normal') &&
+          action.payload.sourcePieceId === command.payload.pieceId &&
+          action.payload.routeType === routeType,
+      );
+      if (!pendingCancellation) {
+        throw new Error('No pending route cancellation starts from the selected endpoint.');
+      }
+
+      await completeRouteAction(pendingCancellation.id, command.sessionId, command.stationId);
+      return { kind: 'cancel-completed' as const };
+    }
+
     if (
       !station.runtime.routeSelection &&
       ((routeType === 'normal' && !canStartNormalRoute) ||

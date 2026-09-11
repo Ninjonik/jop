@@ -174,6 +174,7 @@ export default function StationRuntimeBoard({ station, onErrorChange }: StationR
     pieceId: string,
     button: 'left' | 'right',
     control: 'normal' | 'shunt',
+    emergencyCancel = false,
   ) {
     try {
       setPendingActionKey(`${pieceId}:route:${button}`);
@@ -200,6 +201,7 @@ export default function StationRuntimeBoard({ station, onErrorChange }: StationR
               pieceId,
               button,
               control,
+              emergencyCancel,
             },
           }),
         },
@@ -332,12 +334,32 @@ export default function StationRuntimeBoard({ station, onErrorChange }: StationR
     return !!(signalPieceId && station.runtime.activePrivolavaciaSignals[signalPieceId]);
   }
 
+  function handleRouteContextMenu(pieceId: string, control: 'normal' | 'shunt') {
+    const pendingCancellation = Object.values(station.runtime.pendingActions).find(
+      (action) =>
+        action.type === (control === 'shunt' ? 'route:cancel-shunt' : 'route:cancel-normal') &&
+        action.payload.sourcePieceId === pieceId &&
+        action.payload.routeType === control,
+    );
+    if (pendingCancellation) {
+      const confirmed = window.confirm(
+        'Cancel this route immediately? This bypasses the normal route-cancellation delay.',
+      );
+      if (confirmed) {
+        void submitRouteInteract(pieceId, 'right', control, true);
+      }
+      return;
+    }
+
+    void submitRouteInteract(pieceId, 'right', control);
+  }
+
   function handlePremainContextMenu(pieceId: string) {
     // Finding the entry signal uses route search. Keep that work on the PN
     // interaction path instead of repeating it for every premain on every
     // server snapshot (including ordinary route-selection snapshots).
     if (Object.keys(station.runtime.activePrivolavaciaSignals).length === 0) {
-      void submitRouteInteract(pieceId, 'right', 'normal');
+      handleRouteContextMenu(pieceId, 'normal');
       return;
     }
 
@@ -346,7 +368,7 @@ export default function StationRuntimeBoard({ station, onErrorChange }: StationR
       void submitPrivolavaciaInteract(pieceId, 'right');
       return;
     }
-    void submitRouteInteract(pieceId, 'right', 'normal');
+    handleRouteContextMenu(pieceId, 'normal');
   }
 
   function isManualSwitchButtonState(state: string) {
@@ -713,7 +735,7 @@ export default function StationRuntimeBoard({ station, onErrorChange }: StationR
                         void submitPrivolavaciaInteract(pieceId, 'right');
                         return;
                       }
-                      void submitRouteInteract(pieceId, 'right', 'normal');
+                      handleRouteContextMenu(pieceId, 'normal');
                     }}
                     className="pointer-events-auto absolute inset-y-0 w-1/2 rounded-sm border border-transparent bg-transparent disabled:cursor-wait"
                     style={{ [normalControlSide]: 0 }}
@@ -725,7 +747,7 @@ export default function StationRuntimeBoard({ station, onErrorChange }: StationR
                     onClick={() => void submitRouteInteract(pieceId, 'left', 'shunt')}
                     onContextMenu={(event) => {
                       event.preventDefault();
-                      void submitRouteInteract(pieceId, 'right', 'shunt');
+                      handleRouteContextMenu(pieceId, 'shunt');
                     }}
                     className="pointer-events-auto absolute inset-y-0 w-1/2 rounded-sm border border-transparent bg-transparent disabled:cursor-wait"
                     style={{ [shuntControlSide]: 0 }}
@@ -747,9 +769,8 @@ export default function StationRuntimeBoard({ station, onErrorChange }: StationR
                   }
                   onContextMenu={(event) => {
                     event.preventDefault();
-                    void submitRouteInteract(
+                    handleRouteContextMenu(
                       pieceId,
-                      'right',
                       station.runtime.routeSelection?.routeType === 'normal' ? 'normal' : 'shunt',
                     );
                   }}
@@ -765,7 +786,7 @@ export default function StationRuntimeBoard({ station, onErrorChange }: StationR
                   onClick={() => void submitRouteInteract(pieceId, 'left', 'shunt')}
                   onContextMenu={(event) => {
                     event.preventDefault();
-                    void submitRouteInteract(pieceId, 'right', 'shunt');
+                    handleRouteContextMenu(pieceId, 'shunt');
                   }}
                   className="pointer-events-auto absolute inset-y-0 w-1/2 rounded-sm border border-transparent bg-transparent disabled:cursor-wait"
                   style={{ [bufferControlSide]: 0 }}

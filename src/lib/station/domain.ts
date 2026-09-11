@@ -424,6 +424,7 @@ export type RouteInteractPayload = {
   pieceId: string;
   button: 'left' | 'right';
   control: RuntimeRouteType;
+  emergencyCancel?: boolean;
 };
 
 export type RouteInteractCommand = StationCommand<RouteInteractPayload> & {
@@ -889,6 +890,7 @@ export const routeInteractCommandSchema = z.object({
     pieceId: z.string().trim().min(1),
     button: z.enum(['left', 'right']),
     control: z.enum(['normal', 'shunt']),
+    emergencyCancel: z.boolean().optional().default(false),
   }),
 });
 
