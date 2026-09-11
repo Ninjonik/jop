@@ -151,7 +151,7 @@ end
 local function isSensorPart(part)
 	return typeof(part) == "Instance"
 		and part:IsA("BasePart")
-		and string.find(string.lower(part.Name), "VehicleSensor", 1, true) ~= nil
+		and string.find(string.lower(part.Name), "vehiclesensor", 1, true) ~= nil
 end
 
 local function getSwitchVisualGroups(instance)
