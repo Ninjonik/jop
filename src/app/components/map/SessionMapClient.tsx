@@ -44,14 +44,16 @@ export default function SessionMapClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const sessionIdFromUrl = searchParams.get('sessionId')?.trim() ?? '';
+  const universeIdFromUrl = searchParams.get('universeId')?.trim() ?? '';
+  const placeIdFromUrl = searchParams.get('placeId')?.trim() ?? '';
   const [session, setSession] = useState<SessionDocument | null>(null);
   const [stations, setStations] = useState<StationDocument[]>([]);
   const [selectedStationId, setSelectedStationId] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [sessionIdDraft, setSessionIdDraft] = useState('');
   const [stationIdDraft, setStationIdDraft] = useState('station-a');
-  const [universeIdDraft, setUniverseIdDraft] = useState('');
-  const [placeIdDraft, setPlaceIdDraft] = useState('');
+  const [universeIdDraft, setUniverseIdDraft] = useState(universeIdFromUrl);
+  const [placeIdDraft, setPlaceIdDraft] = useState(placeIdFromUrl);
   const [savedPlaceTemplate, setSavedPlaceTemplate] = useState<PlaceTemplateDocument | null>(null);
   const [isBusy, setIsBusy] = useState(false);
   const [stationOrder, setStationOrder] = useState<string[]>([]);
@@ -69,8 +71,16 @@ export default function SessionMapClient() {
     [selectedStationId, stations],
   );
 
-  function openSession(nextSessionId: string) {
-    router.replace(`/map?sessionId=${encodeURIComponent(nextSessionId)}`);
+  function openSession(
+    nextSessionId: string,
+    templateIdentity?: { universeId: string; placeId: string },
+  ) {
+    const params = new URLSearchParams({ sessionId: nextSessionId });
+    if (templateIdentity) {
+      params.set('universeId', templateIdentity.universeId);
+      params.set('placeId', templateIdentity.placeId);
+    }
+    router.replace(`/map?${params.toString()}`);
   }
 
   async function refreshSession(nextSessionId: string) {
@@ -546,7 +556,10 @@ export default function SessionMapClient() {
       }
 
       setSavedPlaceTemplate(payload.template);
-      openSession(imported.session._id);
+      openSession(imported.session._id, {
+        universeId: payload.template.universeId,
+        placeId: payload.template.placeId,
+      });
       setError(null);
     } catch (loadError) {
       setError(
