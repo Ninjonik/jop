@@ -11,6 +11,7 @@ local ACTIVE_ATTRIBUTE = "JOPResolvedLevelCrossingActive"
 local CHANGED_AT_ATTRIBUTE = "JOPResolvedLevelCrossingChangedAt"
 local WHITE_ENABLED_AT_ATTRIBUTE = "JOPResolvedLevelCrossingWhiteEnabledAt"
 local HALF_PERIOD = 0.5
+local ACTIVE_RED = Color3.fromRGB(255, 0, 0)
 
 local observed = {}
 local crossings = {}
@@ -34,20 +35,22 @@ local function findParts(instance, names)
 	return parts
 end
 
-local function setLamp(part, enabled)
+local function setLamp(part, enabled, activeColor)
 	part.Transparency = enabled and 0 or 1
+	if enabled and activeColor then part.Color = activeColor end
 	for _, descendant in ipairs(part:GetDescendants()) do
 		if descendant:IsA("Light") then
 			if normalBrightness[descendant] == nil then
 				normalBrightness[descendant] = descendant.Brightness > 0 and descendant.Brightness or 1
 			end
+			if enabled and activeColor then descendant.Color = activeColor end
 			descendant.Brightness = enabled and normalBrightness[descendant] or 0
 		end
 	end
 end
 
-local function applyParts(parts, enabled)
-	for _, part in ipairs(parts) do setLamp(part, enabled) end
+local function applyParts(parts, enabled, activeColor)
+	for _, part in ipairs(parts) do setLamp(part, enabled, activeColor) end
 end
 
 local function refreshCrossing(instance)
@@ -110,8 +113,8 @@ RunService.RenderStepped:Connect(function()
 			if pattern ~= state.lastPattern then
 				state.lastPattern = pattern
 				applyParts(state.white, pattern == "white-on")
-				applyParts(state.redA, pattern == "red-a")
-				applyParts(state.redB, pattern == "red-b")
+				applyParts(state.redA, pattern == "red-a", ACTIVE_RED)
+				applyParts(state.redB, pattern == "red-b", ACTIVE_RED)
 			end
 		end
 	end

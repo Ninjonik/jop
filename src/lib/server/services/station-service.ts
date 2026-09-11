@@ -320,12 +320,17 @@ function getActiveLevelCrossingPieceIds(station: StationDocument, session: Sessi
         crossingOccupied,
         updatedAt: nowIso(),
       };
+      const occupiedApproachTracks = linkedTracks.filter((track) =>
+        occupiedPieceIds.has(track.pieceId),
+      );
 
-      if (!lock.direction && leftTracks.some((track) => occupiedPieceIds.has(track.pieceId))) {
-        lock.direction = 'left-to-right';
-      }
-      if (!lock.direction && rightTracks.some((track) => occupiedPieceIds.has(track.pieceId))) {
-        lock.direction = 'right-to-left';
+      // A single linked approach sensor is enough to close the crossing. X is
+      // used only to retain the travel direction for the later release rule;
+      // it must not gate the initial activation.
+      if (!lock.direction && occupiedApproachTracks.length > 0) {
+        lock.direction = occupiedApproachTracks[0].x < crossingX
+          ? 'left-to-right'
+          : 'right-to-left';
       }
 
       const incomingApproachOccupied = lock.direction === 'left-to-right'
