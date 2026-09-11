@@ -46,8 +46,6 @@ export interface PieceRecord {
   type: string;
   rotation: 0 | 180;
   mirrored: boolean;
-  /** When set, this crossing uses inter-station sensor-range activation. */
-  levelCrossingActivationRange?: number;
   state: {
     groups: Record<string, GroupSelection>;
     texts: Record<string, string>;

@@ -52,7 +52,7 @@ through `JOPResolvedLevelCrossingActive` and drives the AŽD 71 sequence.
 - Lamps may be named `WhiteLight`, `RedLightA`, `RedLightB`, or the AŽD 71
   names `W`, `R`, `R1`. They may be plain parts or contain Roblox `Light`
   objects.
-- Any `Sound` below the tagged controller is treated as the warning bell.
+- Put warning-bell `Sound` instances below the `Reproduktor` descendant.
 - A descendant model named `ZÁV` is optional. When present, its pivot rotates
   on X from -84° (up) to 0° (down): 8 seconds of warning, a 10-second lowering
   tween, then a 2-second clearance delay and a 7-second raising tween.
@@ -173,9 +173,10 @@ for _, scriptInfo in ipairs(payload.scripts) do
 end
 ```
 
-`JopSignalVisualController` is installed in
-`StarterPlayer/StarterPlayerScripts`. The server remains authoritative for the
-resolved aspect, while clients render the lamp transitions and blinking locally.
+`JopSignalVisualController` and `JopLevelCrossingVisualController` are installed
+in `StarterPlayer/StarterPlayerScripts`. The server remains authoritative for
+signal/crossing state, barriers, bells, and timing; clients render all lamp
+blinking locally.
 
 Only `HardwareDriver.lua` remains intentionally provisional. When the final
 Roblox model hierarchy is defined, keep the bridge protocol and these link

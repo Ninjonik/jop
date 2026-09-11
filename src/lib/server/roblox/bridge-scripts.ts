@@ -58,6 +58,14 @@ const BRIDGE_SCRIPTS = [
     parentService: 'StarterPlayer',
     parentPath: ['StarterPlayerScripts'],
   },
+  {
+    name: 'JopLevelCrossingVisualController',
+    className: 'LocalScript',
+    fileName: 'JopLevelCrossingVisualController.client.lua',
+    directory: 'StarterPlayer/StarterPlayerScripts',
+    parentService: 'StarterPlayer',
+    parentPath: ['StarterPlayerScripts'],
+  },
 ] as const;
 
 export async function getRobloxBridgeScripts() {

@@ -49,7 +49,6 @@ import {
   buildSignalRoutePlans,
   buildRouteFromSelection,
   crossoverTraversalStatesConflict,
-  getTraversableNeighborPieceIds,
 } from '@/lib/station/routes';
 import {
   getConnectedSwitchControl,
@@ -350,61 +349,9 @@ function getActiveLevelCrossingPieceIds(station: StationDocument, session: Sessi
       return;
     }
 
-    // Compatibility for layouts authored before explicit crossing links.
-    if (!isTrackCrossingPieceType(piece.type)) return;
-
-    const range = piece.levelCrossingActivationRange;
-    if (range === undefined) {
-      // Station crossings close as soon as a normal or shunt route reserves
-      // their sensor, and remain closed while that sensor is occupied.
-      if (reservedPieceIds.has(pieceId) || occupiedPieceIds.has(pieceId)) {
-        activeColumns.add(crossingX);
-      }
-      return;
-    }
-
-    const searchedPieceIds = new Set([pieceId]);
-    let frontier = [pieceId];
-    for (let distance = 0; distance < range; distance += 1) {
-      frontier = frontier.flatMap((currentPieceId) =>
-        getTraversableNeighborPieceIds(station, currentPieceId, tiles),
-      ).filter((neighborPieceId) => {
-        if (searchedPieceIds.has(neighborPieceId)) return false;
-        searchedPieceIds.add(neighborPieceId);
-        return true;
-      });
-    }
-
-    const crossingOccupied = occupiedPieceIds.has(pieceId);
-    const rangeOccupied = [...searchedPieceIds].some((candidatePieceId) =>
-      occupiedPieceIds.has(candidatePieceId),
-    );
-    const lockKey = `${station.stationId}:${pieceId}`;
-    const existingLock = levelCrossingDirectionLocks[lockKey];
-
-    if (!rangeOccupied) {
-      delete levelCrossingDirectionLocks[lockKey];
-      return;
-    }
-
-    const direction = [...searchedPieceIds].reduce<TrainDirection | null>((current, candidatePieceId) => {
-      if (current || !occupiedPieceIds.has(candidatePieceId)) return current;
-      const candidateX = getPieceAnchor(station.layout, candidatePieceId).x;
-      if (candidateX < crossingX) return 'left-to-right';
-      if (candidateX > crossingX) return 'right-to-left';
-      return null;
-    }, existingLock?.direction ?? null);
-    const lock = {
-      direction,
-      crossingOccupied: crossingOccupied || existingLock?.crossingOccupied === true,
-      updatedAt: nowIso(),
-    };
-    levelCrossingDirectionLocks[lockKey] = lock;
-
-    // The rear can remain inside the approach range after the crossing itself
-    // clears. Retain the direction lock but do not reactivate until this whole
-    // range becomes clear and the crossing can re-arm.
-    if (!lock.crossingOccupied || crossingOccupied) {
+    // Crossings without linked approach sensors still protect themselves when
+    // their own sensor is reserved or occupied; range activation is retired.
+    if (reservedPieceIds.has(pieceId) || occupiedPieceIds.has(pieceId)) {
       activeColumns.add(crossingX);
     }
   });
