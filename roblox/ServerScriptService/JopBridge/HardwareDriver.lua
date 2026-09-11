@@ -363,14 +363,25 @@ local function findNamedDescendants(instance, targetNames, className)
 	return found
 end
 
+local function isBellSound(component, sound)
+	local ancestor = sound.Parent
+	while ancestor and ancestor ~= component do
+		if ancestor.Name == "Reproduktor" then
+			return true
+		end
+		ancestor = ancestor.Parent
+	end
+	return false
+end
+
 local function getLevelCrossingHardware(component)
 	local whiteParts = findNamedDescendants(component, { "WhiteLight", "W" }, "BasePart")
 	local redAParts = findNamedDescendants(component, { "RedLightA", "R" }, "BasePart")
 	local redBParts = findNamedDescendants(component, { "RedLightB", "R1" }, "BasePart")
-	local barriers = findNamedDescendants(component, { "ZÁV" }, "Model")
+	local barriers = findNamedDescendants(component, { "ZÁV", "ZAV" }, "Model")
 	local bells = {}
 	for _, descendant in ipairs(component:GetDescendants()) do
-		if descendant:IsA("Sound") then
+		if descendant:IsA("Sound") and isBellSound(component, descendant) then
 			push(bells, descendant)
 		end
 	end
@@ -534,7 +545,6 @@ local function activateLevelCrossing(component, linkedStates)
 	stopWhiteBlink(state)
 	setBellsActive(state.hardware.bells, true)
 	startAlternatingReds(state)
-	print(string.format("[JOP][Crossing] Activating %s for %d linked tile(s)", component:GetFullName(), #linkedStates))
 
 	task.spawn(function()
 		task.wait(8)
@@ -543,7 +553,7 @@ local function activateLevelCrossing(component, linkedStates)
 		waitForBarrierTweens(tweens)
 		if not state.active or state.generation ~= generation then return end
 		state.barrierTweens = {}
-		print(string.format("[JOP][Crossing] Barriers down: %s", component:GetFullName()))
+		setBellsActive(state.hardware.bells, false)
 	end)
 end
 
@@ -565,7 +575,6 @@ local function deactivateLevelCrossing(component, linkedStates)
 	state.generation += 1
 	local generation = state.generation
 	cancelBarrierTweens(state)
-	print(string.format("[JOP][Crossing] Clearance received: %s for %d linked tile(s)", component:GetFullName(), #linkedStates))
 
 	task.spawn(function()
 		task.wait(2)
@@ -576,10 +585,9 @@ local function deactivateLevelCrossing(component, linkedStates)
 		state.barrierTweens = {}
 		stopAlternatingReds(state)
 		setBellsActive(state.hardware.bells, false)
-		task.wait(1)
+		task.wait(30)
 		if state.active or state.generation ~= generation then return end
 		startWhiteBlink(state)
-		print(string.format("[JOP][Crossing] Idle: %s", component:GetFullName()))
 	end)
 end
 

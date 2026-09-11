@@ -30,6 +30,15 @@ const PRIVOLAVACIA_SIGNAL_TILE_KEYS = new Set([
   'departureSignal',
   'departureSignalNoOcp',
 ]);
+const TRACK_CROSSING_TILE_KEYS = new Set(['trackCrossing', 'trackCrossingNoOcp']);
+
+export function isTrackCrossingPieceType(tileKey: string) {
+  return TRACK_CROSSING_TILE_KEYS.has(tileKey);
+}
+
+export function isTrackPieceType(tileKey: string) {
+  return tileKey.startsWith('track') && !isTrackCrossingPieceType(tileKey);
+}
 
 export type GridCellRef = `${string}.${number}`;
 
@@ -458,7 +467,9 @@ export function canPiecesConnect(sourceType: string, targetType: string) {
     (isLineblockPieceType(sourceType) && isPremainSignalPieceType(targetType)) ||
     (isPremainSignalPieceType(sourceType) && isLineblockPieceType(targetType)) ||
     (isPrivolavaciaCounterPieceType(sourceType) && isPrivolavaciaSignalPieceType(targetType)) ||
-    (isPrivolavaciaSignalPieceType(sourceType) && isPrivolavaciaCounterPieceType(targetType))
+    (isPrivolavaciaSignalPieceType(sourceType) && isPrivolavaciaCounterPieceType(targetType)) ||
+    (isTrackCrossingPieceType(sourceType) && isTrackPieceType(targetType)) ||
+    (isTrackPieceType(sourceType) && isTrackCrossingPieceType(targetType))
   );
 }
 
@@ -505,6 +516,10 @@ export function getConnectionEndpointKey(layout: StationLayout, pieceId: string,
   }
 
   if (isPrivolavaciaCounterPieceType(piece.type)) {
+    return pieceId;
+  }
+
+  if (isTrackCrossingPieceType(piece.type) || isTrackPieceType(piece.type)) {
     return pieceId;
   }
 
@@ -561,6 +576,19 @@ export function getAllConnectionEndpointKeysForPiece(layout: StationLayout, piec
         endpointKey.startsWith(`${pieceId}:pn:`),
       ),
     ];
+  }
+
+  if (isTrackCrossingPieceType(piece.type)) {
+    return [
+      pieceId,
+      ...Object.keys(layout.connections).filter((endpointKey) =>
+        endpointKey.startsWith(`${pieceId}:level-crossing:`),
+      ),
+    ];
+  }
+
+  if (isTrackPieceType(piece.type)) {
+    return [pieceId];
   }
 
   if (
@@ -630,6 +658,17 @@ export function getPrivolavaciaConnectionKey(sealedCounterPieceId: string, signa
   return `${sealedCounterPieceId}:pn:${signalPieceId}`;
 }
 
+export function getLevelCrossingConnectionKey(crossingPieceId: string, trackPieceId: string) {
+  return `${crossingPieceId}:level-crossing:${trackPieceId}`;
+}
+
+export function getLevelCrossingTrackPieceIds(layout: StationLayout, crossingPieceId: string) {
+  return Object.entries(layout.connections)
+    .filter(([endpointKey]) => endpointKey.startsWith(`${crossingPieceId}:level-crossing:`))
+    .map(([, linkedEndpointKey]) => getConnectionPieceId(linkedEndpointKey))
+    .filter((pieceId, index, pieceIds) => pieceIds.indexOf(pieceId) === index);
+}
+
 export function getConnectedPieceIdsForEndpointKey(layout: StationLayout, endpointKey: string | null) {
   if (!endpointKey) {
     return [];
@@ -641,7 +680,20 @@ export function getConnectedPieceIdsForEndpointKey(layout: StationLayout, endpoi
 
   const pieceId = getConnectionPieceId(endpointKey);
   const piece = layout.pieces[pieceId];
-  if (!piece || !isPrivolavaciaCounterPieceType(piece.type)) {
+  if (!piece) {
+    return [];
+  }
+
+  if (isTrackCrossingPieceType(piece.type)) {
+    return Object.entries(layout.connections)
+      .filter(([sourceEndpointKey]) =>
+        sourceEndpointKey.startsWith(`${pieceId}:level-crossing:`),
+      )
+      .map(([, linkedEndpointKey]) => getConnectionPieceId(linkedEndpointKey))
+      .filter((connectedPieceId, index, allIds) => allIds.indexOf(connectedPieceId) === index);
+  }
+
+  if (!isPrivolavaciaCounterPieceType(piece.type)) {
     return [];
   }
 

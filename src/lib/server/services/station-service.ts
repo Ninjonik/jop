@@ -33,6 +33,7 @@ import {
   createInitialStationLayout,
   getPrivolavaciaSignalLinksFromLayout,
   getLineblockPremainLinksFromLayout,
+  getLevelCrossingTrackPieceIds,
   getPieceAnchor,
   getPieceCells,
   isLineblockPieceType,
@@ -270,7 +271,7 @@ function getActiveLevelCrossingPieceIds(station: StationDocument, session: Sessi
       occupiedPieceIds.add(occupation.pieceId);
     }
   });
-  const reservedCrossingPieceIds = new Set(
+  const reservedPieceIds = new Set(
     Object.values(station.runtime.activeTrainRoutes).flatMap((route) =>
       route.reservedOccupations.map((occupation) => occupation.pieceId),
     ),
@@ -278,15 +279,109 @@ function getActiveLevelCrossingPieceIds(station: StationDocument, session: Sessi
 
   const activeColumns = new Set<number>();
   const levelCrossingDirectionLocks = (session.runtime.levelCrossingDirectionLocks ??= {});
-  Object.entries(station.layout.pieces).forEach(([pieceId, piece]) => {
+  const crossingPieceIds = Object.entries(station.layout.pieces)
+    .filter(([, piece]) => isTrackCrossingPieceType(piece.type))
+    .map(([pieceId]) => pieceId);
+  const crossingsByColumn = new Map<number, string[]>();
+  crossingPieceIds.forEach((pieceId) => {
+    const x = getPieceAnchor(station.layout, pieceId).x;
+    const column = crossingsByColumn.get(x) ?? [];
+    column.push(pieceId);
+    crossingsByColumn.set(x, column);
+  });
+
+  crossingPieceIds.forEach((pieceId) => {
+    const piece = station.layout.pieces[pieceId];
+    if (!piece) return;
+    const crossingX = getPieceAnchor(station.layout, pieceId).x;
+    const linkedTrackPieceIds = getLevelCrossingTrackPieceIds(station.layout, pieceId);
+
+    // Explicit links are the authoritative modern crossing contract. Each
+    // crossing tile is one physical track row; rows never borrow approach
+    // history from another row merely because they share the same road.
+    if (linkedTrackPieceIds.length > 0) {
+      const linkedTracks = linkedTrackPieceIds
+        .filter((trackPieceId) => station.layout.pieces[trackPieceId])
+        .map((trackPieceId) => ({
+          pieceId: trackPieceId,
+          x: getPieceAnchor(station.layout, trackPieceId).x,
+        }));
+      const leftTracks = linkedTracks.filter((track) => track.x < crossingX).sort((a, b) => a.x - b.x);
+      const rightTracks = linkedTracks.filter((track) => track.x > crossingX).sort((a, b) => b.x - a.x);
+      const leftFar = leftTracks[0]?.pieceId;
+      const leftNear = leftTracks.at(-1)?.pieceId;
+      const rightFar = rightTracks[0]?.pieceId;
+      const rightNear = rightTracks.at(-1)?.pieceId;
+      const rowPieceIds = [pieceId, ...linkedTrackPieceIds];
+      const rowReserved = rowPieceIds.some((candidatePieceId) => reservedPieceIds.has(candidatePieceId));
+      const crossingOccupied = occupiedPieceIds.has(pieceId);
+      const allCrossingsClear = (crossingsByColumn.get(crossingX) ?? []).every(
+        (candidatePieceId) => !occupiedPieceIds.has(candidatePieceId),
+      );
+      const lockKey = `${station.stationId}:${pieceId}`;
+      const existingLock = levelCrossingDirectionLocks[lockKey];
+      const lock = {
+        direction: existingLock?.direction ?? null,
+        crossingOccupied,
+        leftFarSeen: existingLock?.leftFarSeen === true,
+        rightFarSeen: existingLock?.rightFarSeen === true,
+        updatedAt: nowIso(),
+      };
+
+      if (leftFar && occupiedPieceIds.has(leftFar)) lock.leftFarSeen = true;
+      if (rightFar && occupiedPieceIds.has(rightFar)) lock.rightFarSeen = true;
+      if (
+        !lock.direction &&
+        leftFar &&
+        leftNear &&
+        leftFar !== leftNear &&
+        occupiedPieceIds.has(leftNear) &&
+        lock.leftFarSeen
+      ) {
+        lock.direction = 'left-to-right';
+      }
+      if (
+        !lock.direction &&
+        rightFar &&
+        rightNear &&
+        rightFar !== rightNear &&
+        occupiedPieceIds.has(rightNear) &&
+        lock.rightFarSeen
+      ) {
+        lock.direction = 'right-to-left';
+      }
+
+      const incomingApproachOccupied = lock.direction === 'left-to-right'
+        ? leftTracks.some((track) => occupiedPieceIds.has(track.pieceId))
+        : lock.direction === 'right-to-left'
+          ? rightTracks.some((track) => occupiedPieceIds.has(track.pieceId))
+          : false;
+      const shouldRemainLatched = crossingOccupied || incomingApproachOccupied || rowReserved;
+
+      if (!shouldRemainLatched && allCrossingsClear) {
+        delete levelCrossingDirectionLocks[lockKey];
+      } else {
+        levelCrossingDirectionLocks[lockKey] = lock;
+      }
+
+      // A crossing sensor is always a safety trigger even if an external train
+      // appears without the two-step approach sequence. A route reservation is
+      // also sufficient because it already carries an ordered train path.
+      if (crossingOccupied || rowReserved || lock.direction !== null) {
+        activeColumns.add(crossingX);
+      }
+      return;
+    }
+
+    // Compatibility for layouts authored before explicit crossing links.
     if (!isTrackCrossingPieceType(piece.type)) return;
 
     const range = piece.levelCrossingActivationRange;
     if (range === undefined) {
       // Station crossings close as soon as a normal or shunt route reserves
       // their sensor, and remain closed while that sensor is occupied.
-      if (reservedCrossingPieceIds.has(pieceId) || occupiedPieceIds.has(pieceId)) {
-        activeColumns.add(getPieceAnchor(station.layout, pieceId).x);
+      if (reservedPieceIds.has(pieceId) || occupiedPieceIds.has(pieceId)) {
+        activeColumns.add(crossingX);
       }
       return;
     }
@@ -315,7 +410,6 @@ function getActiveLevelCrossingPieceIds(station: StationDocument, session: Sessi
       return;
     }
 
-    const crossingX = getPieceAnchor(station.layout, pieceId).x;
     const direction = [...searchedPieceIds].reduce<TrainDirection | null>((current, candidatePieceId) => {
       if (current || !occupiedPieceIds.has(candidatePieceId)) return current;
       const candidateX = getPieceAnchor(station.layout, candidatePieceId).x;
@@ -339,10 +433,8 @@ function getActiveLevelCrossingPieceIds(station: StationDocument, session: Sessi
   });
 
   return new Set(
-    Object.entries(station.layout.pieces)
-      .filter(([, piece]) => isTrackCrossingPieceType(piece.type))
-      .filter(([pieceId]) => activeColumns.has(getPieceAnchor(station.layout, pieceId).x))
-      .map(([pieceId]) => pieceId),
+    crossingPieceIds
+      .filter((pieceId) => activeColumns.has(getPieceAnchor(station.layout, pieceId).x)),
   );
 }
 

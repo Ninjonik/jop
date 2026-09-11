@@ -51,6 +51,8 @@ export type PhysicalOccupation = {
 export type LevelCrossingDirectionLock = {
   direction: TrainDirection | null;
   crossingOccupied: boolean;
+  leftFarSeen?: boolean;
+  rightFarSeen?: boolean;
   updatedAt: string;
 };
 
@@ -717,6 +719,8 @@ export const sessionDocumentSchema = z.object({
         z.object({
           direction: z.enum(['left-to-right', 'right-to-left']).nullable(),
           crossingOccupied: z.boolean(),
+          leftFarSeen: z.boolean().optional(),
+          rightFarSeen: z.boolean().optional(),
           updatedAt: z.string(),
         }),
       )

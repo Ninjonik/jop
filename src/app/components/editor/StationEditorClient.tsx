@@ -29,12 +29,15 @@ import {
   getConnectedPieceIdsForEndpointKey,
   getConnectionEndpointKey,
   getConnectionPieceId,
+  getLevelCrossingConnectionKey,
   getPieceCells,
   getPrivolavaciaConnectionKey,
   isLineblockPieceType,
   isPrivolavaciaCounterPieceType,
   isPrivolavaciaSignalPieceType,
   isPremainSignalPieceType,
+  isTrackCrossingPieceType,
+  isTrackPieceType,
   isSwitchButtonPieceType,
   isSwitchPieceType,
   parseCellRef,
@@ -304,11 +307,14 @@ export default function StationEditorClient({ tiles, stateGroups }: Props) {
       isLineblockPieceType(piece.type) ||
       isPremainSignalPieceType(piece.type) ||
       isPrivolavaciaCounterPieceType(piece.type) ||
-      isPrivolavaciaSignalPieceType(piece.type);
+      isPrivolavaciaSignalPieceType(piece.type) ||
+      isTrackCrossingPieceType(piece.type);
     const canStartConnection =
       eligibleType &&
       Boolean(endpointKey) &&
-      (connectedPieceIds.length === 0 || isPrivolavaciaCounterPieceType(piece.type));
+      (connectedPieceIds.length === 0 ||
+        isPrivolavaciaCounterPieceType(piece.type) ||
+        isTrackCrossingPieceType(piece.type));
     const canCancelPendingConnection = pendingConnectionEndpointKey === endpointKey;
     const canConnectToPending = Boolean(
       endpointKey &&
@@ -323,8 +329,16 @@ export default function StationEditorClient({ tiles, stateGroups }: Props) {
           (isPrivolavaciaCounterPieceType(piece.type) &&
             isPrivolavaciaSignalPieceType(pendingPiece.type) &&
             !editorState.connections[pendingConnectionEndpointKey]) ||
+          (isTrackCrossingPieceType(pendingPiece.type) &&
+            isTrackPieceType(piece.type) &&
+            connectedPieceIds.length === 0) ||
+          (isTrackCrossingPieceType(piece.type) &&
+            isTrackPieceType(pendingPiece.type) &&
+            !editorState.connections[pendingConnectionEndpointKey]) ||
           (!isPrivolavaciaCounterPieceType(pendingPiece.type) &&
             !isPrivolavaciaCounterPieceType(piece.type) &&
+            !isTrackCrossingPieceType(pendingPiece.type) &&
+            !isTrackCrossingPieceType(piece.type) &&
             connectedPieceIds.length === 0 &&
             !editorState.connections[pendingConnectionEndpointKey])
         )
@@ -553,6 +567,44 @@ export default function StationEditorClient({ tiles, stateGroups }: Props) {
         };
       }
 
+      if (isTrackCrossingPieceType(sourcePiece.type) && isTrackPieceType(targetPiece.type)) {
+        if (current.connections[targetEndpointKey]) {
+          return current;
+        }
+
+        const syntheticEndpointKey = getLevelCrossingConnectionKey(
+          getConnectionPieceId(pendingConnectionEndpointKey),
+          contextMenu.pieceId,
+        );
+        return {
+          ...current,
+          connections: {
+            ...current.connections,
+            [syntheticEndpointKey]: targetEndpointKey,
+            [targetEndpointKey]: syntheticEndpointKey,
+          },
+        };
+      }
+
+      if (isTrackCrossingPieceType(targetPiece.type) && isTrackPieceType(sourcePiece.type)) {
+        if (current.connections[pendingConnectionEndpointKey]) {
+          return current;
+        }
+
+        const syntheticEndpointKey = getLevelCrossingConnectionKey(
+          contextMenu.pieceId,
+          getConnectionPieceId(pendingConnectionEndpointKey),
+        );
+        return {
+          ...current,
+          connections: {
+            ...current.connections,
+            [syntheticEndpointKey]: pendingConnectionEndpointKey,
+            [pendingConnectionEndpointKey]: syntheticEndpointKey,
+          },
+        };
+      }
+
       if (
         isPrivolavaciaCounterPieceType(targetPiece.type) &&
         isPrivolavaciaSignalPieceType(sourcePiece.type)
@@ -614,6 +666,16 @@ export default function StationEditorClient({ tiles, stateGroups }: Props) {
       if (isPrivolavaciaCounterPieceType(piece.type)) {
         Object.keys(nextConnections)
           .filter((endpointKey) => endpointKey.startsWith(`${disconnectMenu.pieceId}:pn:`))
+          .forEach((endpointKey) => {
+            const linkedEndpointKey = nextConnections[endpointKey];
+            if (linkedEndpointKey) {
+              delete nextConnections[linkedEndpointKey];
+            }
+            delete nextConnections[endpointKey];
+          });
+      } else if (isTrackCrossingPieceType(piece.type)) {
+        Object.keys(nextConnections)
+          .filter((endpointKey) => endpointKey.startsWith(`${disconnectMenu.pieceId}:level-crossing:`))
           .forEach((endpointKey) => {
             const linkedEndpointKey = nextConnections[endpointKey];
             if (linkedEndpointKey) {
