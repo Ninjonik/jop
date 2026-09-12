@@ -18,7 +18,7 @@ local BARRIER_START_AT_ATTRIBUTE = "JOPResolvedLevelCrossingBarrierStartAt"
 local BARRIER_DURATION_ATTRIBUTE = "JOPResolvedLevelCrossingBarrierDuration"
 local RED_HALF_PERIOD = 0.5
 local WHITE_HALF_PERIOD = 1
-local WHITE_TWEEN_INFO = TweenInfo.new(0.2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
+local LAMP_FADE_TWEEN_INFO = TweenInfo.new(0.16, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
 local ACTIVE_RED = Color3.fromRGB(255, 0, 0)
 local FAR_FUTURE_TIMESTAMP = 9e15
 local BARRIER_DOWN_X = 0
@@ -26,6 +26,7 @@ local BARRIER_DOWN_X = 0
 local observed = {}
 local crossings = {}
 local normalBrightness = setmetatable({}, { __mode = "k" })
+local normalColors = setmetatable({}, { __mode = "k" })
 local lampTweens = setmetatable({}, { __mode = "k" })
 
 local function isLevelCrossing(instance)
@@ -90,38 +91,37 @@ local function renderBarriers(state, now)
 	end
 end
 
-local function setLamp(part, enabled, activeColor)
-	part.Transparency = enabled and 0 or 1
-	if enabled and activeColor then part.Color = activeColor end
-	for _, descendant in ipairs(part:GetDescendants()) do
-		if descendant:IsA("Light") then
-			if normalBrightness[descendant] == nil then
-				normalBrightness[descendant] = descendant.Brightness > 0 and descendant.Brightness or 1
-			end
-			if enabled and activeColor then descendant.Color = activeColor end
-			descendant.Brightness = enabled and normalBrightness[descendant] or 0
-		end
-	end
+local function rememberNormalColor(instance)
+	if normalColors[instance] == nil then normalColors[instance] = instance.Color end
+	return normalColors[instance]
 end
 
-local function tweenLampProperty(instance, properties)
-
+local function tweenLampProperties(instance, properties)
 	local previousTween = lampTweens[instance]
 	if previousTween then previousTween:Cancel() end
-	local tween = TweenService:Create(instance, WHITE_TWEEN_INFO, properties)
+	local tween = TweenService:Create(instance, LAMP_FADE_TWEEN_INFO, properties)
 	lampTweens[instance] = tween
 	tween:Play()
 end
 
-local function setWhiteLamp(part, enabled)
+local function setLamp(part, enabled, activeColor)
+	local inactiveColor = rememberNormalColor(part)
+	local targetColor = enabled and (activeColor or inactiveColor) or inactiveColor
+	tweenLampProperties(part, {
+		Transparency = enabled and 0 or 1,
+		Color = targetColor,
+	})
 
-	tweenLampProperty(part, { Transparency = enabled and 0 or 1 })
 	for _, descendant in ipairs(part:GetDescendants()) do
 		if descendant:IsA("Light") then
 			if normalBrightness[descendant] == nil then
 				normalBrightness[descendant] = descendant.Brightness > 0 and descendant.Brightness or 1
 			end
-			tweenLampProperty(descendant, { Brightness = enabled and normalBrightness[descendant] or 0 })
+			local inactiveLightColor = rememberNormalColor(descendant)
+			tweenLampProperties(descendant, {
+				Brightness = enabled and normalBrightness[descendant] or 0,
+				Color = enabled and (activeColor or inactiveLightColor) or inactiveLightColor,
+			})
 		end
 	end
 end
@@ -131,7 +131,7 @@ local function applyParts(parts, enabled, activeColor)
 end
 
 local function applyWhiteParts(parts, enabled)
-	for _, part in ipairs(parts) do setWhiteLamp(part, enabled) end
+	for _, part in ipairs(parts) do setLamp(part, enabled) end
 end
 
 local function refreshCrossing(instance)

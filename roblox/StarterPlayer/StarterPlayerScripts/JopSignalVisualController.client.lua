@@ -2,13 +2,18 @@
 
 local CollectionService = game:GetService("CollectionService")
 local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
 local Workspace = game:GetService("Workspace")
 
 local SIGNAL_TAG = "JOPSignalComponent"
 local SLOW_HALF_PERIOD = 0.575
 local FAST_HALF_PERIOD = 0.275
+local LAMP_FADE_TWEEN_INFO = TweenInfo.new(0.16, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
 local blinkingLamps = {}
 local observedSignals = {}
+local normalBrightness = setmetatable({}, { __mode = "k" })
+local normalColors = setmetatable({}, { __mode = "k" })
+local lampTweens = setmetatable({}, { __mode = "k" })
 
 local function findLamp(instance, name)
 	local lamp = instance:FindFirstChild(name, true)
@@ -24,6 +29,40 @@ local function parseLampModes(serialized)
 	return modes
 end
 
+local function rememberNormalColor(instance)
+	if normalColors[instance] == nil then normalColors[instance] = instance.Color end
+	return normalColors[instance]
+end
+
+local function tweenLampProperties(instance, properties)
+	local previousTween = lampTweens[instance]
+	if previousTween then previousTween:Cancel() end
+	local tween = TweenService:Create(instance, LAMP_FADE_TWEEN_INFO, properties)
+	lampTweens[instance] = tween
+	tween:Play()
+end
+
+local function setLampAppearance(lamp, enabled, openTransparency, closedTransparency)
+	local lampColor = rememberNormalColor(lamp)
+	tweenLampProperties(lamp, {
+		Transparency = enabled and openTransparency or closedTransparency,
+		Color = lampColor,
+	})
+
+	for _, descendant in ipairs(lamp:GetDescendants()) do
+		if descendant:IsA("Light") then
+			if normalBrightness[descendant] == nil then
+				normalBrightness[descendant] = descendant.Brightness > 0 and descendant.Brightness or 1
+			end
+			local lightColor = rememberNormalColor(descendant)
+			tweenLampProperties(descendant, {
+				Brightness = enabled and normalBrightness[descendant] or 0,
+				Color = lightColor,
+			})
+		end
+	end
+end
+
 local function refreshSignal(instance)
 	local modes = parseLampModes(instance:GetAttribute("JOPResolvedSignalLampModes"))
 	local open = instance:GetAttribute("JOPResolvedSignalOpenTransparency")
@@ -35,10 +74,16 @@ local function refreshSignal(instance)
 		local lamp = findLamp(instance, name)
 		if lamp then
 			if mode == "blinkSlow" or mode == "blinkFast" or mode == "pulse2" or mode == "pulse3" then
-				blinkingLamps[lamp] = { mode = mode, open = open, closed = closed, changedAt = changedAt }
+				blinkingLamps[lamp] = {
+					mode = mode,
+					open = open,
+					closed = closed,
+					changedAt = changedAt,
+					isOn = nil,
+				}
 			else
 				blinkingLamps[lamp] = nil
-				lamp.Transparency = mode == "on" and open or closed
+				setLampAppearance(lamp, mode == "on", open, closed)
 			end
 		end
 	end
@@ -68,7 +113,10 @@ RunService.RenderStepped:Connect(function()
 				and SLOW_HALF_PERIOD
 				or FAST_HALF_PERIOD
 			local isOn = math.floor((now - state.changedAt) / halfPeriod) % 2 == 0
-			lamp.Transparency = isOn and state.open or state.closed
+			if state.isOn ~= isOn then
+				state.isOn = isOn
+				setLampAppearance(lamp, isOn, state.open, state.closed)
+			end
 		end
 	end
 end)

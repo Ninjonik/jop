@@ -20,11 +20,6 @@ local RESOLVED_ASPECTS = {
 	expect60 = { z1 = "blinkFast" }, expect80 = { z = "blinkSlow" }, expect100 = { z = "blinkFast" },
 }
 
-local function findLamp(instance, name)
-	local lamp = instance:FindFirstChild(name, true)
-	return lamp and lamp:IsA("BasePart") and lamp or nil
-end
-
 local function getOpenTransparency(family)
 	if family == "entry" or family == "shunt" then return 0 end
 	if family == "departure" then return 0.1 end
@@ -43,25 +38,14 @@ local function serializeLampModes(config)
 	return table.concat(modes, ";")
 end
 
-local function isLitMode(mode)
-	return mode == "on" or mode == "blinkSlow" or mode == "blinkFast" or mode == "pulse2" or mode == "pulse3"
-end
-
 function SignalController.Apply(instance, family, aspect)
 	local config = RESOLVED_ASPECTS[aspect] or {}
 	local openTransparency = getOpenTransparency(family)
 	local closedTransparency = getClosedTransparency(family)
 
-	-- Keep blinking lamps visibly lit as a server fallback. The client replaces
-	-- this with the correct animation, but an old or missing LocalScript must
-	-- not make a call-on aspect indistinguishable from danger.
-	for _, lampName in ipairs(CONTROLLED_LAMPS) do
-		local lamp = findLamp(instance, lampName)
-		if lamp then
-			lamp.Transparency = isLitMode(config[lampName]) and openTransparency or closedTransparency
-		end
-	end
-
+	-- The client owns all lamp presentation so a replicated aspect change can
+	-- fade instead of snapping. These attributes remain the server-authoritative
+	-- description of the requested aspect and blink modes.
 	instance:SetAttribute("JOPResolvedSignalLampModes", serializeLampModes(config))
 	instance:SetAttribute("JOPResolvedSignalOpenTransparency", openTransparency)
 	instance:SetAttribute("JOPResolvedSignalClosedTransparency", closedTransparency)
