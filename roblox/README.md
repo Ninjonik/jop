@@ -68,7 +68,7 @@ default naming contract.
 The default occupation naming contract is:
 
 - normal track sensor: one or more parts named `Occupancy`
-- `singleSwitch`: one or more `Straight` parts and one or more `Diagonal` parts
+- `singleSwitch` and `singleExtendedSwitch`: one or more `Straight` parts and one or more `Diagonal` parts
 - `crossoverSwitch`: one or more `Lower`, `Diagonal`, and `Upper` parts
 - `extendedSwitch`: one or more `LowerStraight`, `LowerDiagonal`,
   `UpperStraight`, and `UpperDiagonal` parts
@@ -78,6 +78,10 @@ part in that section is occupied, the whole section reports occupied.
 
 For `extendedSwitch`, the middle JOP traversal is shared, so both
 `LowerDiagonal` and `UpperStraight` report the same traversal state.
+
+For `singleExtendedSwitch`, `Straight` reports `blTbr` and `Diagonal` reports
+`blTtr`. The bridge determines this from the linked JOP tile type; no custom
+`traversalState` is needed.
 
 Switch geometry can also be driven directly by the default driver when the
 linked switch model contains mutually exclusive physical variants named `ONE`,

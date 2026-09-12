@@ -56,6 +56,11 @@ end
 local function refreshCrossing(instance)
 	local state = crossings[instance]
 	if not state then return end
+	-- With StreamingEnabled, a crossing root can arrive before all of its
+	-- Prejazd/Vystraznik lamp parts. Rebuild this small list whenever needed.
+	state.white = findParts(instance, { "WhiteLight", "W" })
+	state.redA = findParts(instance, { "RedLightA", "R" })
+	state.redB = findParts(instance, { "RedLightB", "R1" })
 	state.active = instance:GetAttribute(ACTIVE_ATTRIBUTE) == true
 	state.changedAt = instance:GetAttribute(CHANGED_AT_ATTRIBUTE)
 	if type(state.changedAt) ~= "number" then state.changedAt = Workspace:GetServerTimeNow() end
@@ -79,6 +84,9 @@ local function observeCrossing(instance)
 	instance:GetAttributeChangedSignal(ACTIVE_ATTRIBUTE):Connect(function() refreshCrossing(instance) end)
 	instance:GetAttributeChangedSignal(CHANGED_AT_ATTRIBUTE):Connect(function() refreshCrossing(instance) end)
 	instance:GetAttributeChangedSignal(WHITE_ENABLED_AT_ATTRIBUTE):Connect(function() refreshCrossing(instance) end)
+	instance.DescendantAdded:Connect(function(descendant)
+		if descendant:IsA("BasePart") then refreshCrossing(instance) end
+	end)
 	instance.AncestryChanged:Connect(function(_, parent)
 		if not parent then
 			observed[instance] = nil

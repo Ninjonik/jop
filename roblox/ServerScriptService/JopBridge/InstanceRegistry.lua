@@ -99,6 +99,27 @@ local function mergeOccupationReport(link, report)
 	return merged
 end
 
+local function normalizeOccupationTraversalForPiece(link, report, state)
+	if type(report) ~= "table" or type(state) ~= "table" then
+		return report
+	end
+
+	-- A single switch uses `t` for its diagonal visual occupation, whereas the
+	-- single extended switch's diagonal route is `blTtr`. Both models expose
+	-- Straight/Diagonal sensors, so resolve the ambiguous sensor name using the
+	-- linked JOP tile type from the latest snapshot.
+	if state.pieceType == "singleExtendedSwitch" and report.traversalState == "t" then
+		local normalized = {}
+		for key, value in pairs(report) do
+			normalized[key] = value
+		end
+		normalized.traversalState = "blTtr"
+		return normalized
+	end
+
+	return report
+end
+
 local function formatUpdateSummary(state)
 	if type(state) ~= "table" then
 		return "unknown"
@@ -258,7 +279,9 @@ function InstanceRegistry:_refresh(instance)
 
 	local disconnectOccupation = self._driver.ObserveOccupation(instance, function(report)
 		for _, link in ipairs(links) do
-			self._onOccupation(link, mergeOccupationReport(link, report))
+			local state = self._statesByKey[link.stationId .. "\0" .. link.pieceId]
+			local normalizedReport = normalizeOccupationTraversalForPiece(link, report, state)
+			self._onOccupation(link, mergeOccupationReport(link, normalizedReport))
 		end
 	end, capabilities)
 	local disconnectSwitchFeedback = self._driver.ObserveSwitchFeedback(instance, function(report)

@@ -1365,6 +1365,21 @@ function isPhysicalSwitchPieceType(pieceType: string) {
   return isPhysicalSwitchType(pieceType);
 }
 
+function normalizeRobloxOccupationTraversalState(
+  pieceType: string,
+  traversalState: string | null,
+) {
+  // The original bridge used `t` for every Diagonal part. That is the visual
+  // occupation state for a single switch, but a single extended switch uses
+  // `blTtr` for its diagonal route. Keep accepting the old value so a bridge
+  // update cannot leave an existing physical occupation under a stale key.
+  if (pieceType === 'singleExtendedSwitch' && traversalState === 't') {
+    return 'blTtr';
+  }
+
+  return traversalState;
+}
+
 function getSpawnOccupationState(station: StationDocument, pieceId: string, row: number) {
   const piece = station.layout.pieces[pieceId];
   if (!piece?.state.groups.occupation) {
@@ -3338,11 +3353,25 @@ export const stationService = {
       return { applied: false, station };
     }
 
-    const traversalState = input.traversalState ?? null;
+    const reportedTraversalState = input.traversalState ?? null;
+    const traversalState = normalizeRobloxOccupationTraversalState(
+      piece.type,
+      reportedTraversalState,
+    );
     const occupationKey = `${stationId}:${input.pieceId}:${traversalState ?? '*'}`;
-    const current = session.runtime.physicalOccupations[occupationKey];
+    const legacyOccupationKey =
+      traversalState !== reportedTraversalState
+        ? `${stationId}:${input.pieceId}:${reportedTraversalState ?? '*'}`
+        : null;
+    const current =
+      session.runtime.physicalOccupations[occupationKey] ??
+      (legacyOccupationKey ? session.runtime.physicalOccupations[legacyOccupationKey] : undefined);
     if (current && Date.parse(current.observedAt) > Date.parse(input.observedAt)) {
       return { applied: false, station };
+    }
+
+    if (legacyOccupationKey) {
+      delete session.runtime.physicalOccupations[legacyOccupationKey];
     }
 
     session.runtime.physicalOccupations[occupationKey] = {
