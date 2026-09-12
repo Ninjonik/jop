@@ -526,7 +526,7 @@ local function activateLevelCrossing(component, linkedStates, whiteAllowed)
 	task.spawn(function()
 		task.wait(state.timings.warningSeconds)
 		if not state.active or state.generation ~= generation then return end
-		local tweens = tweenBarriers(state, BARRIER_DOWN_X, TweenInfo.new(state.timings.lowerSeconds, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut))
+		local tweens = tweenBarriers(state, BARRIER_DOWN_X, TweenInfo.new(state.timings.lowerSeconds, Enum.EasingStyle.Linear))
 		waitForBarrierTweens(tweens)
 		if not state.active or state.generation ~= generation then return end
 		state.barrierTweens = {}
@@ -554,7 +554,7 @@ local function deactivateLevelCrossing(component, linkedStates, whiteAllowed)
 	state.whiteAllowed = whiteAllowed
 	state.timings = getLevelCrossingTimings(linkedStates)
 	if not state.active then
-		if state.barriersRaised then setLevelCrossingWhiteReturn(component, state) end
+		setLevelCrossingWhiteReturn(component, state)
 		return
 	end
 
@@ -563,15 +563,18 @@ local function deactivateLevelCrossing(component, linkedStates, whiteAllowed)
 	state.generation += 1
 	local generation = state.generation
 	cancelBarrierTweens(state)
+	-- White permission is independent of the barrier motion. It remains off
+	-- until the backend reports the next sensor clear, then uses only its own
+	-- configured delay.
+	setLevelCrossingWhiteReturn(component, state)
 
 	task.spawn(function()
-		local tweens = tweenBarriers(state, BARRIER_UP_X, TweenInfo.new(state.timings.raiseSeconds, Enum.EasingStyle.Quad, Enum.EasingDirection.Out))
+		local tweens = tweenBarriers(state, BARRIER_UP_X, TweenInfo.new(state.timings.raiseSeconds, Enum.EasingStyle.Linear))
 		waitForBarrierTweens(tweens)
 		if state.active or state.generation ~= generation then return end
 		state.barrierTweens = {}
 		state.barriersRaised = true
 		setBellsActive(state.hardware.bells, false)
-		setLevelCrossingWhiteReturn(component, state)
 	end)
 end
 
@@ -703,7 +706,7 @@ function HardwareDriver.ApplyInstanceState(instance, linkedStates, capabilities)
 			if state then
 				local whiteAllowedChanged = state.whiteAllowed ~= levelCrossingWhiteAllowed
 				state.whiteAllowed = levelCrossingWhiteAllowed
-				if whiteAllowedChanged and not state.active and state.barriersRaised then
+				if whiteAllowedChanged and not state.active then
 					setLevelCrossingWhiteReturn(levelCrossingComponent, state)
 				end
 			end

@@ -430,6 +430,8 @@ function InstanceRegistry:ApplySnapshot(snapshot)
 				resolvedSignalFamily = piece.resolvedSignalFamily,
 				resolvedSignalAspect = piece.resolvedSignalAspect,
 				levelCrossingActive = piece.levelCrossingActive,
+				levelCrossingWhiteAllowed = piece.levelCrossingWhiteAllowed,
+				levelCrossingTimings = piece.levelCrossingTimings,
 			}
 				print(
 					string.format(
@@ -482,6 +484,8 @@ function InstanceRegistry:ApplyUpdates(updateBatch)
 			resolvedSignalFamily = update.piece.resolvedSignalFamily,
 			resolvedSignalAspect = update.piece.resolvedSignalAspect,
 			levelCrossingActive = update.piece.levelCrossingActive,
+			levelCrossingWhiteAllowed = update.piece.levelCrossingWhiteAllowed,
+			levelCrossingTimings = update.piece.levelCrossingTimings,
 		}
 		print(
 			string.format(

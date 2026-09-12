@@ -773,6 +773,14 @@ function applyActiveOutboundLineblockVisualState(station: StationDocument) {
       return;
     }
 
+    // A completed odhlaska deliberately restores this lineblock to
+    // sendingFree while the historical outbound route may still be present
+    // until its own release lifecycle finishes. Do not let that route's
+    // visual projection overwrite the confirmed free state back to sending.
+    if (getLineblockVisualState(station, localPremainLink.lineblockPieceId) === 'sendingFree') {
+      return;
+    }
+
     setLineblockVisualState(station, localPremainLink.lineblockPieceId, 'sending');
   });
 }
@@ -1359,9 +1367,11 @@ function ensureSessionRuntimeState(session: SessionDocument) {
   Object.keys(session.topology.lineblockLinks).forEach((linkId) => {
     session.runtime.lineblocks[linkId] ??= {
       arrivalAcknowledgementEligible: false,
+      entryPassed: false,
       trainId: null,
       updatedAt: session.updatedAt,
     };
+    session.runtime.lineblocks[linkId].entryPassed ??= false;
   });
 
   return session;
@@ -3043,6 +3053,7 @@ function updateLineblockArrivalEligibility(
     );
     session.runtime.lineblocks[transit.linkId] = {
       arrivalAcknowledgementEligible: true,
+      entryPassed: true,
       trainId: train.id,
       updatedAt: nowIso(),
     };
@@ -3054,6 +3065,7 @@ function updatePhysicalLineblockArrivalEligibility(
   receivingStation: StationDocument,
   occupiedPieceId: string,
   traversalState: string | null,
+  occupied: boolean,
 ) {
   Object.values(receivingStation.runtime.activeTrainRoutes).forEach((route) => {
     if (route.routeType !== 'normal' || route.routeClass !== 'premain-to-platform') {
@@ -3075,16 +3087,42 @@ function updatePhysicalLineblockArrivalEligibility(
       step.pieceId === occupiedPieceId &&
       (traversalState === null || step.occupationState === null || step.occupationState === traversalState),
     );
-    if (entrySignalIndex < 0 || occupiedStepIndex <= entrySignalIndex) {
+    if (entrySignalIndex < 0) {
       return;
     }
 
     const linked = getLinkedLineblock(receivingStation, session, premainLink.lineblockPieceId);
     if (!linked) return;
 
-    // A physical train has passed the receiving entry signal. This is the
-    // same operational moment as the receiving premain returning to danger,
-    // so odhlaska may now be requested at the receiving lineblock.
+    const lineblockRuntime = session.runtime.lineblocks[linked.link.id];
+    const entryWasPassed =
+      lineblockRuntime?.entryPassed === true || (occupied && occupiedStepIndex > entrySignalIndex);
+    if (!entryWasPassed) {
+      return;
+    }
+
+    const protectedPieceIds = new Set(
+      route.path.slice(0, entrySignalIndex + 1).map((step) => step.pieceId),
+    );
+    const protectedSensorsAreClear = !Object.values(session.runtime.physicalOccupations).some(
+      (occupation) =>
+        occupation.occupied &&
+        occupation.stationId === receivingStation.stationId &&
+        protectedPieceIds.has(occupation.pieceId),
+    );
+
+    // The front has passed the entry signal, but odhlaska is safe only after
+    // the rear has cleared every protected sensor up to that signal.
+    if (!protectedSensorsAreClear) {
+      session.runtime.lineblocks[linked.link.id] = {
+        arrivalAcknowledgementEligible: false,
+        entryPassed: true,
+        trainId: null,
+        updatedAt: nowIso(),
+      };
+      return;
+    }
+
     setLineblockVisualState(
       receivingStation,
       premainLink.lineblockPieceId,
@@ -3092,6 +3130,7 @@ function updatePhysicalLineblockArrivalEligibility(
     );
     session.runtime.lineblocks[linked.link.id] = {
       arrivalAcknowledgementEligible: true,
+      entryPassed: true,
       trainId: null,
       updatedAt: nowIso(),
     };
@@ -3529,9 +3568,13 @@ export const stationService = {
     session.updatedAt = nowIso();
 
     applyRouteProgressFromOccupationEvent(station, input.pieceId, traversalState, input.occupied);
-    if (input.occupied) {
-      updatePhysicalLineblockArrivalEligibility(session, station, input.pieceId, traversalState);
-    }
+    updatePhysicalLineblockArrivalEligibility(
+      session,
+      station,
+      input.pieceId,
+      traversalState,
+      input.occupied,
+    );
 
     applyRuntimeStateWithTrainOccupations(station, session);
     bumpRevision(station);
@@ -3758,6 +3801,7 @@ export const stationService = {
         .forEach((linkId) => {
         session.runtime.lineblocks[linkId] = {
           arrivalAcknowledgementEligible: false,
+          entryPassed: false,
           trainId: null,
           updatedAt: nowIso(),
         };
@@ -4081,6 +4125,7 @@ export const stationService = {
     if (train.lineblockTransit) {
       session.runtime.lineblocks[train.lineblockTransit.linkId] = {
         arrivalAcknowledgementEligible: true,
+        entryPassed: true,
         trainId,
         updatedAt: nowIso(),
       };
@@ -4219,6 +4264,7 @@ export const stationService = {
     };
     session.runtime.lineblocks[linkId] = {
       arrivalAcknowledgementEligible: false,
+      entryPassed: false,
       trainId: null,
       updatedAt: createdAt,
     };
@@ -4431,9 +4477,16 @@ export const stationService = {
 
     const localState = getLineblockVisualState(localStation, command.payload.pieceId);
     const remoteState = getLineblockVisualState(remoteStation, linked.remote.pieceId);
-    validateLineblockActionStates(command.type, localState, remoteState);
+    const repairsCompletedArrival =
+      command.type === 'lineblock:mark-arrived' &&
+      localState === 'receivingFree' &&
+      remoteState === 'sending';
+    if (!repairsCompletedArrival) {
+      validateLineblockActionStates(command.type, localState, remoteState);
+    }
     if (
       command.type === 'lineblock:mark-arrived' &&
+      !repairsCompletedArrival &&
       !session.runtime.lineblocks[linked.link.id]?.arrivalAcknowledgementEligible
     ) {
       throw new Error(
@@ -4441,6 +4494,9 @@ export const stationService = {
       );
     }
 
+    // Older runtime snapshots could persist this exact split when the
+    // outbound-route projection overwrote the sending side after odhlaska.
+    // Accept one repeat acknowledgement only to restore the paired state.
     applyLineblockActionStates(
       command.type,
       localStation,
@@ -4463,6 +4519,7 @@ export const stationService = {
       }
       session.runtime.lineblocks[linked.link.id] = {
         arrivalAcknowledgementEligible: false,
+        entryPassed: false,
         trainId: null,
         updatedAt: nowIso(),
       };
