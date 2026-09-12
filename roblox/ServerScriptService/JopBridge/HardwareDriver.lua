@@ -342,7 +342,7 @@ end
 -- AŽD 71 models use W/R/R1. A model with no ZÁV descendant simply operates
 -- as a lights-only crossing.
 local DEFAULT_WARNING_SECONDS = 8
-local DEFAULT_LOWER_SECONDS = 10
+local DEFAULT_LOWER_SECONDS = 7
 local DEFAULT_RAISE_SECONDS = 7
 local DEFAULT_WHITE_DELAY_SECONDS = 0
 local BARRIER_UP_X = math.rad(-84)

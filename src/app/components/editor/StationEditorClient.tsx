@@ -521,7 +521,7 @@ export default function StationEditorClient({ tiles, stateGroups }: Props) {
     const current = piece.levelCrossingTimings ?? {};
     const fields: Array<[keyof NonNullable<typeof piece.levelCrossingTimings>, string, number]> = [
       ['warningSeconds', 'Warning before barriers lower (seconds; blank = 8)', 8],
-      ['lowerSeconds', 'Barrier lowering duration (seconds; blank = 10)', 10],
+      ['lowerSeconds', 'Barrier lowering duration (seconds; blank = 7)', 7],
       ['raiseSeconds', 'Barrier raising duration (seconds; blank = 7)', 7],
       ['whiteDelaySeconds', 'White return delay (seconds; blank = immediate)', 0],
     ];
