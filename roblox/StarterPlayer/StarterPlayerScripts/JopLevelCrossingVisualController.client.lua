@@ -48,6 +48,9 @@ end
 
 local function findBarrierModels(instance)
 	local barriers = {}
+	if instance:IsA("Model") and (instance.Name == "ZÁV" or instance.Name == "ZAV") then
+		table.insert(barriers, instance)
+	end
 	for _, descendant in ipairs(instance:GetDescendants()) do
 		if descendant:IsA("Model") and (descendant.Name == "ZÁV" or descendant.Name == "ZAV") then
 			table.insert(barriers, descendant)
@@ -161,6 +164,7 @@ local function observeCrossing(instance)
 	if observed[instance] or not isLevelCrossing(instance) then return end
 	observed[instance] = true
 	crossings[instance] = {
+		instance = instance,
 		white = findParts(instance, { "WhiteLight", "W" }),
 		redA = findParts(instance, { "RedLightA", "R" }),
 		redB = findParts(instance, { "RedLightB", "R1" }),

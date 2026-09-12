@@ -745,46 +745,6 @@ function applyNamedIndicatorVisualState(station: StationDocument) {
   });
 }
 
-function applyActiveOutboundLineblockVisualState(station: StationDocument) {
-  const cancellingRouteIds = new Set(
-    Object.values(station.runtime.pendingActions)
-      .filter((action) => action.type === 'route:cancel-normal' || action.type === 'route:cancel-shunt')
-      .map((action) => action.payload.routeId)
-      .filter((routeId): routeId is string => typeof routeId === 'string'),
-  );
-
-  Object.values(station.runtime.activeTrainRoutes).forEach((route) => {
-    if (route.routeClass !== 'platform-to-premain' || cancellingRouteIds.has(route.id)) {
-      return;
-    }
-
-    const localPremainId = route.signalPieceIds.find((pieceId) => {
-      const type = station.layout.pieces[pieceId]?.type;
-      return type === 'premainSignal' || type === 'premainSignalNoOcp';
-    });
-    if (!localPremainId) {
-      return;
-    }
-
-    const localPremainLink = Object.values(station.runtime.lineblockPremainLinks).find(
-      (link) => link.premainSignalPieceId === localPremainId,
-    );
-    if (!localPremainLink) {
-      return;
-    }
-
-    // A completed odhlaska deliberately restores this lineblock to
-    // sendingFree while the historical outbound route may still be present
-    // until its own release lifecycle finishes. Do not let that route's
-    // visual projection overwrite the confirmed free state back to sending.
-    if (getLineblockVisualState(station, localPremainLink.lineblockPieceId) === 'sendingFree') {
-      return;
-    }
-
-    setLineblockVisualState(station, localPremainLink.lineblockPieceId, 'sending');
-  });
-}
-
 function getOccupiedPieceIdsForStation(session: SessionDocument, stationId: string) {
   const occupiedPieceIds = new Set<string>();
 
@@ -1333,7 +1293,6 @@ function applyRuntimeState(station: StationDocument) {
 
   applyPrivolavaciaVisualState(station);
   applyNamedIndicatorVisualState(station);
-  applyActiveOutboundLineblockVisualState(station);
 }
 
 function ensureSessionRuntimeState(session: SessionDocument) {
