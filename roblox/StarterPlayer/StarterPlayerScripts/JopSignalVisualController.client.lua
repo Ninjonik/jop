@@ -9,6 +9,9 @@ local SIGNAL_TAG = "JOPSignalComponent"
 local SLOW_HALF_PERIOD = 0.575
 local FAST_HALF_PERIOD = 0.275
 local LAMP_FADE_TWEEN_INFO = TweenInfo.new(0.16, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
+local GLASS_DECAL_NAME = "Sklíčko"
+local GLASS_OFF_COLOR = Color3.fromRGB(70, 70, 70)
+local GLASS_ON_COLOR = Color3.fromRGB(500, 500, 500)
 local blinkingLamps = {}
 local observedSignals = {}
 local normalBrightness = setmetatable({}, { __mode = "k" })
@@ -42,12 +45,24 @@ local function tweenLampProperties(instance, properties)
 	tween:Play()
 end
 
+local function findGlassDecal(lamp)
+	local decal = lamp:FindFirstChild(GLASS_DECAL_NAME, true)
+	return decal and decal:IsA("Decal") and decal or nil
+end
+
 local function setLampAppearance(lamp, enabled, openTransparency, closedTransparency)
 	local lampColor = rememberNormalColor(lamp)
 	tweenLampProperties(lamp, {
 		Transparency = enabled and openTransparency or closedTransparency,
 		Color = lampColor,
 	})
+
+	local glassDecal = findGlassDecal(lamp)
+	if glassDecal then
+		tweenLampProperties(glassDecal, {
+			Color3 = enabled and GLASS_ON_COLOR or GLASS_OFF_COLOR,
+		})
+	end
 
 	for _, descendant in ipairs(lamp:GetDescendants()) do
 		if descendant:IsA("Light") then
