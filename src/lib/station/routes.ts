@@ -1750,6 +1750,11 @@ export function buildRouteFromSelection(
   ];
 
   const targetKey = `${targetTraversal.pieceId}:${toOffsetKey(targetTraversal.entry)}`;
+  // An approaching train occupies the pre-main track circuit before its
+  // entrance route is set. That source sensor proves an inbound movement and
+  // must not block its own route; every later occupied section still does.
+  const isOccupiedInboundSource = (pieceId: string) =>
+    routeClass === 'premain-to-platform' && pieceId === sourcePieceId;
 
   while (queue.length > 0) {
     queue.sort((left, right) => left.cost - right.cost);
@@ -1947,6 +1952,7 @@ export function buildRouteFromSelection(
         (step) =>
           step.occupationState &&
           !occupiedShuntTailPieceIds.has(step.pieceId) &&
+          !isOccupiedInboundSource(step.pieceId) &&
           isTraversalBlockedByOccupation(station, step.pieceId, step.occupationState),
       );
       if (validateRuntimeAvailability && occupiedStep) {
@@ -1988,7 +1994,8 @@ export function buildRouteFromSelection(
     ).filter(
       (option) =>
         !validateRuntimeAvailability ||
-        (!isTraversalBlockedByOccupation(station, current.pieceId, option.occupationState) &&
+        ((!isTraversalBlockedByOccupation(station, current.pieceId, option.occupationState) ||
+          isOccupiedInboundSource(current.pieceId)) &&
           isSwitchTraversalAllowedByButtonLocks(station, current.pieceId, option.state)),
     );
 
