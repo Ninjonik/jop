@@ -3,6 +3,7 @@
 
 local CollectionService = game:GetService("CollectionService")
 local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
 local Workspace = game:GetService("Workspace")
 
 local CROSSING_TAG = "JOPLevelCrossingComponent"
@@ -11,12 +12,15 @@ local ACTIVE_ATTRIBUTE = "JOPResolvedLevelCrossingActive"
 local CHANGED_AT_ATTRIBUTE = "JOPResolvedLevelCrossingChangedAt"
 local RED_UNTIL_ATTRIBUTE = "JOPResolvedLevelCrossingRedUntil"
 local WHITE_ENABLED_AT_ATTRIBUTE = "JOPResolvedLevelCrossingWhiteEnabledAt"
-local HALF_PERIOD = 0.5
+local RED_HALF_PERIOD = 0.5
+local WHITE_HALF_PERIOD = 1
+local WHITE_TWEEN_INFO = TweenInfo.new(0.2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
 local ACTIVE_RED = Color3.fromRGB(255, 0, 0)
 
 local observed = {}
 local crossings = {}
 local normalBrightness = setmetatable({}, { __mode = "k" })
+local lampTweens = setmetatable({}, { __mode = "k" })
 
 local function isLevelCrossing(instance)
 	local componentType = instance:GetAttribute(COMPONENT_TYPE_ATTRIBUTE)
@@ -50,8 +54,34 @@ local function setLamp(part, enabled, activeColor)
 	end
 end
 
+local function tweenLampProperty(instance, properties)
+
+	local previousTween = lampTweens[instance]
+	if previousTween then previousTween:Cancel() end
+	local tween = TweenService:Create(instance, WHITE_TWEEN_INFO, properties)
+	lampTweens[instance] = tween
+	tween:Play()
+end
+
+local function setWhiteLamp(part, enabled)
+
+	tweenLampProperty(part, { Transparency = enabled and 0 or 1 })
+	for _, descendant in ipairs(part:GetDescendants()) do
+		if descendant:IsA("Light") then
+			if normalBrightness[descendant] == nil then
+				normalBrightness[descendant] = descendant.Brightness > 0 and descendant.Brightness or 1
+			end
+			tweenLampProperty(descendant, { Brightness = enabled and normalBrightness[descendant] or 0 })
+		end
+	end
+end
+
 local function applyParts(parts, enabled, activeColor)
 	for _, part in ipairs(parts) do setLamp(part, enabled, activeColor) end
+end
+
+local function applyWhiteParts(parts, enabled)
+	for _, part in ipairs(parts) do setWhiteLamp(part, enabled) end
 end
 
 local function refreshCrossing(instance)
@@ -114,10 +144,10 @@ RunService.RenderStepped:Connect(function()
 		else
 			local pattern
 			if state.active or now < state.redUntil then
-				local redAOn = math.floor((now - state.changedAt) / HALF_PERIOD) % 2 == 0
+				local redAOn = math.floor((now - state.changedAt) / RED_HALF_PERIOD) % 2 == 0
 				pattern = redAOn and "red-a" or "red-b"
 			elseif now >= state.whiteEnabledAt then
-				local whiteOn = math.floor((now - state.whiteEnabledAt) / HALF_PERIOD) % 2 == 0
+				local whiteOn = math.floor((now - state.whiteEnabledAt) / WHITE_HALF_PERIOD) % 2 == 0
 				pattern = whiteOn and "white-on" or "white-off"
 			else
 				pattern = "all-off"
@@ -125,7 +155,7 @@ RunService.RenderStepped:Connect(function()
 
 			if pattern ~= state.lastPattern then
 				state.lastPattern = pattern
-				applyParts(state.white, pattern == "white-on")
+				applyWhiteParts(state.white, pattern == "white-on")
 				applyParts(state.redA, pattern == "red-a", ACTIVE_RED)
 				applyParts(state.redB, pattern == "red-b", ACTIVE_RED)
 			end

@@ -321,6 +321,8 @@ function getActiveLevelCrossingPieceIds(station: StationDocument, session: Sessi
       const lock = {
         direction: existingLock?.direction ?? null,
         crossingOccupied,
+        crossingSeen: existingLock?.crossingSeen ?? crossingOccupied,
+        outgoingSeen: existingLock?.outgoingSeen ?? false,
         updatedAt: nowIso(),
       };
       const occupiedApproachTracks = linkedTracks.filter((track) =>
@@ -336,6 +338,10 @@ function getActiveLevelCrossingPieceIds(station: StationDocument, session: Sessi
           : 'right-to-left';
       }
 
+      if (crossingOccupied) {
+        lock.crossingSeen = true;
+      }
+
       const incomingApproachOccupied = lock.direction === 'left-to-right'
         ? leftTracks.some((track) => occupiedPieceIds.has(track.pieceId))
         : lock.direction === 'right-to-left'
@@ -346,12 +352,21 @@ function getActiveLevelCrossingPieceIds(station: StationDocument, session: Sessi
         : lock.direction === 'right-to-left'
           ? leftTracks.some((track) => occupiedPieceIds.has(track.pieceId))
           : false;
-      const isActive = crossingOccupied || incomingApproachOccupied || rowReserved;
-      const shouldRemainLatched = isActive || outgoingApproachOccupied;
+      if (outgoingApproachOccupied) {
+        lock.outgoingSeen = true;
+      }
 
-      if (!shouldRemainLatched && allCrossingsClear) {
+      // Keep warning active from the first approach sensor until the train
+      // reaches the crossing. Once the crossing clears, warning may end, but
+      // the direction lock remains until the outgoing sensor has also cleared.
+      const isActive = crossingOccupied || incomingApproachOccupied || rowReserved ||
+        (lock.direction !== null && !lock.crossingSeen);
+      const passageComplete = lock.crossingSeen && lock.outgoingSeen &&
+        !outgoingApproachOccupied && allCrossingsClear && !rowReserved;
+
+      if (passageComplete) {
         delete levelCrossingDirectionLocks[lockKey];
-      } else {
+      } else if (lock.direction || rowReserved) {
         levelCrossingDirectionLocks[lockKey] = lock;
       }
 
@@ -360,7 +375,7 @@ function getActiveLevelCrossingPieceIds(station: StationDocument, session: Sessi
       if (isActive) {
         activeColumns.add(crossingX);
       }
-      if (outgoingApproachOccupied) {
+      if (lock.direction && !passageComplete) {
         whiteBlockedColumns.add(crossingX);
       }
       return;
@@ -2997,6 +3012,56 @@ function updateLineblockArrivalEligibility(
   }
 }
 
+function updatePhysicalLineblockArrivalEligibility(
+  session: SessionDocument,
+  receivingStation: StationDocument,
+  occupiedPieceId: string,
+  traversalState: string | null,
+) {
+  Object.values(receivingStation.runtime.activeTrainRoutes).forEach((route) => {
+    if (route.routeType !== 'normal' || route.routeClass !== 'premain-to-platform') {
+      return;
+    }
+
+    const premainLink = Object.values(receivingStation.runtime.lineblockPremainLinks).find(
+      (link) => link.premainSignalPieceId === route.sourcePieceId,
+    );
+    if (!premainLink || getLineblockVisualState(receivingStation, premainLink.lineblockPieceId) !== 'receiving') {
+      return;
+    }
+
+    const entrySignalIndex = route.path.findIndex((step) => {
+      const type = receivingStation.layout.pieces[step.pieceId]?.type;
+      return type === 'entrySignal' || type === 'entrySignalNoOcp';
+    });
+    const occupiedStepIndex = route.path.findIndex((step) =>
+      step.pieceId === occupiedPieceId &&
+      (traversalState === null || step.occupationState === null || step.occupationState === traversalState),
+    );
+    if (entrySignalIndex < 0 || occupiedStepIndex <= entrySignalIndex) {
+      return;
+    }
+
+    const linked = getLinkedLineblock(receivingStation, session, premainLink.lineblockPieceId);
+    if (!linked) return;
+
+    // A physical train has passed the receiving entry signal. This is the
+    // same operational moment as the receiving premain returning to danger,
+    // so odhlaska may now be requested at the receiving lineblock.
+    setLineblockVisualState(
+      receivingStation,
+      premainLink.lineblockPieceId,
+      'receivingAwaitingConfirmation',
+    );
+    session.runtime.lineblocks[linked.link.id] = {
+      arrivalAcknowledgementEligible: true,
+      trainId: null,
+      updatedAt: nowIso(),
+    };
+    syncPremainAvailability(receivingStation);
+  });
+}
+
 async function advanceTrainMovement(sessionId: string, trainId: string) {
   const rawSession = await sessionRepository.findById(sessionId);
   if (!rawSession) {
@@ -3426,6 +3491,9 @@ export const stationService = {
     session.updatedAt = nowIso();
 
     applyRouteProgressFromOccupationEvent(station, input.pieceId, traversalState, input.occupied);
+    if (input.occupied) {
+      updatePhysicalLineblockArrivalEligibility(session, station, input.pieceId, traversalState);
+    }
 
     applyRuntimeStateWithTrainOccupations(station, session);
     bumpRevision(station);
