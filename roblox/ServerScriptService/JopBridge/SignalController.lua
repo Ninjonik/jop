@@ -9,15 +9,15 @@ local CONTROLLED_LAMPS = { "z1", "z", "c", "b", "z2", "r3", "r4", "r5", "r6", "r
 
 local RESOLVED_ASPECTS = {
 	danger = { c = "on" }, caution = { z1 = "on" }, proceed = { z = "on" }, shunt = { b = "on" },
-	callOn = { c = "on", b = "pulse2" },
+	callOn = { c = "on", b = "blinkSlow" },
 	proceed40Caution = { z1 = "on", z2 = "on", r4 = "on" },
 	proceed40Proceed = { z = "on", z2 = "on", r4 = "on" },
-	proceed40Expect40 = { z1 = "pulse2", z2 = "on", r4 = "on" },
-	proceed40Expect60 = { z1 = "pulse3", z2 = "on", r4 = "on" },
-	proceed40Expect80 = { z = "pulse2", z2 = "on", r4 = "on" },
-	proceed40Expect100 = { z = "pulse3", z2 = "on", r4 = "on" },
-	expect30 = { z1 = "pulse2" }, expect40 = { z1 = "pulse2" }, expect50 = { z1 = "pulse2" },
-	expect60 = { z1 = "pulse3" }, expect80 = { z = "pulse2" }, expect100 = { z = "pulse3" },
+	proceed40Expect40 = { z1 = "blinkSlow", z2 = "on", r4 = "on" },
+	proceed40Expect60 = { z1 = "blinkFast", z2 = "on", r4 = "on" },
+	proceed40Expect80 = { z = "blinkSlow", z2 = "on", r4 = "on" },
+	proceed40Expect100 = { z = "blinkFast", z2 = "on", r4 = "on" },
+	expect30 = { z1 = "blinkSlow" }, expect40 = { z1 = "blinkSlow" }, expect50 = { z1 = "blinkSlow" },
+	expect60 = { z1 = "blinkFast" }, expect80 = { z = "blinkSlow" }, expect100 = { z = "blinkFast" },
 }
 
 local function findLamp(instance, name)
@@ -43,16 +43,22 @@ local function serializeLampModes(config)
 	return table.concat(modes, ";")
 end
 
+local function isLitMode(mode)
+	return mode == "on" or mode == "blinkSlow" or mode == "blinkFast" or mode == "pulse2" or mode == "pulse3"
+end
+
 function SignalController.Apply(instance, family, aspect)
 	local config = RESOLVED_ASPECTS[aspect] or {}
 	local openTransparency = getOpenTransparency(family)
 	local closedTransparency = getClosedTransparency(family)
 
-	-- Immediate server fallback only; no server tween or blink loop.
+	-- Keep blinking lamps visibly lit as a server fallback. The client replaces
+	-- this with the correct animation, but an old or missing LocalScript must
+	-- not make a call-on aspect indistinguishable from danger.
 	for _, lampName in ipairs(CONTROLLED_LAMPS) do
 		local lamp = findLamp(instance, lampName)
 		if lamp then
-			lamp.Transparency = config[lampName] == "on" and openTransparency or closedTransparency
+			lamp.Transparency = isLitMode(config[lampName]) and openTransparency or closedTransparency
 		end
 	end
 

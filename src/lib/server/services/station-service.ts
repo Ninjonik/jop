@@ -207,6 +207,31 @@ function bumpRevision(station: StationDocument) {
   station.updatedAt = nowIso();
 }
 
+// Station documents are replaced as whole documents. Serializing mutations for
+// one session prevents a delayed route/switch completion from saving an older
+// snapshot over a just-completed inter-station lineblock action.
+const sessionMutationTails = new Map<string, Promise<void>>();
+
+async function serializeSessionMutation<T>(sessionId: string, mutation: () => Promise<T>) {
+  const previous = sessionMutationTails.get(sessionId) ?? Promise.resolve();
+  let release!: () => void;
+  const current = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const tail = previous.then(() => current, () => current);
+  sessionMutationTails.set(sessionId, tail);
+
+  await previous.catch(() => undefined);
+  try {
+    return await mutation();
+  } finally {
+    release();
+    if (sessionMutationTails.get(sessionId) === tail) {
+      sessionMutationTails.delete(sessionId);
+    }
+  }
+}
+
 async function buildRobloxPhysicalSnapshot(sessionId: string): Promise<RobloxPhysicalSnapshot> {
   const [rawSession, rawStations] = await Promise.all([
     sessionRepository.findById(sessionId),
@@ -363,14 +388,14 @@ function getActiveLevelCrossingPieceIds(station: StationDocument, session: Sessi
         lock.outgoingSeen = true;
       }
 
-      // Keep warning active from the first approach sensor until the train has
-      // cleared the first sensor beyond the crossing. Releasing it when the
-      // crossing sensor clears is unsafe: the train is still over the road
-      // crossing until its next sensor has been occupied and then cleared.
       const passageComplete = lock.crossingSeen && lock.outgoingSeen &&
         !outgoingApproachOccupied && allCrossingsClear && !rowReserved;
+      // `active` controls the bells, red lights and barriers. Those may start
+      // their configured release sequence as soon as the crossing sensor is
+      // clear. The direction lock remains below solely to hold back the white
+      // positive indication until the next sensor has cleared.
       const isActive = crossingOccupied || incomingApproachOccupied || rowReserved ||
-        (lock.direction !== null && !passageComplete);
+        (lock.direction !== null && !lock.crossingSeen);
 
       if (passageComplete) {
         delete levelCrossingDirectionLocks[lockKey];
@@ -2391,6 +2416,7 @@ function toActionLog(station: StationDocument, action: PendingAction): StationAc
 const switchActionTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
 async function completeSwitchAction(actionId: string, sessionId: string, stationId: string) {
+  return serializeSessionMutation(sessionId, async () => {
   const [station, rawSession] = await Promise.all([
     stationRepository.findBySessionAndStationId(sessionId, stationId),
     sessionRepository.findById(sessionId),
@@ -2473,6 +2499,7 @@ async function completeSwitchAction(actionId: string, sessionId: string, station
   );
   await stationActionLogRepository.create(toActionLog(station, finalAction));
   await saveStation(station);
+  });
 }
 
 function scheduleSwitchAction(station: StationDocument, action: PendingAction) {
@@ -2500,6 +2527,7 @@ function scheduleStationSwitchActions(station: StationDocument) {
 }
 
 async function completeRouteAction(actionId: string, sessionId: string, stationId: string) {
+  return serializeSessionMutation(sessionId, async () => {
   const [station, rawSession] = await Promise.all([
     stationRepository.findBySessionAndStationId(sessionId, stationId),
     sessionRepository.findById(sessionId),
@@ -2648,6 +2676,7 @@ async function completeRouteAction(actionId: string, sessionId: string, stationI
     bumpRevision(linkedLineblockStation);
     await saveStation(linkedLineblockStation);
   }
+  });
 }
 
 const trainMovementTimers = new Map<string, ReturnType<typeof setTimeout>>();
@@ -3444,6 +3473,7 @@ export const stationService = {
       observedAt: string;
     },
   ) {
+    return serializeSessionMutation(sessionId, async () => {
     const stationId = normalizeRobloxStationId(input.stationId);
     const [rawSession, station] = await Promise.all([
       sessionRepository.findById(sessionId),
@@ -3508,6 +3538,7 @@ export const stationService = {
     await sessionRepository.save(session);
     await saveStation(station);
     return { applied: true, station };
+    });
   },
 
   async applyRobloxSwitchFeedback(
@@ -3520,6 +3551,7 @@ export const stationService = {
       observedAt: string;
     },
   ) {
+    return serializeSessionMutation(sessionId, async () => {
     const stationId = normalizeRobloxStationId(input.stationId);
     const [rawSession, station] = await Promise.all([
       sessionRepository.findById(sessionId),
@@ -3563,6 +3595,7 @@ export const stationService = {
     bumpRevision(station);
     await saveStation(station);
     return { applied: true, station };
+    });
   },
 
   async ensureStation(
@@ -4354,6 +4387,7 @@ export const stationService = {
   },
 
   async submitLineblockAction(command: LineblockActionCommand) {
+    return serializeSessionMutation(command.sessionId, async () => {
     const localStation = await stationRepository.findBySessionAndStationId(
       command.sessionId,
       command.stationId,
@@ -4450,6 +4484,7 @@ export const stationService = {
       localStation,
       remoteStation,
     };
+    });
   },
 
   async submitSwitchSetPosition(command: SwitchSetPositionCommand) {

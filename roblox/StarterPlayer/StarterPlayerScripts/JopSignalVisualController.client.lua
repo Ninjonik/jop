@@ -34,7 +34,7 @@ local function refreshSignal(instance)
 	for name, mode in pairs(modes) do
 		local lamp = findLamp(instance, name)
 		if lamp then
-			if mode == "pulse2" or mode == "pulse3" then
+			if mode == "blinkSlow" or mode == "blinkFast" or mode == "pulse2" or mode == "pulse3" then
 				blinkingLamps[lamp] = { mode = mode, open = open, closed = closed, changedAt = changedAt }
 			else
 				blinkingLamps[lamp] = nil
@@ -64,7 +64,9 @@ RunService.RenderStepped:Connect(function()
 		if not lamp.Parent then
 			blinkingLamps[lamp] = nil
 		else
-			local halfPeriod = state.mode == "pulse2" and SLOW_HALF_PERIOD or FAST_HALF_PERIOD
+			local halfPeriod = (state.mode == "blinkSlow" or state.mode == "pulse2")
+				and SLOW_HALF_PERIOD
+				or FAST_HALF_PERIOD
 			local isOn = math.floor((now - state.changedAt) / halfPeriod) % 2 == 0
 			lamp.Transparency = isOn and state.open or state.closed
 		end
