@@ -1,6 +1,6 @@
 'use client';
 
-import type { CSSProperties } from 'react';
+import { useLayoutEffect, useRef, type CSSProperties } from 'react';
 
 import type {
   GroupSelection,
@@ -80,6 +80,34 @@ function normalizeTextValue(value: string): string {
   return value.replace(/\\n/g, '\n');
 }
 
+function renderSvgTextLines(container: HTMLElement) {
+  container.querySelectorAll<SVGTextElement>('text').forEach((textElement) => {
+    const value = textElement.textContent ?? '';
+    const lines = value.split(/\r?\n/);
+
+    if (lines.length === 1) {
+      return;
+    }
+
+    const x = textElement.getAttribute('x');
+    const lineOffset = (lines.length - 1) * -0.6;
+
+    textElement.replaceChildren(
+      ...lines.map((line, index) => {
+        const tspan = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
+
+        if (x !== null) {
+          tspan.setAttribute('x', x);
+        }
+
+        tspan.setAttribute('dy', index === 0 ? `${lineOffset}em` : '1.2em');
+        tspan.textContent = line;
+        return tspan;
+      }),
+    );
+  });
+}
+
 export default function TileSvg({
   tileKey,
   tile,
@@ -90,6 +118,7 @@ export default function TileSvg({
   className,
   style,
 }: TileSvgProps) {
+  const tileContentRef = useRef<HTMLSpanElement>(null);
   const resolvedStyles = resolveComponentStyles(tile, selections, stateGroups);
   const texts = tile.texts ?? {};
   const customStyleVars: Record<string, string> = {};
@@ -129,27 +158,35 @@ export default function TileSvg({
 
   const TileComponent = tile.component;
 
+  useLayoutEffect(() => {
+    if (tileContentRef.current) {
+      renderSvgTextLines(tileContentRef.current);
+    }
+  });
+
   return (
-    <TileComponent
-      className={[
-        getOrientationClassName(orientation),
-        className,
-        ...stateClasses,
-      ]
-        .filter(Boolean)
-        .join(' ')}
-      style={{
-        ...customStyleVars,
-        ...rawCssStyles,
-        ...style,
-        transform: getOrientationTransform(orientation),
-        transformOrigin: 'center',
-      }}
-      {...Object.keys(texts).reduce((acc, textKey) => {
-        acc[textKey] = normalizeTextValue(textValues?.[textKey] ?? texts[textKey].text);
-        return acc;
-      }, {} as Record<string, string>)}
-      data-tile-key={tileKey}
-    />
+    <span ref={tileContentRef} className="contents">
+      <TileComponent
+        className={[
+          getOrientationClassName(orientation),
+          className,
+          ...stateClasses,
+        ]
+          .filter(Boolean)
+          .join(' ')}
+        style={{
+          ...customStyleVars,
+          ...rawCssStyles,
+          ...style,
+          transform: getOrientationTransform(orientation),
+          transformOrigin: 'center',
+        }}
+        {...Object.keys(texts).reduce((acc, textKey) => {
+          acc[textKey] = normalizeTextValue(textValues?.[textKey] ?? texts[textKey].text);
+          return acc;
+        }, {} as Record<string, string>)}
+        data-tile-key={tileKey}
+      />
+    </span>
   );
 }

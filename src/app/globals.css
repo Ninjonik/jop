@@ -25,10 +25,6 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
-.piece-transform text {
-  white-space: pre;
-}
-
 /*
  * Tile orientation should affect layout, but text should remain readable.
  * Counter-transforming each text node around its own bounds preserves its
