@@ -27,6 +27,7 @@ local observed = {}
 local crossings = {}
 local normalBrightness = setmetatable({}, { __mode = "k" })
 local normalColors = setmetatable({}, { __mode = "k" })
+local normalSurfaceTransparencies = setmetatable({}, { __mode = "k" })
 local lampTweens = setmetatable({}, { __mode = "k" })
 
 local function isLevelCrossing(instance)
@@ -104,6 +105,10 @@ local function tweenLampProperties(instance, properties)
 	tween:Play()
 end
 
+local function isLampSurface(instance)
+	return instance:IsA("Decal") or instance:IsA("Texture")
+end
+
 local function setLamp(part, enabled, activeColor)
 	local inactiveColor = rememberNormalColor(part)
 	local targetColor = enabled and (activeColor or inactiveColor) or inactiveColor
@@ -121,6 +126,13 @@ local function setLamp(part, enabled, activeColor)
 			tweenLampProperties(descendant, {
 				Brightness = enabled and normalBrightness[descendant] or 0,
 				Color = enabled and (activeColor or inactiveLightColor) or inactiveLightColor,
+			})
+		elseif isLampSurface(descendant) then
+			if normalSurfaceTransparencies[descendant] == nil then
+				normalSurfaceTransparencies[descendant] = descendant.Transparency
+			end
+			tweenLampProperties(descendant, {
+				Transparency = enabled and normalSurfaceTransparencies[descendant] or 1,
 			})
 		end
 	end
@@ -185,7 +197,9 @@ local function observeCrossing(instance)
 	instance:GetAttributeChangedSignal(WHITE_ENABLED_AT_ATTRIBUTE):Connect(function() refreshCrossing(instance) end)
 	instance:GetAttributeChangedSignal(BARRIER_TARGET_ATTRIBUTE):Connect(function() refreshCrossing(instance) end)
 	instance.DescendantAdded:Connect(function(descendant)
-		if descendant:IsA("BasePart") or descendant:IsA("Model") then refreshCrossing(instance) end
+		if descendant:IsA("BasePart") or descendant:IsA("Model") or isLampSurface(descendant) then
+			refreshCrossing(instance)
+		end
 	end)
 	instance.AncestryChanged:Connect(function(_, parent)
 		if not parent then
