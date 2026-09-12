@@ -366,6 +366,7 @@ local function getLevelCrossingTimings(linkedStates)
 				lowerSeconds = positiveNumberOrDefault(timings.lowerSeconds, DEFAULT_LOWER_SECONDS),
 				raiseSeconds = positiveNumberOrDefault(timings.raiseSeconds, DEFAULT_RAISE_SECONDS),
 				whiteDelaySeconds = nonNegativeNumberOrDefault(timings.whiteDelaySeconds, DEFAULT_WHITE_DELAY_SECONDS),
+				bellContinuesAfterLowering = timings.bellContinuesAfterLowering == true,
 			}
 		end
 	end
@@ -374,6 +375,7 @@ local function getLevelCrossingTimings(linkedStates)
 		lowerSeconds = DEFAULT_LOWER_SECONDS,
 		raiseSeconds = DEFAULT_RAISE_SECONDS,
 		whiteDelaySeconds = DEFAULT_WHITE_DELAY_SECONDS,
+		bellContinuesAfterLowering = false,
 	}
 end
 
@@ -528,6 +530,9 @@ local function activateLevelCrossing(component, linkedStates, whiteAllowed)
 		waitForBarrierTweens(tweens)
 		if not state.active or state.generation ~= generation then return end
 		state.barrierTweens = {}
+		if #state.hardware.barriers > 0 and not state.timings.bellContinuesAfterLowering then
+			setBellsActive(state.hardware.bells, false)
+		end
 	end)
 end
 

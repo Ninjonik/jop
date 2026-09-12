@@ -4432,12 +4432,18 @@ export const stationService = {
         updatedAt: nowIso(),
       };
       session.updatedAt = nowIso();
-      await saveSession(session);
+      await sessionRepository.save(session);
     }
     bumpRevision(localStation);
     bumpRevision(remoteStation);
-    await saveStation(localStation);
-    await saveStation(remoteStation);
+    // Persist the pair before publishing. Publishing each side separately can
+    // let Roblox consume an intermediate snapshot where only the receiving
+    // station has changed and the linked sending station is still stale.
+    await saveStation(localStation, { skipRuntimeNotify: true });
+    await saveStation(remoteStation, { skipRuntimeNotify: true });
+    await notifyRuntimeInterpreter(command.sessionId, () =>
+      buildRobloxPhysicalSnapshot(command.sessionId),
+    );
 
     return {
       localStation,

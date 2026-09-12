@@ -51,6 +51,7 @@ export interface PieceRecord {
     lowerSeconds?: number;
     raiseSeconds?: number;
     whiteDelaySeconds?: number;
+    bellContinuesAfterLowering?: boolean;
   };
   state: {
     groups: Record<string, GroupSelection>;

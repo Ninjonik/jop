@@ -519,11 +519,14 @@ export default function StationEditorClient({ tiles, stateGroups }: Props) {
     const piece = editorState.pieces[contextMenu.pieceId];
     if (!piece) return;
     const current = piece.levelCrossingTimings ?? {};
-    const fields: Array<[keyof NonNullable<typeof piece.levelCrossingTimings>, string, number]> = [
-      ['warningSeconds', 'Warning before barriers lower (seconds; blank = 8)', 8],
-      ['lowerSeconds', 'Barrier lowering duration (seconds; blank = 7)', 7],
-      ['raiseSeconds', 'Barrier raising duration (seconds; blank = 7)', 7],
-      ['whiteDelaySeconds', 'White return delay (seconds; blank = immediate)', 0],
+    const fields: Array<[
+      'warningSeconds' | 'lowerSeconds' | 'raiseSeconds' | 'whiteDelaySeconds',
+      string,
+    ]> = [
+      ['warningSeconds', 'Warning before barriers lower (seconds; blank = 8)'],
+      ['lowerSeconds', 'Barrier lowering duration (seconds; blank = 7)'],
+      ['raiseSeconds', 'Barrier raising duration (seconds; blank = 7)'],
+      ['whiteDelaySeconds', 'White return delay (seconds; blank = immediate)'],
     ];
     const next: NonNullable<typeof piece.levelCrossingTimings> = {};
     for (const [key, label] of fields) {
@@ -535,6 +538,18 @@ export default function StationEditorClient({ tiles, stateGroups }: Props) {
         return;
       }
       if (parsed !== undefined) next[key] = parsed;
+    }
+    const bellValue = window.prompt(
+      'Keep bell sounding after barriers finish lowering? (yes/no; blank = no)',
+      current.bellContinuesAfterLowering ? 'yes' : '',
+    );
+    if (bellValue === null) return;
+    const normalizedBellValue = bellValue.trim().toLowerCase();
+    if (normalizedBellValue === 'yes' || normalizedBellValue === 'true') {
+      next.bellContinuesAfterLowering = true;
+    } else if (normalizedBellValue !== '' && normalizedBellValue !== 'no' && normalizedBellValue !== 'false') {
+      window.alert('Bell option must be yes, no, or blank.');
+      return;
     }
     updateContextPiece((currentPiece) => ({
       ...currentPiece,

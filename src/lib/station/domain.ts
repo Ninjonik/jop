@@ -326,6 +326,8 @@ export type RobloxPhysicalPieceState = {
   resolvedSignalFamily: RobloxResolvedSignalFamily | null;
   resolvedSignalAspect: RobloxResolvedSignalAspect | null;
   levelCrossingActive: boolean;
+  levelCrossingWhiteAllowed: boolean;
+  levelCrossingTimings: PieceRecord['levelCrossingTimings'] | null;
 };
 
 export type RobloxPhysicalSnapshot = {
