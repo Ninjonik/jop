@@ -347,6 +347,7 @@ local DEFAULT_RAISE_SECONDS = 7
 local DEFAULT_WHITE_DELAY_SECONDS = 0
 local BARRIER_UP_X = math.rad(-84)
 local BARRIER_DOWN_X = 0
+local FAR_FUTURE_TIMESTAMP = 9e15
 
 local function positiveNumberOrDefault(value, defaultValue)
 	return type(value) == "number" and value > 0 and value or defaultValue
@@ -490,7 +491,7 @@ end
 local function setLevelCrossingWhiteReturn(component, state)
 	component:SetAttribute(
 		LEVEL_CROSSING_WHITE_ENABLED_AT_ATTRIBUTE,
-		state.whiteAllowed and workspace:GetServerTimeNow() + state.timings.whiteDelaySeconds or math.huge
+		state.whiteAllowed and workspace:GetServerTimeNow() + state.timings.whiteDelaySeconds or FAR_FUTURE_TIMESTAMP
 	)
 end
 
@@ -541,7 +542,7 @@ local function deactivateLevelCrossing(component, linkedStates, whiteAllowed)
 		for _, barrier in ipairs(state.hardware.barriers) do setBarrierPosition(barrier, BARRIER_UP_X) end
 		component:SetAttribute(
 			LEVEL_CROSSING_WHITE_ENABLED_AT_ATTRIBUTE,
-			whiteAllowed and workspace:GetServerTimeNow() or math.huge
+			whiteAllowed and workspace:GetServerTimeNow() or FAR_FUTURE_TIMESTAMP
 		)
 		return
 	end
@@ -683,13 +684,13 @@ function HardwareDriver.ApplyInstanceState(instance, linkedStates, capabilities)
 			levelCrossingComponent:SetAttribute(LEVEL_CROSSING_ACTIVE_ATTRIBUTE, levelCrossingActive)
 			levelCrossingComponent:SetAttribute(LEVEL_CROSSING_CHANGED_AT_ATTRIBUTE, changedAt)
 			if levelCrossingActive then
-				levelCrossingComponent:SetAttribute(LEVEL_CROSSING_RED_UNTIL_ATTRIBUTE, math.huge)
-				levelCrossingComponent:SetAttribute(LEVEL_CROSSING_WHITE_ENABLED_AT_ATTRIBUTE, nil)
+				levelCrossingComponent:SetAttribute(LEVEL_CROSSING_RED_UNTIL_ATTRIBUTE, FAR_FUTURE_TIMESTAMP)
+				levelCrossingComponent:SetAttribute(LEVEL_CROSSING_WHITE_ENABLED_AT_ATTRIBUTE, FAR_FUTURE_TIMESTAMP)
 				activateLevelCrossing(levelCrossingComponent, linkedStates, levelCrossingWhiteAllowed)
 			else
 				local timings = getLevelCrossingTimings(linkedStates)
 				levelCrossingComponent:SetAttribute(LEVEL_CROSSING_RED_UNTIL_ATTRIBUTE, wasActive == nil and changedAt or changedAt + timings.raiseSeconds)
-				levelCrossingComponent:SetAttribute(LEVEL_CROSSING_WHITE_ENABLED_AT_ATTRIBUTE, math.huge)
+				levelCrossingComponent:SetAttribute(LEVEL_CROSSING_WHITE_ENABLED_AT_ATTRIBUTE, FAR_FUTURE_TIMESTAMP)
 				deactivateLevelCrossing(levelCrossingComponent, linkedStates, levelCrossingWhiteAllowed)
 			end
 		else

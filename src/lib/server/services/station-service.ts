@@ -329,6 +329,13 @@ function getActiveLevelCrossingPieceIds(station: StationDocument, session: Sessi
         occupiedPieceIds.has(track.pieceId),
       );
 
+      // White positive indication is a column-wide all-clear indication. It
+      // must remain off until every linked approach/outgoing sensor for every
+      // track through this road crossing is clear, independent of event order.
+      if (occupiedApproachTracks.length > 0) {
+        whiteBlockedColumns.add(crossingX);
+      }
+
       // A single linked approach sensor is enough to close the crossing. X is
       // used only to retain the travel direction for the later release rule;
       // it must not gate the initial activation.

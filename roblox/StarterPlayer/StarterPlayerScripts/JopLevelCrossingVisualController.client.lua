@@ -16,6 +16,7 @@ local RED_HALF_PERIOD = 0.5
 local WHITE_HALF_PERIOD = 1
 local WHITE_TWEEN_INFO = TweenInfo.new(0.2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
 local ACTIVE_RED = Color3.fromRGB(255, 0, 0)
+local FAR_FUTURE_TIMESTAMP = 9e15
 
 local observed = {}
 local crossings = {}
@@ -98,7 +99,9 @@ local function refreshCrossing(instance)
 	state.redUntil = instance:GetAttribute(RED_UNTIL_ATTRIBUTE)
 	if type(state.redUntil) ~= "number" then state.redUntil = state.changedAt end
 	state.whiteEnabledAt = instance:GetAttribute(WHITE_ENABLED_AT_ATTRIBUTE)
-	if type(state.whiteEnabledAt) ~= "number" then state.whiteEnabledAt = state.changedAt end
+	-- Do not guess that white is allowed while a replicated server attribute is
+	-- pending. Failing closed prevents a false positive indication.
+	if type(state.whiteEnabledAt) ~= "number" then state.whiteEnabledAt = FAR_FUTURE_TIMESTAMP end
 	state.lastPattern = nil
 end
 
