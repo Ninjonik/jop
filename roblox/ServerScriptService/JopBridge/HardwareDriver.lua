@@ -344,12 +344,16 @@ end
 local DEFAULT_WARNING_SECONDS = 8
 local DEFAULT_LOWER_SECONDS = 10
 local DEFAULT_RAISE_SECONDS = 7
-local DEFAULT_WHITE_DELAY_SECONDS = 30
+local DEFAULT_WHITE_DELAY_SECONDS = 0
 local BARRIER_UP_X = math.rad(-84)
 local BARRIER_DOWN_X = 0
 
 local function positiveNumberOrDefault(value, defaultValue)
 	return type(value) == "number" and value > 0 and value or defaultValue
+end
+
+local function nonNegativeNumberOrDefault(value, defaultValue)
+	return type(value) == "number" and value >= 0 and value or defaultValue
 end
 
 local function getLevelCrossingTimings(linkedStates)
@@ -360,7 +364,7 @@ local function getLevelCrossingTimings(linkedStates)
 				warningSeconds = positiveNumberOrDefault(timings.warningSeconds, DEFAULT_WARNING_SECONDS),
 				lowerSeconds = positiveNumberOrDefault(timings.lowerSeconds, DEFAULT_LOWER_SECONDS),
 				raiseSeconds = positiveNumberOrDefault(timings.raiseSeconds, DEFAULT_RAISE_SECONDS),
-				whiteDelaySeconds = positiveNumberOrDefault(timings.whiteDelaySeconds, DEFAULT_WHITE_DELAY_SECONDS),
+				whiteDelaySeconds = nonNegativeNumberOrDefault(timings.whiteDelaySeconds, DEFAULT_WHITE_DELAY_SECONDS),
 			}
 		end
 	end

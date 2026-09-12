@@ -523,15 +523,15 @@ export default function StationEditorClient({ tiles, stateGroups }: Props) {
       ['warningSeconds', 'Warning before barriers lower (seconds; blank = 8)', 8],
       ['lowerSeconds', 'Barrier lowering duration (seconds; blank = 10)', 10],
       ['raiseSeconds', 'Barrier raising duration (seconds; blank = 7)', 7],
-      ['whiteDelaySeconds', 'White return delay (seconds; blank = 30)', 30],
+      ['whiteDelaySeconds', 'White return delay (seconds; blank = immediate)', 0],
     ];
     const next: NonNullable<typeof piece.levelCrossingTimings> = {};
     for (const [key, label] of fields) {
       const value = window.prompt(label, current[key]?.toString() ?? '');
       if (value === null) return;
       const parsed = value.trim() === '' ? undefined : Number(value);
-      if (parsed !== undefined && (!Number.isFinite(parsed) || parsed <= 0)) {
-        window.alert('Timings must be positive seconds or blank for the default.');
+      if (parsed !== undefined && (!Number.isFinite(parsed) || parsed < 0)) {
+        window.alert('Timings must be zero or more seconds, or blank for the default.');
         return;
       }
       if (parsed !== undefined) next[key] = parsed;
