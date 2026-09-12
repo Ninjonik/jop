@@ -240,6 +240,7 @@ async function buildRobloxPhysicalSnapshot(sessionId: string): Promise<RobloxPhy
             resolvedSignalAspect: resolvedSignalAspects.get(pieceId)?.aspect ?? null,
               levelCrossingActive: levelCrossingStates.activePieceIds.has(pieceId),
               levelCrossingWhiteAllowed: levelCrossingStates.whiteAllowedPieceIds.has(pieceId),
+              levelCrossingTimings: piece.levelCrossingTimings ?? null,
           },
         ]),
       ),
@@ -3205,6 +3206,26 @@ export const stationService = {
 
   async listPlaceTemplates() {
     return placeTemplateRepository.list();
+  },
+
+  async replacePlaceTemplateStationLayout(
+    universeId: string,
+    placeId: string,
+    stationId: string,
+    layout: StationDocument['layout'],
+  ) {
+    const template = await placeTemplateRepository.findByUniverseAndPlaceId(universeId, placeId);
+    if (!template) throw new Error('Place template not found.');
+
+    const stationIndex = template.schema.stations.findIndex((station) => station.stationId === stationId);
+    if (stationIndex === -1) throw new Error('Station not found in this place template.');
+
+    const nextTemplate = structuredClone(template);
+    nextTemplate.schema.stations[stationIndex].layout = serializeStationLayout(deserializeStationLayout(layout));
+    nextTemplate.revision += 1;
+    nextTemplate.updatedAt = nowIso();
+    await placeTemplateRepository.save(nextTemplate);
+    return nextTemplate;
   },
 
   async registerRobloxSession(sessionId: string, universeId: string, placeId: string, serverId: string) {

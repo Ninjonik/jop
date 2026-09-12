@@ -19,6 +19,7 @@ export interface PieceContextMenuState {
   x: number;
   y: number;
   supportsOrientationChange: boolean;
+  isTrackCrossing: boolean;
   textKeys: string[];
   canStartConnection: boolean;
   canConnectToPending: boolean;

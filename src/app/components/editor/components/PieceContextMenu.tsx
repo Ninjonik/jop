@@ -10,6 +10,7 @@ interface Props {
   onRotate: () => void;
   onMirror: () => void;
   onEditText: (textKey: string) => void;
+  onEditLevelCrossingTimings: () => void;
   onStartConnection: () => void;
   onCancelConnection: () => void;
   onConnect: () => void;
@@ -25,6 +26,7 @@ export default function PieceContextMenu({
   onRotate,
   onMirror,
   onEditText,
+  onEditLevelCrossingTimings,
   onStartConnection,
   onCancelConnection,
   onConnect,
@@ -108,6 +110,15 @@ export default function PieceContextMenu({
           {`edit ${textKey}`}
         </button>
       ))}
+      {contextMenu.isTrackCrossing ? (
+        <button
+          type="button"
+          onClick={onEditLevelCrossingTimings}
+          className="border-b border-neutral-300 px-2 py-1 text-left text-sm text-black"
+        >
+          edit crossing timings
+        </button>
+      ) : null}
       {contextMenu.connectedPieceIds.length > 0 ? (
         <button
           type="button"

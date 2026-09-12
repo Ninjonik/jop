@@ -1,9 +1,10 @@
 'use client';
 
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ChangeEvent, MouseEvent } from 'react';
 
 import type { StateGroupRegistry, TileCatalog } from '@/app/components/tiles/tile-catalog';
+import type { PlaceTemplateDocument, PlaceTemplateSummary } from '@/lib/station/domain';
 
 import { DEFAULT_HEIGHT, DEFAULT_WIDTH } from './constants';
 import EditorControls from './components/EditorControls';
@@ -61,6 +62,11 @@ export default function StationEditorClient({ tiles, stateGroups }: Props) {
   const [editorState, setEditorState] = useState<EditorState>(() =>
     createInitialEditorState(DEFAULT_WIDTH, DEFAULT_HEIGHT, tiles, stateGroups)
   );
+  const [placeTemplates, setPlaceTemplates] = useState<PlaceTemplateSummary[]>([]);
+  const [selectedTemplateKey, setSelectedTemplateKey] = useState('');
+  const [openedTemplate, setOpenedTemplate] = useState<PlaceTemplateDocument | null>(null);
+  const [selectedTemplateStationId, setSelectedTemplateStationId] = useState('');
+  const [templateError, setTemplateError] = useState<string | null>(null);
   const [selectedCells, setSelectedCells] = useState<[number, number][]>([]);
   const [pendingVariants, setPendingVariants] = useState<PlacementVariant[]>([]);
   const [pendingPosition, setPendingPosition] = useState<PendingPlacementPosition | null>(null);
@@ -68,6 +74,18 @@ export default function StationEditorClient({ tiles, stateGroups }: Props) {
   const [pendingConnectionEndpointKey, setPendingConnectionEndpointKey] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const tileSize = useResponsiveTileSize(editorState.width);
+
+  useEffect(() => {
+    void (async () => {
+      const response = await fetch('/api/roblox/place-templates');
+      if (!response.ok) {
+        setTemplateError('Could not load saved layouts.');
+        return;
+      }
+      const body = await response.json() as { templates: PlaceTemplateSummary[] };
+      setPlaceTemplates(body.templates);
+    })();
+  }, []);
 
   const allowedPlacements = useMemo(
     () => getAllowedPlacements(editorState, selectedCells, placementVariants),
@@ -351,6 +369,7 @@ export default function StationEditorClient({ tiles, stateGroups }: Props) {
       x: event.clientX,
       y: event.clientY,
       supportsOrientationChange,
+      isTrackCrossing: isTrackCrossingPieceType(piece.type),
       textKeys,
       canStartConnection,
       canConnectToPending,
@@ -426,6 +445,100 @@ export default function StationEditorClient({ tiles, stateGroups }: Props) {
           [textKey]: nextValue,
         },
       },
+    }));
+  };
+
+  const loadTemplateStation = (template: PlaceTemplateDocument, stationId: string) => {
+    const station = template.schema.stations.find((candidate) => candidate.stationId === stationId);
+    if (!station) return;
+    const layout = station.layout as EditorState;
+    setEditorState({ ...layout, connections: layout.connections ?? {} });
+    setDraftWidth(layout.width);
+    setDraftHeight(layout.height);
+    setSelectedCells([]);
+    clearPlacementUi();
+    clearContextMenu();
+    setPendingConnectionEndpointKey(null);
+    setJopPieceLinksError(null);
+  };
+
+  const handleOpenTemplate = async () => {
+    const templateSummary = placeTemplates.find((template) => template._id === selectedTemplateKey);
+    if (!templateSummary) return;
+    const response = await fetch(
+      `/api/roblox/place-templates/${encodeURIComponent(templateSummary.placeId)}?universeId=${encodeURIComponent(templateSummary.universeId)}`,
+    );
+    if (!response.ok) {
+      setTemplateError('Could not open the saved layout.');
+      return;
+    }
+    const body = await response.json() as { template: PlaceTemplateDocument };
+    const stationId = body.template.schema.stations[0]?.stationId;
+    if (!stationId) {
+      setTemplateError('This saved layout has no stations.');
+      return;
+    }
+    setOpenedTemplate(body.template);
+    setSelectedTemplateStationId(stationId);
+    setTemplateError(null);
+    loadTemplateStation(body.template, stationId);
+  };
+
+  const handleSelectTemplateStation = (stationId: string) => {
+    setSelectedTemplateStationId(stationId);
+    if (openedTemplate) loadTemplateStation(openedTemplate, stationId);
+  };
+
+  const handleSaveTemplateStation = async () => {
+    if (!openedTemplate || !selectedTemplateStationId) return;
+    const response = await fetch(
+      `/api/roblox/place-templates/${encodeURIComponent(openedTemplate.placeId)}/stations/${encodeURIComponent(selectedTemplateStationId)}`,
+      {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ universeId: openedTemplate.universeId, layout: editorState }),
+      },
+    );
+    if (!response.ok) {
+      const body = await response.json().catch(() => null);
+      window.alert(body?.error?.message ?? 'Could not save the saved layout.');
+      return;
+    }
+    const body = await response.json() as { template: PlaceTemplateDocument };
+    setOpenedTemplate(body.template);
+    setPlaceTemplates((current) => current.map((template) =>
+      template._id === body.template._id
+        ? { ...template, revision: body.template.revision, updatedAt: body.template.updatedAt }
+        : template,
+    ));
+    window.alert(`Saved ${selectedTemplateStationId} to ${body.template.universeId}/${body.template.placeId}.`);
+  };
+
+  const handleContextMenuEditLevelCrossingTimings = () => {
+    if (!contextMenu) return;
+    const piece = editorState.pieces[contextMenu.pieceId];
+    if (!piece) return;
+    const current = piece.levelCrossingTimings ?? {};
+    const fields: Array<[keyof NonNullable<typeof piece.levelCrossingTimings>, string, number]> = [
+      ['warningSeconds', 'Warning before barriers lower (seconds; blank = 8)', 8],
+      ['lowerSeconds', 'Barrier lowering duration (seconds; blank = 10)', 10],
+      ['raiseSeconds', 'Barrier raising duration (seconds; blank = 7)', 7],
+      ['whiteDelaySeconds', 'White return delay (seconds; blank = 30)', 30],
+    ];
+    const next: NonNullable<typeof piece.levelCrossingTimings> = {};
+    for (const [key, label] of fields) {
+      const value = window.prompt(label, current[key]?.toString() ?? '');
+      if (value === null) return;
+      const parsed = value.trim() === '' ? undefined : Number(value);
+      if (parsed !== undefined && (!Number.isFinite(parsed) || parsed <= 0)) {
+        window.alert('Timings must be positive seconds or blank for the default.');
+        return;
+      }
+      if (parsed !== undefined) next[key] = parsed;
+    }
+    updateContextPiece((currentPiece) => ({
+      ...currentPiece,
+      levelCrossingTimings: Object.keys(next).length > 0 ? next : undefined,
     }));
   };
 
@@ -688,6 +801,39 @@ export default function StationEditorClient({ tiles, stateGroups }: Props) {
       onClick={() => clearContextMenu()}
       onContextMenu={(event) => event.preventDefault()}
     >
+      <section className="mb-2 flex flex-wrap items-center gap-2 border border-neutral-500 bg-neutral-200 p-2 text-sm text-black">
+        <span>saved layout</span>
+        <select
+          value={selectedTemplateKey}
+          onChange={(event) => setSelectedTemplateKey(event.target.value)}
+          className="max-w-96 border border-neutral-500 bg-white px-1 py-0.5"
+        >
+          <option value="">select Universe / Place</option>
+          {placeTemplates.map((template) => (
+            <option key={template._id} value={template._id}>
+              {template.universeId} / {template.placeId} (rev {template.revision})
+            </option>
+          ))}
+        </select>
+        <button type="button" onClick={handleOpenTemplate} disabled={!selectedTemplateKey} className="border border-neutral-700 bg-white px-2 py-0.5 disabled:opacity-50">
+          open
+        </button>
+        {openedTemplate ? (
+          <>
+            <select
+              value={selectedTemplateStationId}
+              onChange={(event) => handleSelectTemplateStation(event.target.value)}
+              className="border border-neutral-500 bg-white px-1 py-0.5"
+            >
+              {openedTemplate.schema.stations.map((station) => (
+                <option key={station.stationId} value={station.stationId}>{station.stationId}</option>
+              ))}
+            </select>
+            <span>editing {openedTemplate.universeId} / {openedTemplate.placeId}, rev {openedTemplate.revision}</span>
+          </>
+        ) : null}
+        {templateError ? <span className="text-red-700">{templateError}</span> : null}
+      </section>
       <EditorControls
         width={draftWidth}
         height={draftHeight}
@@ -706,6 +852,8 @@ export default function StationEditorClient({ tiles, stateGroups }: Props) {
         onExpand={handleExpandBoard}
         onImport={() => fileInputRef.current?.click()}
         onExport={handleExport}
+        onSave={openedTemplate && selectedTemplateStationId ? handleSaveTemplateStation : undefined}
+        saveLabel={openedTemplate && selectedTemplateStationId ? `save ${selectedTemplateStationId}` : undefined}
       />
       <PlacementToolbar
         tileKeys={toolbarTileKeys}
@@ -730,6 +878,7 @@ export default function StationEditorClient({ tiles, stateGroups }: Props) {
         onContextMenuRotate={handleContextMenuRotate}
         onContextMenuMirror={handleContextMenuMirror}
         onContextMenuEditText={handleContextMenuEditText}
+        onContextMenuEditLevelCrossingTimings={handleContextMenuEditLevelCrossingTimings}
         onContextMenuStartConnection={handleContextMenuStartConnection}
         onContextMenuCancelConnection={handleContextMenuCancelConnection}
         onContextMenuConnect={handleContextMenuConnect}

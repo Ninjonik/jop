@@ -20,6 +20,8 @@ interface Props {
   onExpand: (direction: LayoutExpansionDirection) => void;
   onImport: () => void;
   onExport: () => void;
+  onSave?: () => void;
+  saveLabel?: string;
 }
 
 export default function EditorControls({
@@ -40,6 +42,8 @@ export default function EditorControls({
   onExpand,
   onImport,
   onExport,
+  onSave,
+  saveLabel,
 }: Props) {
   return (
     <div className="mb-2 flex flex-col gap-2">
@@ -78,6 +82,11 @@ export default function EditorControls({
         <button type="button" onClick={onExport} className="border border-neutral-700 bg-white px-2 py-0.5 text-sm text-black">
           export
         </button>
+        {onSave ? (
+          <button type="button" onClick={onSave} className="border border-neutral-700 bg-emerald-100 px-2 py-0.5 text-sm text-black">
+            {saveLabel ?? 'save'}
+          </button>
+        ) : null}
         <label className="flex cursor-pointer items-center gap-1 border border-neutral-700 bg-white px-2 py-0.5 text-sm text-black">
           <input
             type="checkbox"

@@ -124,6 +124,7 @@ interface Props {
   onContextMenuRotate: () => void;
   onContextMenuMirror: () => void;
   onContextMenuEditText: (textKey: string) => void;
+  onContextMenuEditLevelCrossingTimings: () => void;
   onContextMenuStartConnection: () => void;
   onContextMenuCancelConnection: () => void;
   onContextMenuConnect: () => void;
@@ -148,6 +149,7 @@ export default function StationCanvas({
   onContextMenuRotate,
   onContextMenuMirror,
   onContextMenuEditText,
+  onContextMenuEditLevelCrossingTimings,
   onContextMenuStartConnection,
   onContextMenuCancelConnection,
   onContextMenuConnect,
@@ -255,6 +257,7 @@ export default function StationCanvas({
           onRotate={onContextMenuRotate}
           onMirror={onContextMenuMirror}
           onEditText={onContextMenuEditText}
+          onEditLevelCrossingTimings={onContextMenuEditLevelCrossingTimings}
           onStartConnection={onContextMenuStartConnection}
           onCancelConnection={onContextMenuCancelConnection}
           onConnect={onContextMenuConnect}

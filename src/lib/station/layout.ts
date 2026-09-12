@@ -46,6 +46,12 @@ export interface PieceRecord {
   type: string;
   rotation: 0 | 180;
   mirrored: boolean;
+  levelCrossingTimings?: {
+    warningSeconds?: number;
+    lowerSeconds?: number;
+    raiseSeconds?: number;
+    whiteDelaySeconds?: number;
+  };
   state: {
     groups: Record<string, GroupSelection>;
     texts: Record<string, string>;

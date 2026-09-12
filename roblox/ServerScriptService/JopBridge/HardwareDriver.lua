@@ -341,10 +341,36 @@ end
 -- families: modern models name lamps WhiteLight/RedLightA/RedLightB, while
 -- AŽD 71 models use W/R/R1. A model with no ZÁV descendant simply operates
 -- as a lights-only crossing.
-local BARRIER_LOWER_TWEEN_INFO = TweenInfo.new(10, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut)
-local BARRIER_RAISE_TWEEN_INFO = TweenInfo.new(7, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+local DEFAULT_WARNING_SECONDS = 8
+local DEFAULT_LOWER_SECONDS = 10
+local DEFAULT_RAISE_SECONDS = 7
+local DEFAULT_WHITE_DELAY_SECONDS = 30
 local BARRIER_UP_X = math.rad(-84)
 local BARRIER_DOWN_X = 0
+
+local function positiveNumberOrDefault(value, defaultValue)
+	return type(value) == "number" and value > 0 and value or defaultValue
+end
+
+local function getLevelCrossingTimings(linkedStates)
+	for _, linkedState in ipairs(linkedStates) do
+		local timings = linkedState.levelCrossingTimings
+		if type(timings) == "table" then
+			return {
+				warningSeconds = positiveNumberOrDefault(timings.warningSeconds, DEFAULT_WARNING_SECONDS),
+				lowerSeconds = positiveNumberOrDefault(timings.lowerSeconds, DEFAULT_LOWER_SECONDS),
+				raiseSeconds = positiveNumberOrDefault(timings.raiseSeconds, DEFAULT_RAISE_SECONDS),
+				whiteDelaySeconds = positiveNumberOrDefault(timings.whiteDelaySeconds, DEFAULT_WHITE_DELAY_SECONDS),
+			}
+		end
+	end
+	return {
+		warningSeconds = DEFAULT_WARNING_SECONDS,
+		lowerSeconds = DEFAULT_LOWER_SECONDS,
+		raiseSeconds = DEFAULT_RAISE_SECONDS,
+		whiteDelaySeconds = DEFAULT_WHITE_DELAY_SECONDS,
+	}
+end
 
 local function findNamedDescendants(instance, targetNames, className)
 	local found = {}
@@ -460,7 +486,7 @@ end
 local function setLevelCrossingWhiteReturn(component, state)
 	component:SetAttribute(
 		LEVEL_CROSSING_WHITE_ENABLED_AT_ATTRIBUTE,
-		state.whiteAllowed and workspace:GetServerTimeNow() + 30 or math.huge
+		state.whiteAllowed and workspace:GetServerTimeNow() + state.timings.whiteDelaySeconds or math.huge
 	)
 end
 
@@ -470,6 +496,7 @@ local function activateLevelCrossing(component, linkedStates, whiteAllowed)
 		state = {
 			active = false,
 			whiteAllowed = whiteAllowed,
+			timings = getLevelCrossingTimings(linkedStates),
 			barriersRaised = true,
 			generation = 0,
 			barrierTweens = {},
@@ -482,6 +509,7 @@ local function activateLevelCrossing(component, linkedStates, whiteAllowed)
 
 	state.active = true
 	state.whiteAllowed = whiteAllowed
+	state.timings = getLevelCrossingTimings(linkedStates)
 	state.barriersRaised = false
 	state.generation += 1
 	local generation = state.generation
@@ -489,9 +517,9 @@ local function activateLevelCrossing(component, linkedStates, whiteAllowed)
 	setBellsActive(state.hardware.bells, true)
 
 	task.spawn(function()
-		task.wait(8)
+		task.wait(state.timings.warningSeconds)
 		if not state.active or state.generation ~= generation then return end
-		local tweens = tweenBarriers(state, BARRIER_DOWN_X, BARRIER_LOWER_TWEEN_INFO)
+		local tweens = tweenBarriers(state, BARRIER_DOWN_X, TweenInfo.new(state.timings.lowerSeconds, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut))
 		waitForBarrierTweens(tweens)
 		if not state.active or state.generation ~= generation then return end
 		state.barrierTweens = {}
@@ -502,7 +530,7 @@ local function deactivateLevelCrossing(component, linkedStates, whiteAllowed)
 	local state = levelCrossingStateByInstance[component]
 	if not state then
 		state = {
-			active = false, whiteAllowed = whiteAllowed, barriersRaised = true, generation = 0, barrierTweens = {},
+			active = false, whiteAllowed = whiteAllowed, timings = getLevelCrossingTimings(linkedStates), barriersRaised = true, generation = 0, barrierTweens = {},
 			hardware = getLevelCrossingHardware(component),
 		}
 		levelCrossingStateByInstance[component] = state
@@ -514,6 +542,7 @@ local function deactivateLevelCrossing(component, linkedStates, whiteAllowed)
 		return
 	end
 	state.whiteAllowed = whiteAllowed
+	state.timings = getLevelCrossingTimings(linkedStates)
 	if not state.active then
 		if state.barriersRaised then setLevelCrossingWhiteReturn(component, state) end
 		return
@@ -526,7 +555,7 @@ local function deactivateLevelCrossing(component, linkedStates, whiteAllowed)
 	cancelBarrierTweens(state)
 
 	task.spawn(function()
-		local tweens = tweenBarriers(state, BARRIER_UP_X, BARRIER_RAISE_TWEEN_INFO)
+		local tweens = tweenBarriers(state, BARRIER_UP_X, TweenInfo.new(state.timings.raiseSeconds, Enum.EasingStyle.Quad, Enum.EasingDirection.Out))
 		waitForBarrierTweens(tweens)
 		if state.active or state.generation ~= generation then return end
 		state.barrierTweens = {}
@@ -654,7 +683,8 @@ function HardwareDriver.ApplyInstanceState(instance, linkedStates, capabilities)
 				levelCrossingComponent:SetAttribute(LEVEL_CROSSING_WHITE_ENABLED_AT_ATTRIBUTE, nil)
 				activateLevelCrossing(levelCrossingComponent, linkedStates, levelCrossingWhiteAllowed)
 			else
-				levelCrossingComponent:SetAttribute(LEVEL_CROSSING_RED_UNTIL_ATTRIBUTE, wasActive == nil and changedAt or changedAt + 7)
+				local timings = getLevelCrossingTimings(linkedStates)
+				levelCrossingComponent:SetAttribute(LEVEL_CROSSING_RED_UNTIL_ATTRIBUTE, wasActive == nil and changedAt or changedAt + timings.raiseSeconds)
 				levelCrossingComponent:SetAttribute(LEVEL_CROSSING_WHITE_ENABLED_AT_ATTRIBUTE, math.huge)
 				deactivateLevelCrossing(levelCrossingComponent, linkedStates, levelCrossingWhiteAllowed)
 			end
