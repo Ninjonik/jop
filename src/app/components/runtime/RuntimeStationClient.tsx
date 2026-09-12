@@ -90,6 +90,23 @@ export default function RuntimeStationClient({ sessionId, stationId }: RuntimeSt
   }, [sessionId, stationId]);
 
   useEffect(() => {
+    const channel = new BroadcastChannel('jop-station-snapshots');
+    channel.onmessage = (event: MessageEvent<StationDocument>) => {
+      const nextStation = event.data;
+      if (nextStation.sessionId !== sessionId || nextStation.stationId !== stationId) {
+        return;
+      }
+
+      startTransition(() => {
+        setStation(nextStation);
+        setError(null);
+      });
+    };
+
+    return () => channel.close();
+  }, [sessionId, stationId]);
+
+  useEffect(() => {
     let active = true;
     const socket: Socket<StationRealtimeServerEvents, StationRealtimeClientEvents> = io({
       path: '/socket.io',
@@ -162,7 +179,19 @@ export default function RuntimeStationClient({ sessionId, stationId }: RuntimeSt
         ) : null}
       </div>
 
-      <StationRuntimeBoard station={station} onErrorChange={setError} />
+      <StationRuntimeBoard
+        station={station}
+        onErrorChange={setError}
+        onLineblockSnapshots={(localStation, remoteStation) => {
+          startTransition(() => {
+            setStation(localStation);
+            setError(null);
+          });
+          const channel = new BroadcastChannel('jop-station-snapshots');
+          channel.postMessage(remoteStation);
+          channel.close();
+        }}
+      />
     </div>
   );
 }

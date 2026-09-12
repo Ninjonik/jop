@@ -363,13 +363,14 @@ function getActiveLevelCrossingPieceIds(station: StationDocument, session: Sessi
         lock.outgoingSeen = true;
       }
 
-      // Keep warning active from the first approach sensor until the train
-      // reaches the crossing. Once the crossing clears, warning may end, but
-      // the direction lock remains until the outgoing sensor has also cleared.
-      const isActive = crossingOccupied || incomingApproachOccupied || rowReserved ||
-        (lock.direction !== null && !lock.crossingSeen);
+      // Keep warning active from the first approach sensor until the train has
+      // cleared the first sensor beyond the crossing. Releasing it when the
+      // crossing sensor clears is unsafe: the train is still over the road
+      // crossing until its next sensor has been occupied and then cleared.
       const passageComplete = lock.crossingSeen && lock.outgoingSeen &&
         !outgoingApproachOccupied && allCrossingsClear && !rowReserved;
+      const isActive = crossingOccupied || incomingApproachOccupied || rowReserved ||
+        (lock.direction !== null && !passageComplete);
 
       if (passageComplete) {
         delete levelCrossingDirectionLocks[lockKey];

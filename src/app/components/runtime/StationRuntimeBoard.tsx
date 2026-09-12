@@ -16,6 +16,7 @@ import {
 interface StationRuntimeBoardProps {
   station: StationDocument;
   onErrorChange: (message: string | null) => void;
+  onLineblockSnapshots: (localStation: StationDocument, remoteStation: StationDocument) => void;
 }
 
 function getActionButtonSide(mirrored: boolean, side: 'left' | 'right') {
@@ -91,7 +92,11 @@ function getEntrySignalPieceIdForPremain(station: StationDocument, premainSignal
   return null;
 }
 
-export default function StationRuntimeBoard({ station, onErrorChange }: StationRuntimeBoardProps) {
+export default function StationRuntimeBoard({
+  station,
+  onErrorChange,
+  onLineblockSnapshots,
+}: StationRuntimeBoardProps) {
   const renderablePieces = getRenderablePieces(station.layout);
   const layout = station.layout;
   const boardViewportRef = useRef<HTMLDivElement>(null);
@@ -157,9 +162,18 @@ export default function StationRuntimeBoard({ station, onErrorChange }: StationR
         },
       );
 
-      const payload = (await response.json()) as { error?: { message?: string } };
+      const payload = (await response.json()) as
+        | { localStation: StationDocument; remoteStation: StationDocument; error?: never }
+        | { error?: { message?: string } };
       if (!response.ok) {
         throw new Error(payload.error?.message ?? 'Failed to submit lineblock action.');
+      }
+
+      if ('localStation' in payload && 'remoteStation' in payload) {
+        // The command result is the authoritative persisted snapshot. Applying
+        // it here avoids leaving either open station board stale while its
+        // Socket.IO update is in flight.
+        onLineblockSnapshots(payload.localStation, payload.remoteStation);
       }
     } catch (submitError) {
       onErrorChange(
