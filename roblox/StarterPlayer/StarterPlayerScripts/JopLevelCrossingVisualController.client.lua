@@ -1,5 +1,6 @@
--- Cosmetic level-crossing lamps. The server remains authoritative for active
--- state, barriers, bells, and the delayed return of the white indication.
+-- Cosmetic level-crossing lamps and barriers. The server remains authoritative
+-- for crossing state, timing, and bells; each client interpolates
+-- the visual barrier pose every render frame.
 
 local CollectionService = game:GetService("CollectionService")
 local RunService = game:GetService("RunService")
@@ -12,11 +13,15 @@ local ACTIVE_ATTRIBUTE = "JOPResolvedLevelCrossingActive"
 local CHANGED_AT_ATTRIBUTE = "JOPResolvedLevelCrossingChangedAt"
 local RED_UNTIL_ATTRIBUTE = "JOPResolvedLevelCrossingRedUntil"
 local WHITE_ENABLED_AT_ATTRIBUTE = "JOPResolvedLevelCrossingWhiteEnabledAt"
+local BARRIER_TARGET_ATTRIBUTE = "JOPResolvedLevelCrossingBarrierTarget"
+local BARRIER_START_AT_ATTRIBUTE = "JOPResolvedLevelCrossingBarrierStartAt"
+local BARRIER_DURATION_ATTRIBUTE = "JOPResolvedLevelCrossingBarrierDuration"
 local RED_HALF_PERIOD = 0.5
 local WHITE_HALF_PERIOD = 1
 local WHITE_TWEEN_INFO = TweenInfo.new(0.2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
 local ACTIVE_RED = Color3.fromRGB(255, 0, 0)
 local FAR_FUTURE_TIMESTAMP = 9e15
+local BARRIER_DOWN_X = 0
 
 local observed = {}
 local crossings = {}
@@ -39,6 +44,47 @@ local function findParts(instance, names)
 		end
 	end
 	return parts
+end
+
+local function findBarrierModels(instance)
+	local barriers = {}
+	for _, descendant in ipairs(instance:GetDescendants()) do
+		if descendant:IsA("Model") and (descendant.Name == "ZÁV" or descendant.Name == "ZAV") then
+			table.insert(barriers, descendant)
+		end
+	end
+	return barriers
+end
+
+local function refreshBarrierPoses(state)
+	state.barriers = findBarrierModels(state.instance)
+	state.barrierUpPivots = state.barrierUpPivots or setmetatable({}, { __mode = "k" })
+	for _, barrier in ipairs(state.barriers) do
+		if not state.barrierUpPivots[barrier] then
+			-- The server leaves barriers at their known raised rest pose; preserve
+			-- it once and derive every client-side frame from it.
+			state.barrierUpPivots[barrier] = barrier:GetPivot()
+		end
+	end
+end
+
+local function renderBarriers(state, now)
+	local target = state.barrierTarget
+	if target ~= "down" and target ~= "up" then return end
+	local duration = state.barrierDuration
+	local progress = duration > 0 and math.clamp((now - state.barrierStartAt) / duration, 0, 1) or 1
+	local alpha = target == "down" and progress or 1 - progress
+
+	for _, barrier in ipairs(state.barriers) do
+		if barrier.Parent then
+			local upPivot = state.barrierUpPivots[barrier]
+			if upPivot then
+				local _, yAngle, zAngle = upPivot:ToOrientation()
+				local downPivot = CFrame.new(upPivot.Position) * CFrame.fromOrientation(BARRIER_DOWN_X, yAngle, zAngle)
+				barrier:PivotTo(upPivot:Lerp(downPivot, alpha))
+			end
+		end
+	end
 end
 
 local function setLamp(part, enabled, activeColor)
@@ -102,6 +148,12 @@ local function refreshCrossing(instance)
 	-- Do not guess that white is allowed while a replicated server attribute is
 	-- pending. Failing closed prevents a false positive indication.
 	if type(state.whiteEnabledAt) ~= "number" then state.whiteEnabledAt = FAR_FUTURE_TIMESTAMP end
+	state.barrierTarget = instance:GetAttribute(BARRIER_TARGET_ATTRIBUTE)
+	state.barrierStartAt = instance:GetAttribute(BARRIER_START_AT_ATTRIBUTE)
+	if type(state.barrierStartAt) ~= "number" then state.barrierStartAt = Workspace:GetServerTimeNow() end
+	state.barrierDuration = instance:GetAttribute(BARRIER_DURATION_ATTRIBUTE)
+	if type(state.barrierDuration) ~= "number" or state.barrierDuration < 0 then state.barrierDuration = 0 end
+	refreshBarrierPoses(state)
 	state.lastPattern = nil
 end
 
@@ -116,14 +168,20 @@ local function observeCrossing(instance)
 		changedAt = Workspace:GetServerTimeNow(),
 		redUntil = Workspace:GetServerTimeNow(),
 		whiteEnabledAt = Workspace:GetServerTimeNow(),
+		barriers = findBarrierModels(instance),
+		barrierUpPivots = setmetatable({}, { __mode = "k" }),
+		barrierTarget = "up",
+		barrierStartAt = Workspace:GetServerTimeNow(),
+		barrierDuration = 0,
 		lastPattern = nil,
 	}
 	instance:GetAttributeChangedSignal(ACTIVE_ATTRIBUTE):Connect(function() refreshCrossing(instance) end)
 	instance:GetAttributeChangedSignal(CHANGED_AT_ATTRIBUTE):Connect(function() refreshCrossing(instance) end)
 	instance:GetAttributeChangedSignal(RED_UNTIL_ATTRIBUTE):Connect(function() refreshCrossing(instance) end)
 	instance:GetAttributeChangedSignal(WHITE_ENABLED_AT_ATTRIBUTE):Connect(function() refreshCrossing(instance) end)
+	instance:GetAttributeChangedSignal(BARRIER_TARGET_ATTRIBUTE):Connect(function() refreshCrossing(instance) end)
 	instance.DescendantAdded:Connect(function(descendant)
-		if descendant:IsA("BasePart") then refreshCrossing(instance) end
+		if descendant:IsA("BasePart") or descendant:IsA("Model") then refreshCrossing(instance) end
 	end)
 	instance.AncestryChanged:Connect(function(_, parent)
 		if not parent then
@@ -145,6 +203,7 @@ RunService.RenderStepped:Connect(function()
 		if not instance.Parent then
 			crossings[instance] = nil
 		else
+			renderBarriers(state, now)
 			local pattern
 			if state.active or now < state.redUntil then
 				local redAOn = math.floor((now - state.changedAt) / RED_HALF_PERIOD) % 2 == 0

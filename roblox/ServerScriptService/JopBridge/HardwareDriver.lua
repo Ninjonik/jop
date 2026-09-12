@@ -5,7 +5,6 @@ local HardwareDriver = {}
 local SignalController = require(script.Parent.SignalController)
 local CollectionService = game:GetService("CollectionService")
 local PhysicsService = game:GetService("PhysicsService")
-local TweenService = game:GetService("TweenService")
 
 local COMPONENT_TYPE_ATTRIBUTE = "JOPComponentType"
 local OCCUPIED_ATTRIBUTE = "JOPOccupied"
@@ -23,6 +22,9 @@ local LEVEL_CROSSING_ACTIVE_ATTRIBUTE = "JOPResolvedLevelCrossingActive"
 local LEVEL_CROSSING_CHANGED_AT_ATTRIBUTE = "JOPResolvedLevelCrossingChangedAt"
 local LEVEL_CROSSING_RED_UNTIL_ATTRIBUTE = "JOPResolvedLevelCrossingRedUntil"
 local LEVEL_CROSSING_WHITE_ENABLED_AT_ATTRIBUTE = "JOPResolvedLevelCrossingWhiteEnabledAt"
+local LEVEL_CROSSING_BARRIER_TARGET_ATTRIBUTE = "JOPResolvedLevelCrossingBarrierTarget"
+local LEVEL_CROSSING_BARRIER_START_AT_ATTRIBUTE = "JOPResolvedLevelCrossingBarrierStartAt"
+local LEVEL_CROSSING_BARRIER_DURATION_ATTRIBUTE = "JOPResolvedLevelCrossingBarrierDuration"
 local SIGNAL_COMPONENT_TAG = "JOPSignalComponent"
 local LEVEL_CROSSING_COMPONENT_TAG = "JOPLevelCrossingComponent"
 
@@ -446,48 +448,12 @@ local function setBarrierPosition(barrier, xAngle)
 	barrier:PivotTo(getBarrierTargetCFrame(barrier, xAngle))
 end
 
-local function tweenBarriers(state, xAngle, tweenInfo)
-	local tweens = {}
-	for _, barrier in ipairs(state.hardware.barriers) do
-		if barrier.Parent then
-			local driver = Instance.new("CFrameValue")
-			driver.Value = barrier:GetPivot()
-			local connection = driver:GetPropertyChangedSignal("Value"):Connect(function()
-				if barrier.Parent then barrier:PivotTo(driver.Value) end
-			end)
-			local tween = TweenService:Create(driver, tweenInfo, { Value = getBarrierTargetCFrame(barrier, xAngle) })
-			push(tweens, {
-				tween = tween,
-				driver = driver,
-				connection = connection,
-				duration = tweenInfo.Time,
-			})
-			tween:Play()
-		end
-	end
-	state.barrierTweens = tweens
-	return tweens
-end
-
-local function cancelBarrierTweens(state)
-	for _, entry in ipairs(state.barrierTweens or {}) do
-		entry.tween:Cancel()
-		entry.connection:Disconnect()
-		entry.driver:Destroy()
-	end
-	state.barrierTweens = {}
-end
-
-local function waitForBarrierTweens(tweens)
-	local duration = 0
-	for _, entry in ipairs(tweens) do
-		duration = math.max(duration, entry.duration or 0)
-	end
-	if duration > 0 then task.wait(duration) end
-	for _, entry in ipairs(tweens) do
-		entry.connection:Disconnect()
-		entry.driver:Destroy()
-	end
+local function setBarrierAnimation(component, target, startAt, duration)
+	component:SetAttribute(LEVEL_CROSSING_BARRIER_DURATION_ATTRIBUTE, duration)
+	component:SetAttribute(LEVEL_CROSSING_BARRIER_START_AT_ATTRIBUTE, startAt)
+	-- Set target last: clients use it as the commit signal after the timing
+	-- attributes have replicated.
+	component:SetAttribute(LEVEL_CROSSING_BARRIER_TARGET_ATTRIBUTE, target)
 end
 
 local function setLevelCrossingWhiteReturn(component, state)
@@ -506,11 +472,11 @@ local function activateLevelCrossing(component, linkedStates, whiteAllowed)
 			timings = getLevelCrossingTimings(linkedStates),
 			barriersRaised = true,
 			generation = 0,
-			barrierTweens = {},
 			hardware = getLevelCrossingHardware(component),
 		}
 		levelCrossingStateByInstance[component] = state
 		for _, barrier in ipairs(state.hardware.barriers) do setBarrierPosition(barrier, BARRIER_UP_X) end
+		setBarrierAnimation(component, "up", workspace:GetServerTimeNow(), 0)
 	end
 	if state.active then return end
 
@@ -520,16 +486,19 @@ local function activateLevelCrossing(component, linkedStates, whiteAllowed)
 	state.barriersRaised = false
 	state.generation += 1
 	local generation = state.generation
-	cancelBarrierTweens(state)
 	setBellsActive(state.hardware.bells, true)
+	setBarrierAnimation(
+		component,
+		"down",
+		workspace:GetServerTimeNow() + state.timings.warningSeconds,
+		state.timings.lowerSeconds
+	)
 
 	task.spawn(function()
 		task.wait(state.timings.warningSeconds)
 		if not state.active or state.generation ~= generation then return end
-		local tweens = tweenBarriers(state, BARRIER_DOWN_X, TweenInfo.new(state.timings.lowerSeconds, Enum.EasingStyle.Linear))
-		waitForBarrierTweens(tweens)
+		task.wait(state.timings.lowerSeconds)
 		if not state.active or state.generation ~= generation then return end
-		state.barrierTweens = {}
 		if #state.hardware.barriers > 0 and not state.timings.bellContinuesAfterLowering then
 			setBellsActive(state.hardware.bells, false)
 		end
@@ -540,11 +509,12 @@ local function deactivateLevelCrossing(component, linkedStates, whiteAllowed)
 	local state = levelCrossingStateByInstance[component]
 	if not state then
 		state = {
-			active = false, whiteAllowed = whiteAllowed, timings = getLevelCrossingTimings(linkedStates), barriersRaised = true, generation = 0, barrierTweens = {},
+			active = false, whiteAllowed = whiteAllowed, timings = getLevelCrossingTimings(linkedStates), barriersRaised = true, generation = 0,
 			hardware = getLevelCrossingHardware(component),
 		}
 		levelCrossingStateByInstance[component] = state
 		for _, barrier in ipairs(state.hardware.barriers) do setBarrierPosition(barrier, BARRIER_UP_X) end
+		setBarrierAnimation(component, "up", workspace:GetServerTimeNow(), 0)
 		component:SetAttribute(
 			LEVEL_CROSSING_WHITE_ENABLED_AT_ATTRIBUTE,
 			whiteAllowed and workspace:GetServerTimeNow() or FAR_FUTURE_TIMESTAMP
@@ -562,17 +532,15 @@ local function deactivateLevelCrossing(component, linkedStates, whiteAllowed)
 	state.barriersRaised = false
 	state.generation += 1
 	local generation = state.generation
-	cancelBarrierTweens(state)
 	-- White permission is independent of the barrier motion. It remains off
 	-- until the backend reports the next sensor clear, then uses only its own
 	-- configured delay.
 	setLevelCrossingWhiteReturn(component, state)
+	setBarrierAnimation(component, "up", workspace:GetServerTimeNow(), state.timings.raiseSeconds)
 
 	task.spawn(function()
-		local tweens = tweenBarriers(state, BARRIER_UP_X, TweenInfo.new(state.timings.raiseSeconds, Enum.EasingStyle.Linear))
-		waitForBarrierTweens(tweens)
+		task.wait(state.timings.raiseSeconds)
 		if state.active or state.generation ~= generation then return end
-		state.barrierTweens = {}
 		state.barriersRaised = true
 		setBellsActive(state.hardware.bells, false)
 	end)

@@ -73,6 +73,7 @@ export type SessionLineblockLink = {
 export type SessionLineblockRuntimeState = {
   arrivalAcknowledgementEligible: boolean;
   entryPassed: boolean;
+  entryReleasePieceIds: string[];
   trainId: string | null;
   updatedAt: string;
 };
@@ -705,6 +706,7 @@ export const sessionDocumentSchema = z.object({
       z.object({
         arrivalAcknowledgementEligible: z.boolean(),
         entryPassed: z.boolean().default(false),
+        entryReleasePieceIds: z.array(z.string()).default([]),
         trainId: z.string().nullable(),
         updatedAt: z.string(),
       }),

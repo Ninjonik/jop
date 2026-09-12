@@ -1368,10 +1368,12 @@ function ensureSessionRuntimeState(session: SessionDocument) {
     session.runtime.lineblocks[linkId] ??= {
       arrivalAcknowledgementEligible: false,
       entryPassed: false,
+      entryReleasePieceIds: [],
       trainId: null,
       updatedAt: session.updatedAt,
     };
     session.runtime.lineblocks[linkId].entryPassed ??= false;
+    session.runtime.lineblocks[linkId].entryReleasePieceIds ??= [];
   });
 
   return session;
@@ -2561,6 +2563,7 @@ async function completeRouteAction(actionId: string, sessionId: string, stationI
   await saveStation(station);
 
   let linkedLineblockStation: StationDocument | null = null;
+  let sessionRuntimeChanged = false;
 
   try {
     if (action.type === 'route:build-normal' || action.type === 'route:build-shunt') {
@@ -2591,6 +2594,7 @@ async function completeRouteAction(actionId: string, sessionId: string, stationI
 
       applyRouteSwitchAlignments(station, session, route);
       station.runtime.activeTrainRoutes[route.id] = route;
+      sessionRuntimeChanged = recordPhysicalLineblockArrivalRoute(session, station, route);
       linkedLineblockStation = await setOutboundRouteLineblockStates(
         session,
         station,
@@ -2679,6 +2683,9 @@ async function completeRouteAction(actionId: string, sessionId: string, stationI
     buildActionDebugLines(station, finalAction),
   );
   await stationActionLogRepository.create(toActionLog(station, finalAction));
+  if (sessionRuntimeChanged) {
+    await sessionRepository.save(session);
+  }
   await saveStation(station);
   if (linkedLineblockStation) {
     applyRuntimeState(linkedLineblockStation);
@@ -3054,10 +3061,94 @@ function updateLineblockArrivalEligibility(
     session.runtime.lineblocks[transit.linkId] = {
       arrivalAcknowledgementEligible: true,
       entryPassed: true,
+      entryReleasePieceIds: [],
       trainId: train.id,
       updatedAt: nowIso(),
     };
   }
+}
+
+function recordPhysicalLineblockArrivalRoute(
+  session: SessionDocument,
+  receivingStation: StationDocument,
+  route: ActiveTrainRoute,
+) {
+  if (route.routeType !== 'normal' || route.routeClass !== 'premain-to-platform') {
+    return false;
+  }
+
+  const premainLink = Object.values(receivingStation.runtime.lineblockPremainLinks).find(
+    (link) => link.premainSignalPieceId === route.sourcePieceId,
+  );
+  if (!premainLink) {
+    return false;
+  }
+
+  const linked = getLinkedLineblock(receivingStation, session, premainLink.lineblockPieceId);
+  if (!linked) {
+    return false;
+  }
+
+  const entrySignalIndex = route.path.findIndex((step) => {
+    const type = receivingStation.layout.pieces[step.pieceId]?.type;
+    return type === 'entrySignal' || type === 'entrySignalNoOcp';
+  });
+  if (entrySignalIndex < 0) {
+    return false;
+  }
+
+  session.runtime.lineblocks[linked.link.id] = {
+    arrivalAcknowledgementEligible: false,
+    entryPassed: false,
+    // Keep the route's real post-entry circuits after the route naturally
+    // releases. A physical train can still be on those circuits then.
+    entryReleasePieceIds: route.path
+      .slice(entrySignalIndex + 1)
+      .filter((step) => step.occupationState !== null)
+      .map((step) => step.pieceId),
+    trainId: null,
+    updatedAt: nowIso(),
+  };
+  return true;
+}
+
+function getPostEntryOccupationPieceIds(
+  station: StationDocument,
+  premainSignalPieceId: string,
+  entrySignalPieceId: string,
+) {
+  const pieceIds = new Set<string>();
+  const departureButtonPieceIds = Object.entries(station.layout.pieces)
+    .filter(([, piece]) => piece.type === 'departureButton')
+    .map(([pieceId]) => pieceId);
+
+  for (const departureButtonPieceId of departureButtonPieceIds) {
+    try {
+      const route = buildRouteFromSelection(
+        station,
+        premainSignalPieceId,
+        departureButtonPieceId,
+        tiles,
+        'normal',
+        false,
+      );
+      const entrySignalIndex = route.path.findIndex(
+        (step) => step.pieceId === entrySignalPieceId,
+      );
+      if (entrySignalIndex < 0) {
+        continue;
+      }
+      route.path
+        .slice(entrySignalIndex + 1)
+        .filter((step) => step.occupationState !== null)
+        .forEach((step) => pieceIds.add(step.pieceId));
+    } catch {
+      // A route can be unavailable for a different platform; another
+      // platform route is enough to discover the fixed post-entry circuit.
+    }
+  }
+
+  return [...pieceIds];
 }
 
 function updatePhysicalLineblockArrivalEligibility(
@@ -3067,59 +3158,59 @@ function updatePhysicalLineblockArrivalEligibility(
   traversalState: string | null,
   occupied: boolean,
 ) {
-  Object.values(receivingStation.runtime.activeTrainRoutes).forEach((route) => {
-    if (route.routeType !== 'normal' || route.routeClass !== 'premain-to-platform') {
-      return;
-    }
-
-    const premainLink = Object.values(receivingStation.runtime.lineblockPremainLinks).find(
-      (link) => link.premainSignalPieceId === route.sourcePieceId,
-    );
-    if (!premainLink || getLineblockVisualState(receivingStation, premainLink.lineblockPieceId) !== 'receiving') {
-      return;
-    }
-
-    const entrySignalIndex = route.path.findIndex((step) => {
-      const type = receivingStation.layout.pieces[step.pieceId]?.type;
-      return type === 'entrySignal' || type === 'entrySignalNoOcp';
-    });
-    const occupiedStepIndex = route.path.findIndex((step) =>
-      step.pieceId === occupiedPieceId &&
-      (traversalState === null || step.occupationState === null || step.occupationState === traversalState),
-    );
-    if (entrySignalIndex < 0) {
+  Object.values(receivingStation.runtime.lineblockPremainLinks).forEach((premainLink) => {
+    if (getLineblockVisualState(receivingStation, premainLink.lineblockPieceId) !== 'receiving') {
       return;
     }
 
     const linked = getLinkedLineblock(receivingStation, session, premainLink.lineblockPieceId);
     if (!linked) return;
 
-    const lineblockRuntime = session.runtime.lineblocks[linked.link.id];
-    const entryWasPassed =
-      lineblockRuntime?.entryPassed === true || (occupied && occupiedStepIndex > entrySignalIndex);
-    if (!entryWasPassed) {
+    const entrySignalPieceId = getEntrySignalPieceIdForPremain(
+      receivingStation,
+      premainLink.premainSignalPieceId,
+    );
+    if (!entrySignalPieceId) {
       return;
     }
 
-    const protectedPieceIds = new Set(
-      route.path.slice(0, entrySignalIndex + 1).map((step) => step.pieceId),
+    const activeArrivalRoute = Object.values(receivingStation.runtime.activeTrainRoutes).find(
+      (route) =>
+        route.routeType === 'normal' &&
+        route.routeClass === 'premain-to-platform' &&
+        route.sourcePieceId === premainLink.premainSignalPieceId,
     );
-    const protectedSensorsAreClear = !Object.values(session.runtime.physicalOccupations).some(
-      (occupation) =>
-        occupation.occupied &&
-        occupation.stationId === receivingStation.stationId &&
-        protectedPieceIds.has(occupation.pieceId),
-    );
+    const entrySignalIndex = activeArrivalRoute?.path.findIndex(
+      (step) => step.pieceId === entrySignalPieceId,
+    ) ?? -1;
+    const occupiedStepIndex = activeArrivalRoute?.path.findIndex(
+      (step) =>
+        step.pieceId === occupiedPieceId &&
+        (traversalState === null || step.occupationState === null || step.occupationState === traversalState),
+    ) ?? -1;
 
-    // The front has passed the entry signal, but odhlaska is safe only after
-    // the rear has cleared every protected sensor up to that signal.
-    if (!protectedSensorsAreClear) {
-      session.runtime.lineblocks[linked.link.id] = {
-        arrivalAcknowledgementEligible: false,
-        entryPassed: true,
-        trainId: null,
-        updatedAt: nowIso(),
-      };
+    const lineblockRuntime = session.runtime.lineblocks[linked.link.id];
+    const entryReleasePieceIds =
+      lineblockRuntime?.entryReleasePieceIds.length
+        ? lineblockRuntime.entryReleasePieceIds
+        : getPostEntryOccupationPieceIds(
+            receivingStation,
+            premainLink.premainSignalPieceId,
+            entrySignalPieceId,
+          );
+    const entryWasPassed =
+      lineblockRuntime?.entryPassed === true ||
+      // A clear event from the entrance-signal sensor means the complete
+      // train has left that sensor. Occupied approach sections behind it are
+      // deliberately irrelevant to odhlaska.
+      (!occupied && occupiedPieceId === entrySignalPieceId) ||
+      // Route metadata survives route release, so an occupied switch or track
+      // directly beyond the entry signal is still valid proof of arrival.
+      (occupied && entryReleasePieceIds.includes(occupiedPieceId)) ||
+      // Some Roblox layouts report only the first sensor beyond the signal.
+      // Use that as equivalent evidence while the active route is available.
+      (occupied && occupiedStepIndex > entrySignalIndex);
+    if (!entryWasPassed) {
       return;
     }
 
@@ -3131,6 +3222,7 @@ function updatePhysicalLineblockArrivalEligibility(
     session.runtime.lineblocks[linked.link.id] = {
       arrivalAcknowledgementEligible: true,
       entryPassed: true,
+      entryReleasePieceIds,
       trainId: null,
       updatedAt: nowIso(),
     };
@@ -3567,7 +3659,8 @@ export const stationService = {
     getActiveLevelCrossingPieceIds(station, session);
     session.updatedAt = nowIso();
 
-    applyRouteProgressFromOccupationEvent(station, input.pieceId, traversalState, input.occupied);
+    // Evaluate odhlaska before route progress can release an active receiving
+    // route. The entry-signal clear itself is the evidence we need to retain.
     updatePhysicalLineblockArrivalEligibility(
       session,
       station,
@@ -3575,6 +3668,7 @@ export const stationService = {
       traversalState,
       input.occupied,
     );
+    applyRouteProgressFromOccupationEvent(station, input.pieceId, traversalState, input.occupied);
 
     applyRuntimeStateWithTrainOccupations(station, session);
     bumpRevision(station);
@@ -3802,6 +3896,7 @@ export const stationService = {
         session.runtime.lineblocks[linkId] = {
           arrivalAcknowledgementEligible: false,
           entryPassed: false,
+          entryReleasePieceIds: [],
           trainId: null,
           updatedAt: nowIso(),
         };
@@ -4126,6 +4221,7 @@ export const stationService = {
       session.runtime.lineblocks[train.lineblockTransit.linkId] = {
         arrivalAcknowledgementEligible: true,
         entryPassed: true,
+        entryReleasePieceIds: [],
         trainId,
         updatedAt: nowIso(),
       };
@@ -4265,6 +4361,7 @@ export const stationService = {
     session.runtime.lineblocks[linkId] = {
       arrivalAcknowledgementEligible: false,
       entryPassed: false,
+      entryReleasePieceIds: [],
       trainId: null,
       updatedAt: createdAt,
     };
@@ -4520,6 +4617,7 @@ export const stationService = {
       session.runtime.lineblocks[linked.link.id] = {
         arrivalAcknowledgementEligible: false,
         entryPassed: false,
+        entryReleasePieceIds: [],
         trainId: null,
         updatedAt: nowIso(),
       };
