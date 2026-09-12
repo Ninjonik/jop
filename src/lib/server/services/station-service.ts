@@ -224,7 +224,7 @@ async function buildRobloxPhysicalSnapshot(sessionId: string): Promise<RobloxPhy
     ensureStationRuntimeState(station);
     applySessionTrainOccupations(station, session);
     const resolvedSignalAspects = buildResolvedRobloxSignalAspects(station);
-    const activeLevelCrossingPieceIds = getActiveLevelCrossingPieceIds(station, session);
+    const levelCrossingStates = getActiveLevelCrossingPieceIds(station, session);
     return {
       stationId: station.stationId,
       revision: station.revision,
@@ -238,7 +238,8 @@ async function buildRobloxPhysicalSnapshot(sessionId: string): Promise<RobloxPhy
             switchAlignment: station.runtime.switchAlignments[pieceId] ?? null,
             resolvedSignalFamily: resolvedSignalAspects.get(pieceId)?.family ?? null,
             resolvedSignalAspect: resolvedSignalAspects.get(pieceId)?.aspect ?? null,
-            levelCrossingActive: activeLevelCrossingPieceIds.has(pieceId),
+              levelCrossingActive: levelCrossingStates.activePieceIds.has(pieceId),
+              levelCrossingWhiteAllowed: levelCrossingStates.whiteAllowedPieceIds.has(pieceId),
           },
         ]),
       ),
@@ -277,6 +278,7 @@ function getActiveLevelCrossingPieceIds(station: StationDocument, session: Sessi
   );
 
   const activeColumns = new Set<number>();
+  const whiteBlockedColumns = new Set<number>();
   const levelCrossingDirectionLocks = (session.runtime.levelCrossingDirectionLocks ??= {});
   const crossingPieceIds = Object.entries(station.layout.pieces)
     .filter(([, piece]) => isTrackCrossingPieceType(piece.type))
@@ -338,7 +340,13 @@ function getActiveLevelCrossingPieceIds(station: StationDocument, session: Sessi
         : lock.direction === 'right-to-left'
           ? rightTracks.some((track) => occupiedPieceIds.has(track.pieceId))
           : false;
-      const shouldRemainLatched = crossingOccupied || incomingApproachOccupied || rowReserved;
+      const outgoingApproachOccupied = lock.direction === 'left-to-right'
+        ? rightTracks.some((track) => occupiedPieceIds.has(track.pieceId))
+        : lock.direction === 'right-to-left'
+          ? leftTracks.some((track) => occupiedPieceIds.has(track.pieceId))
+          : false;
+      const isActive = crossingOccupied || incomingApproachOccupied || rowReserved;
+      const shouldRemainLatched = isActive || outgoingApproachOccupied;
 
       if (!shouldRemainLatched && allCrossingsClear) {
         delete levelCrossingDirectionLocks[lockKey];
@@ -348,8 +356,11 @@ function getActiveLevelCrossingPieceIds(station: StationDocument, session: Sessi
 
       // The linked approach sensor is an immediate safety trigger. A crossing
       // sensor and a route reservation are independent safety triggers too.
-      if (crossingOccupied || rowReserved || lock.direction !== null) {
+      if (isActive) {
         activeColumns.add(crossingX);
+      }
+      if (outgoingApproachOccupied) {
+        whiteBlockedColumns.add(crossingX);
       }
       return;
     }
@@ -361,10 +372,18 @@ function getActiveLevelCrossingPieceIds(station: StationDocument, session: Sessi
     }
   });
 
-  return new Set(
-    crossingPieceIds
-      .filter((pieceId) => activeColumns.has(getPieceAnchor(station.layout, pieceId).x)),
-  );
+  return {
+    activePieceIds: new Set(
+      crossingPieceIds
+        .filter((pieceId) => activeColumns.has(getPieceAnchor(station.layout, pieceId).x)),
+    ),
+    whiteAllowedPieceIds: new Set(
+      crossingPieceIds.filter((pieceId) => {
+        const x = getPieceAnchor(station.layout, pieceId).x;
+        return !activeColumns.has(x) && !whiteBlockedColumns.has(x);
+      }),
+    ),
+  };
 }
 
 async function saveStation(station: StationDocument, options?: { skipRuntimeNotify?: boolean }) {

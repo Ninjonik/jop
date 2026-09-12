@@ -21,6 +21,7 @@ local SWITCH_STATE_ATTRIBUTE = "JOPResolvedSwitchState"
 local SWITCH_PIECE_ID_ATTRIBUTE = "JOPResolvedSwitchPieceId"
 local LEVEL_CROSSING_ACTIVE_ATTRIBUTE = "JOPResolvedLevelCrossingActive"
 local LEVEL_CROSSING_CHANGED_AT_ATTRIBUTE = "JOPResolvedLevelCrossingChangedAt"
+local LEVEL_CROSSING_RED_UNTIL_ATTRIBUTE = "JOPResolvedLevelCrossingRedUntil"
 local LEVEL_CROSSING_WHITE_ENABLED_AT_ATTRIBUTE = "JOPResolvedLevelCrossingWhiteEnabledAt"
 local SIGNAL_COMPONENT_TAG = "JOPSignalComponent"
 local LEVEL_CROSSING_COMPONENT_TAG = "JOPLevelCrossingComponent"
@@ -456,11 +457,20 @@ local function waitForBarrierTweens(tweens)
 	end
 end
 
-local function activateLevelCrossing(component, linkedStates)
+local function setLevelCrossingWhiteReturn(component, state)
+	component:SetAttribute(
+		LEVEL_CROSSING_WHITE_ENABLED_AT_ATTRIBUTE,
+		state.whiteAllowed and workspace:GetServerTimeNow() + 30 or math.huge
+	)
+end
+
+local function activateLevelCrossing(component, linkedStates, whiteAllowed)
 	local state = levelCrossingStateByInstance[component]
 	if not state then
 		state = {
 			active = false,
+			whiteAllowed = whiteAllowed,
+			barriersRaised = true,
 			generation = 0,
 			barrierTweens = {},
 			hardware = getLevelCrossingHardware(component),
@@ -471,6 +481,8 @@ local function activateLevelCrossing(component, linkedStates)
 	if state.active then return end
 
 	state.active = true
+	state.whiteAllowed = whiteAllowed
+	state.barriersRaised = false
 	state.generation += 1
 	local generation = state.generation
 	cancelBarrierTweens(state)
@@ -483,37 +495,44 @@ local function activateLevelCrossing(component, linkedStates)
 		waitForBarrierTweens(tweens)
 		if not state.active or state.generation ~= generation then return end
 		state.barrierTweens = {}
-		setBellsActive(state.hardware.bells, false)
 	end)
 end
 
-local function deactivateLevelCrossing(component, linkedStates)
+local function deactivateLevelCrossing(component, linkedStates, whiteAllowed)
 	local state = levelCrossingStateByInstance[component]
 	if not state then
 		state = {
-			active = false, generation = 0, barrierTweens = {},
+			active = false, whiteAllowed = whiteAllowed, barriersRaised = true, generation = 0, barrierTweens = {},
 			hardware = getLevelCrossingHardware(component),
 		}
 		levelCrossingStateByInstance[component] = state
 		for _, barrier in ipairs(state.hardware.barriers) do setBarrierPosition(barrier, BARRIER_UP_X) end
+		component:SetAttribute(
+			LEVEL_CROSSING_WHITE_ENABLED_AT_ATTRIBUTE,
+			whiteAllowed and workspace:GetServerTimeNow() or math.huge
+		)
 		return
 	end
-	if not state.active then return end
+	state.whiteAllowed = whiteAllowed
+	if not state.active then
+		if state.barriersRaised then setLevelCrossingWhiteReturn(component, state) end
+		return
+	end
 
 	state.active = false
+	state.barriersRaised = false
 	state.generation += 1
 	local generation = state.generation
 	cancelBarrierTweens(state)
 
 	task.spawn(function()
-		task.wait(2)
-		if state.active or state.generation ~= generation then return end
 		local tweens = tweenBarriers(state, BARRIER_UP_X, BARRIER_RAISE_TWEEN_INFO)
 		waitForBarrierTweens(tweens)
 		if state.active or state.generation ~= generation then return end
 		state.barrierTweens = {}
+		state.barriersRaised = true
 		setBellsActive(state.hardware.bells, false)
-		component:SetAttribute(LEVEL_CROSSING_WHITE_ENABLED_AT_ATTRIBUTE, workspace:GetServerTimeNow() + 30)
+		setLevelCrossingWhiteReturn(component, state)
 	end)
 end
 
@@ -603,6 +622,7 @@ function HardwareDriver.ApplyInstanceState(instance, linkedStates, capabilities)
 	local firstSwitch = nil
 	local firstOccupation = nil
 	local levelCrossingActive = false
+	local levelCrossingWhiteAllowed = true
 	for _, state in ipairs(linkedStates) do
 		if not firstSignal and isSignalState(state) then
 			firstSignal = state
@@ -616,6 +636,9 @@ function HardwareDriver.ApplyInstanceState(instance, linkedStates, capabilities)
 		if state.levelCrossingActive == true then
 			levelCrossingActive = true
 		end
+		if state.levelCrossingWhiteAllowed == false then
+			levelCrossingWhiteAllowed = false
+		end
 	end
 
 	for _, levelCrossingComponent in ipairs(capabilities.levelCrossings or {}) do
@@ -627,14 +650,22 @@ function HardwareDriver.ApplyInstanceState(instance, linkedStates, capabilities)
 			levelCrossingComponent:SetAttribute(LEVEL_CROSSING_ACTIVE_ATTRIBUTE, levelCrossingActive)
 			levelCrossingComponent:SetAttribute(LEVEL_CROSSING_CHANGED_AT_ATTRIBUTE, changedAt)
 			if levelCrossingActive then
+				levelCrossingComponent:SetAttribute(LEVEL_CROSSING_RED_UNTIL_ATTRIBUTE, math.huge)
 				levelCrossingComponent:SetAttribute(LEVEL_CROSSING_WHITE_ENABLED_AT_ATTRIBUTE, nil)
-				activateLevelCrossing(levelCrossingComponent, linkedStates)
+				activateLevelCrossing(levelCrossingComponent, linkedStates, levelCrossingWhiteAllowed)
 			else
-				levelCrossingComponent:SetAttribute(
-					LEVEL_CROSSING_WHITE_ENABLED_AT_ATTRIBUTE,
-					wasActive == nil and changedAt or math.huge
-				)
-				deactivateLevelCrossing(levelCrossingComponent, linkedStates)
+				levelCrossingComponent:SetAttribute(LEVEL_CROSSING_RED_UNTIL_ATTRIBUTE, wasActive == nil and changedAt or changedAt + 7)
+				levelCrossingComponent:SetAttribute(LEVEL_CROSSING_WHITE_ENABLED_AT_ATTRIBUTE, math.huge)
+				deactivateLevelCrossing(levelCrossingComponent, linkedStates, levelCrossingWhiteAllowed)
+			end
+		else
+			local state = levelCrossingStateByInstance[levelCrossingComponent]
+			if state then
+				local whiteAllowedChanged = state.whiteAllowed ~= levelCrossingWhiteAllowed
+				state.whiteAllowed = levelCrossingWhiteAllowed
+				if whiteAllowedChanged and not state.active and state.barriersRaised then
+					setLevelCrossingWhiteReturn(levelCrossingComponent, state)
+				end
 			end
 		end
 	end

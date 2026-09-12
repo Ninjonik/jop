@@ -9,6 +9,7 @@ local CROSSING_TAG = "JOPLevelCrossingComponent"
 local COMPONENT_TYPE_ATTRIBUTE = "JOPComponentType"
 local ACTIVE_ATTRIBUTE = "JOPResolvedLevelCrossingActive"
 local CHANGED_AT_ATTRIBUTE = "JOPResolvedLevelCrossingChangedAt"
+local RED_UNTIL_ATTRIBUTE = "JOPResolvedLevelCrossingRedUntil"
 local WHITE_ENABLED_AT_ATTRIBUTE = "JOPResolvedLevelCrossingWhiteEnabledAt"
 local HALF_PERIOD = 0.5
 local ACTIVE_RED = Color3.fromRGB(255, 0, 0)
@@ -64,6 +65,8 @@ local function refreshCrossing(instance)
 	state.active = instance:GetAttribute(ACTIVE_ATTRIBUTE) == true
 	state.changedAt = instance:GetAttribute(CHANGED_AT_ATTRIBUTE)
 	if type(state.changedAt) ~= "number" then state.changedAt = Workspace:GetServerTimeNow() end
+	state.redUntil = instance:GetAttribute(RED_UNTIL_ATTRIBUTE)
+	if type(state.redUntil) ~= "number" then state.redUntil = state.changedAt end
 	state.whiteEnabledAt = instance:GetAttribute(WHITE_ENABLED_AT_ATTRIBUTE)
 	if type(state.whiteEnabledAt) ~= "number" then state.whiteEnabledAt = state.changedAt end
 	state.lastPattern = nil
@@ -78,11 +81,13 @@ local function observeCrossing(instance)
 		redB = findParts(instance, { "RedLightB", "R1" }),
 		active = false,
 		changedAt = Workspace:GetServerTimeNow(),
+		redUntil = Workspace:GetServerTimeNow(),
 		whiteEnabledAt = Workspace:GetServerTimeNow(),
 		lastPattern = nil,
 	}
 	instance:GetAttributeChangedSignal(ACTIVE_ATTRIBUTE):Connect(function() refreshCrossing(instance) end)
 	instance:GetAttributeChangedSignal(CHANGED_AT_ATTRIBUTE):Connect(function() refreshCrossing(instance) end)
+	instance:GetAttributeChangedSignal(RED_UNTIL_ATTRIBUTE):Connect(function() refreshCrossing(instance) end)
 	instance:GetAttributeChangedSignal(WHITE_ENABLED_AT_ATTRIBUTE):Connect(function() refreshCrossing(instance) end)
 	instance.DescendantAdded:Connect(function(descendant)
 		if descendant:IsA("BasePart") then refreshCrossing(instance) end
@@ -108,7 +113,7 @@ RunService.RenderStepped:Connect(function()
 			crossings[instance] = nil
 		else
 			local pattern
-			if state.active then
+			if state.active or now < state.redUntil then
 				local redAOn = math.floor((now - state.changedAt) / HALF_PERIOD) % 2 == 0
 				pattern = redAOn and "red-a" or "red-b"
 			elseif now >= state.whiteEnabledAt then
