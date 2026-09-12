@@ -91,6 +91,25 @@ function renderSvgTextLines(container: HTMLElement) {
 
     const x = textElement.getAttribute('x');
     const lineOffset = (lines.length - 1) * -0.6;
+    const originalTransform =
+      textElement.dataset.multilineOriginalTransform ?? textElement.getAttribute('transform') ?? '';
+    const originalCenterY = Number(textElement.dataset.multilineCenterY);
+
+    // Capture the visual center from the authored one-line label. Its `y`
+    // coordinate is not always the geometric center because SVG font metrics
+    // differ by browser and font.
+    if (!Number.isFinite(originalCenterY)) {
+      textElement.dataset.multilineCenterY = String(
+        textElement.getBBox().y + textElement.getBBox().height / 2,
+      );
+    }
+    textElement.dataset.multilineOriginalTransform = originalTransform;
+
+    if (originalTransform) {
+      textElement.setAttribute('transform', originalTransform);
+    } else {
+      textElement.removeAttribute('transform');
+    }
 
     textElement.replaceChildren(
       ...lines.map((line, index) => {
@@ -105,6 +124,14 @@ function renderSvgTextLines(container: HTMLElement) {
         return tspan;
       }),
     );
+
+    const targetCenterY = Number(textElement.dataset.multilineCenterY);
+    const multilineCenterY = textElement.getBBox().y + textElement.getBBox().height / 2;
+    const offsetY = targetCenterY - multilineCenterY;
+
+    if (offsetY !== 0) {
+      textElement.setAttribute('transform', `${originalTransform} translate(0 ${offsetY})`.trim());
+    }
   });
 }
 
