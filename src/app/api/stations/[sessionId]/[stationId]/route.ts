@@ -1,4 +1,11 @@
-import { renameStationSchema, sessionIdSchema, stationIdSchema } from '@/lib/station/domain';
+import {
+  deserializeStationLayout,
+  renameStationSchema,
+  sessionIdSchema,
+  stationIdSchema,
+  updateStationLayoutSchema,
+} from '@/lib/station/domain';
+import type { StationDocument } from '@/lib/station/domain';
 import { jsonErrorResponse, parseJsonRequest } from '@/lib/server/http';
 import { stationService } from '@/lib/server/services/station-service';
 
@@ -43,6 +50,21 @@ export async function PATCH(request: Request, { params }: StationRouteProps) {
       sessionIdSchema.parse(sessionId),
       stationIdSchema.parse(stationId),
       (await parseJsonRequest(request, renameStationSchema)).stationId,
+    );
+    return Response.json({ station });
+  } catch (error) {
+    return jsonErrorResponse(error);
+  }
+}
+
+export async function PUT(request: Request, { params }: StationRouteProps) {
+  try {
+    const { sessionId, stationId } = await params;
+    const body = await parseJsonRequest(request, updateStationLayoutSchema);
+    const station = await stationService.updateStationLayout(
+      sessionIdSchema.parse(sessionId),
+      stationIdSchema.parse(stationId),
+      deserializeStationLayout(body.layout as StationDocument['layout']),
     );
     return Response.json({ station });
   } catch (error) {

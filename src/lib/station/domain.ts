@@ -780,6 +780,10 @@ export const renameStationSchema = z.object({
   stationId: stationIdSchema,
 });
 
+export const updateStationLayoutSchema = z.object({
+  layout: stationLayoutSchema,
+});
+
 export const sessionSchemaDocumentSchema = z.object({
   version: z.literal(1),
   stations: z.array(

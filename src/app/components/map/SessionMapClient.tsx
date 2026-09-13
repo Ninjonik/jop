@@ -944,6 +944,12 @@ export default function SessionMapClient() {
                     >
                       Runtime
                     </Link>
+                    <Link
+                      href={session ? `/editor?sessionId=${encodeURIComponent(session._id)}&stationId=${encodeURIComponent(station.stationId)}` : '#'}
+                      className="rounded-full border border-emerald-700 px-3 py-1 text-xs text-emerald-200"
+                    >
+                      Edit
+                    </Link>
                     <button
                       type="button"
                       disabled={isBusy}

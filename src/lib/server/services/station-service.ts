@@ -4444,6 +4444,49 @@ export const stationService = {
     return station;
   },
 
+  async updateStationLayout(
+    sessionId: string,
+    stationId: string,
+    layout: StationDocument['layout'],
+  ) {
+    const [rawSession, station] = await Promise.all([
+      sessionRepository.findById(sessionId),
+      stationRepository.findBySessionAndStationId(sessionId, stationId),
+    ]);
+    if (!rawSession) throw new Error('Session not found.');
+    if (!station) throw new Error('Station not found.');
+
+    const session = ensureSessionRuntimeState(rawSession);
+    if (Object.keys(session.runtime.trains).length > 0) {
+      throw new Error('Station layouts can only be edited when the session has no trains.');
+    }
+    if (Object.values(session.runtime.physicalOccupations).some(
+      (occupation) => occupation.stationId === stationId && occupation.occupied,
+    )) {
+      throw new Error('Station layouts can only be edited when they have no physical occupations.');
+    }
+    if (Object.keys(station.runtime.pendingActions).length > 0 ||
+      Object.keys(station.runtime.activeTrainRoutes).length > 0 ||
+      station.runtime.routeSelection) {
+      throw new Error('Cancel or complete active station actions and routes before editing its layout.');
+    }
+    if (Object.values(session.topology.lineblockLinks).some(
+      (link) => link.a.stationId === stationId || link.b.stationId === stationId,
+    )) {
+      throw new Error('Remove this station’s inter-station lineblock links before editing its layout.');
+    }
+
+    station.layout = serializeStationLayout(deserializeStationLayout(layout));
+    ensureStationRuntimeState(station);
+    station.runtime.switchAlignments = {};
+    station.runtime.activePrivolavaciaSignals = {};
+    station.runtime.privolavaciaSelection = null;
+    applyRuntimeState(station);
+    bumpRevision(station);
+    await saveStation(station);
+    return station;
+  },
+
   async removeStation(sessionId: string, stationId: string) {
     const rawSession = await sessionRepository.findById(sessionId);
     if (!rawSession) throw new Error('Session not found.');
