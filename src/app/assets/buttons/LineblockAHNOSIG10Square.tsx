@@ -4771,7 +4771,7 @@ const LineblockAHNOSIG10Square = ({
     <g>
       <circle fill="var(--detail-color, #6e6e6e)" cx={37.5} cy={51.35} r={13.63} />
       <circle fill="var(--main-color-alt, #b3b3b3)" cx={37.5} cy={51.35} r={10.9} />
-      <circle fill="var(--color-topleftcircle, #333)" cx={37.5} cy={51.35} r={6.73} />
+      <circle style={{ animation: 'var(--ah-topleftcircle-animation, none)' }} fill="var(--color-topleftcircle, #333)" cx={37.5} cy={51.35} r={6.73} />
     </g>
     <rect
       fill="var(--color-1a1a1a, #1a1a1a)"
@@ -4788,12 +4788,12 @@ const LineblockAHNOSIG10Square = ({
     <g>
       <circle fill="var(--detail-color, #6e6e6e)" cx={187.5} cy={51.35} r={13.63} />
       <circle fill="var(--main-color-alt, #b3b3b3)" cx={187.5} cy={51.35} r={10.9} />
-      <circle fill="var(--color-toprightcircle, #333)" cx={187.5} cy={51.35} r={6.73} />
+      <circle style={{ animation: 'var(--ah-toprightcircle-animation, none)' }} fill="var(--color-toprightcircle, #333)" cx={187.5} cy={51.35} r={6.73} />
     </g>
     <g>
       <circle fill="var(--detail-color, #6e6e6e)" cx={112.5} cy={51.35} r={13.63} />
       <circle fill="var(--main-color-alt, #b3b3b3)" cx={112.5} cy={51.35} r={10.9} />
-      <circle fill="var(--color-middlecircle, #333)" cx={112.5} cy={51.35} r={6.73} />
+      <circle style={{ animation: 'var(--ah-middlecircle-animation, none)' }} fill="var(--color-middlecircle, #333)" cx={112.5} cy={51.35} r={6.73} />
     </g>
     <text
       x={37.5}

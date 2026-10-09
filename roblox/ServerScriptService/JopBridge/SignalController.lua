@@ -16,6 +16,8 @@ local RESOLVED_ASPECTS = {
 	proceed40Expect60 = { z1 = "blinkFast", z2 = "on", r4 = "on" },
 	proceed40Expect80 = { z = "blinkSlow", z2 = "on", r4 = "on" },
 	proceed40Expect100 = { z = "blinkFast", z2 = "on", r4 = "on" },
+	proceed60 = { z = "on", r6 = "on" },
+	proceed100 = { z = "on", r10 = "on" },
 	expect30 = { z1 = "blinkSlow" }, expect40 = { z1 = "blinkSlow" }, expect50 = { z1 = "blinkSlow" },
 	expect60 = { z1 = "blinkFast" }, expect80 = { z = "blinkSlow" }, expect100 = { z = "blinkFast" },
 }

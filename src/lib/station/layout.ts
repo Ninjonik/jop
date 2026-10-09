@@ -22,6 +22,8 @@ const SWITCH_TILE_KEYS = new Set([
 
 const SWITCH_BUTTON_TILE_KEYS = new Set(['switchButton']);
 const LINEBLOCK_TILE_KEYS = new Set(['lineblock', 'lineblockAhNoSig', 'lineblockAhSig']);
+const AH_LINEBLOCK_TILE_KEYS = new Set(['lineblockAhNoSig', 'lineblockAhSig']);
+const BLOCK_SIGNAL_TILE_KEYS = new Set(['blockSignal']);
 const PREMAIN_SIGNAL_TILE_KEYS = new Set(['premainSignal', 'premainSignalNoOcp']);
 const PRIVOLAVACIA_COUNTER_TILE_KEYS = new Set(['signButtonSealedCounter']);
 const PRIVOLAVACIA_SIGNAL_TILE_KEYS = new Set([
@@ -46,6 +48,8 @@ export interface PieceRecord {
   type: string;
   rotation: 0 | 180;
   mirrored: boolean;
+  /** Maximum speed through the diverging route; omitted remains the legacy 40 km/h. */
+  switchSpeed?: 40 | 60 | 100;
   levelCrossingTimings?: {
     warningSeconds?: number;
     lowerSeconds?: number;
@@ -454,6 +458,20 @@ export function isLineblockPieceType(tileKey: string) {
   return LINEBLOCK_TILE_KEYS.has(tileKey);
 }
 
+export function isAhLineblockPieceType(tileKey: string) {
+  return AH_LINEBLOCK_TILE_KEYS.has(tileKey);
+}
+
+export function isBlockSignalPieceType(tileKey: string) {
+  return BLOCK_SIGNAL_TILE_KEYS.has(tileKey);
+}
+
+export function getAhLineblockVariant(tileKey: string) {
+  if (tileKey === 'lineblockAhNoSig') return 'ah82a';
+  if (tileKey === 'lineblockAhSig') return 'ah83';
+  return null;
+}
+
 export function isPremainSignalPieceType(tileKey: string) {
   return PREMAIN_SIGNAL_TILE_KEYS.has(tileKey);
 }
@@ -472,6 +490,8 @@ export function canPiecesConnect(sourceType: string, targetType: string) {
     (isSwitchButtonPieceType(sourceType) && isSwitchPieceType(targetType)) ||
     (isLineblockPieceType(sourceType) && isPremainSignalPieceType(targetType)) ||
     (isPremainSignalPieceType(sourceType) && isLineblockPieceType(targetType)) ||
+    (isAhLineblockPieceType(sourceType) && isBlockSignalPieceType(targetType)) ||
+    (isBlockSignalPieceType(sourceType) && isAhLineblockPieceType(targetType)) ||
     (isPrivolavaciaCounterPieceType(sourceType) && isPrivolavaciaSignalPieceType(targetType)) ||
     (isPrivolavaciaSignalPieceType(sourceType) && isPrivolavaciaCounterPieceType(targetType)) ||
     (isTrackCrossingPieceType(sourceType) && isTrackPieceType(targetType)) ||
@@ -532,6 +552,7 @@ export function getConnectionEndpointKey(layout: StationLayout, pieceId: string,
   if (
     isLineblockPieceType(piece.type) ||
     isPremainSignalPieceType(piece.type) ||
+    isBlockSignalPieceType(piece.type) ||
     isPrivolavaciaSignalPieceType(piece.type)
   ) {
     return pieceId;
@@ -597,9 +618,23 @@ export function getAllConnectionEndpointKeysForPiece(layout: StationLayout, piec
     return [pieceId];
   }
 
+  if (isAhLineblockPieceType(piece.type)) {
+    return [
+      pieceId,
+      ...Object.keys(layout.connections).filter((endpointKey) =>
+        endpointKey.startsWith(`${pieceId}:ah-block-signal:`),
+      ),
+    ];
+  }
+
+  if (isBlockSignalPieceType(piece.type)) {
+    return [pieceId];
+  }
+
   if (
     isLineblockPieceType(piece.type) ||
     isPremainSignalPieceType(piece.type) ||
+    isBlockSignalPieceType(piece.type) ||
     isPrivolavaciaSignalPieceType(piece.type)
   ) {
     return [pieceId];
@@ -655,6 +690,28 @@ export function getLineblockPremainLinksFromLayout(layout: StationLayout) {
         premainSignalPieceId: targetPieceId,
       };
     }
+  });
+
+  return links;
+}
+
+/** A lineblock can have one premain link and, for AH, one or more block signals. */
+export function getAhBlockSignalConnectionKey(lineblockPieceId: string, blockSignalPieceId: string) {
+  return `${lineblockPieceId}:ah-block-signal:${blockSignalPieceId}`;
+}
+
+export function getAhBlockSignalLinksFromLayout(layout: StationLayout) {
+  const links: Array<{ lineblockPieceId: string; blockSignalPieceId: string }> = [];
+
+  Object.entries(layout.connections).forEach(([endpointKey, linkedEndpointKey]) => {
+    if (!endpointKey.includes(':ah-block-signal:')) return;
+    const lineblockPieceId = getConnectionPieceId(endpointKey);
+    const blockSignalPieceId = getConnectionPieceId(linkedEndpointKey);
+    const lineblock = layout.pieces[lineblockPieceId];
+    const blockSignal = layout.pieces[blockSignalPieceId];
+    if (!lineblock || !blockSignal) return;
+    if (!isAhLineblockPieceType(lineblock.type) || !isBlockSignalPieceType(blockSignal.type)) return;
+    links.push({ lineblockPieceId, blockSignalPieceId });
   });
 
   return links;

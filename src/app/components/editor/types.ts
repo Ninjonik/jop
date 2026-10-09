@@ -22,6 +22,7 @@ export interface PieceContextMenuState {
   canRotate: boolean;
   canMirror: boolean;
   isTrackCrossing: boolean;
+  isSwitch: boolean;
   textKeys: string[];
   canStartConnection: boolean;
   canConnectToPending: boolean;

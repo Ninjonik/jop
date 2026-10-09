@@ -421,7 +421,11 @@ export type LineblockActionType =
   | 'lineblock:grant-consent'
   | 'lineblock:revoke-consent'
   | 'lineblock:mark-departed'
-  | 'lineblock:mark-arrived';
+  | 'lineblock:mark-arrived'
+  | 'ah:request-consent'
+  | 'ah:cancel-consent'
+  | 'ah:reset-block-condition'
+  | 'ah:cancel-block-reset';
 
 export type LineblockActionPayload = {
   pieceId: string;
@@ -884,6 +888,10 @@ export const lineblockActionCommandSchema = z.object({
     'lineblock:revoke-consent',
     'lineblock:mark-departed',
     'lineblock:mark-arrived',
+    'ah:request-consent',
+    'ah:cancel-consent',
+    'ah:reset-block-condition',
+    'ah:cancel-block-reset',
   ]),
   issuedAt: z.string(),
   actor: z.object({

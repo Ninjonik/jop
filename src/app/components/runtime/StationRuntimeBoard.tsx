@@ -8,6 +8,7 @@ import type { LineblockActionType, StationDocument, SwitchPosition } from '@/lib
 import {
   getPieceAnchor,
   getRenderablePieces,
+  isAhLineblockPieceType,
   isLineblockPieceType,
   parseCellRef,
 } from '@/lib/station/layout';
@@ -110,6 +111,7 @@ export default function StationRuntimeBoard({
   const fittedTileSize = viewportWidth > 0 ? viewportWidth / layout.width : 75;
   const tileSize = fitWidth ? fittedTileSize : manualTileSize;
 
+
   useEffect(() => {
     const boardViewport = boardViewportRef.current;
     if (!boardViewport) {
@@ -133,6 +135,14 @@ export default function StationRuntimeBoard({
     setManualTileSize((currentSize) =>
       Math.max(20, Math.min(180, Math.round(currentSize * factor))),
     );
+  }
+
+  function startAhBlockReset(pieceId: string) {
+    void submitLineblockAction(pieceId, 'ah:reset-block-condition');
+  }
+
+  function cancelAhBlockReset(pieceId: string) {
+    void submitLineblockAction(pieceId, 'ah:cancel-block-reset');
   }
 
   async function submitLineblockAction(pieceId: string, type: LineblockActionType) {
@@ -611,19 +621,46 @@ export default function StationRuntimeBoard({
 
               {isLineblockPieceType(piece.type) ? (
                 <>
-                  <button
-                    type="button"
-                    aria-label={`Mark train arrived on ${pieceId}`}
-                    disabled={isPiecePending}
-                    onClick={() => void submitLineblockAction(pieceId, 'lineblock:mark-arrived')}
-                    className="pointer-events-auto absolute bottom-0 rounded-sm border border-transparent bg-transparent disabled:cursor-wait"
-                    style={{
-                      width: tileSize * 0.8,
-                      height: tileSize * 0.5,
-                      left: leftLineblockActionOffset * tileSize,
-                    }}
-                  />
-                  <button
+                  {!isAhLineblockPieceType(piece.type) ? (
+                    <button
+                      type="button"
+                      aria-label={`Mark train arrived on ${pieceId}`}
+                      disabled={isPiecePending}
+                      onClick={() => void submitLineblockAction(pieceId, 'lineblock:mark-arrived')}
+                      className="pointer-events-auto absolute bottom-0 rounded-sm border border-transparent bg-transparent disabled:cursor-wait"
+                      style={{
+                        width: tileSize * 0.8,
+                        height: tileSize * 0.5,
+                        left: leftLineblockActionOffset * tileSize,
+                      }}
+                    />
+                  ) : (
+                    <button
+                      type="button"
+                      aria-label={`Request or accept AH consent on ${pieceId}`}
+                      disabled={isPiecePending}
+                      onClick={() => void submitLineblockAction(pieceId, 'ah:request-consent')}
+                      onContextMenu={(event) => {
+                        event.preventDefault();
+                        void submitLineblockAction(pieceId, 'ah:cancel-consent');
+                      }}
+                      onMouseDown={(event) => {
+                        if (event.button === 1) {
+                          event.preventDefault();
+                          startAhBlockReset(pieceId);
+                        }
+                      }}
+                      onMouseUp={() => cancelAhBlockReset(pieceId)}
+                      onMouseLeave={() => cancelAhBlockReset(pieceId)}
+                      className="pointer-events-auto absolute bottom-0 rounded-sm border border-transparent bg-transparent disabled:cursor-wait"
+                      style={{
+                        width: tileSize * 0.8,
+                        height: tileSize * 0.5,
+                        left: leftLineblockActionOffset * tileSize,
+                      }}
+                    />
+                  )}
+                  {!isAhLineblockPieceType(piece.type) ? <button
                     type="button"
                     aria-label={`Grant or revoke lineblock consent on ${pieceId}`}
                     disabled={isPiecePending}
@@ -639,6 +676,7 @@ export default function StationRuntimeBoard({
                       left: rightLineblockActionOffset * tileSize,
                     }}
                   />
+                  : null}
                 </>
               ) : null}
 

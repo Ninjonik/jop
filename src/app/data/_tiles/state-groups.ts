@@ -433,6 +433,36 @@ export const stateGroups: StateGroupRegistry = {
           },
         },
       },
+      // AH-82A uses its own consent-request indication.  These states are
+      // deliberately not used by ordinary lineblocks or AH-83.
+      ah82Requesting: {
+        base: {
+          '--color-toprightcircle': '#d32f2f',
+          '--color-middlecircle': '#ffffff',
+          '--ah-middlecircle-animation': 'departure-blink 1s infinite',
+        },
+      },
+      ah82Requested: {
+        base: {
+          '--color-topleftcircle': '#009e49',
+          '--color-middlecircle': '#ffffff',
+          '--ah-topleftcircle-animation': 'departure-blink 1s infinite',
+        },
+      },
+      // AH-83 has the same base lamps as a consent transfer, without the
+      // AH-82A flashing request indication.
+      ah83Requesting: {
+        base: {
+          '--color-toprightcircle': '#d32f2f',
+          '--color-middlecircle': '#ffffff',
+        },
+      },
+      ah83Requested: {
+        base: {
+          '--color-topleftcircle': '#009e49',
+          '--color-middlecircle': '#ffffff',
+        },
+      },
     },
   },
 

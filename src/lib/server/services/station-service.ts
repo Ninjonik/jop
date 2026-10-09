@@ -7,15 +7,16 @@ import type {
   LineblockActionType,
   MockTrain,
   PendingAction,
-  PrivolavaciaInteractCommand,
   PlaceTemplateDocument,
+  PrivolavaciaInteractCommand,
   RobloxPhysicalSnapshot,
+  RobloxResolvedSignalAspect,
+  RobloxResolvedSignalFamily,
   RouteInteractCommand,
   RuntimeRouteSelection,
   RuntimeRouteType,
-  RobloxResolvedSignalAspect,
-  RobloxResolvedSignalFamily,
   SessionDocument,
+  SessionLineblockEndpoint,
   SessionLineblockLink,
   SessionSchemaDocument,
   StationActionLogDocument,
@@ -31,23 +32,27 @@ import {
 } from '@/lib/station/domain';
 import {
   createInitialStationLayout,
-  getPrivolavaciaSignalLinksFromLayout,
-  getLineblockPremainLinksFromLayout,
+  getAhBlockSignalLinksFromLayout,
+  getAhLineblockVariant,
   getLevelCrossingTrackPieceIds,
+  getLineblockPremainLinksFromLayout,
   getPieceAnchor,
   getPieceCells,
+  getPrivolavaciaSignalLinksFromLayout,
+  isAhLineblockPieceType,
+  isBlockSignalPieceType,
   isLineblockPieceType,
   isPrivolavaciaCounterPieceType,
   isPrivolavaciaSignalPieceType,
   parseCellRef,
-  transformPoint,
   placePieceAt,
+  transformPoint,
 } from '@/lib/station/layout';
 import {
   applyActiveRouteVisualState,
   applyTrainOccupationVisualState,
-  buildSignalRoutePlans,
   buildRouteFromSelection,
+  buildSignalRoutePlans,
   crossoverTraversalStatesConflict,
 } from '@/lib/station/routes';
 import {
@@ -66,6 +71,8 @@ import {
 } from '@/lib/station/switches';
 import { getInitialGroupSelections, resolveComponentStyles } from '@/lib/station/tile-state';
 
+import { buildActionDebugLines } from '@/lib/station/debug';
+import { printDebugBlock } from '../debug-log';
 import { placeTemplateRepository } from '../repositories/place-template-repository';
 import { robloxRuntimeStateRepository } from '../repositories/roblox-runtime-state-repository';
 import { robloxRuntimeUpdateRepository } from '../repositories/roblox-runtime-update-repository';
@@ -76,8 +83,6 @@ import {
   initializeRobloxRuntimeState,
   notifyRuntimeInterpreter,
 } from '../roblox/runtime-interpreter';
-import { printDebugBlock } from '../debug-log';
-import { buildActionDebugLines } from '@/lib/station/debug';
 
 function nowIso() {
   return new Date().toISOString();
@@ -218,7 +223,10 @@ async function serializeSessionMutation<T>(sessionId: string, mutation: () => Pr
   const current = new Promise<void>((resolve) => {
     release = resolve;
   });
-  const tail = previous.then(() => current, () => current);
+  const tail = previous.then(
+    () => current,
+    () => current,
+  );
   sessionMutationTails.set(sessionId, tail);
 
   await previous.catch(() => undefined);
@@ -247,7 +255,7 @@ async function buildRobloxPhysicalSnapshot(sessionId: string): Promise<RobloxPhy
 
   const stations = rawStations.map((station) => {
     ensureStationRuntimeState(station);
-    applySessionTrainOccupations(station, session);
+    applyRuntimeStateWithTrainOccupations(station, session);
     const resolvedSignalAspects = buildResolvedRobloxSignalAspects(station);
     const levelCrossingStates = getActiveLevelCrossingPieceIds(station, session);
     return {
@@ -263,9 +271,9 @@ async function buildRobloxPhysicalSnapshot(sessionId: string): Promise<RobloxPhy
             switchAlignment: station.runtime.switchAlignments[pieceId] ?? null,
             resolvedSignalFamily: resolvedSignalAspects.get(pieceId)?.family ?? null,
             resolvedSignalAspect: resolvedSignalAspects.get(pieceId)?.aspect ?? null,
-              levelCrossingActive: levelCrossingStates.activePieceIds.has(pieceId),
-              levelCrossingWhiteAllowed: levelCrossingStates.whiteAllowedPieceIds.has(pieceId),
-              levelCrossingTimings: piece.levelCrossingTimings ?? null,
+            levelCrossingActive: levelCrossingStates.activePieceIds.has(pieceId),
+            levelCrossingWhiteAllowed: levelCrossingStates.whiteAllowedPieceIds.has(pieceId),
+            levelCrossingTimings: piece.levelCrossingTimings ?? null,
           },
         ]),
       ),
@@ -333,10 +341,16 @@ function getActiveLevelCrossingPieceIds(station: StationDocument, session: Sessi
           pieceId: trackPieceId,
           x: getPieceAnchor(station.layout, trackPieceId).x,
         }));
-      const leftTracks = linkedTracks.filter((track) => track.x < crossingX).sort((a, b) => a.x - b.x);
-      const rightTracks = linkedTracks.filter((track) => track.x > crossingX).sort((a, b) => b.x - a.x);
+      const leftTracks = linkedTracks
+        .filter((track) => track.x < crossingX)
+        .sort((a, b) => a.x - b.x);
+      const rightTracks = linkedTracks
+        .filter((track) => track.x > crossingX)
+        .sort((a, b) => b.x - a.x);
       const rowPieceIds = [pieceId, ...linkedTrackPieceIds];
-      const rowReserved = rowPieceIds.some((candidatePieceId) => reservedPieceIds.has(candidatePieceId));
+      const rowReserved = rowPieceIds.some((candidatePieceId) =>
+        reservedPieceIds.has(candidatePieceId),
+      );
       const crossingOccupied = occupiedPieceIds.has(pieceId);
       const allCrossingsClear = (crossingsByColumn.get(crossingX) ?? []).every(
         (candidatePieceId) => !occupiedPieceIds.has(candidatePieceId),
@@ -365,36 +379,44 @@ function getActiveLevelCrossingPieceIds(station: StationDocument, session: Sessi
       // used only to retain the travel direction for the later release rule;
       // it must not gate the initial activation.
       if (!lock.direction && occupiedApproachTracks.length > 0) {
-        lock.direction = occupiedApproachTracks[0].x < crossingX
-          ? 'left-to-right'
-          : 'right-to-left';
+        lock.direction =
+          occupiedApproachTracks[0].x < crossingX ? 'left-to-right' : 'right-to-left';
       }
 
       if (crossingOccupied) {
         lock.crossingSeen = true;
       }
 
-      const incomingApproachOccupied = lock.direction === 'left-to-right'
-        ? leftTracks.some((track) => occupiedPieceIds.has(track.pieceId))
-        : lock.direction === 'right-to-left'
-          ? rightTracks.some((track) => occupiedPieceIds.has(track.pieceId))
-          : false;
-      const outgoingApproachOccupied = lock.direction === 'left-to-right'
-        ? rightTracks.some((track) => occupiedPieceIds.has(track.pieceId))
-        : lock.direction === 'right-to-left'
+      const incomingApproachOccupied =
+        lock.direction === 'left-to-right'
           ? leftTracks.some((track) => occupiedPieceIds.has(track.pieceId))
-          : false;
+          : lock.direction === 'right-to-left'
+            ? rightTracks.some((track) => occupiedPieceIds.has(track.pieceId))
+            : false;
+      const outgoingApproachOccupied =
+        lock.direction === 'left-to-right'
+          ? rightTracks.some((track) => occupiedPieceIds.has(track.pieceId))
+          : lock.direction === 'right-to-left'
+            ? leftTracks.some((track) => occupiedPieceIds.has(track.pieceId))
+            : false;
       if (outgoingApproachOccupied) {
         lock.outgoingSeen = true;
       }
 
-      const passageComplete = lock.crossingSeen && lock.outgoingSeen &&
-        !outgoingApproachOccupied && allCrossingsClear && !rowReserved;
+      const passageComplete =
+        lock.crossingSeen &&
+        lock.outgoingSeen &&
+        !outgoingApproachOccupied &&
+        allCrossingsClear &&
+        !rowReserved;
       // `active` controls the bells, red lights and barriers. Those may start
       // their configured release sequence as soon as the crossing sensor is
       // clear. The direction lock remains below solely to hold back the white
       // positive indication until the next sensor has cleared.
-      const isActive = crossingOccupied || incomingApproachOccupied || rowReserved ||
+      const isActive =
+        crossingOccupied ||
+        incomingApproachOccupied ||
+        rowReserved ||
         (lock.direction !== null && !lock.crossingSeen);
 
       if (passageComplete) {
@@ -423,8 +445,9 @@ function getActiveLevelCrossingPieceIds(station: StationDocument, session: Sessi
 
   return {
     activePieceIds: new Set(
-      crossingPieceIds
-        .filter((pieceId) => activeColumns.has(getPieceAnchor(station.layout, pieceId).x)),
+      crossingPieceIds.filter((pieceId) =>
+        activeColumns.has(getPieceAnchor(station.layout, pieceId).x),
+      ),
     ),
     whiteAllowedPieceIds: new Set(
       crossingPieceIds.filter((pieceId) => {
@@ -713,7 +736,9 @@ function applyNamedIndicatorVisualState(station: StationDocument) {
   );
   const pendingCancelDelayLabels = new Set(
     Object.values(station.runtime.pendingActions)
-      .filter((action) => action.type === 'route:cancel-normal' || action.type === 'route:cancel-shunt')
+      .filter(
+        (action) => action.type === 'route:cancel-normal' || action.type === 'route:cancel-shunt',
+      )
       .map((action) => action.payload.cancelDelayLabel)
       .filter((label): label is string => typeof label === 'string'),
   );
@@ -783,6 +808,7 @@ function getSignalFacingDirection(
       : 'left-to-right';
 
   if (
+    pieceType !== 'blockSignal' &&
     pieceType !== 'entrySignal' &&
     pieceType !== 'entrySignalNoOcp' &&
     pieceType !== 'departureSignal' &&
@@ -812,6 +838,12 @@ function getPieceCenter(station: StationDocument, pieceId: string) {
 }
 
 function getResolvedSignalFamily(pieceType: string): RobloxResolvedSignalFamily | null {
+  // A block signal uses the same physical head/lamp contract as an entry
+  // signal. Its aspect is nevertheless server-derived from AH section
+  // occupancy, not from a station route.
+  if (pieceType === 'blockSignal') {
+    return 'entry';
+  }
   if (pieceType === 'entrySignal' || pieceType === 'entrySignalNoOcp') {
     return 'entry';
   }
@@ -851,11 +883,16 @@ function getOrderedFacingSignalsForRoute(station: StationDocument, route: Active
     });
 }
 
-function getRouteHasSpeedRestriction(station: StationDocument, route: ActiveTrainRoute) {
-  return route.path.some((step) => {
-    const pieceType = station.layout.pieces[step.pieceId]?.type;
-    return pieceType ? isDivergingSwitchTraversal(pieceType, step.traversalState) : false;
+function getRouteSpeedRestriction(
+  station: StationDocument,
+  route: ActiveTrainRoute,
+): 40 | 60 | 100 | null {
+  const speeds = route.path.flatMap((step) => {
+    const piece = station.layout.pieces[step.pieceId];
+    if (!piece || !isDivergingSwitchTraversal(piece.type, step.traversalState)) return [];
+    return [piece.switchSpeed ?? 40];
   });
+  return speeds.length > 0 ? (Math.min(...speeds) as 40 | 60 | 100) : null;
 }
 
 function getBaseResolvedSignalAspect(
@@ -899,7 +936,8 @@ function getResolvedStartSignalIdForRoute(station: StationDocument, route: Activ
     // been resolved, rather than receiving the entry's 40 km/h aspect itself.
     return (
       orderedSignals.find(
-        (pieceId) => getResolvedSignalFamily(station.layout.pieces[pieceId]?.type ?? '') === 'entry',
+        (pieceId) =>
+          getResolvedSignalFamily(station.layout.pieces[pieceId]?.type ?? '') === 'entry',
       ) ?? null
     );
   }
@@ -910,7 +948,10 @@ function getResolvedStartSignalIdForRoute(station: StationDocument, route: Activ
 function applySpeedRestrictionToResolvedAspect(
   family: RobloxResolvedSignalFamily,
   aspect: RobloxResolvedSignalAspect,
+  speed: 40 | 60 | 100,
 ): RobloxResolvedSignalAspect {
+  if (speed === 60 && aspect === 'proceed') return 'proceed60';
+  if (speed === 100 && aspect === 'proceed') return 'proceed100';
   if (family === 'departure' || family === 'entry') {
     if (aspect === 'proceed') {
       return 'proceed40Proceed';
@@ -933,7 +974,7 @@ function applySpeedRestrictionToResolvedAspect(
   return aspect;
 }
 
-function hasLocal40SpeedRestriction(aspect: RobloxResolvedSignalAspect | null | undefined) {
+function hasLocalSpeedRestriction(aspect: RobloxResolvedSignalAspect | null | undefined) {
   return (
     aspect === 'proceed40' ||
     aspect === 'proceed40Caution' ||
@@ -942,6 +983,7 @@ function hasLocal40SpeedRestriction(aspect: RobloxResolvedSignalAspect | null | 
     aspect === 'proceed40Expect60' ||
     aspect === 'proceed40Expect80' ||
     aspect === 'proceed40Expect100'
+    || aspect === 'proceed60' || aspect === 'proceed100'
   );
 }
 
@@ -970,10 +1012,11 @@ function buildResolvedRobloxSignalAspects(station: StationDocument) {
   const normalRoutes = Object.values(station.runtime.activeTrainRoutes).filter(
     (route) => route.routeType === 'normal',
   );
-  const locallyRestrictedSignalIds = new Set<string>();
+  const locallyRestrictedSignals = new Map<string, 40 | 60 | 100>();
 
   normalRoutes.forEach((route) => {
-    if (!getRouteHasSpeedRestriction(station, route)) {
+    const speed = getRouteSpeedRestriction(station, route);
+    if (!speed) {
       return;
     }
 
@@ -989,14 +1032,16 @@ function buildResolvedRobloxSignalAspects(station: StationDocument) {
 
     resolved.set(startSignalId, {
       ...current,
-      aspect: applySpeedRestrictionToResolvedAspect(current.family, current.aspect),
+      aspect: applySpeedRestrictionToResolvedAspect(current.family, current.aspect, speed),
     });
-    locallyRestrictedSignalIds.add(startSignalId);
+    const existingSpeed = locallyRestrictedSignals.get(startSignalId);
+    locallyRestrictedSignals.set(startSignalId, existingSpeed ? Math.min(existingSpeed, speed) as 40 | 60 | 100 : speed);
   });
 
   const signalPlans = buildSignalRoutePlans(station, normalRoutes, tiles);
   signalPlans.forEach((plan, pieceId) => {
-    if (!plan.nextSignalPieceId || !locallyRestrictedSignalIds.has(plan.nextSignalPieceId)) {
+    const nextSpeed = plan.nextSignalPieceId ? locallyRestrictedSignals.get(plan.nextSignalPieceId) : null;
+    if (!nextSpeed) {
       return;
     }
 
@@ -1008,9 +1053,9 @@ function buildResolvedRobloxSignalAspects(station: StationDocument) {
     resolved.set(pieceId, {
       ...current,
       aspect:
-        locallyRestrictedSignalIds.has(pieceId) && hasLocal40SpeedRestriction(current.aspect)
-          ? 'proceed40Expect40'
-          : 'expect40',
+        locallyRestrictedSignals.has(pieceId) && hasLocalSpeedRestriction(current.aspect)
+          ? nextSpeed === 40 ? 'proceed40Expect40' : current.aspect
+          : nextSpeed === 40 ? 'expect40' : nextSpeed === 60 ? 'expect60' : 'expect100',
     });
   });
 
@@ -1079,7 +1124,9 @@ function getRouteCancelDelay(
 }
 
 function formatPrivolavaciaCounterValue(value: number) {
-  return String(Math.max(0, Math.trunc(value))).padStart(6, '0').slice(-6);
+  return String(Math.max(0, Math.trunc(value)))
+    .padStart(6, '0')
+    .slice(-6);
 }
 
 function getPrivolavaciaCounterValue(piece: StationDocument['layout']['pieces'][string]) {
@@ -1118,7 +1165,9 @@ function setPrivolavaciaCounterVisualState(
 function applyPrivolavaciaVisualState(station: StationDocument) {
   const selectedCounterId = station.runtime.privolavaciaSelection?.sealedCounterPieceId ?? null;
   const activeCounterIds = new Set(
-    Object.values(station.runtime.activePrivolavaciaSignals).map((entry) => entry.sealedCounterPieceId),
+    Object.values(station.runtime.activePrivolavaciaSignals).map(
+      (entry) => entry.sealedCounterPieceId,
+    ),
   );
   if (selectedCounterId) {
     activeCounterIds.add(selectedCounterId);
@@ -1179,10 +1228,7 @@ function getDepartureSignalPieceIdForButton(
   return null;
 }
 
-function getEntrySignalPieceIdForPremain(
-  station: StationDocument,
-  premainSignalPieceId: string,
-) {
+function getEntrySignalPieceIdForPremain(station: StationDocument, premainSignalPieceId: string) {
   const departureButtonPieceIds = Object.entries(station.layout.pieces)
     .filter(([, piece]) => piece.type === 'departureButton')
     .map(([pieceId]) => pieceId);
@@ -1369,11 +1415,7 @@ function applySessionTrainOccupations(station: StationDocument, session: Session
     .filter((occupation) => occupation.occupied && occupation.stationId === station.stationId)
     .filter((occupation) => {
       const piece = station.layout.pieces[occupation.pieceId];
-      if (
-        !piece ||
-        !isPhysicalSwitchType(piece.type) ||
-        occupation.traversalState === null
-      ) {
+      if (!piece || !isPhysicalSwitchType(piece.type) || occupation.traversalState === null) {
         return true;
       }
 
@@ -1395,19 +1437,139 @@ function applySessionTrainOccupations(station: StationDocument, session: Session
   });
 }
 
+/**
+ * AH uses the already-authored boundary of a station: the side of the entry
+ * signal opposite its direction of travel is the station-adjacent line
+ * section. No separate sensor-to-section mapping is needed; every existing
+ * occupation tile on that side belongs to that section.
+ */
+function isAhAdjacentSectionOccupied(
+  station: StationDocument,
+  session: SessionDocument,
+  lineblockPieceId: string,
+) {
+  const premainLink = station.runtime.lineblockPremainLinks[lineblockPieceId];
+  if (!premainLink) return null;
+  const entrySignalPieceId = getEntrySignalPieceIdForPremain(
+    station,
+    premainLink.premainSignalPieceId,
+  );
+  const entrySignal = entrySignalPieceId ? station.layout.pieces[entrySignalPieceId] : null;
+  if (!entrySignalPieceId || !entrySignal) return null;
+
+  const facing = getSignalFacingDirection(entrySignal.type, entrySignal.rotation);
+  if (!facing) return null;
+  const entryX = getPieceCenter(station, entrySignalPieceId).x;
+  const isOutsideEntry = (pieceId: string) => {
+    const candidate = station.layout.pieces[pieceId];
+    if (!candidate || !candidate.state.groups.occupation) return false;
+    const candidateX = getPieceCenter(station, pieceId).x;
+    return facing === 'left-to-right' ? candidateX < entryX : candidateX > entryX;
+  };
+
+  const mockOccupied = Object.values(session.runtime.trains).some((train) =>
+    train.occupiedSensors.some(
+      (sensor) => sensor.stationId === station.stationId && isOutsideEntry(sensor.pieceId),
+    ),
+  );
+  const physicalOccupied = Object.values(session.runtime.physicalOccupations).some(
+    (occupation) =>
+      occupation.occupied &&
+      occupation.stationId === station.stationId &&
+      isOutsideEntry(occupation.pieceId),
+  );
+  return mockOccupied || physicalOccupied;
+}
+
+function syncAhBlockSignalAspects(station: StationDocument, session: SessionDocument) {
+  getAhBlockSignalLinksFromLayout(station.layout).forEach(
+    ({ lineblockPieceId, blockSignalPieceId }) => {
+      const lineblock = station.layout.pieces[lineblockPieceId];
+      const blockSignal = station.layout.pieces[blockSignalPieceId];
+      if (!lineblock || !blockSignal || !isAhLineblockPieceType(lineblock.type)) return;
+      if (!isBlockSignalPieceType(blockSignal.type) || !blockSignal.state.groups.signal) return;
+
+      const occupied = isAhAdjacentSectionOccupied(station, session, lineblockPieceId);
+      // Missing boundary wiring is fail-safe: a block signal may only clear
+      // once the existing entry-signal boundary can be resolved.
+      blockSignal.state.groups.signal = {
+        state: occupied === false ? 'departure' : 'default',
+        variant: 'normal',
+      };
+    },
+  );
+}
+
+function syncDistantSignalsForBlockSignals(station: StationDocument) {
+  const signalPieceIds = Object.keys(station.layout.pieces);
+  const ahBlockSignalPieceIds = new Set(
+    getAhBlockSignalLinksFromLayout(station.layout).map((link) => link.blockSignalPieceId),
+  );
+  const isMainSignal = (pieceType: string) =>
+    pieceType === 'entrySignal' ||
+    pieceType === 'entrySignalNoOcp' ||
+    pieceType === 'departureSignal' ||
+    pieceType === 'departureSignalNoOcp' ||
+    isBlockSignalPieceType(pieceType);
+
+  signalPieceIds.forEach((distantSignalPieceId) => {
+    const distantSignal = station.layout.pieces[distantSignalPieceId];
+    if (
+      !distantSignal ||
+      (distantSignal.type !== 'premainSignal' && distantSignal.type !== 'premainSignalNoOcp') ||
+      !distantSignal.state.groups.signal
+    ) {
+      return;
+    }
+
+    const direction = getSignalFacingDirection(distantSignal.type, distantSignal.rotation);
+    if (!direction) return;
+    const distantCenter = getPieceCenter(station, distantSignalPieceId);
+    const nextMainSignalId = signalPieceIds
+      .filter((pieceId) => pieceId !== distantSignalPieceId)
+      .filter((pieceId) => {
+        const candidate = station.layout.pieces[pieceId];
+        if (!candidate || !isMainSignal(candidate.type)) return false;
+        const center = getPieceCenter(station, pieceId);
+        if (center.y !== distantCenter.y) return false;
+        return direction === 'left-to-right' ? center.x > distantCenter.x : center.x < distantCenter.x;
+      })
+      .sort((leftId, rightId) => {
+        const leftDistance = Math.abs(getPieceCenter(station, leftId).x - distantCenter.x);
+        const rightDistance = Math.abs(getPieceCenter(station, rightId).x - distantCenter.x);
+        return leftDistance - rightDistance;
+      })[0];
+
+    if (
+      !nextMainSignalId ||
+      !isBlockSignalPieceType(station.layout.pieces[nextMainSignalId].type) ||
+      !ahBlockSignalPieceIds.has(nextMainSignalId)
+    ) {
+      // The normal route resolver remains authoritative for a distant whose
+      // next signal is an entry/departure signal (including its blink states).
+      return;
+    }
+
+    const nextState = station.layout.pieces[nextMainSignalId].state.groups.signal?.state;
+    distantSignal.state.groups.signal = {
+      state: nextState === 'default' || nextState === 'danger' ? 'caution' : 'departure',
+      variant: 'normal',
+    };
+  });
+}
+
 function applyRuntimeStateWithTrainOccupations(station: StationDocument, session: SessionDocument) {
   applyRuntimeState(station);
   applySessionTrainOccupations(station, session);
+  syncAhBlockSignalAspects(station, session);
+  syncDistantSignalsForBlockSignals(station);
 }
 
 function isPhysicalSwitchPieceType(pieceType: string) {
   return isPhysicalSwitchType(pieceType);
 }
 
-function normalizeRobloxOccupationTraversalState(
-  pieceType: string,
-  traversalState: string | null,
-) {
+function normalizeRobloxOccupationTraversalState(pieceType: string, traversalState: string | null) {
   // The original bridge used `t` for every Diagonal part. That is the visual
   // occupation state for a single switch, but a single extended switch uses
   // `blTtr` for its diagonal route. Keep accepting the old value so a bridge
@@ -1782,11 +1944,7 @@ function getPnNeighborTraversal(station: StationDocument, sourcePieceId: string,
   };
 }
 
-function buildPrivolavaciaSteps(
-  station: StationDocument,
-  train: MockTrain,
-  signalPieceId: string,
-) {
+function buildPrivolavaciaSteps(station: StationDocument, train: MockTrain, signalPieceId: string) {
   const directionSign = normalizeDirectionSign(train.direction);
   const startEntry = directionSign > 0 ? { x: -1, y: 0 } : { x: 1, y: 0 };
   const visited = new Set<string>();
@@ -1812,7 +1970,8 @@ function buildPrivolavaciaSteps(
     const option = getPnTraversalOptions(station, pieceId).find((candidate) => {
       return (
         toOffsetKey(candidate.entry) === toOffsetKey(entryPoint) &&
-        Math.sign(getPnTraversalEdgeStep(station, pieceId, candidate.exit)?.x ?? 0) === directionSign
+        Math.sign(getPnTraversalEdgeStep(station, pieceId, candidate.exit)?.x ?? 0) ===
+          directionSign
       );
     });
 
@@ -2172,6 +2331,37 @@ function applyLineblockActionStates(
   setLineblockVisualState(remoteStation, remotePieceId, 'sendingFree');
 }
 
+function applyAhConsentRequest(
+  variant: 'ah82a' | 'ah83',
+  localStation: StationDocument,
+  localPieceId: string,
+  remoteStation: StationDocument,
+  remotePieceId: string,
+) {
+  setLineblockVisualState(
+    localStation,
+    localPieceId,
+    variant === 'ah82a' ? 'ah82Requesting' : 'ah83Requesting',
+  );
+  setLineblockVisualState(
+    remoteStation,
+    remotePieceId,
+    variant === 'ah82a' ? 'ah82Requested' : 'ah83Requested',
+  );
+}
+
+function applyAcceptedAhConsent(
+  localStation: StationDocument,
+  localPieceId: string,
+  remoteStation: StationDocument,
+  remotePieceId: string,
+) {
+  // The station accepting the request gives the remote station the right to
+  // send. This is the same settled pair used by the ordinary lineblock.
+  setLineblockVisualState(localStation, localPieceId, 'receivingFree');
+  setLineblockVisualState(remoteStation, remotePieceId, 'sendingFree');
+}
+
 async function setOutboundRouteLineblockStates(
   session: SessionDocument,
   station: StationDocument,
@@ -2388,88 +2578,89 @@ const switchActionTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
 async function completeSwitchAction(actionId: string, sessionId: string, stationId: string) {
   return serializeSessionMutation(sessionId, async () => {
-  const [station, rawSession] = await Promise.all([
-    stationRepository.findBySessionAndStationId(sessionId, stationId),
-    sessionRepository.findById(sessionId),
-  ]);
-  if (!station || !rawSession) {
-    return;
-  }
-  const session = ensureSessionRuntimeState(rawSession);
-  ensureStationRuntimeState(station);
+    const [station, rawSession] = await Promise.all([
+      stationRepository.findBySessionAndStationId(sessionId, stationId),
+      sessionRepository.findById(sessionId),
+    ]);
+    if (!station || !rawSession) {
+      return;
+    }
+    const session = ensureSessionRuntimeState(rawSession);
+    ensureStationRuntimeState(station);
 
-  const action = station.runtime.pendingActions[actionId];
-  if (!action) {
-    return;
-  }
+    const action = station.runtime.pendingActions[actionId];
+    if (!action) {
+      return;
+    }
 
-  const buttonPieceId = typeof action.payload.pieceId === 'string' ? action.payload.pieceId : null;
-  const position = action.payload.position;
+    const buttonPieceId =
+      typeof action.payload.pieceId === 'string' ? action.payload.pieceId : null;
+    const position = action.payload.position;
 
-  const layout = deserializeStationLayout(station.layout);
-  const button = buttonPieceId ? layout.pieces[buttonPieceId] : null;
-  const control = buttonPieceId ? getConnectedSwitchControl(layout, buttonPieceId) : null;
-  const switchPiece = control ? layout.pieces[control.switchPieceId] : null;
+    const layout = deserializeStationLayout(station.layout);
+    const button = buttonPieceId ? layout.pieces[buttonPieceId] : null;
+    const control = buttonPieceId ? getConnectedSwitchControl(layout, buttonPieceId) : null;
+    const switchPiece = control ? layout.pieces[control.switchPieceId] : null;
 
-  if (
-    !buttonPieceId ||
-    (position !== 'leftSet' && position !== 'rightSet') ||
-    !button ||
-    button.type !== 'switchButton' ||
-    !control ||
-    !switchPiece
-  ) {
-    action.status = 'failed';
-    action.finishedAt = nowIso();
-    action.error = {
-      code: 'SWITCH_NOT_FOUND',
-      message: 'The pending switch action no longer references a connected switch button.',
-    };
-  } else {
-    const motorPosition: SwitchMotorPosition = position === 'leftSet' ? 'left' : 'right';
-    const currentAlignment = station.runtime.switchAlignments[control.switchPieceId];
-    const motorPositions = {
-      ...getDefaultSwitchMotorPositions(switchPiece.type),
-      ...(currentAlignment?.motorPositions ?? {}),
-      [control.slot]: motorPosition,
-    };
-    const traversableState =
-      getTraversableStateForMotorPositions(switchPiece.type, motorPositions) ?? 'disconnected';
+    if (
+      !buttonPieceId ||
+      (position !== 'leftSet' && position !== 'rightSet') ||
+      !button ||
+      button.type !== 'switchButton' ||
+      !control ||
+      !switchPiece
+    ) {
+      action.status = 'failed';
+      action.finishedAt = nowIso();
+      action.error = {
+        code: 'SWITCH_NOT_FOUND',
+        message: 'The pending switch action no longer references a connected switch button.',
+      };
+    } else {
+      const motorPosition: SwitchMotorPosition = position === 'leftSet' ? 'left' : 'right';
+      const currentAlignment = station.runtime.switchAlignments[control.switchPieceId];
+      const motorPositions = {
+        ...getDefaultSwitchMotorPositions(switchPiece.type),
+        ...(currentAlignment?.motorPositions ?? {}),
+        [control.slot]: motorPosition,
+      };
+      const traversableState =
+        getTraversableStateForMotorPositions(switchPiece.type, motorPositions) ?? 'disconnected';
 
-    button.state.groups.switch = {
-      state: position,
-      variant: 'normal',
-    };
-    station.runtime.switchAlignments[control.switchPieceId] = {
-      traversableState,
-      motorPositions,
-      updatedAt: nowIso(),
-    };
+      button.state.groups.switch = {
+        state: position,
+        variant: 'normal',
+      };
+      station.runtime.switchAlignments[control.switchPieceId] = {
+        traversableState,
+        motorPositions,
+        updatedAt: nowIso(),
+      };
 
-    action.status = 'completed';
-    action.finishedAt = nowIso();
-    action.result = {
-      pieceId: buttonPieceId,
-      switchPieceId: control.switchPieceId,
-      controlSlot: control.slot,
-      position,
-      traversableState,
-    };
-    station.layout = serializeStationLayout(layout);
-  }
+      action.status = 'completed';
+      action.finishedAt = nowIso();
+      action.result = {
+        pieceId: buttonPieceId,
+        switchPieceId: control.switchPieceId,
+        controlSlot: control.slot,
+        position,
+        traversableState,
+      };
+      station.layout = serializeStationLayout(layout);
+    }
 
-  const finalAction = { ...action };
-  delete station.runtime.pendingActions[actionId];
-  applyRuntimeState(station);
-  applySessionTrainOccupations(station, session);
-  bumpRevision(station);
-  printDebugBlock(
-    'web-debug',
-    `${station.sessionId}/${station.stationId} applied ${finalAction.type}`,
-    buildActionDebugLines(station, finalAction),
-  );
-  await stationActionLogRepository.create(toActionLog(station, finalAction));
-  await saveStation(station);
+    const finalAction = { ...action };
+    delete station.runtime.pendingActions[actionId];
+    applyRuntimeState(station);
+    applyRuntimeStateWithTrainOccupations(station, session);
+    bumpRevision(station);
+    printDebugBlock(
+      'web-debug',
+      `${station.sessionId}/${station.stationId} applied ${finalAction.type}`,
+      buildActionDebugLines(station, finalAction),
+    );
+    await stationActionLogRepository.create(toActionLog(station, finalAction));
+    await saveStation(station);
   });
 }
 
@@ -2492,166 +2683,231 @@ function scheduleSwitchAction(station: StationDocument, action: PendingAction) {
 }
 
 function scheduleStationSwitchActions(station: StationDocument) {
-  Object.values(station.runtime.pendingActions).forEach((action) =>
-    scheduleSwitchAction(station, action),
-  );
+  Object.values(station.runtime.pendingActions).forEach((action) => {
+    scheduleSwitchAction(station, action);
+    scheduleAhBlockReset(station, action);
+  });
+}
+
+async function completeAhBlockReset(actionId: string, sessionId: string, stationId: string) {
+  return serializeSessionMutation(sessionId, async () => {
+    const [station, rawSession] = await Promise.all([
+      stationRepository.findBySessionAndStationId(sessionId, stationId),
+      sessionRepository.findById(sessionId),
+    ]);
+    if (!station || !rawSession) return;
+    const session = ensureSessionRuntimeState(rawSession);
+    ensureStationRuntimeState(station);
+    const action = station.runtime.pendingActions[actionId];
+    const pieceId = typeof action?.payload.pieceId === 'string' ? action.payload.pieceId : null;
+    const piece = pieceId ? station.layout.pieces[pieceId] : null;
+    const linked = pieceId ? getLinkedLineblock(station, session, pieceId) : null;
+    const remoteStation = linked
+      ? await stationRepository.findBySessionAndStationId(sessionId, linked.remote.stationId)
+      : null;
+
+    if (!action || !pieceId || !piece || !isAhLineblockPieceType(piece.type) || !linked || !remoteStation) {
+      return;
+    }
+    ensureStationRuntimeState(remoteStation);
+    const variant = getAhLineblockVariant(piece.type);
+    if (variant === 'ah83') {
+      setLineblockVisualState(station, pieceId, 'default');
+      setLineblockVisualState(remoteStation, linked.remote.pieceId, 'default');
+    } else if (variant === 'ah82a') {
+      applyLineblockDefaultFlowToStations(
+        linked.link.defaultFlow,
+        station,
+        pieceId,
+        remoteStation,
+        linked.remote.pieceId,
+      );
+    }
+    action.status = 'completed';
+    action.finishedAt = nowIso();
+    action.result = { pieceId, recoveryHeldForMs: 5000 };
+    const finalAction = { ...action };
+    delete station.runtime.pendingActions[actionId];
+    syncPremainAvailability(station);
+    syncPremainAvailability(remoteStation);
+    applyRuntimeState(station);
+    applyRuntimeState(remoteStation);
+    bumpRevision(station);
+    bumpRevision(remoteStation);
+    await stationActionLogRepository.create(toActionLog(station, finalAction));
+    await saveStation(remoteStation, { skipRuntimeNotify: true });
+    await saveStation(station);
+  });
+}
+
+function scheduleAhBlockReset(station: StationDocument, action: PendingAction) {
+  if (action.type !== 'ah:reset-block-condition' || !action.dueAt) return;
+  const key = `${station.sessionId}:${station.stationId}:${action.id}`;
+  if (switchActionTimers.has(key)) return;
+  const delay = Math.max(0, new Date(action.dueAt).getTime() - Date.now());
+  const timer = setTimeout(() => {
+    switchActionTimers.delete(key);
+    void completeAhBlockReset(action.id, station.sessionId, station.stationId);
+  }, delay);
+  switchActionTimers.set(key, timer);
 }
 
 async function completeRouteAction(actionId: string, sessionId: string, stationId: string) {
   return serializeSessionMutation(sessionId, async () => {
-  const [station, rawSession] = await Promise.all([
-    stationRepository.findBySessionAndStationId(sessionId, stationId),
-    sessionRepository.findById(sessionId),
-  ]);
-  if (!station || !rawSession) {
-    return;
-  }
-  const session = ensureSessionRuntimeState(rawSession);
+    const [station, rawSession] = await Promise.all([
+      stationRepository.findBySessionAndStationId(sessionId, stationId),
+      sessionRepository.findById(sessionId),
+    ]);
+    if (!station || !rawSession) {
+      return;
+    }
+    const session = ensureSessionRuntimeState(rawSession);
 
-  ensureStationRuntimeState(station);
+    ensureStationRuntimeState(station);
 
-  const action = station.runtime.pendingActions[actionId];
-  if (!action) {
-    return;
-  }
+    const action = station.runtime.pendingActions[actionId];
+    if (!action) {
+      return;
+    }
 
-  action.status = 'running';
-  action.startedAt = nowIso();
-  applyRuntimeState(station);
-  bumpRevision(station);
-  await saveStation(station);
+    action.status = 'running';
+    action.startedAt = nowIso();
+    applyRuntimeState(station);
+    bumpRevision(station);
+    await saveStation(station);
 
-  let linkedLineblockStation: StationDocument | null = null;
-  let sessionRuntimeChanged = false;
+    let linkedLineblockStation: StationDocument | null = null;
+    let sessionRuntimeChanged = false;
 
-  try {
-    if (action.type === 'route:build-normal' || action.type === 'route:build-shunt') {
-      const route: ActiveTrainRoute = {
-        id: action.id,
-        routeType: action.payload.routeType as ActiveTrainRoute['routeType'],
-        routeClass: action.payload.routeClass as ActiveTrainRoute['routeClass'],
-        direction: action.payload.direction as ActiveTrainRoute['direction'],
-        sourcePieceId: action.payload.sourcePieceId as string,
-        targetPieceId: action.payload.targetPieceId as string,
-        sourceControl:
-          action.payload.sourceControl === 'normal' || action.payload.sourceControl === 'shunt'
-            ? action.payload.sourceControl
-            : undefined,
-        targetControl:
-          action.payload.targetControl === 'normal' || action.payload.targetControl === 'shunt'
-            ? action.payload.targetControl
-            : undefined,
-        reservedOccupations: action.payload
-          .reservedOccupations as ActiveTrainRoute['reservedOccupations'],
-        signalPieceIds: action.payload.signalPieceIds as string[],
-        targetPlatformDepartureSignalPieceId:
-          (action.payload.targetPlatformDepartureSignalPieceId as string | null) ?? null,
-        path: action.payload.path as ActiveTrainRoute['path'],
-        passedSignalPieceIds: [],
-        createdAt: nowIso(),
-      };
+    try {
+      if (action.type === 'route:build-normal' || action.type === 'route:build-shunt') {
+        const route: ActiveTrainRoute = {
+          id: action.id,
+          routeType: action.payload.routeType as ActiveTrainRoute['routeType'],
+          routeClass: action.payload.routeClass as ActiveTrainRoute['routeClass'],
+          direction: action.payload.direction as ActiveTrainRoute['direction'],
+          sourcePieceId: action.payload.sourcePieceId as string,
+          targetPieceId: action.payload.targetPieceId as string,
+          sourceControl:
+            action.payload.sourceControl === 'normal' || action.payload.sourceControl === 'shunt'
+              ? action.payload.sourceControl
+              : undefined,
+          targetControl:
+            action.payload.targetControl === 'normal' || action.payload.targetControl === 'shunt'
+              ? action.payload.targetControl
+              : undefined,
+          reservedOccupations: action.payload
+            .reservedOccupations as ActiveTrainRoute['reservedOccupations'],
+          signalPieceIds: action.payload.signalPieceIds as string[],
+          targetPlatformDepartureSignalPieceId:
+            (action.payload.targetPlatformDepartureSignalPieceId as string | null) ?? null,
+          path: action.payload.path as ActiveTrainRoute['path'],
+          passedSignalPieceIds: [],
+          createdAt: nowIso(),
+        };
 
-      applyRouteSwitchAlignments(station, session, route);
-      station.runtime.activeTrainRoutes[route.id] = route;
-      sessionRuntimeChanged = recordPhysicalLineblockArrivalRoute(session, station, route);
-      linkedLineblockStation = await setOutboundRouteLineblockStates(
-        session,
-        station,
-        route.sourcePieceId,
-        route.signalPieceIds,
-        route.routeClass,
-        {
-          local: 'sending',
-          remote: 'receiving',
-        },
-      );
-      action.result = { routeId: route.id };
-      action.status = 'completed';
-      action.finishedAt = nowIso();
-    } else if (action.type === 'route:cancel-normal' || action.type === 'route:cancel-shunt') {
-      const routeId = action.payload.routeId as string;
-      const route = station.runtime.activeTrainRoutes[routeId];
-      const occupiedPieceIds = new Set(
-        Object.values(session.runtime.trains).flatMap((train) =>
-          train.occupiedSensors
-            .filter((sensor) => sensor.stationId === station.stationId)
-            .map((sensor) => sensor.pieceId),
-        ),
-      );
-      if (
-        route?.reservedOccupations.some((occupation) => occupiedPieceIds.has(occupation.pieceId))
-      ) {
-        throw new Error('A route cannot be cancelled while a train occupies it.');
+        applyRouteSwitchAlignments(station, session, route);
+        station.runtime.activeTrainRoutes[route.id] = route;
+        sessionRuntimeChanged = recordPhysicalLineblockArrivalRoute(session, station, route);
+        linkedLineblockStation = await setOutboundRouteLineblockStates(
+          session,
+          station,
+          route.sourcePieceId,
+          route.signalPieceIds,
+          route.routeClass,
+          {
+            local: 'sending',
+            remote: 'receiving',
+          },
+        );
+        action.result = { routeId: route.id };
+        action.status = 'completed';
+        action.finishedAt = nowIso();
+      } else if (action.type === 'route:cancel-normal' || action.type === 'route:cancel-shunt') {
+        const routeId = action.payload.routeId as string;
+        const route = station.runtime.activeTrainRoutes[routeId];
+        const occupiedPieceIds = new Set(
+          Object.values(session.runtime.trains).flatMap((train) =>
+            train.occupiedSensors
+              .filter((sensor) => sensor.stationId === station.stationId)
+              .map((sensor) => sensor.pieceId),
+          ),
+        );
+        if (
+          route?.reservedOccupations.some((occupation) => occupiedPieceIds.has(occupation.pieceId))
+        ) {
+          throw new Error('A route cannot be cancelled while a train occupies it.');
+        }
+        delete station.runtime.activeTrainRoutes[routeId];
+        linkedLineblockStation = await setOutboundRouteLineblockStates(
+          session,
+          station,
+          route?.sourcePieceId ??
+            (typeof action.payload.sourcePieceId === 'string'
+              ? action.payload.sourcePieceId
+              : null),
+          route?.signalPieceIds ??
+            (Array.isArray(action.payload.signalPieceIds)
+              ? (action.payload.signalPieceIds as string[])
+              : null),
+          route?.routeClass ??
+            (typeof action.payload.routeClass === 'string'
+              ? (action.payload.routeClass as ActiveTrainRoute['routeClass'])
+              : null),
+          {
+            local: 'sendingFree',
+            remote: 'receivingFree',
+          },
+        );
+        action.result = { routeId };
+        action.status = 'completed';
+        action.finishedAt = nowIso();
       }
-      delete station.runtime.activeTrainRoutes[routeId];
+    } catch (error) {
       linkedLineblockStation = await setOutboundRouteLineblockStates(
         session,
         station,
-        route?.sourcePieceId ?? (typeof action.payload.sourcePieceId === 'string'
-          ? action.payload.sourcePieceId
-          : null),
-        route?.signalPieceIds ??
-          (Array.isArray(action.payload.signalPieceIds)
-            ? (action.payload.signalPieceIds as string[])
-            : null),
-        route?.routeClass ??
-          (typeof action.payload.routeClass === 'string'
-            ? (action.payload.routeClass as ActiveTrainRoute['routeClass'])
-            : null),
+        typeof action.payload.sourcePieceId === 'string' ? action.payload.sourcePieceId : null,
+        Array.isArray(action.payload.signalPieceIds)
+          ? (action.payload.signalPieceIds as string[])
+          : null,
+        typeof action.payload.routeClass === 'string'
+          ? (action.payload.routeClass as ActiveTrainRoute['routeClass'])
+          : null,
         {
           local: 'sendingFree',
           remote: 'receivingFree',
         },
       );
-      action.result = { routeId };
-      action.status = 'completed';
+      action.status = 'failed';
       action.finishedAt = nowIso();
+      action.error = {
+        code: 'ROUTE_ACTION_FAILED',
+        message: error instanceof Error ? error.message : 'Route action failed.',
+      };
     }
-  } catch (error) {
-    linkedLineblockStation = await setOutboundRouteLineblockStates(
-      session,
-      station,
-      typeof action.payload.sourcePieceId === 'string' ? action.payload.sourcePieceId : null,
-      Array.isArray(action.payload.signalPieceIds)
-        ? (action.payload.signalPieceIds as string[])
-        : null,
-      typeof action.payload.routeClass === 'string'
-        ? (action.payload.routeClass as ActiveTrainRoute['routeClass'])
-        : null,
-      {
-        local: 'sendingFree',
-        remote: 'receivingFree',
-      },
-    );
-    action.status = 'failed';
-    action.finishedAt = nowIso();
-    action.error = {
-      code: 'ROUTE_ACTION_FAILED',
-      message: error instanceof Error ? error.message : 'Route action failed.',
-    };
-  }
 
-  const finalAction = { ...action };
-  delete station.runtime.pendingActions[action.id];
-  applyRuntimeState(station);
-  applySessionTrainOccupations(station, session);
-  bumpRevision(station);
-  printDebugBlock(
-    'web-debug',
-    `${station.sessionId}/${station.stationId} applied ${finalAction.type}`,
-    buildActionDebugLines(station, finalAction),
-  );
-  await stationActionLogRepository.create(toActionLog(station, finalAction));
-  if (sessionRuntimeChanged) {
-    await sessionRepository.save(session);
-  }
-  await saveStation(station);
-  if (linkedLineblockStation) {
-    applyRuntimeState(linkedLineblockStation);
-    applySessionTrainOccupations(linkedLineblockStation, session);
-    bumpRevision(linkedLineblockStation);
-    await saveStation(linkedLineblockStation);
-  }
+    const finalAction = { ...action };
+    delete station.runtime.pendingActions[action.id];
+    applyRuntimeState(station);
+    applySessionTrainOccupations(station, session);
+    bumpRevision(station);
+    printDebugBlock(
+      'web-debug',
+      `${station.sessionId}/${station.stationId} applied ${finalAction.type}`,
+      buildActionDebugLines(station, finalAction),
+    );
+    await stationActionLogRepository.create(toActionLog(station, finalAction));
+    if (sessionRuntimeChanged) {
+      await sessionRepository.save(session);
+    }
+    await saveStation(station);
+    if (linkedLineblockStation) {
+      applyRuntimeState(linkedLineblockStation);
+      applySessionTrainOccupations(linkedLineblockStation, session);
+      bumpRevision(linkedLineblockStation);
+      await saveStation(linkedLineblockStation);
+    }
   });
 }
 
@@ -2833,7 +3089,8 @@ function releaseReservationsBehindClearedSensor(
       return;
     }
 
-    const occupiedPieceIds = occupiedByRoute.get(`${sensor.stationId}\0${sensor.routeId}`) ?? new Set();
+    const occupiedPieceIds =
+      occupiedByRoute.get(`${sensor.stationId}\0${sensor.routeId}`) ?? new Set();
     route.reservedOccupations = route.reservedOccupations.filter((occupation) => {
       const occupationIndex = route.path.findIndex((step) => step.pieceId === occupation.pieceId);
       if (occupationIndex < 0 || occupationIndex > clearedIndex) {
@@ -2845,10 +3102,7 @@ function releaseReservationsBehindClearedSensor(
   });
 }
 
-function clearCompletedRouteIfFullyReleased(
-  station: StationDocument,
-  routeId: string,
-) {
+function clearCompletedRouteIfFullyReleased(station: StationDocument, routeId: string) {
   const route = station.runtime.activeTrainRoutes[routeId];
   if (!route) {
     return;
@@ -2935,10 +3189,7 @@ function markRouteSignalPassedByOccupiedPiece(
       }
 
       const signalPieceType = station.layout.pieces[signalPieceId]?.type;
-      if (
-        signalPieceType === 'shuntSignalNoOcp' ||
-        signalPieceType === 'shuntSignalButtonBuffer'
-      ) {
+      if (signalPieceType === 'shuntSignalNoOcp' || signalPieceType === 'shuntSignalButtonBuffer') {
         markPassedSignal(station, route.id, signalPieceId);
       }
       break;
@@ -3012,6 +3263,33 @@ function updateLineblockArrivalEligibility(
   // expressed by the route lifecycle and also covers sparse/missing sensor
   // records after the train reaches a platform.
   if (completelyPastEntry || receivingRouteWasFullyReleased) {
+    const receivingPiece = receivingStation.layout.pieces[transit.receivingLineblockPieceId];
+    const linkedLineblock = session.topology.lineblockLinks[transit.linkId];
+    const remoteEndpoint =
+      linkedLineblock?.a.stationId === receivingStation.stationId &&
+      linkedLineblock.a.pieceId === transit.receivingLineblockPieceId
+        ? linkedLineblock.b
+        : linkedLineblock?.b.stationId === receivingStation.stationId &&
+            linkedLineblock.b.pieceId === transit.receivingLineblockPieceId
+          ? linkedLineblock.a
+          : null;
+    const remoteStation = remoteEndpoint ? stations.get(remoteEndpoint.stationId) : null;
+
+    if (receivingPiece && isAhLineblockPieceType(receivingPiece.type) && remoteEndpoint && remoteStation) {
+      setLineblockVisualState(receivingStation, transit.receivingLineblockPieceId, 'receivingFree');
+      setLineblockVisualState(remoteStation, remoteEndpoint.pieceId, 'sendingFree');
+      train.lineblockTransit = null;
+      train.updatedAt = nowIso();
+      session.runtime.lineblocks[transit.linkId] = {
+        arrivalAcknowledgementEligible: false,
+        entryPassed: false,
+        entryReleasePieceIds: [],
+        trainId: null,
+        updatedAt: nowIso(),
+      };
+      return;
+    }
+
     setLineblockVisualState(
       receivingStation,
       transit.receivingLineblockPieceId,
@@ -3091,9 +3369,7 @@ function getPostEntryOccupationPieceIds(
         'normal',
         false,
       );
-      const entrySignalIndex = route.path.findIndex(
-        (step) => step.pieceId === entrySignalPieceId,
-      );
+      const entrySignalIndex = route.path.findIndex((step) => step.pieceId === entrySignalPieceId);
       if (entrySignalIndex < 0) {
         continue;
       }
@@ -3117,6 +3393,11 @@ function updatePhysicalLineblockArrivalEligibility(
   traversalState: string | null,
   occupied: boolean,
 ) {
+  const eligibleLinks: Array<{
+    link: SessionLineblockLink;
+    localPieceId: string;
+    remote: SessionLineblockEndpoint;
+  }> = [];
   Object.values(receivingStation.runtime.lineblockPremainLinks).forEach((premainLink) => {
     if (getLineblockVisualState(receivingStation, premainLink.lineblockPieceId) !== 'receiving') {
       return;
@@ -3139,24 +3420,25 @@ function updatePhysicalLineblockArrivalEligibility(
         route.routeClass === 'premain-to-platform' &&
         route.sourcePieceId === premainLink.premainSignalPieceId,
     );
-    const entrySignalIndex = activeArrivalRoute?.path.findIndex(
-      (step) => step.pieceId === entrySignalPieceId,
-    ) ?? -1;
-    const occupiedStepIndex = activeArrivalRoute?.path.findIndex(
-      (step) =>
-        step.pieceId === occupiedPieceId &&
-        (traversalState === null || step.occupationState === null || step.occupationState === traversalState),
-    ) ?? -1;
+    const entrySignalIndex =
+      activeArrivalRoute?.path.findIndex((step) => step.pieceId === entrySignalPieceId) ?? -1;
+    const occupiedStepIndex =
+      activeArrivalRoute?.path.findIndex(
+        (step) =>
+          step.pieceId === occupiedPieceId &&
+          (traversalState === null ||
+            step.occupationState === null ||
+            step.occupationState === traversalState),
+      ) ?? -1;
 
     const lineblockRuntime = session.runtime.lineblocks[linked.link.id];
-    const entryReleasePieceIds =
-      lineblockRuntime?.entryReleasePieceIds.length
-        ? lineblockRuntime.entryReleasePieceIds
-        : getPostEntryOccupationPieceIds(
-            receivingStation,
-            premainLink.premainSignalPieceId,
-            entrySignalPieceId,
-          );
+    const entryReleasePieceIds = lineblockRuntime?.entryReleasePieceIds.length
+      ? lineblockRuntime.entryReleasePieceIds
+      : getPostEntryOccupationPieceIds(
+          receivingStation,
+          premainLink.premainSignalPieceId,
+          entrySignalPieceId,
+        );
     const entryWasPassed =
       lineblockRuntime?.entryPassed === true ||
       // A clear event from the entrance-signal sensor means the complete
@@ -3186,7 +3468,13 @@ function updatePhysicalLineblockArrivalEligibility(
       updatedAt: nowIso(),
     };
     syncPremainAvailability(receivingStation);
+    eligibleLinks.push({
+      link: linked.link,
+      localPieceId: premainLink.lineblockPieceId,
+      remote: linked.remote,
+    });
   });
+  return eligibleLinks;
 }
 
 async function advanceTrainMovement(sessionId: string, trainId: string) {
@@ -3250,12 +3538,7 @@ async function advanceTrainMovement(sessionId: string, trainId: string) {
   if (occupiedState) {
     const stepStation = stations.get(step.stationId);
     if (stepStation) {
-      applyRouteProgressFromOccupationEvent(
-        stepStation,
-        step.pieceId,
-        occupiedState,
-        true,
-      );
+      applyRouteProgressFromOccupationEvent(stepStation, step.pieceId, occupiedState, true);
     }
   }
   releaseReservationsBehindClearedSensor(stations, clearedSensors, train.occupiedSensors);
@@ -3409,18 +3692,27 @@ export const stationService = {
     const template = await placeTemplateRepository.findByUniverseAndPlaceId(universeId, placeId);
     if (!template) throw new Error('Place template not found.');
 
-    const stationIndex = template.schema.stations.findIndex((station) => station.stationId === stationId);
+    const stationIndex = template.schema.stations.findIndex(
+      (station) => station.stationId === stationId,
+    );
     if (stationIndex === -1) throw new Error('Station not found in this place template.');
 
     const nextTemplate = structuredClone(template);
-    nextTemplate.schema.stations[stationIndex].layout = serializeStationLayout(deserializeStationLayout(layout));
+    nextTemplate.schema.stations[stationIndex].layout = serializeStationLayout(
+      deserializeStationLayout(layout),
+    );
     nextTemplate.revision += 1;
     nextTemplate.updatedAt = nowIso();
     await placeTemplateRepository.save(nextTemplate);
     return nextTemplate;
   },
 
-  async registerRobloxSession(sessionId: string, universeId: string, placeId: string, serverId: string) {
+  async registerRobloxSession(
+    sessionId: string,
+    universeId: string,
+    placeId: string,
+    serverId: string,
+  ) {
     const heartbeatAt = nowIso();
     const existing = await sessionRepository.findById(sessionId);
     if (existing) {
@@ -3441,7 +3733,9 @@ export const stationService = {
 
     const template = await placeTemplateRepository.findByUniverseAndPlaceId(universeId, placeId);
     if (!template) {
-      throw new Error(`No Roblox map template is configured for UniverseId ${universeId} and PlaceId ${placeId}.`);
+      throw new Error(
+        `No Roblox map template is configured for UniverseId ${universeId} and PlaceId ${placeId}.`,
+      );
     }
 
     const createdAt = nowIso();
@@ -3564,76 +3858,106 @@ export const stationService = {
     },
   ) {
     return serializeSessionMutation(sessionId, async () => {
-    const stationId = normalizeRobloxStationId(input.stationId);
-    const [rawSession, station] = await Promise.all([
-      sessionRepository.findById(sessionId),
-      stationRepository.findBySessionAndStationId(sessionId, stationId),
-    ]);
-    if (!rawSession || !station) {
-      throw new Error('Station not found.');
-    }
-    const session = ensureSessionRuntimeState(rawSession);
-    if (session.interpreter.kind !== 'roblox') {
-      throw new Error('Occupation events are only accepted for Roblox sessions.');
-    }
-    ensureStationRuntimeState(station);
+      const stationId = normalizeRobloxStationId(input.stationId);
+      const [rawSession, station] = await Promise.all([
+        sessionRepository.findById(sessionId),
+        stationRepository.findBySessionAndStationId(sessionId, stationId),
+      ]);
+      if (!rawSession || !station) {
+        throw new Error('Station not found.');
+      }
+      const session = ensureSessionRuntimeState(rawSession);
+      if (session.interpreter.kind !== 'roblox') {
+        throw new Error('Occupation events are only accepted for Roblox sessions.');
+      }
+      ensureStationRuntimeState(station);
 
-    const piece = station.layout.pieces[input.pieceId];
-    if (!piece?.state.groups.occupation) {
-      // One physical Roblox occupancy sensor may be linked to visual/control
-      // tiles alongside occupation-capable tiles. Ignore those non-sensor
-      // links so they cannot reject the complete reported sensor batch.
-      return { applied: false, station };
-    }
+      const piece = station.layout.pieces[input.pieceId];
+      if (!piece?.state.groups.occupation) {
+        // One physical Roblox occupancy sensor may be linked to visual/control
+        // tiles alongside occupation-capable tiles. Ignore those non-sensor
+        // links so they cannot reject the complete reported sensor batch.
+        return { applied: false, station };
+      }
 
-    const reportedTraversalState = input.traversalState ?? null;
-    const traversalState = normalizeRobloxOccupationTraversalState(
-      piece.type,
-      reportedTraversalState,
-    );
-    const occupationKey = `${stationId}:${input.pieceId}:${traversalState ?? '*'}`;
-    const legacyOccupationKey =
-      traversalState !== reportedTraversalState
-        ? `${stationId}:${input.pieceId}:${reportedTraversalState ?? '*'}`
-        : null;
-    const current =
-      session.runtime.physicalOccupations[occupationKey] ??
-      (legacyOccupationKey ? session.runtime.physicalOccupations[legacyOccupationKey] : undefined);
-    if (current && Date.parse(current.observedAt) > Date.parse(input.observedAt)) {
-      return { applied: false, station };
-    }
+      const reportedTraversalState = input.traversalState ?? null;
+      const traversalState = normalizeRobloxOccupationTraversalState(
+        piece.type,
+        reportedTraversalState,
+      );
+      const occupationKey = `${stationId}:${input.pieceId}:${traversalState ?? '*'}`;
+      const legacyOccupationKey =
+        traversalState !== reportedTraversalState
+          ? `${stationId}:${input.pieceId}:${reportedTraversalState ?? '*'}`
+          : null;
+      const current =
+        session.runtime.physicalOccupations[occupationKey] ??
+        (legacyOccupationKey
+          ? session.runtime.physicalOccupations[legacyOccupationKey]
+          : undefined);
+      if (current && Date.parse(current.observedAt) > Date.parse(input.observedAt)) {
+        return { applied: false, station };
+      }
 
-    if (legacyOccupationKey) {
-      delete session.runtime.physicalOccupations[legacyOccupationKey];
-    }
+      if (legacyOccupationKey) {
+        delete session.runtime.physicalOccupations[legacyOccupationKey];
+      }
 
-    session.runtime.physicalOccupations[occupationKey] = {
-      stationId,
-      pieceId: input.pieceId,
-      traversalState,
-      occupied: input.occupied,
-      eventId: input.eventId,
-      observedAt: input.observedAt,
-    };
-    getActiveLevelCrossingPieceIds(station, session);
-    session.updatedAt = nowIso();
+      session.runtime.physicalOccupations[occupationKey] = {
+        stationId,
+        pieceId: input.pieceId,
+        traversalState,
+        occupied: input.occupied,
+        eventId: input.eventId,
+        observedAt: input.observedAt,
+      };
+      getActiveLevelCrossingPieceIds(station, session);
+      session.updatedAt = nowIso();
 
-    // Evaluate odhlaska before route progress can release an active receiving
-    // route. The entry-signal clear itself is the evidence we need to retain.
-    updatePhysicalLineblockArrivalEligibility(
-      session,
-      station,
-      input.pieceId,
-      traversalState,
-      input.occupied,
-    );
-    applyRouteProgressFromOccupationEvent(station, input.pieceId, traversalState, input.occupied);
+      // Evaluate odhlaska before route progress can release an active receiving
+      // route. The entry-signal clear itself is the evidence we need to retain.
+      const arrivalEligibleLinks = updatePhysicalLineblockArrivalEligibility(
+        session,
+        station,
+        input.pieceId,
+        traversalState,
+        input.occupied,
+      );
+      for (const arrivalLink of arrivalEligibleLinks) {
+        const receivingPiece = station.layout.pieces[arrivalLink.localPieceId];
+        if (!receivingPiece || !isAhLineblockPieceType(receivingPiece.type)) {
+          continue;
+        }
+        const remoteStation = await stationRepository.findBySessionAndStationId(
+          sessionId,
+          arrivalLink.remote.stationId,
+        );
+        if (!remoteStation) {
+          continue;
+        }
+        ensureStationRuntimeState(remoteStation);
+        setLineblockVisualState(station, arrivalLink.localPieceId, 'receivingFree');
+        setLineblockVisualState(remoteStation, arrivalLink.remote.pieceId, 'sendingFree');
+        session.runtime.lineblocks[arrivalLink.link.id] = {
+          arrivalAcknowledgementEligible: false,
+          entryPassed: false,
+          entryReleasePieceIds: [],
+          trainId: null,
+          updatedAt: nowIso(),
+        };
+        syncPremainAvailability(station);
+        syncPremainAvailability(remoteStation);
+        applyRuntimeStateWithTrainOccupations(remoteStation, session);
+        bumpRevision(remoteStation);
+        await saveStation(remoteStation, { skipRuntimeNotify: true });
+      }
+      applyRouteProgressFromOccupationEvent(station, input.pieceId, traversalState, input.occupied);
 
-    applyRuntimeStateWithTrainOccupations(station, session);
-    bumpRevision(station);
-    await sessionRepository.save(session);
-    await saveStation(station);
-    return { applied: true, station };
+      applyRuntimeStateWithTrainOccupations(station, session);
+      bumpRevision(station);
+      await sessionRepository.save(session);
+      await saveStation(station);
+      return { applied: true, station };
     });
   },
 
@@ -3648,49 +3972,49 @@ export const stationService = {
     },
   ) {
     return serializeSessionMutation(sessionId, async () => {
-    const stationId = normalizeRobloxStationId(input.stationId);
-    const [rawSession, station] = await Promise.all([
-      sessionRepository.findById(sessionId),
-      stationRepository.findBySessionAndStationId(sessionId, stationId),
-    ]);
-    if (!rawSession || !station) {
-      throw new Error('Station not found.');
-    }
-    const session = ensureSessionRuntimeState(rawSession);
-    if (session.interpreter.kind !== 'roblox') {
-      throw new Error('Switch feedback is only accepted for Roblox sessions.');
-    }
-    ensureStationRuntimeState(station);
+      const stationId = normalizeRobloxStationId(input.stationId);
+      const [rawSession, station] = await Promise.all([
+        sessionRepository.findById(sessionId),
+        stationRepository.findBySessionAndStationId(sessionId, stationId),
+      ]);
+      if (!rawSession || !station) {
+        throw new Error('Station not found.');
+      }
+      const session = ensureSessionRuntimeState(rawSession);
+      if (session.interpreter.kind !== 'roblox') {
+        throw new Error('Switch feedback is only accepted for Roblox sessions.');
+      }
+      ensureStationRuntimeState(station);
 
-    const switchPiece = station.layout.pieces[input.pieceId];
-    if (!switchPiece || !isPhysicalSwitchPieceType(switchPiece.type)) {
-      throw new Error(`Physical switch piece "${input.pieceId}" was not found.`);
-    }
-    const defaultPositions = getDefaultSwitchMotorPositions(switchPiece.type);
-    if (!(input.controlSlot in defaultPositions)) {
-      throw new Error(`Switch does not have a ${input.controlSlot} motor.`);
-    }
+      const switchPiece = station.layout.pieces[input.pieceId];
+      if (!switchPiece || !isPhysicalSwitchPieceType(switchPiece.type)) {
+        throw new Error(`Physical switch piece "${input.pieceId}" was not found.`);
+      }
+      const defaultPositions = getDefaultSwitchMotorPositions(switchPiece.type);
+      if (!(input.controlSlot in defaultPositions)) {
+        throw new Error(`Switch does not have a ${input.controlSlot} motor.`);
+      }
 
-    const current = station.runtime.switchAlignments[input.pieceId];
-    if (current && Date.parse(current.updatedAt) > Date.parse(input.observedAt)) {
-      return { applied: false, station };
-    }
-    const motorPositions = {
-      ...defaultPositions,
-      ...(current?.motorPositions ?? {}),
-      [input.controlSlot]: input.position,
-    };
-    station.runtime.switchAlignments[input.pieceId] = {
-      motorPositions,
-      traversableState:
-        getTraversableStateForMotorPositions(switchPiece.type, motorPositions) ?? 'disconnected',
-      updatedAt: input.observedAt,
-    };
+      const current = station.runtime.switchAlignments[input.pieceId];
+      if (current && Date.parse(current.updatedAt) > Date.parse(input.observedAt)) {
+        return { applied: false, station };
+      }
+      const motorPositions = {
+        ...defaultPositions,
+        ...(current?.motorPositions ?? {}),
+        [input.controlSlot]: input.position,
+      };
+      station.runtime.switchAlignments[input.pieceId] = {
+        motorPositions,
+        traversableState:
+          getTraversableStateForMotorPositions(switchPiece.type, motorPositions) ?? 'disconnected',
+        updatedAt: input.observedAt,
+      };
 
-    applyRuntimeStateWithTrainOccupations(station, session);
-    bumpRevision(station);
-    await saveStation(station);
-    return { applied: true, station };
+      applyRuntimeStateWithTrainOccupations(station, session);
+      bumpRevision(station);
+      await saveStation(station);
+      return { applied: true, station };
     });
   },
 
@@ -3741,7 +4065,7 @@ export const stationService = {
     scheduleSessionTrainMovements(session);
     return stations.map((station) => {
       ensureStationRuntimeState(station);
-      applySessionTrainOccupations(station, session);
+      applyRuntimeStateWithTrainOccupations(station, session);
       scheduleStationSwitchActions(station);
       return station;
     });
@@ -3773,21 +4097,22 @@ export const stationService = {
 
     return sessions
       .map((rawSession) => {
-      const session = ensureSessionRuntimeState(rawSession);
-      const lastHeartbeatAt = session.interpreter.kind === 'roblox'
-        ? session.interpreter.heartbeat.lastHeartbeatAt
-        : null;
+        const session = ensureSessionRuntimeState(rawSession);
+        const lastHeartbeatAt =
+          session.interpreter.kind === 'roblox'
+            ? session.interpreter.heartbeat.lastHeartbeatAt
+            : null;
 
-      return {
-        sessionId: session._id,
-        placeId: session.interpreter.kind === 'roblox' ? session.interpreter.placeId : '',
-        serverId: session.interpreter.kind === 'roblox' ? session.interpreter.serverId : '',
-        lastHeartbeatAt: lastHeartbeatAt ?? session.updatedAt,
-        isLive: isRobloxSessionLive(session, now),
-        stations: (stationsBySessionId.get(session._id) ?? []).sort((a, b) =>
-          a.stationId.localeCompare(b.stationId),
-        ),
-      };
+        return {
+          sessionId: session._id,
+          placeId: session.interpreter.kind === 'roblox' ? session.interpreter.placeId : '',
+          serverId: session.interpreter.kind === 'roblox' ? session.interpreter.serverId : '',
+          lastHeartbeatAt: lastHeartbeatAt ?? session.updatedAt,
+          isLive: isRobloxSessionLive(session, now),
+          stations: (stationsBySessionId.get(session._id) ?? []).sort((a, b) =>
+            a.stationId.localeCompare(b.stationId),
+          ),
+        };
       })
       .filter((session) => session.isLive);
   },
@@ -3852,13 +4177,13 @@ export const stationService = {
           return !stationId || link?.a.stationId === stationId || link?.b.stationId === stationId;
         })
         .forEach((linkId) => {
-        session.runtime.lineblocks[linkId] = {
-          arrivalAcknowledgementEligible: false,
-          entryPassed: false,
-          entryReleasePieceIds: [],
-          trainId: null,
-          updatedAt: nowIso(),
-        };
+          session.runtime.lineblocks[linkId] = {
+            arrivalAcknowledgementEligible: false,
+            entryPassed: false,
+            entryReleasePieceIds: [],
+            trainId: null,
+            updatedAt: nowIso(),
+          };
         });
       targetStations.forEach((station) => {
         Object.keys(station.runtime.pendingActions).forEach((actionId) => {
@@ -3878,15 +4203,23 @@ export const stationService = {
         affectedStationIds.add(station.stationId);
       });
       Object.values(session.topology.lineblockLinks)
-        .filter((link) => !stationId || link.a.stationId === stationId || link.b.stationId === stationId)
+        .filter(
+          (link) => !stationId || link.a.stationId === stationId || link.b.stationId === stationId,
+        )
         .forEach((link) => {
-        const stationA = stations.find((station) => station.stationId === link.a.stationId);
-        const stationB = stations.find((station) => station.stationId === link.b.stationId);
-        if (stationA && stationB) {
-          applyLineblockDefaultFlowToStations(link.defaultFlow, stationA, link.a.pieceId, stationB, link.b.pieceId);
-          affectedStationIds.add(stationA.stationId);
-          affectedStationIds.add(stationB.stationId);
-        }
+          const stationA = stations.find((station) => station.stationId === link.a.stationId);
+          const stationB = stations.find((station) => station.stationId === link.b.stationId);
+          if (stationA && stationB) {
+            applyLineblockDefaultFlowToStations(
+              link.defaultFlow,
+              stationA,
+              link.a.pieceId,
+              stationB,
+              link.b.pieceId,
+            );
+            affectedStationIds.add(stationA.stationId);
+            affectedStationIds.add(stationB.stationId);
+          }
         });
     }
 
@@ -4143,7 +4476,9 @@ export const stationService = {
               ? currentStation.stationId
               : steps[0].stationId
             : currentStation.stationId,
-          routeId: routeResult ? routeResult.route.id : `pn:${privolavaciaMovement?.signalPieceId ?? 'unknown'}`,
+          routeId: routeResult
+            ? routeResult.route.id
+            : `pn:${privolavaciaMovement?.signalPieceId ?? 'unknown'}`,
         },
       ],
       lineblockTransit,
@@ -4293,6 +4628,15 @@ export const stationService = {
       );
     }
 
+    const variantA = getAhLineblockVariant(pieceA.type);
+    const variantB = getAhLineblockVariant(pieceB.type);
+    if (variantA !== variantB) {
+      throw new Error('Both endpoints of an AH link must use the same AH variant.');
+    }
+    if (variantA === 'ah82a' && endpoints.defaultFlow === 'neutral') {
+      throw new Error('AH-82A must be created with an initial consent direction.');
+    }
+
     const linkAlreadyExists = Object.values(session.topology.lineblockLinks).some((existingLink) =>
       [existingLink.a, existingLink.b].some(
         (endpoint) =>
@@ -4335,8 +4679,8 @@ export const stationService = {
     );
     syncPremainAvailability(stationA);
     syncPremainAvailability(stationB);
-    applyRuntimeState(stationA);
-    applyRuntimeState(stationB);
+    applyRuntimeStateWithTrainOccupations(stationA, session);
+    applyRuntimeStateWithTrainOccupations(stationB, session);
 
     await saveSession(session, { skipRuntimeNotify: suppressRuntimeNotify });
     bumpRevision(stationA);
@@ -4363,13 +4707,20 @@ export const stationService = {
     const stations = await stationRepository.listBySessionId(sessionId);
     const stationA = stations.find((station) => station.stationId === link.a.stationId);
     const stationB = stations.find((station) => station.stationId === link.b.stationId);
-    if (!stationA || !stationB) throw new Error('Both stations for this lineblock link must exist.');
+    if (!stationA || !stationB)
+      throw new Error('Both stations for this lineblock link must exist.');
 
     ensureStationRuntimeState(stationA);
     ensureStationRuntimeState(stationB);
     link.defaultFlow = normalizeLineblockDefaultFlow(defaultFlow);
     session.updatedAt = nowIso();
-    applyLineblockDefaultFlowToStations(link.defaultFlow, stationA, link.a.pieceId, stationB, link.b.pieceId);
+    applyLineblockDefaultFlowToStations(
+      link.defaultFlow,
+      stationA,
+      link.a.pieceId,
+      stationB,
+      link.b.pieceId,
+    );
     syncPremainAvailability(stationA);
     syncPremainAvailability(stationB);
     applyRuntimeState(stationA);
@@ -4460,20 +4811,30 @@ export const stationService = {
     if (Object.keys(session.runtime.trains).length > 0) {
       throw new Error('Station layouts can only be edited when the session has no trains.');
     }
-    if (Object.values(session.runtime.physicalOccupations).some(
-      (occupation) => occupation.stationId === stationId && occupation.occupied,
-    )) {
+    if (
+      Object.values(session.runtime.physicalOccupations).some(
+        (occupation) => occupation.stationId === stationId && occupation.occupied,
+      )
+    ) {
       throw new Error('Station layouts can only be edited when they have no physical occupations.');
     }
-    if (Object.keys(station.runtime.pendingActions).length > 0 ||
+    if (
+      Object.keys(station.runtime.pendingActions).length > 0 ||
       Object.keys(station.runtime.activeTrainRoutes).length > 0 ||
-      station.runtime.routeSelection) {
-      throw new Error('Cancel or complete active station actions and routes before editing its layout.');
+      station.runtime.routeSelection
+    ) {
+      throw new Error(
+        'Cancel or complete active station actions and routes before editing its layout.',
+      );
     }
-    if (Object.values(session.topology.lineblockLinks).some(
-      (link) => link.a.stationId === stationId || link.b.stationId === stationId,
-    )) {
-      throw new Error('Remove this station’s inter-station lineblock links before editing its layout.');
+    if (
+      Object.values(session.topology.lineblockLinks).some(
+        (link) => link.a.stationId === stationId || link.b.stationId === stationId,
+      )
+    ) {
+      throw new Error(
+        'Remove this station’s inter-station lineblock links before editing its layout.',
+      );
     }
 
     station.layout = serializeStationLayout(deserializeStationLayout(layout));
@@ -4494,20 +4855,25 @@ export const stationService = {
     if (Object.keys(session.runtime.trains).length > 0) {
       throw new Error('Stations can only be removed when the session has no trains.');
     }
-    if (Object.values(session.runtime.physicalOccupations).some(
-      (occupation) => occupation.stationId === stationId && occupation.occupied,
-    )) {
+    if (
+      Object.values(session.runtime.physicalOccupations).some(
+        (occupation) => occupation.stationId === stationId && occupation.occupied,
+      )
+    ) {
       throw new Error('Stations can only be removed when they have no physical occupations.');
     }
     const station = await stationRepository.findBySessionAndStationId(sessionId, stationId);
     if (!station) throw new Error('Station not found.');
 
     const stations = await stationRepository.listBySessionId(sessionId);
-    const links = Object.values(session.topology.lineblockLinks)
-      .filter((link) => link.a.stationId === stationId || link.b.stationId === stationId)
+    const links = Object.values(session.topology.lineblockLinks).filter(
+      (link) => link.a.stationId === stationId || link.b.stationId === stationId,
+    );
     links.forEach((link) => {
       const remoteEndpoint = link.a.stationId === stationId ? link.b : link.a;
-      const remoteStation = stations.find((candidate) => candidate.stationId === remoteEndpoint.stationId);
+      const remoteStation = stations.find(
+        (candidate) => candidate.stationId === remoteEndpoint.stationId,
+      );
       if (remoteStation) {
         setLineblockVisualState(remoteStation, remoteEndpoint.pieceId, 'default');
         syncPremainAvailability(remoteStation);
@@ -4525,7 +4891,12 @@ export const stationService = {
     await Promise.all(
       stations
         .filter((candidate) => candidate.stationId !== stationId)
-        .filter((candidate) => links.some((link) => link.a.stationId === candidate.stationId || link.b.stationId === candidate.stationId))
+        .filter((candidate) =>
+          links.some(
+            (link) =>
+              link.a.stationId === candidate.stationId || link.b.stationId === candidate.stationId,
+          ),
+        )
         .map((candidate) => saveStation(candidate)),
     );
     await stationRepository.removeBySessionAndStationId(sessionId, stationId);
@@ -4533,114 +4904,252 @@ export const stationService = {
 
   async submitLineblockAction(command: LineblockActionCommand) {
     return serializeSessionMutation(command.sessionId, async () => {
-    const localStation = await stationRepository.findBySessionAndStationId(
-      command.sessionId,
-      command.stationId,
-    );
-    if (!localStation) {
-      throw new Error('Station not found.');
-    }
-
-    ensureStationRuntimeState(localStation);
-
-    const localPiece = localStation.layout.pieces[command.payload.pieceId];
-    if (!localPiece || !isLineblockPieceType(localPiece.type)) {
-      throw new Error(`Lineblock piece "${command.payload.pieceId}" was not found.`);
-    }
-
-    const rawSession = await sessionRepository.findById(command.sessionId);
-    if (!rawSession) {
-      throw new Error('Session not found.');
-    }
-    const session = ensureSessionRuntimeState(rawSession);
-
-    const linked = getLinkedLineblock(localStation, session, command.payload.pieceId);
-    if (!linked) {
-      throw new Error('This lineblock is not linked to another station lineblock.');
-    }
-
-    const remoteStation = await stationRepository.findBySessionAndStationId(
-      command.sessionId,
-      linked.remote.stationId,
-    );
-    if (!remoteStation) {
-      throw new Error('Linked remote station was not found.');
-    }
-
-    ensureStationRuntimeState(remoteStation);
-
-    const remotePiece = remoteStation.layout.pieces[linked.remote.pieceId];
-    if (!remotePiece || !isLineblockPieceType(remotePiece.type)) {
-      throw new Error('Linked remote lineblock was not found.');
-    }
-
-    const localState = getLineblockVisualState(localStation, command.payload.pieceId);
-    const remoteState = getLineblockVisualState(remoteStation, linked.remote.pieceId);
-    const repairsCompletedArrival =
-      command.type === 'lineblock:mark-arrived' &&
-      localState === 'receivingFree' &&
-      remoteState === 'sending';
-    if (!repairsCompletedArrival) {
-      validateLineblockActionStates(command.type, localState, remoteState);
-    }
-    if (
-      command.type === 'lineblock:mark-arrived' &&
-      !repairsCompletedArrival &&
-      !session.runtime.lineblocks[linked.link.id]?.arrivalAcknowledgementEligible
-    ) {
-      throw new Error(
-        'Odhlaska is only allowed after the complete train has passed the entrance signal.',
+      const localStation = await stationRepository.findBySessionAndStationId(
+        command.sessionId,
+        command.stationId,
       );
-    }
-
-    // Older runtime snapshots could persist this exact split when the
-    // outbound-route projection overwrote the sending side after odhlaska.
-    // Accept one repeat acknowledgement only to restore the paired state.
-    applyLineblockActionStates(
-      command.type,
-      localStation,
-      command.payload.pieceId,
-      remoteStation,
-      linked.remote.pieceId,
-    );
-
-    syncPremainAvailability(localStation);
-    syncPremainAvailability(remoteStation);
-    applyRuntimeState(localStation);
-    applyRuntimeState(remoteStation);
-    applySessionTrainOccupations(localStation, session);
-    applySessionTrainOccupations(remoteStation, session);
-    if (command.type === 'lineblock:mark-arrived') {
-      const trainId = session.runtime.lineblocks[linked.link.id]?.trainId;
-      if (trainId && session.runtime.trains[trainId]) {
-        session.runtime.trains[trainId].lineblockTransit = null;
-        session.runtime.trains[trainId].updatedAt = nowIso();
+      if (!localStation) {
+        throw new Error('Station not found.');
       }
-      session.runtime.lineblocks[linked.link.id] = {
-        arrivalAcknowledgementEligible: false,
-        entryPassed: false,
-        entryReleasePieceIds: [],
-        trainId: null,
-        updatedAt: nowIso(),
-      };
-      session.updatedAt = nowIso();
-      await sessionRepository.save(session);
-    }
-    bumpRevision(localStation);
-    bumpRevision(remoteStation);
-    // Persist the pair before publishing. Publishing each side separately can
-    // let Roblox consume an intermediate snapshot where only the receiving
-    // station has changed and the linked sending station is still stale.
-    await saveStation(localStation, { skipRuntimeNotify: true });
-    await saveStation(remoteStation, { skipRuntimeNotify: true });
-    await notifyRuntimeInterpreter(command.sessionId, () =>
-      buildRobloxPhysicalSnapshot(command.sessionId),
-    );
 
-    return {
-      localStation,
-      remoteStation,
-    };
+      ensureStationRuntimeState(localStation);
+
+      const localPiece = localStation.layout.pieces[command.payload.pieceId];
+      if (!localPiece || !isLineblockPieceType(localPiece.type)) {
+        throw new Error(`Lineblock piece "${command.payload.pieceId}" was not found.`);
+      }
+      if (isAhLineblockPieceType(localPiece.type) && command.type === 'lineblock:mark-arrived') {
+        throw new Error('AH acknowledgement is automatic after the inbound route completes.');
+      }
+
+      const rawSession = await sessionRepository.findById(command.sessionId);
+      if (!rawSession) {
+        throw new Error('Session not found.');
+      }
+      const session = ensureSessionRuntimeState(rawSession);
+
+      const linked = getLinkedLineblock(localStation, session, command.payload.pieceId);
+      if (!linked) {
+        throw new Error('This lineblock is not linked to another station lineblock.');
+      }
+
+      const remoteStation = await stationRepository.findBySessionAndStationId(
+        command.sessionId,
+        linked.remote.stationId,
+      );
+      if (!remoteStation) {
+        throw new Error('Linked remote station was not found.');
+      }
+
+      ensureStationRuntimeState(remoteStation);
+
+      const remotePiece = remoteStation.layout.pieces[linked.remote.pieceId];
+      if (!remotePiece || !isLineblockPieceType(remotePiece.type)) {
+        throw new Error('Linked remote lineblock was not found.');
+      }
+
+      const localState = getLineblockVisualState(localStation, command.payload.pieceId);
+      const remoteState = getLineblockVisualState(remoteStation, linked.remote.pieceId);
+      const ahVariant = getAhLineblockVariant(localPiece.type);
+      if (ahVariant !== getAhLineblockVariant(remotePiece.type)) {
+        throw new Error('Both endpoints of an AH link must use the same AH variant.');
+      }
+
+      if (ahVariant && command.type.startsWith('ah:')) {
+        if (command.type === 'ah:reset-block-condition') {
+          const existingReset = Object.values(localStation.runtime.pendingActions).find(
+            (action) =>
+              action.type === 'ah:reset-block-condition' &&
+              action.payload.pieceId === command.payload.pieceId,
+          );
+          if (existingReset) {
+            throw new Error('AH block-condition recovery is already being held.');
+          }
+          const action: PendingAction = {
+            id: command.commandId,
+            type: command.type,
+            status: 'running',
+            sessionId: command.sessionId,
+            stationId: command.stationId,
+            issuedAt: command.issuedAt,
+            startedAt: nowIso(),
+            dueAt: new Date(Date.now() + 5000).toISOString(),
+            finishedAt: null,
+            payload: command.payload,
+          };
+          localStation.runtime.pendingActions[action.id] = action;
+          bumpRevision(localStation);
+          await saveStation(localStation);
+          scheduleAhBlockReset(localStation, action);
+          return { localStation, remoteStation };
+        }
+
+        if (command.type === 'ah:cancel-block-reset') {
+          const action = Object.values(localStation.runtime.pendingActions).find(
+            (candidate) =>
+              candidate.type === 'ah:reset-block-condition' &&
+              candidate.payload.pieceId === command.payload.pieceId,
+          );
+          if (!action) {
+            return { localStation, remoteStation };
+          }
+          const timerKey = `${localStation.sessionId}:${localStation.stationId}:${action.id}`;
+          const timer = switchActionTimers.get(timerKey);
+          if (timer) {
+            clearTimeout(timer);
+            switchActionTimers.delete(timerKey);
+          }
+          action.status = 'cancelled';
+          action.finishedAt = nowIso();
+          const finalAction = { ...action };
+          delete localStation.runtime.pendingActions[action.id];
+          bumpRevision(localStation);
+          await stationActionLogRepository.create(toActionLog(localStation, finalAction));
+          await saveStation(localStation);
+          return { localStation, remoteStation };
+        }
+
+        const requestingState = ahVariant === 'ah82a' ? 'ah82Requesting' : 'ah83Requesting';
+        const requestedState = ahVariant === 'ah82a' ? 'ah82Requested' : 'ah83Requested';
+
+        if (command.type === 'ah:request-consent') {
+          if (localState === requestedState && remoteState === requestingState) {
+            applyAcceptedAhConsent(
+              localStation,
+              command.payload.pieceId,
+              remoteStation,
+              linked.remote.pieceId,
+            );
+          } else if (
+            (ahVariant === 'ah83' && localState === 'default' && remoteState === 'default') ||
+            (ahVariant === 'ah82a' &&
+              ['sendingFree', 'receivingFree'].includes(localState) &&
+              ['sendingFree', 'receivingFree'].includes(remoteState))
+          ) {
+            applyAhConsentRequest(
+              ahVariant,
+              localStation,
+              command.payload.pieceId,
+              remoteStation,
+              linked.remote.pieceId,
+            );
+          } else {
+            throw new Error('AH consent can only be requested from its settled base state.');
+          }
+        } else if (command.type === 'ah:cancel-consent') {
+          if (ahVariant !== 'ah83') {
+            throw new Error('AH-82A has no non-consent base state.');
+          }
+          if (
+            !['default', 'receivingFree', 'sendingFree', requestingState, requestedState].includes(
+              localState,
+            )
+          ) {
+            throw new Error('AH-83 consent cannot be cancelled while a train is in the section.');
+          }
+          setLineblockVisualState(localStation, command.payload.pieceId, 'default');
+          setLineblockVisualState(remoteStation, linked.remote.pieceId, 'default');
+        } else {
+          // This command is deliberately separate from normal cancellation:
+          // it is the exceptional block-condition recovery control.
+          if (ahVariant === 'ah83') {
+            setLineblockVisualState(localStation, command.payload.pieceId, 'default');
+            setLineblockVisualState(remoteStation, linked.remote.pieceId, 'default');
+          } else {
+            applyLineblockDefaultFlowToStations(
+              linked.link.defaultFlow,
+              localStation,
+              command.payload.pieceId,
+              remoteStation,
+              linked.remote.pieceId,
+            );
+          }
+        }
+
+        syncPremainAvailability(localStation);
+        syncPremainAvailability(remoteStation);
+        applyRuntimeStateWithTrainOccupations(localStation, session);
+        applyRuntimeStateWithTrainOccupations(remoteStation, session);
+        bumpRevision(localStation);
+        bumpRevision(remoteStation);
+        await saveStation(localStation, { skipRuntimeNotify: true });
+        await saveStation(remoteStation, { skipRuntimeNotify: true });
+        await notifyRuntimeInterpreter(command.sessionId, () =>
+          buildRobloxPhysicalSnapshot(command.sessionId),
+        );
+        return { localStation, remoteStation };
+      }
+      if (ahVariant) {
+        throw new Error('Automatic lineblocks must be operated with an AH command.');
+      }
+      if (command.type.startsWith('ah:')) {
+        throw new Error('AH controls are only available on automatic lineblocks.');
+      }
+      const repairsCompletedArrival =
+        command.type === 'lineblock:mark-arrived' &&
+        localState === 'receivingFree' &&
+        remoteState === 'sending';
+      if (!repairsCompletedArrival) {
+        validateLineblockActionStates(command.type, localState, remoteState);
+      }
+      if (
+        command.type === 'lineblock:mark-arrived' &&
+        !repairsCompletedArrival &&
+        !session.runtime.lineblocks[linked.link.id]?.arrivalAcknowledgementEligible
+      ) {
+        throw new Error(
+          'Odhlaska is only allowed after the complete train has passed the entrance signal.',
+        );
+      }
+
+      // Older runtime snapshots could persist this exact split when the
+      // outbound-route projection overwrote the sending side after odhlaska.
+      // Accept one repeat acknowledgement only to restore the paired state.
+      applyLineblockActionStates(
+        command.type,
+        localStation,
+        command.payload.pieceId,
+        remoteStation,
+        linked.remote.pieceId,
+      );
+
+      syncPremainAvailability(localStation);
+      syncPremainAvailability(remoteStation);
+      applyRuntimeState(localStation);
+      applyRuntimeState(remoteStation);
+      applySessionTrainOccupations(localStation, session);
+      applySessionTrainOccupations(remoteStation, session);
+      if (command.type === 'lineblock:mark-arrived') {
+        const trainId = session.runtime.lineblocks[linked.link.id]?.trainId;
+        if (trainId && session.runtime.trains[trainId]) {
+          session.runtime.trains[trainId].lineblockTransit = null;
+          session.runtime.trains[trainId].updatedAt = nowIso();
+        }
+        session.runtime.lineblocks[linked.link.id] = {
+          arrivalAcknowledgementEligible: false,
+          entryPassed: false,
+          entryReleasePieceIds: [],
+          trainId: null,
+          updatedAt: nowIso(),
+        };
+        session.updatedAt = nowIso();
+        await sessionRepository.save(session);
+      }
+      bumpRevision(localStation);
+      bumpRevision(remoteStation);
+      // Persist the pair before publishing. Publishing each side separately can
+      // let Roblox consume an intermediate snapshot where only the receiving
+      // station has changed and the linked sending station is still stale.
+      await saveStation(localStation, { skipRuntimeNotify: true });
+      await saveStation(remoteStation, { skipRuntimeNotify: true });
+      await notifyRuntimeInterpreter(command.sessionId, () =>
+        buildRobloxPhysicalSnapshot(command.sessionId),
+      );
+
+      return {
+        localStation,
+        remoteStation,
+      };
     });
   },
 

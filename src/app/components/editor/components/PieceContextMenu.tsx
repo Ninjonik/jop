@@ -11,6 +11,7 @@ interface Props {
   onMirror: () => void;
   onEditText: (textKey: string) => void;
   onEditLevelCrossingTimings: () => void;
+  onEditSwitchSpeed: () => void;
   onStartConnection: () => void;
   onCancelConnection: () => void;
   onConnect: () => void;
@@ -27,6 +28,7 @@ export default function PieceContextMenu({
   onMirror,
   onEditText,
   onEditLevelCrossingTimings,
+  onEditSwitchSpeed,
   onStartConnection,
   onCancelConnection,
   onConnect,
@@ -121,6 +123,15 @@ export default function PieceContextMenu({
           className="border-b border-neutral-300 px-2 py-1 text-left text-sm text-black"
         >
           edit crossing timings
+        </button>
+      ) : null}
+      {contextMenu.isSwitch ? (
+        <button
+          type="button"
+          onClick={onEditSwitchSpeed}
+          className="border-b border-neutral-300 px-2 py-1 text-left text-sm text-black"
+        >
+          edit diverging speed
         </button>
       ) : null}
       {contextMenu.connectedPieceIds.length > 0 ? (

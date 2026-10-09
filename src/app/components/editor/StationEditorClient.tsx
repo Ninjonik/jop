@@ -32,10 +32,13 @@ import {
   getConnectedPieceIdsForEndpointKey,
   getConnectionEndpointKey,
   getConnectionPieceId,
+  getAhBlockSignalConnectionKey,
   getLevelCrossingConnectionKey,
   getPieceCells,
   getPrivolavaciaConnectionKey,
   isLineblockPieceType,
+  isAhLineblockPieceType,
+  isBlockSignalPieceType,
   isPremainSignalPieceType,
   isPrivolavaciaCounterPieceType,
   isPrivolavaciaSignalPieceType,
@@ -364,6 +367,7 @@ export default function StationEditorClient({ tiles, stateGroups }: Props) {
       isSwitchPieceType(piece.type) ||
       isSwitchButtonPieceType(piece.type) ||
       isLineblockPieceType(piece.type) ||
+      isBlockSignalPieceType(piece.type) ||
       isPremainSignalPieceType(piece.type) ||
       isPrivolavaciaCounterPieceType(piece.type) ||
       isPrivolavaciaSignalPieceType(piece.type) ||
@@ -371,7 +375,8 @@ export default function StationEditorClient({ tiles, stateGroups }: Props) {
     const canStartConnection =
       eligibleType &&
       Boolean(endpointKey) &&
-      (connectedPieceIds.length === 0 ||
+        (connectedPieceIds.length === 0 ||
+        isAhLineblockPieceType(piece.type) ||
         isPrivolavaciaCounterPieceType(piece.type) ||
         isTrackCrossingPieceType(piece.type));
     const canCancelPendingConnection = pendingConnectionEndpointKey === endpointKey;
@@ -393,10 +398,14 @@ export default function StationEditorClient({ tiles, stateGroups }: Props) {
         (isTrackCrossingPieceType(piece.type) &&
           isTrackPieceType(pendingPiece.type) &&
           !editorState.connections[pendingConnectionEndpointKey]) ||
+        (isAhLineblockPieceType(pendingPiece.type) && isBlockSignalPieceType(piece.type)) ||
+        (isAhLineblockPieceType(piece.type) && isBlockSignalPieceType(pendingPiece.type)) ||
         (!isPrivolavaciaCounterPieceType(pendingPiece.type) &&
           !isPrivolavaciaCounterPieceType(piece.type) &&
           !isTrackCrossingPieceType(pendingPiece.type) &&
           !isTrackCrossingPieceType(piece.type) &&
+          !isAhLineblockPieceType(pendingPiece.type) &&
+          !isAhLineblockPieceType(piece.type) &&
           connectedPieceIds.length === 0 &&
           !editorState.connections[pendingConnectionEndpointKey])),
     );
@@ -411,6 +420,7 @@ export default function StationEditorClient({ tiles, stateGroups }: Props) {
       canRotate,
       canMirror,
       isTrackCrossing: isTrackCrossingPieceType(piece.type),
+      isSwitch: isSwitchPieceType(piece.type),
       textKeys,
       canStartConnection,
       canConnectToPending,
@@ -565,6 +575,30 @@ export default function StationEditorClient({ tiles, stateGroups }: Props) {
       ...currentPiece,
       levelCrossingTimings: Object.keys(next).length > 0 ? next : undefined,
     }));
+  };
+
+  const handleContextMenuEditSwitchSpeed = () => {
+    if (!contextMenu) return;
+    const piece = editorState.pieces[contextMenu.pieceId];
+    if (!piece || !isSwitchPieceType(piece.type)) return;
+    const answer = window.prompt(
+      'Diverging speed (40, 60, or 100 km/h; blank means the compatible default 40)',
+      String(piece.switchSpeed ?? 40),
+    );
+    if (answer === null) return;
+    const speed = Number(answer.trim());
+    if (speed !== 40 && speed !== 60 && speed !== 100) {
+      window.alert('Use 40, 60, or 100.');
+      return;
+    }
+    setEditorState((current) => ({
+      ...current,
+      pieces: {
+        ...current.pieces,
+        [contextMenu.pieceId]: { ...current.pieces[contextMenu.pieceId], switchSpeed: speed },
+      },
+    }));
+    clearContextMenu();
   };
 
   const handleContextMenuRemove = () => {
@@ -722,6 +756,48 @@ export default function StationEditorClient({ tiles, stateGroups }: Props) {
       }
 
       if (
+        isAhLineblockPieceType(sourcePiece.type) &&
+        isBlockSignalPieceType(targetPiece.type)
+      ) {
+        if (current.connections[targetEndpointKey]) {
+          return current;
+        }
+        const syntheticEndpointKey = getAhBlockSignalConnectionKey(
+          getConnectionPieceId(pendingConnectionEndpointKey),
+          contextMenu.pieceId,
+        );
+        return {
+          ...current,
+          connections: {
+            ...current.connections,
+            [syntheticEndpointKey]: targetEndpointKey,
+            [targetEndpointKey]: syntheticEndpointKey,
+          },
+        };
+      }
+
+      if (
+        isAhLineblockPieceType(targetPiece.type) &&
+        isBlockSignalPieceType(sourcePiece.type)
+      ) {
+        if (current.connections[pendingConnectionEndpointKey]) {
+          return current;
+        }
+        const syntheticEndpointKey = getAhBlockSignalConnectionKey(
+          contextMenu.pieceId,
+          getConnectionPieceId(pendingConnectionEndpointKey),
+        );
+        return {
+          ...current,
+          connections: {
+            ...current.connections,
+            [syntheticEndpointKey]: pendingConnectionEndpointKey,
+            [pendingConnectionEndpointKey]: syntheticEndpointKey,
+          },
+        };
+      }
+
+      if (
         isPrivolavaciaCounterPieceType(targetPiece.type) &&
         isPrivolavaciaSignalPieceType(sourcePiece.type)
       ) {
@@ -802,6 +878,14 @@ export default function StationEditorClient({ tiles, stateGroups }: Props) {
             if (linkedEndpointKey) {
               delete nextConnections[linkedEndpointKey];
             }
+            delete nextConnections[endpointKey];
+          });
+      } else if (isAhLineblockPieceType(piece.type)) {
+        Object.keys(nextConnections)
+          .filter((endpointKey) => endpointKey.startsWith(`${disconnectMenu.pieceId}:ah-block-signal:`))
+          .forEach((endpointKey) => {
+            const linkedEndpointKey = nextConnections[endpointKey];
+            if (linkedEndpointKey) delete nextConnections[linkedEndpointKey];
             delete nextConnections[endpointKey];
           });
       } else {
@@ -892,6 +976,7 @@ export default function StationEditorClient({ tiles, stateGroups }: Props) {
         onContextMenuMirror={handleContextMenuMirror}
         onContextMenuEditText={handleContextMenuEditText}
         onContextMenuEditLevelCrossingTimings={handleContextMenuEditLevelCrossingTimings}
+        onContextMenuEditSwitchSpeed={handleContextMenuEditSwitchSpeed}
         onContextMenuStartConnection={handleContextMenuStartConnection}
         onContextMenuCancelConnection={handleContextMenuCancelConnection}
         onContextMenuConnect={handleContextMenuConnect}
