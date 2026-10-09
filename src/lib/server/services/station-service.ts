@@ -1492,6 +1492,12 @@ function isAhAdjacentSectionOccupied(
 }
 
 function syncAhBlockSignalAspects(station: StationDocument, session: SessionDocument) {
+  Object.values(station.layout.pieces).forEach((piece) => {
+    if (piece.type === 'lineblockAhSig' && piece.state.groups.signal) {
+      piece.state.groups.signal = { state: 'default', variant: 'normal' };
+    }
+  });
+
   getAhBlockSignalLinksFromLayout(station.layout).forEach(
     ({ lineblockPieceId, blockSignalPieceId }) => {
       const lineblock = station.layout.pieces[lineblockPieceId];
@@ -1500,12 +1506,19 @@ function syncAhBlockSignalAspects(station: StationDocument, session: SessionDocu
       if (!isBlockSignalPieceType(blockSignal.type) || !blockSignal.state.groups.signal) return;
 
       const occupied = isAhAdjacentSectionOccupied(station, session, lineblockPieceId);
+      const callOnActive = Boolean(station.runtime.activePrivolavaciaSignals[blockSignalPieceId]);
       // Missing boundary wiring is fail-safe: a block signal may only clear
       // once the existing entry-signal boundary can be resolved.
       blockSignal.state.groups.signal = {
-        state: occupied === false ? 'departure' : 'default',
-        variant: 'normal',
+        state: callOnActive ? 'shunt' : occupied === false ? 'departure' : 'default',
+        variant: callOnActive ? 'blinking' : 'normal',
       };
+      if (lineblock.type === 'lineblockAhSig' && lineblock.state.groups.signal) {
+        lineblock.state.groups.signal = {
+          state: callOnActive ? 'shunt' : occupied === false ? 'departure' : 'default',
+          variant: callOnActive ? 'blinking' : 'normal',
+        };
+      }
     },
   );
 }

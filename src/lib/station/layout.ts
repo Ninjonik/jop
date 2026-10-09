@@ -31,6 +31,7 @@ const PRIVOLAVACIA_SIGNAL_TILE_KEYS = new Set([
   'entrySignalNoOcp',
   'departureSignal',
   'departureSignalNoOcp',
+  'blockSignal',
 ]);
 const TRACK_CROSSING_TILE_KEYS = new Set(['trackCrossing', 'trackCrossingNoOcp']);
 

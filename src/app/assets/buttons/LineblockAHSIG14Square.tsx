@@ -8,6 +8,10 @@ type LineblockAHSIG14SquareProps = SVGProps<SVGSVGElement> & {
   middletext?: string;
   toplefttext?: string;
   toprighttext?: string;
+  topbuttontext?: string;
+  toprightbuttontext?: string;
+  topsealedbuttontext?: string;
+  bottomsealedbuttontext?: string;
   sealedbuttontext?: string;
   signbuttontext?: string;
   sealedcounterdigit1?: string;
@@ -25,6 +29,10 @@ const LineblockAHSIG14Square = ({
   middletext,
   toplefttext,
   toprighttext,
+  topbuttontext,
+  toprightbuttontext,
+  topsealedbuttontext,
+  bottomsealedbuttontext,
   sealedbuttontext,
   signbuttontext,
   sealedcounterdigit1,
@@ -7569,7 +7577,13 @@ const LineblockAHSIG14Square = ({
     <circle fill="var(--color-4f4f4f, #4f4f4f)" cx={412.5} cy={55.36} r={6.21} />
     <circle fill="var(--color-4f4f4f, #4f4f4f)" cx={412.5} cy={70.36} r={6.21} />
     <circle fill="var(--color-departure, #121f1e)" cx={412.5} cy={55.36} r={4.78} />
-    <circle fill="var(--color-shunt, #696969)" cx={412.5} cy={70.36} r={4.78} />
+    <circle
+      style={{ animation: 'var(--shunt-animation, none)' }}
+      fill="var(--color-shunt, #696969)"
+      cx={412.5}
+      cy={70.36}
+      r={4.78}
+    />
     <g>
       <path
         fill="var(--color-fdfefe, #fdfefe)"
@@ -8273,7 +8287,17 @@ const LineblockAHSIG14Square = ({
       {bottomlefttext}
     </text>
     <text
-      x={337.5}
+      x={262.5}
+      y={22.17}
+      textAnchor="middle"
+      dominantBaseline="central"
+      fill="var(--color-topbuttontext, #000)"
+      fontSize="var(--size-topbuttontext, 10px)"
+    >
+      {topbuttontext}
+    </text>
+    <text
+      x={187.5}
       y={88.2}
       textAnchor="middle"
       dominantBaseline="central"
@@ -8297,6 +8321,16 @@ const LineblockAHSIG14Square = ({
       y={22.17}
       textAnchor="middle"
       dominantBaseline="central"
+      fill="var(--color-toprightbuttontext, #000)"
+      fontSize="var(--size-toprightbuttontext, 10px)"
+    >
+      {toprightbuttontext}
+    </text>
+    <text
+      x={337.5}
+      y={88.2}
+      textAnchor="middle"
+      dominantBaseline="central"
       fill="var(--color-signbuttontext, #000)"
       fontSize="var(--size-signbuttontext, 10px)"
     >
@@ -8307,12 +8341,34 @@ const LineblockAHSIG14Square = ({
       y={93.56}
       textAnchor="middle"
       dominantBaseline="central"
-      writingMode="tb"
-      glyphOrientationVertical={0}
       fill="var(--color-blocksignaltext, #000)"
       fontSize="var(--size-blocksignaltext, 10px)"
     >
-      {blocksignaltext}
+      {blocksignaltext?.split(/\r?\n/).map((line, index, lines) => (
+        <tspan key={index} x={412.5} y={93.56 + (index - (lines.length - 1) / 2) * 12}>
+          {line}
+        </tspan>
+      ))}
+    </text>
+    <text
+      x={487.5}
+      y={22.17}
+      textAnchor="middle"
+      dominantBaseline="central"
+      fill="var(--color-topsealedbuttontext, #000)"
+      fontSize="var(--size-topsealedbuttontext, 10px)"
+    >
+      {topsealedbuttontext}
+    </text>
+    <text
+      x={487.5}
+      y={88.2}
+      textAnchor="middle"
+      dominantBaseline="central"
+      fill="var(--color-bottomsealedbuttontext, #000)"
+      fontSize="var(--size-bottomsealedbuttontext, 10px)"
+    >
+      {bottomsealedbuttontext}
     </text>
     {[
       sealedcounterdigit6,
