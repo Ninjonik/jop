@@ -50,6 +50,8 @@ export interface TileData {
   groups?: ComponentGroups;
   staticStyles?: Record<string, string>;
   texts?: Record<string, TextConfig>;
+  /** Restricts editor placement and in-place transforms for asymmetric panels. */
+  orientations?: PieceOrientation[];
 }
 
 export type TileCatalog = Record<string, TileData>;

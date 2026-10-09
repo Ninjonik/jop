@@ -1,3 +1,4 @@
+import { getDefaultTextValues, getInitialGroupSelections } from './tile-state';
 import type {
   GroupSelection,
   PieceOrientation,
@@ -5,7 +6,6 @@ import type {
   TileCatalog,
   TileData,
 } from './tile-types';
-import { getDefaultTextValues, getInitialGroupSelections } from './tile-state';
 
 export const FILLER_TILE_KEY = 'filler';
 
@@ -21,7 +21,7 @@ const SWITCH_TILE_KEYS = new Set([
 ]);
 
 const SWITCH_BUTTON_TILE_KEYS = new Set(['switchButton']);
-const LINEBLOCK_TILE_KEYS = new Set(['lineblock']);
+const LINEBLOCK_TILE_KEYS = new Set(['lineblock', 'lineblockAhNoSig', 'lineblockAhSig']);
 const PREMAIN_SIGNAL_TILE_KEYS = new Set(['premainSignal', 'premainSignalNoOcp']);
 const PRIVOLAVACIA_COUNTER_TILE_KEYS = new Set(['signButtonSealedCounter']);
 const PRIVOLAVACIA_SIGNAL_TILE_KEYS = new Set([
@@ -109,7 +109,7 @@ function getTransformedPoint(
   x: number,
   y: number,
   space: { x: number; y: number },
-  orientation: PieceOrientation
+  orientation: PieceOrientation,
 ): [number, number] {
   let nextX = x;
   let nextY = y;
@@ -130,7 +130,7 @@ export function transformPoint(
   x: number,
   y: number,
   space: { x: number; y: number },
-  orientation: PieceOrientation
+  orientation: PieceOrientation,
 ) {
   return getTransformedPoint(x, y, space, orientation);
 }
@@ -153,9 +153,9 @@ export function buildPlacementVariants(tiles: TileCatalog) {
   ];
 
   Object.entries(tiles).forEach(([tileKey, tile]) => {
-    orientations.forEach((orientation) => {
+    (tile.orientations ?? orientations).forEach((orientation) => {
       const normalized = normalizeUsedSpace(
-        tile.usedSpace.map(([x, y]) => getTransformedPoint(x, y, tile.space, orientation))
+        tile.usedSpace.map(([x, y]) => getTransformedPoint(x, y, tile.space, orientation)),
       );
       const signature = sortCells(normalized)
         .map(([x, y]) => `${x},${y}`)
@@ -163,9 +163,10 @@ export function buildPlacementVariants(tiles: TileCatalog) {
       // Switch orientation changes traversal endpoints even when its occupied
       // cells have the same footprint (for example a 1×2 single switch).
       // Preserve every switch orientation for editor placement.
-      const dedupeKey = SWITCH_TILE_KEYS.has(tileKey)
-        ? `${tileKey}:${orientation.rotation}:${orientation.mirrored}`
-        : `${tileKey}:${signature}`;
+      const dedupeKey =
+        SWITCH_TILE_KEYS.has(tileKey) || tile.orientations
+          ? `${tileKey}:${orientation.rotation}:${orientation.mirrored}`
+          : `${tileKey}:${signature}`;
 
       if (seen.has(dedupeKey)) {
         return;
@@ -194,15 +195,15 @@ export function canPieceUseInPlaceOrientation(tile: TileData) {
   ];
 
   const signatures = new Set(
-    orientations.map((orientation) =>
+    (tile.orientations ?? orientations).map((orientation) =>
       sortCells(
         normalizeUsedSpace(
-          tile.usedSpace.map(([x, y]) => getTransformedPoint(x, y, tile.space, orientation))
-        )
+          tile.usedSpace.map(([x, y]) => getTransformedPoint(x, y, tile.space, orientation)),
+        ),
       )
         .map(([x, y]) => `${x},${y}`)
-        .join('|')
-    )
+        .join('|'),
+    ),
   );
 
   return signatures.size === 1;
@@ -211,7 +212,7 @@ export function canPieceUseInPlaceOrientation(tile: TileData) {
 export function createPieceRecord(
   tileKey: string,
   tile: TileData,
-  stateGroups: StateGroupRegistry
+  stateGroups: StateGroupRegistry,
 ): PieceRecord {
   return {
     type: tileKey,
@@ -240,12 +241,12 @@ export function cloneStationLayout(layout: StationLayout): StationLayout {
               Object.entries(piece.state.groups).map(([groupKey, selection]) => [
                 groupKey,
                 { ...selection },
-              ])
+              ]),
             ),
             texts: { ...piece.state.texts },
           },
         },
-      ])
+      ]),
     ),
   };
 }
@@ -257,7 +258,7 @@ export function placePieceAt(
   anchorY: number,
   tiles: TileCatalog,
   stateGroups: StateGroupRegistry,
-  orientation: PieceOrientation = { rotation: 0, mirrored: false }
+  orientation: PieceOrientation = { rotation: 0, mirrored: false },
 ) {
   const tile = tiles[tileKey];
   const pieceId = createId();
@@ -272,7 +273,7 @@ export function placePieceAt(
     (variant) =>
       variant.tileKey === tileKey &&
       variant.orientation.rotation === orientation.rotation &&
-      variant.orientation.mirrored === orientation.mirrored
+      variant.orientation.mirrored === orientation.mirrored,
   )?.usedSpace;
 
   const usedSpace = normalizedUsedSpace ?? tile.usedSpace;
@@ -288,11 +289,11 @@ export function createInitialStationLayout(
   width: number,
   height: number,
   tiles: TileCatalog,
-  stateGroups: StateGroupRegistry
+  stateGroups: StateGroupRegistry,
 ): StationLayout {
   const pieces: Record<string, PieceRecord> = {};
   const map: GridCellRef[][] = Array.from({ length: height }, () =>
-    Array.from({ length: width }, () => '' as GridCellRef)
+    Array.from({ length: width }, () => '' as GridCellRef),
   );
   const fillerTile = tiles[FILLER_TILE_KEY];
 
@@ -401,7 +402,7 @@ export function getPieceAnchor(layout: StationLayout, targetPieceId: string) {
 export function getAllowedPlacements(
   layout: StationLayout,
   selectedCells: [number, number][],
-  placementVariants: PlacementVariant[]
+  placementVariants: PlacementVariant[],
 ) {
   if (selectedCells.length === 0) {
     return [];
@@ -422,7 +423,7 @@ export function getAllowedPlacements(
     (variant) =>
       sortCells(variant.usedSpace)
         .map(([x, y]) => `${x},${y}`)
-        .join('|') === signature
+        .join('|') === signature,
   );
 }
 
@@ -674,7 +675,10 @@ export function getLevelCrossingTrackPieceIds(layout: StationLayout, crossingPie
     .filter((pieceId, index, pieceIds) => pieceIds.indexOf(pieceId) === index);
 }
 
-export function getConnectedPieceIdsForEndpointKey(layout: StationLayout, endpointKey: string | null) {
+export function getConnectedPieceIdsForEndpointKey(
+  layout: StationLayout,
+  endpointKey: string | null,
+) {
   if (!endpointKey) {
     return [];
   }
@@ -691,9 +695,7 @@ export function getConnectedPieceIdsForEndpointKey(layout: StationLayout, endpoi
 
   if (isTrackCrossingPieceType(piece.type)) {
     return Object.entries(layout.connections)
-      .filter(([sourceEndpointKey]) =>
-        sourceEndpointKey.startsWith(`${pieceId}:level-crossing:`),
-      )
+      .filter(([sourceEndpointKey]) => sourceEndpointKey.startsWith(`${pieceId}:level-crossing:`))
       .map(([, linkedEndpointKey]) => getConnectionPieceId(linkedEndpointKey))
       .filter((connectedPieceId, index, allIds) => allIds.indexOf(connectedPieceId) === index);
   }

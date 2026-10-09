@@ -4,6 +4,8 @@ import type { TileCatalog } from '@/app/components/tiles/tile-catalog';
 
 import DepartureButton1Square from '@/app/assets/buttons/DepartureButton1Square';
 import Lineblock6Square from '@/app/assets/buttons/Lineblock6Square';
+import LineblockAHNOSIG10Square from '@/app/assets/buttons/LineblockAHNOSIG10Square';
+import LineblockAHSIG14Square from '@/app/assets/buttons/LineblockAHSIG14Square';
 import ShuntButton1Square from '@/app/assets/buttons/ShuntButton1Square';
 import ShuntButtonNOOCP1Square from '@/app/assets/buttons/ShuntButtonNOOCP1Square';
 import SignButton1Square from '@/app/assets/buttons/SignButton1Square';
@@ -12,6 +14,132 @@ import SignButtonSealedCounter1Square from '@/app/assets/buttons/SignButtonSeale
 import SwitchButton2Square from '@/app/assets/buttons/SwitchButton2Square';
 
 export const buttonTiles: TileCatalog = {
+  lineblockAhNoSig: {
+    component: LineblockAHNOSIG10Square,
+    space: { x: 5, y: 2 },
+    usedSpace: [
+      [0, 0],
+      [1, 0],
+      [2, 0],
+      [0, 1],
+      [1, 1],
+      [2, 1],
+      [3, 1],
+      [4, 1],
+    ],
+    traversable: false,
+    orientations: [
+      { rotation: 0, mirrored: false },
+      { rotation: 0, mirrored: true },
+    ],
+    staticStyles: {
+      ...boardColorsDark,
+      '--color-1a1a1a': '#1a1a1a',
+      '--color-1f1f1f': '#1f1f1f',
+      '--color-242424': '#242424',
+      '--color-333': '#333',
+      '--color-383838': '#383838',
+      '--color-616161': '#616161',
+      '--color-949494': '#949494',
+      '--color-960000': '#960000',
+      '--main-color-alt': '#b3b3b3',
+      '--detail-color': '#6e6e6e',
+    },
+    groups: {
+      lineblock: {
+        states: [
+          'default',
+          'sending',
+          'sendingFree',
+          'receiving',
+          'receivingFree',
+          'receivingAwaitingConfirmation',
+        ],
+        defaultState: 'default',
+      },
+      ahNoSigSeal: { states: ['sealed', 'unsealed'], defaultState: 'sealed' },
+    },
+    texts: {
+      bottomlefttext: { fill: '#000', size: '10px', text: 'Bottom Left Text' },
+      toplefttext: { fill: '#000', size: '10px', text: 'Top Left Text' },
+      middletext: { fill: '#000', size: '10px', text: 'Middle Text' },
+      toprighttext: { fill: '#000', size: '10px', text: 'Top Right Text' },
+      bottomrighttext: { fill: '#000', size: '10px', text: 'Bottom Right Text' },
+      sealedbuttontext: { fill: '#000', size: '10px', text: 'Text' },
+      signbuttontext: { fill: '#000', size: '10px', text: 'Text' },
+      sealeddigit6: { fill: '#D3D3D3', size: '6px', text: '0' },
+      sealeddigit5: { fill: '#D3D3D3', size: '6px', text: '0' },
+      sealeddigit4: { fill: '#D3D3D3', size: '6px', text: '0' },
+      sealeddigit3: { fill: '#D3D3D3', size: '6px', text: '0' },
+      sealeddigit2: { fill: '#D3D3D3', size: '6px', text: '0' },
+      sealeddigit1: { fill: '#D3D3D3', size: '6px', text: '0' },
+    },
+  },
+
+  lineblockAhSig: {
+    component: LineblockAHSIG14Square,
+    space: { x: 7, y: 2 },
+    usedSpace: Array.from(
+      { length: 14 },
+      (_, index) => [index % 7, Math.floor(index / 7)] as [number, number],
+    ),
+    traversable: false,
+    orientations: [
+      { rotation: 0, mirrored: false },
+      { rotation: 0, mirrored: true },
+    ],
+    staticStyles: {
+      ...boardColorsDark,
+      '--color-1a1a1a': '#1a1a1a',
+      '--color-1f1f1f': '#1f1f1f',
+      '--color-242424': '#242424',
+      '--color-333': '#333',
+      '--color-383838': '#383838',
+      '--color-616161': '#616161',
+      '--color-949494': '#949494',
+      '--color-960000': '#960000',
+      '--main-color-alt': '#b3b3b3',
+      '--detail-color': '#6e6e6e',
+      '--stripe-color': '#3b3b3b',
+      '--color-departure': '#121f1e',
+      '--color-shunt': '#696969',
+      '--color-4f4f4f': '#4f4f4f',
+    },
+    groups: {
+      lineblock: {
+        states: [
+          'default',
+          'sending',
+          'sendingFree',
+          'receiving',
+          'receivingFree',
+          'receivingAwaitingConfirmation',
+        ],
+        defaultState: 'default',
+      },
+      ahSignalTopSeal: { states: ['sealed', 'unsealed'], defaultState: 'sealed' },
+      ahSignalSSeal: { states: ['sealed', 'unsealed'], defaultState: 'sealed' },
+      ahSignalBottomSeal: { states: ['sealed', 'unsealed'], defaultState: 'sealed' },
+      ahSignalZSeal: { states: ['sealed', 'unsealed'], defaultState: 'sealed' },
+    },
+    texts: {
+      bottomlefttext: { fill: '#000', size: '10px', text: 'Bottom Left Text' },
+      toplefttext: { fill: '#000', size: '10px', text: 'Top Left Text' },
+      middletext: { fill: '#000', size: '10px', text: 'Middle Text' },
+      toprighttext: { fill: '#000', size: '10px', text: 'Top Right Text' },
+      bottomrighttext: { fill: '#000', size: '10px', text: 'Bottom Right Text' },
+      sealedbuttontext: { fill: '#000', size: '10px', text: 'Text' },
+      signbuttontext: { fill: '#000', size: '10px', text: 'Text' },
+      blocksignaltext: { fill: '#000', size: '10px', text: 'Text' },
+      sealedcounterdigit6: { fill: '#D3D3D3', size: '6px', text: '0' },
+      sealedcounterdigit5: { fill: '#D3D3D3', size: '6px', text: '0' },
+      sealedcounterdigit4: { fill: '#D3D3D3', size: '6px', text: '0' },
+      sealedcounterdigit3: { fill: '#D3D3D3', size: '6px', text: '0' },
+      sealedcounterdigit2: { fill: '#D3D3D3', size: '6px', text: '0' },
+      sealedcounterdigit1: { fill: '#D3D3D3', size: '6px', text: '0' },
+    },
+  },
+
   departureButton: {
     component: DepartureButton1Square,
     space: { x: 1, y: 1 },

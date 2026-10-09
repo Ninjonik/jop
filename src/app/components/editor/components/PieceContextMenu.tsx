@@ -84,20 +84,24 @@ export default function PieceContextMenu({
       </div>
       {contextMenu.supportsOrientationChange ? (
         <>
-          <button
-            type="button"
-            onClick={onRotate}
-            className="border-b border-neutral-300 px-2 py-1 text-left text-sm text-black"
-          >
-            rotate
-          </button>
-          <button
-            type="button"
-            onClick={onMirror}
-            className="border-b border-neutral-300 px-2 py-1 text-left text-sm text-black"
-          >
-            mirror
-          </button>
+          {contextMenu.canRotate ? (
+            <button
+              type="button"
+              onClick={onRotate}
+              className="border-b border-neutral-300 px-2 py-1 text-left text-sm text-black"
+            >
+              rotate
+            </button>
+          ) : null}
+          {contextMenu.canMirror ? (
+            <button
+              type="button"
+              onClick={onMirror}
+              className="border-b border-neutral-300 px-2 py-1 text-left text-sm text-black"
+            >
+              mirror
+            </button>
+          ) : null}
         </>
       ) : null}
       {contextMenu.textKeys.map((textKey) => (
@@ -125,9 +129,7 @@ export default function PieceContextMenu({
           onClick={onDisconnect}
           className="border-b border-neutral-300 px-2 py-1 text-left text-sm text-black"
         >
-          {`connected: ${contextMenu.connectedPieceCells
-            .map(([x, y]) => `${x},${y}`)
-            .join(' | ')}`}
+          {`connected: ${contextMenu.connectedPieceCells.map(([x, y]) => `${x},${y}`).join(' | ')}`}
         </button>
       ) : null}
       {contextMenu.canCancelPendingConnection ? (
@@ -157,11 +159,7 @@ export default function PieceContextMenu({
           start selection
         </button>
       ) : null}
-      <button
-        type="button"
-        onClick={onRemove}
-        className="px-2 py-1 text-left text-sm text-black"
-      >
+      <button type="button" onClick={onRemove} className="px-2 py-1 text-left text-sm text-black">
         remove
       </button>
     </div>

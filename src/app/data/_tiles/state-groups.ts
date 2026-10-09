@@ -457,4 +457,49 @@ export const stateGroups: StateGroupRegistry = {
       },
     },
   },
+  ahNoSigSeal: {
+    label: 'AH no-signal seal',
+    defaultState: 'sealed',
+    defaultVariant: 'normal',
+    states: {
+      sealed: { base: { '--color-ah-nosig-seal': '#960000' } },
+      unsealed: { base: { '--color-ah-nosig-seal': 'transparent' } },
+    },
+  },
+  ahSignalTopSeal: {
+    label: 'AH signal top seal',
+    defaultState: 'sealed',
+    defaultVariant: 'normal',
+    states: {
+      sealed: { base: { '--color-ah-signal-top-seal': '#960000' } },
+      unsealed: { base: { '--color-ah-signal-top-seal': 'transparent' } },
+    },
+  },
+  ahSignalSSeal: {
+    label: 'AH signal S seal',
+    defaultState: 'sealed',
+    defaultVariant: 'normal',
+    states: {
+      sealed: { base: { '--color-ah-signal-s-seal': '#960000' } },
+      unsealed: { base: { '--color-ah-signal-s-seal': 'transparent' } },
+    },
+  },
+  ahSignalBottomSeal: {
+    label: 'AH signal bottom seal',
+    defaultState: 'sealed',
+    defaultVariant: 'normal',
+    states: {
+      sealed: { base: { '--color-ah-signal-bottom-seal': '#960000' } },
+      unsealed: { base: { '--color-ah-signal-bottom-seal': 'transparent' } },
+    },
+  },
+  ahSignalZSeal: {
+    label: 'AH signal Z seal',
+    defaultState: 'sealed',
+    defaultVariant: 'normal',
+    states: {
+      sealed: { base: { '--color-ah-signal-z-seal': '#960000' } },
+      unsealed: { base: { '--color-ah-signal-z-seal': 'transparent' } },
+    },
+  },
 };

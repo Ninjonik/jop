@@ -13,13 +13,13 @@ import type {
   SessionSchemaDocument,
   StationDocument,
 } from '@/lib/station/domain';
-import type { StationLayout } from '@/lib/station/layout';
+import { isLineblockPieceType, type StationLayout } from '@/lib/station/layout';
 
 import StationTopologyBoard from './StationTopologyBoard';
 
 function getLineblockPieceIds(station: StationDocument): string[] {
   return Object.entries(station.layout.pieces)
-    .filter(([, piece]) => piece.type === 'lineblock')
+    .filter(([, piece]) => isLineblockPieceType(piece.type))
     .map(([pieceId]) => pieceId)
     .sort();
 }

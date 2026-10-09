@@ -4281,13 +4281,13 @@ export const stationService = {
     const pieceA = stationA.layout.pieces[endpoints.a.pieceId];
     const pieceB = stationB.layout.pieces[endpoints.b.pieceId];
 
-    if (!pieceA || pieceA.type !== 'lineblock') {
+    if (!pieceA || !isLineblockPieceType(pieceA.type)) {
       throw new Error(
         `Station ${endpoints.a.stationId} does not contain lineblock ${endpoints.a.pieceId}.`,
       );
     }
 
-    if (!pieceB || pieceB.type !== 'lineblock') {
+    if (!pieceB || !isLineblockPieceType(pieceB.type)) {
       throw new Error(
         `Station ${endpoints.b.stationId} does not contain lineblock ${endpoints.b.pieceId}.`,
       );

@@ -5,7 +5,12 @@ import { useEffect, useRef, useState } from 'react';
 import TileSvg from '@/app/components/tiles/TileSvg';
 import { stateGroups, tiles } from '@/app/data/tiles';
 import type { LineblockActionType, StationDocument, SwitchPosition } from '@/lib/station/domain';
-import { getPieceAnchor, getRenderablePieces, parseCellRef } from '@/lib/station/layout';
+import {
+  getPieceAnchor,
+  getRenderablePieces,
+  isLineblockPieceType,
+  parseCellRef,
+} from '@/lib/station/layout';
 import { buildRouteFromSelection } from '@/lib/station/routes';
 import {
   getConnectedSwitchControl,
@@ -19,12 +24,9 @@ interface StationRuntimeBoardProps {
   onLineblockSnapshots: (localStation: StationDocument, remoteStation: StationDocument) => void;
 }
 
-function getActionButtonSide(mirrored: boolean, side: 'left' | 'right') {
-  if (!mirrored) {
-    return side;
-  }
-
-  return side === 'left' ? 'right' : 'left';
+function getLineblockActionOffset(tileWidth: number, mirrored: boolean, side: 'left' | 'right') {
+  const unmirroredColumn = side === 'left' ? 0 : 2;
+  return mirrored ? tileWidth - 1 - unmirroredColumn : unmirroredColumn;
 }
 
 function getOrientedSide(rotation: 0 | 180, mirrored: boolean, side: 'left' | 'right') {
@@ -560,8 +562,16 @@ export default function StationRuntimeBoard({
         {renderablePieces.map(({ pieceId, anchorX, anchorY }) => {
           const piece = layout.pieces[pieceId];
           const tile = tiles[piece.type];
-          const leftButtonSide = getActionButtonSide(piece.mirrored, 'left');
-          const rightButtonSide = getActionButtonSide(piece.mirrored, 'right');
+          const leftLineblockActionOffset = getLineblockActionOffset(
+            tile.space.x,
+            piece.mirrored,
+            'left',
+          );
+          const rightLineblockActionOffset = getLineblockActionOffset(
+            tile.space.x,
+            piece.mirrored,
+            'right',
+          );
           const normalControlSide = getOrientedSide(piece.rotation, piece.mirrored, 'left');
           const shuntControlSide = getOrientedSide(piece.rotation, piece.mirrored, 'right');
           const bufferControlSide = getOrientedSide(piece.rotation, piece.mirrored, 'left');
@@ -599,7 +609,7 @@ export default function StationRuntimeBoard({
                 className="h-full w-full object-contain"
               />
 
-              {piece.type === 'lineblock' ? (
+              {isLineblockPieceType(piece.type) ? (
                 <>
                   <button
                     type="button"
@@ -610,7 +620,7 @@ export default function StationRuntimeBoard({
                     style={{
                       width: tileSize * 0.8,
                       height: tileSize * 0.5,
-                      [leftButtonSide]: 0,
+                      left: leftLineblockActionOffset * tileSize,
                     }}
                   />
                   <button
@@ -626,7 +636,7 @@ export default function StationRuntimeBoard({
                     style={{
                       width: tileSize * 0.8,
                       height: tileSize * 0.5,
-                      [rightButtonSide]: 0,
+                      left: rightLineblockActionOffset * tileSize,
                     }}
                   />
                 </>

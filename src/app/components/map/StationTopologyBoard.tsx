@@ -3,7 +3,7 @@
 import TileSvg from '@/app/components/tiles/TileSvg';
 import { stateGroups, tiles } from '@/app/data/tiles';
 import type { StationDocument } from '@/lib/station/domain';
-import { getRenderablePieces } from '@/lib/station/layout';
+import { getRenderablePieces, isLineblockPieceType } from '@/lib/station/layout';
 
 type LineblockEndpoint = { stationId: string; pieceId: string };
 
@@ -42,7 +42,7 @@ export default function StationTopologyBoard({
           if (!tile) {
             return null;
           }
-          const isLineblock = piece.type === 'lineblock';
+          const isLineblock = isLineblockPieceType(piece.type);
           const isPending =
             pendingEndpoint?.stationId === station.stationId && pendingEndpoint.pieceId === pieceId;
 

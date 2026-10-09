@@ -2,22 +2,22 @@
 
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ChangeEvent, MouseEvent } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import type { StateGroupRegistry, TileCatalog } from '@/app/components/tiles/tile-catalog';
 import type { StationDocument } from '@/lib/station/domain';
 
-import { DEFAULT_HEIGHT, DEFAULT_WIDTH } from './constants';
 import EditorControls from './components/EditorControls';
 import PlacementToolbar from './components/PlacementToolbar';
 import StationCanvas from './components/StationCanvas';
+import { DEFAULT_HEIGHT, DEFAULT_WIDTH } from './constants';
 import { useResponsiveTileSize } from './hooks/useResponsiveTileSize';
 import type {
   EditorState,
+  PendingPlacementPosition,
   PieceContextMenuState,
   PlacementVariant,
-  PendingPlacementPosition,
 } from './types';
 import {
   buildPlacementVariants,
@@ -36,13 +36,13 @@ import {
   getPieceCells,
   getPrivolavaciaConnectionKey,
   isLineblockPieceType,
+  isPremainSignalPieceType,
   isPrivolavaciaCounterPieceType,
   isPrivolavaciaSignalPieceType,
-  isPremainSignalPieceType,
-  isTrackCrossingPieceType,
-  isTrackPieceType,
   isSwitchButtonPieceType,
   isSwitchPieceType,
+  isTrackCrossingPieceType,
+  isTrackPieceType,
   parseCellRef,
   toCellKey,
   type LayoutExpansionDirection,
@@ -66,7 +66,7 @@ export default function StationEditorClient({ tiles, stateGroups }: Props) {
   const [jopPieceLinksError, setJopPieceLinksError] = useState<string | null>(null);
   const [showTraversablePaths, setShowTraversablePaths] = useState(false);
   const [editorState, setEditorState] = useState<EditorState>(() =>
-    createInitialEditorState(DEFAULT_WIDTH, DEFAULT_HEIGHT, tiles, stateGroups)
+    createInitialEditorState(DEFAULT_WIDTH, DEFAULT_HEIGHT, tiles, stateGroups),
   );
   const [stationLoadError, setStationLoadError] = useState<string | null>(null);
   const [loadedStationKey, setLoadedStationKey] = useState('');
@@ -75,7 +75,9 @@ export default function StationEditorClient({ tiles, stateGroups }: Props) {
   const [pendingVariants, setPendingVariants] = useState<PlacementVariant[]>([]);
   const [pendingPosition, setPendingPosition] = useState<PendingPlacementPosition | null>(null);
   const [contextMenu, setContextMenu] = useState<PieceContextMenuState | null>(null);
-  const [pendingConnectionEndpointKey, setPendingConnectionEndpointKey] = useState<string | null>(null);
+  const [pendingConnectionEndpointKey, setPendingConnectionEndpointKey] = useState<string | null>(
+    null,
+  );
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const tileSize = useResponsiveTileSize(editorState.width);
   const isStationLoading = Boolean(sessionId && stationId) && loadedStationKey !== stationKey;
@@ -83,11 +85,18 @@ export default function StationEditorClient({ tiles, stateGroups }: Props) {
   useEffect(() => {
     if (!sessionId || !stationId) return;
     let active = true;
-    void fetch(`/api/stations/${encodeURIComponent(sessionId)}/${encodeURIComponent(stationId)}`, { cache: 'no-store' })
+    void fetch(`/api/stations/${encodeURIComponent(sessionId)}/${encodeURIComponent(stationId)}`, {
+      cache: 'no-store',
+    })
       .then(async (response) => {
-        const body = (await response.json()) as { station: StationDocument } | { error?: { message?: string } };
+        const body = (await response.json()) as
+          { station: StationDocument } | { error?: { message?: string } };
         if (!response.ok || !('station' in body)) {
-          throw new Error('error' in body ? (body.error?.message ?? 'Could not load station.') : 'Could not load station.');
+          throw new Error(
+            'error' in body
+              ? (body.error?.message ?? 'Could not load station.')
+              : 'Could not load station.',
+          );
         }
         if (!active) return;
         const layout = body.station.layout as EditorState;
@@ -103,17 +112,19 @@ export default function StationEditorClient({ tiles, stateGroups }: Props) {
           setLoadedStationKey(stationKey);
         }
       });
-    return () => { active = false; };
+    return () => {
+      active = false;
+    };
   }, [sessionId, stationId, stationKey]);
 
   const allowedPlacements = useMemo(
     () => getAllowedPlacements(editorState, selectedCells, placementVariants),
-    [editorState, placementVariants, selectedCells]
+    [editorState, placementVariants, selectedCells],
   );
 
   const toolbarTileKeys = useMemo(
     () => Array.from(new Set(allowedPlacements.map((variant) => variant.tileKey))),
-    [allowedPlacements]
+    [allowedPlacements],
   );
 
   const clearPlacementUi = () => {
@@ -194,7 +205,10 @@ export default function StationEditorClient({ tiles, stateGroups }: Props) {
             delete nextConnections[endpointKey];
           }
         });
-        if (pendingConnectionEndpointKey && getConnectionPieceId(pendingConnectionEndpointKey) === previousPieceId) {
+        if (
+          pendingConnectionEndpointKey &&
+          getConnectionPieceId(pendingConnectionEndpointKey) === previousPieceId
+        ) {
           setPendingConnectionEndpointKey(null);
         }
         delete nextPieces[previousPieceId];
@@ -329,6 +343,14 @@ export default function StationEditorClient({ tiles, stateGroups }: Props) {
 
     const tile = tiles[piece.type];
     const supportsOrientationChange = tile ? canPieceUseInPlaceOrientation(tile) : false;
+    const allowedOrientations = tile?.orientations;
+    const canRotate =
+      supportsOrientationChange &&
+      (!allowedOrientations ||
+        allowedOrientations.some((orientation) => orientation.rotation === 180));
+    const canMirror =
+      supportsOrientationChange &&
+      (!allowedOrientations || allowedOrientations.some((orientation) => orientation.mirrored));
     const textKeys = Object.keys(tile?.texts ?? {});
     const endpointKey = getConnectionEndpointKey(editorState, pieceId, part);
     const connectedPieceIds = getConnectedPieceIdsForEndpointKey(editorState, endpointKey);
@@ -355,30 +377,28 @@ export default function StationEditorClient({ tiles, stateGroups }: Props) {
     const canCancelPendingConnection = pendingConnectionEndpointKey === endpointKey;
     const canConnectToPending = Boolean(
       endpointKey &&
-        pendingConnectionEndpointKey &&
-        pendingConnectionEndpointKey !== endpointKey &&
-        pendingPiece &&
-        canPiecesConnect(pendingPiece.type, piece.type) &&
-        (
-          (isPrivolavaciaCounterPieceType(pendingPiece.type) &&
-            isPrivolavaciaSignalPieceType(piece.type) &&
-            connectedPieceIds.length === 0) ||
-          (isPrivolavaciaCounterPieceType(piece.type) &&
-            isPrivolavaciaSignalPieceType(pendingPiece.type) &&
-            !editorState.connections[pendingConnectionEndpointKey]) ||
-          (isTrackCrossingPieceType(pendingPiece.type) &&
-            isTrackPieceType(piece.type) &&
-            connectedPieceIds.length === 0) ||
-          (isTrackCrossingPieceType(piece.type) &&
-            isTrackPieceType(pendingPiece.type) &&
-            !editorState.connections[pendingConnectionEndpointKey]) ||
-          (!isPrivolavaciaCounterPieceType(pendingPiece.type) &&
-            !isPrivolavaciaCounterPieceType(piece.type) &&
-            !isTrackCrossingPieceType(pendingPiece.type) &&
-            !isTrackCrossingPieceType(piece.type) &&
-            connectedPieceIds.length === 0 &&
-            !editorState.connections[pendingConnectionEndpointKey])
-        )
+      pendingConnectionEndpointKey &&
+      pendingConnectionEndpointKey !== endpointKey &&
+      pendingPiece &&
+      canPiecesConnect(pendingPiece.type, piece.type) &&
+      ((isPrivolavaciaCounterPieceType(pendingPiece.type) &&
+        isPrivolavaciaSignalPieceType(piece.type) &&
+        connectedPieceIds.length === 0) ||
+        (isPrivolavaciaCounterPieceType(piece.type) &&
+          isPrivolavaciaSignalPieceType(pendingPiece.type) &&
+          !editorState.connections[pendingConnectionEndpointKey]) ||
+        (isTrackCrossingPieceType(pendingPiece.type) &&
+          isTrackPieceType(piece.type) &&
+          connectedPieceIds.length === 0) ||
+        (isTrackCrossingPieceType(piece.type) &&
+          isTrackPieceType(pendingPiece.type) &&
+          !editorState.connections[pendingConnectionEndpointKey]) ||
+        (!isPrivolavaciaCounterPieceType(pendingPiece.type) &&
+          !isPrivolavaciaCounterPieceType(piece.type) &&
+          !isTrackCrossingPieceType(pendingPiece.type) &&
+          !isTrackCrossingPieceType(piece.type) &&
+          connectedPieceIds.length === 0 &&
+          !editorState.connections[pendingConnectionEndpointKey])),
     );
 
     setSelectedCells([]);
@@ -388,6 +408,8 @@ export default function StationEditorClient({ tiles, stateGroups }: Props) {
       x: event.clientX,
       y: event.clientY,
       supportsOrientationChange,
+      canRotate,
+      canMirror,
       isTrackCrossing: isTrackCrossingPieceType(piece.type),
       textKeys,
       canStartConnection,
@@ -399,7 +421,9 @@ export default function StationEditorClient({ tiles, stateGroups }: Props) {
     });
   };
 
-  const updateContextPiece = (updater: (piece: EditorState['pieces'][string]) => EditorState['pieces'][string]) => {
+  const updateContextPiece = (
+    updater: (piece: EditorState['pieces'][string]) => EditorState['pieces'][string],
+  ) => {
     if (!contextMenu) {
       return;
     }
@@ -479,9 +503,14 @@ export default function StationEditorClient({ tiles, stateGroups }: Props) {
           body: JSON.stringify({ layout: editorState }),
         },
       );
-      const body = (await response.json()) as { station: StationDocument } | { error?: { message?: string } };
+      const body = (await response.json()) as
+        { station: StationDocument } | { error?: { message?: string } };
       if (!response.ok || !('station' in body)) {
-        throw new Error('error' in body ? (body.error?.message ?? 'Could not save station.') : 'Could not save station.');
+        throw new Error(
+          'error' in body
+            ? (body.error?.message ?? 'Could not save station.')
+            : 'Could not save station.',
+        );
       }
       setStationLoadError(null);
       window.alert(`Saved ${body.station.stationId}.`);
@@ -497,10 +526,9 @@ export default function StationEditorClient({ tiles, stateGroups }: Props) {
     const piece = editorState.pieces[contextMenu.pieceId];
     if (!piece) return;
     const current = piece.levelCrossingTimings ?? {};
-    const fields: Array<[
-      'warningSeconds' | 'lowerSeconds' | 'raiseSeconds' | 'whiteDelaySeconds',
-      string,
-    ]> = [
+    const fields: Array<
+      ['warningSeconds' | 'lowerSeconds' | 'raiseSeconds' | 'whiteDelaySeconds', string]
+    > = [
       ['warningSeconds', 'Warning before barriers lower (seconds; blank = 8)'],
       ['lowerSeconds', 'Barrier lowering duration (seconds; blank = 7)'],
       ['raiseSeconds', 'Barrier raising duration (seconds; blank = 7)'],
@@ -525,7 +553,11 @@ export default function StationEditorClient({ tiles, stateGroups }: Props) {
     const normalizedBellValue = bellValue.trim().toLowerCase();
     if (normalizedBellValue === 'yes' || normalizedBellValue === 'true') {
       next.bellContinuesAfterLowering = true;
-    } else if (normalizedBellValue !== '' && normalizedBellValue !== 'no' && normalizedBellValue !== 'false') {
+    } else if (
+      normalizedBellValue !== '' &&
+      normalizedBellValue !== 'no' &&
+      normalizedBellValue !== 'false'
+    ) {
       window.alert('Bell option must be yes, no, or blank.');
       return;
     }
@@ -613,7 +645,11 @@ export default function StationEditorClient({ tiles, stateGroups }: Props) {
   const handleContextMenuConnect = () => {
     const targetEndpointKey = contextMenu?.endpointKey;
 
-    if (!targetEndpointKey || !pendingConnectionEndpointKey || pendingConnectionEndpointKey === targetEndpointKey) {
+    if (
+      !targetEndpointKey ||
+      !pendingConnectionEndpointKey ||
+      pendingConnectionEndpointKey === targetEndpointKey
+    ) {
       return;
     }
 
@@ -693,7 +729,10 @@ export default function StationEditorClient({ tiles, stateGroups }: Props) {
           return current;
         }
 
-        const syntheticEndpointKey = getPrivolavaciaConnectionKey(contextMenu.pieceId, getConnectionPieceId(pendingConnectionEndpointKey));
+        const syntheticEndpointKey = getPrivolavaciaConnectionKey(
+          contextMenu.pieceId,
+          getConnectionPieceId(pendingConnectionEndpointKey),
+        );
         return {
           ...current,
           connections: {
@@ -755,7 +794,9 @@ export default function StationEditorClient({ tiles, stateGroups }: Props) {
           });
       } else if (isTrackCrossingPieceType(piece.type)) {
         Object.keys(nextConnections)
-          .filter((endpointKey) => endpointKey.startsWith(`${disconnectMenu.pieceId}:level-crossing:`))
+          .filter((endpointKey) =>
+            endpointKey.startsWith(`${disconnectMenu.pieceId}:level-crossing:`),
+          )
           .forEach((endpointKey) => {
             const linkedEndpointKey = nextConnections[endpointKey];
             if (linkedEndpointKey) {
@@ -796,7 +837,9 @@ export default function StationEditorClient({ tiles, stateGroups }: Props) {
     >
       {sessionId && stationId ? (
         <section className="mb-2 flex flex-wrap items-center gap-2 border border-neutral-500 bg-neutral-200 p-2 text-sm text-black">
-          <span>editing saved station {sessionId} / {stationId}</span>
+          <span>
+            editing saved station {sessionId} / {stationId}
+          </span>
           <Link href={`/map?sessionId=${encodeURIComponent(sessionId)}`} className="underline">
             back to map
           </Link>
