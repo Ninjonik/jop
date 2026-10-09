@@ -582,13 +582,13 @@ export default function StationEditorClient({ tiles, stateGroups }: Props) {
     const piece = editorState.pieces[contextMenu.pieceId];
     if (!piece || !isSwitchPieceType(piece.type)) return;
     const answer = window.prompt(
-      'Diverging speed (40, 60, or 100 km/h; blank means the compatible default 40)',
+      'Diverging speed (40, 60, 80, or 100 km/h; blank means the compatible default 40)',
       String(piece.switchSpeed ?? 40),
     );
     if (answer === null) return;
     const speed = Number(answer.trim());
-    if (speed !== 40 && speed !== 60 && speed !== 100) {
-      window.alert('Use 40, 60, or 100.');
+    if (speed !== 40 && speed !== 60 && speed !== 80 && speed !== 100) {
+      window.alert('Use 40, 60, 80, or 100.');
       return;
     }
     setEditorState((current) => ({

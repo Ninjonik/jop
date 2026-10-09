@@ -49,7 +49,7 @@ export interface PieceRecord {
   rotation: 0 | 180;
   mirrored: boolean;
   /** Maximum speed through the diverging route; omitted remains the legacy 40 km/h. */
-  switchSpeed?: 40 | 60 | 100;
+  switchSpeed?: 40 | 60 | 80 | 100;
   levelCrossingTimings?: {
     warningSeconds?: number;
     lowerSeconds?: number;

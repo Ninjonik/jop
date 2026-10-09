@@ -886,13 +886,13 @@ function getOrderedFacingSignalsForRoute(station: StationDocument, route: Active
 function getRouteSpeedRestriction(
   station: StationDocument,
   route: ActiveTrainRoute,
-): 40 | 60 | 100 | null {
+): 40 | 60 | 80 | 100 | null {
   const speeds = route.path.flatMap((step) => {
     const piece = station.layout.pieces[step.pieceId];
     if (!piece || !isDivergingSwitchTraversal(piece.type, step.traversalState)) return [];
     return [piece.switchSpeed ?? 40];
   });
-  return speeds.length > 0 ? (Math.min(...speeds) as 40 | 60 | 100) : null;
+  return speeds.length > 0 ? (Math.min(...speeds) as 40 | 60 | 80 | 100) : null;
 }
 
 function getBaseResolvedSignalAspect(
@@ -948,9 +948,10 @@ function getResolvedStartSignalIdForRoute(station: StationDocument, route: Activ
 function applySpeedRestrictionToResolvedAspect(
   family: RobloxResolvedSignalFamily,
   aspect: RobloxResolvedSignalAspect,
-  speed: 40 | 60 | 100,
+  speed: 40 | 60 | 80 | 100,
 ): RobloxResolvedSignalAspect {
   if (speed === 60 && aspect === 'proceed') return 'proceed60';
+  if (speed === 80 && aspect === 'proceed') return 'proceed80';
   if (speed === 100 && aspect === 'proceed') return 'proceed100';
   if (family === 'departure' || family === 'entry') {
     if (aspect === 'proceed') {
@@ -1012,7 +1013,7 @@ function buildResolvedRobloxSignalAspects(station: StationDocument) {
   const normalRoutes = Object.values(station.runtime.activeTrainRoutes).filter(
     (route) => route.routeType === 'normal',
   );
-  const locallyRestrictedSignals = new Map<string, 40 | 60 | 100>();
+  const locallyRestrictedSignals = new Map<string, 40 | 60 | 80 | 100>();
 
   normalRoutes.forEach((route) => {
     const speed = getRouteSpeedRestriction(station, route);
@@ -1035,7 +1036,10 @@ function buildResolvedRobloxSignalAspects(station: StationDocument) {
       aspect: applySpeedRestrictionToResolvedAspect(current.family, current.aspect, speed),
     });
     const existingSpeed = locallyRestrictedSignals.get(startSignalId);
-    locallyRestrictedSignals.set(startSignalId, existingSpeed ? Math.min(existingSpeed, speed) as 40 | 60 | 100 : speed);
+    locallyRestrictedSignals.set(
+      startSignalId,
+      existingSpeed ? (Math.min(existingSpeed, speed) as 40 | 60 | 80 | 100) : speed,
+    );
   });
 
   const signalPlans = buildSignalRoutePlans(station, normalRoutes, tiles);
@@ -1055,7 +1059,13 @@ function buildResolvedRobloxSignalAspects(station: StationDocument) {
       aspect:
         locallyRestrictedSignals.has(pieceId) && hasLocalSpeedRestriction(current.aspect)
           ? nextSpeed === 40 ? 'proceed40Expect40' : current.aspect
-          : nextSpeed === 40 ? 'expect40' : nextSpeed === 60 ? 'expect60' : 'expect100',
+          : nextSpeed === 40
+            ? 'expect40'
+            : nextSpeed === 60
+              ? 'expect60'
+              : nextSpeed === 80
+                ? 'expect80'
+                : 'expect100',
     });
   });
 
