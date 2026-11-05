@@ -149,3 +149,29 @@ test('OAuth state mismatch is rejected before any external request', async (cont
   assert.equal(location.searchParams.get('error'), 'invalid_state');
   assert.equal(request.mock.callCount(), 0);
 });
+
+test('OAuth redirects use the configured public callback origin behind a proxy', async (context) => {
+  environment(context);
+  const previous = process.env.ROBLOX_REDIRECT_URI;
+  process.env.ROBLOX_REDIRECT_URI = 'https://jop.igportals.eu/api/auth/roblox/callback';
+  context.after(() => {
+    if (previous === undefined) delete process.env.ROBLOX_REDIRECT_URI;
+    else process.env.ROBLOX_REDIRECT_URI = previous;
+  });
+  mockRoblox(context, true, { name: 'Unused role 1', rank: 253 });
+  const response = await GET(
+    new NextRequest(
+      'http://0.0.0.0:3039/api/auth/roblox/callback?code=test-code&state=test-state',
+      {
+        headers: {
+          Cookie: 'roblox_oauth_state=test-state',
+          'x-forwarded-host': 'attacker.example',
+        },
+      },
+    ),
+  );
+  assert.equal(
+    response.headers.get('location'),
+    'https://jop.igportals.eu/dis/login?error=role_not_authorized',
+  );
+});

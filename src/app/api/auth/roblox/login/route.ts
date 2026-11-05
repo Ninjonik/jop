@@ -1,13 +1,15 @@
+import { getRobloxCallbackUrl, getRobloxReturnUrl } from '@/lib/dis/roblox-oauth-url';
 import { NextRequest, NextResponse } from 'next/server';
 import { randomBytes } from 'node:crypto';
 
 export async function GET(request: NextRequest) {
   const clientId = process.env.ROBLOX_CLIENT_ID;
-  const redirectUri =
-    process.env.ROBLOX_REDIRECT_URI || `${request.nextUrl.origin}/api/auth/roblox/callback`;
+  const redirectUri = getRobloxCallbackUrl(request).toString();
 
   if (!clientId || !process.env.ROBLOX_CLIENT_SECRET) {
-    return NextResponse.redirect(new URL('/dis/login?error=missing_configuration', request.url));
+    return NextResponse.redirect(
+      getRobloxReturnUrl(request, '/dis/login?error=missing_configuration'),
+    );
   }
 
   // Generate random state for CSRF protection

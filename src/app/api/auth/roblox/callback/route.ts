@@ -1,3 +1,4 @@
+import { getRobloxCallbackUrl, getRobloxReturnUrl } from '@/lib/dis/roblox-oauth-url';
 import {
   getRobloxUserGroupRole,
   mapRobloxRoleToDis,
@@ -23,17 +24,16 @@ export async function GET(request: NextRequest) {
   const cookieState = request.cookies.get('roblox_oauth_state')?.value;
 
   if (!code) {
-    return NextResponse.redirect(new URL('/dis/login?error=missing_code', request.url));
+    return NextResponse.redirect(getRobloxReturnUrl(request, '/dis/login?error=missing_code'));
   }
 
   if (!state || state !== cookieState) {
-    return NextResponse.redirect(new URL('/dis/login?error=invalid_state', request.url));
+    return NextResponse.redirect(getRobloxReturnUrl(request, '/dis/login?error=invalid_state'));
   }
 
   const clientId = process.env.ROBLOX_CLIENT_ID;
   const clientSecret = process.env.ROBLOX_CLIENT_SECRET;
-  const redirectUri =
-    process.env.ROBLOX_REDIRECT_URI || `${request.nextUrl.origin}/api/auth/roblox/callback`;
+  const redirectUri = getRobloxCallbackUrl(request).toString();
 
   if (!clientId || !clientSecret) {
     return NextResponse.json({ error: 'Roblox OAuth credentials missing' }, { status: 500 });
@@ -58,7 +58,9 @@ export async function GET(request: NextRequest) {
     if (!tokenRes.ok) {
       const errBody = await tokenRes.text();
       console.error('Roblox token exchange failed:', errBody);
-      return NextResponse.redirect(new URL('/dis/login?error=token_exchange_failed', request.url));
+      return NextResponse.redirect(
+        getRobloxReturnUrl(request, '/dis/login?error=token_exchange_failed'),
+      );
     }
 
     const tokenData = await tokenRes.json();
@@ -71,7 +73,7 @@ export async function GET(request: NextRequest) {
     });
 
     if (!userinfoRes.ok) {
-      return NextResponse.redirect(new URL('/dis/login?error=userinfo_failed', request.url));
+      return NextResponse.redirect(getRobloxReturnUrl(request, '/dis/login?error=userinfo_failed'));
     }
 
     const userinfo = await userinfoRes.json();
@@ -83,12 +85,16 @@ export async function GET(request: NextRequest) {
     // 3. Fetch Group Role & Rank
     const groupRoleInfo = await getRobloxUserGroupRole(robloxUserId);
     if (!groupRoleInfo || groupRoleInfo.rank <= 0)
-      return NextResponse.redirect(new URL('/dis/login?error=not_group_member', request.url));
+      return NextResponse.redirect(
+        getRobloxReturnUrl(request, '/dis/login?error=not_group_member'),
+      );
     const roleName = groupRoleInfo.roleName;
     const roleRank = groupRoleInfo?.rank || 0;
     const assignment = mapRobloxRoleToDis(roleName, roleRank);
     if (!assignment)
-      return NextResponse.redirect(new URL('/dis/login?error=role_not_authorized', request.url));
+      return NextResponse.redirect(
+        getRobloxReturnUrl(request, '/dis/login?error=role_not_authorized'),
+      );
     const { role: disRole, trainingStage } = assignment;
 
     // 4. Ensure Appwrite User exists (Using deterministic ID roblox_<sub_hash_or_clean>)
@@ -165,7 +171,7 @@ export async function GET(request: NextRequest) {
     const customToken = await users.createToken(appwriteUserId);
 
     // 7. Redirect to frontend with token to complete client-side session creation
-    const redirectUrl = new URL('/dis/auth-complete', request.url);
+    const redirectUrl = getRobloxReturnUrl(request, '/dis/auth-complete');
     redirectUrl.searchParams.set('userId', customToken.userId);
     redirectUrl.searchParams.set('secret', customToken.secret);
 
@@ -176,7 +182,9 @@ export async function GET(request: NextRequest) {
   } catch (error: unknown) {
     console.error('Error during Roblox OAuth callback:', error);
     if (error instanceof RobloxGroupLookupError)
-      return NextResponse.redirect(new URL('/dis/login?error=group_lookup_failed', request.url));
-    return NextResponse.redirect(new URL('/dis/login?error=server_error', request.url));
+      return NextResponse.redirect(
+        getRobloxReturnUrl(request, '/dis/login?error=group_lookup_failed'),
+      );
+    return NextResponse.redirect(getRobloxReturnUrl(request, '/dis/login?error=server_error'));
   }
 }
