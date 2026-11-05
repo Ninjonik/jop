@@ -1,5 +1,5 @@
-import { redirect } from 'next/navigation';
+import DisLoginForm from '@/app/components/dis/DisLoginForm';
 
 export default function HomePage() {
-  redirect('/dis');
+  return <DisLoginForm />;
 }
