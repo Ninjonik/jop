@@ -1,0 +1,404 @@
+/* =========================================================================
+   WINDOWS 7 AERO & WPF DIS THEME (LIGHT DEFAULT + DARK INDUSTRIAL)
+   ========================================================================= */
+
+:root {
+  /* Aero Glass & Window Base */
+  --aero-bg: #cbd7e6;
+  --aero-window-border: #8fa6c4;
+  --aero-caption-top: #e3efff;
+  --aero-caption-bottom: #b5d1f1;
+  --aero-caption-text: #1e395b;
+  --aero-menubar-bg: #f5f6f7;
+  --aero-menubar-border: #dadbdc;
+  --aero-ribbon-bg: #e5edf5;
+  --aero-ribbon-border: #b2c5d9;
+  --aero-panel-bg: #ffffff;
+  --aero-panel-border: #a0b3c6;
+  --aero-text: #1e293b;
+  --aero-text-muted: #5d6d7e;
+
+  /* Button Gradients (Windows 7 Segoe UI style) */
+  --btn-grad-top: #fbfbfb;
+  --btn-grad-bottom: #e1e4e8;
+  --btn-border: #707070;
+  --btn-hover-top: #f3f9ff;
+  --btn-hover-bottom: #cbe3fc;
+  --btn-hover-border: #3c7fb1;
+  --btn-active-top: #cbe3fc;
+  --btn-active-bottom: #a2c8f0;
+
+  /* DataGrid Aero */
+  --grid-header-top: #f7f9fc;
+  --grid-header-bottom: #e2e8f0;
+  --grid-header-border: #cbd5e1;
+  --grid-row-border: #e2e8f0;
+  --grid-row-alt: #f8fafc;
+  --grid-row-selected-top: #dcebfa;
+  --grid-row-selected-bottom: #c2ddf7;
+  --grid-row-selected-border: #7da2ce;
+  --grid-row-selected-text: #0f2d4a;
+
+  /* Railway indicators */
+  --sig-green: #15803d;
+  --sig-red: #b91c1c;
+  --sig-blue: #1d4ed8;
+  --sig-orange: #d97706;
+  --tpv-cursor: #16a34a;
+  --tpv-bg: #ffffff;
+  --tpv-grid-line: #cbd5e1;
+
+  /* Status Bar */
+  --status-bg: #dfebf7;
+  --status-border: #a5bdd6;
+}
+
+html.dark {
+  /* Aero Dark / Industrial Night Dispatch */
+  --aero-bg: #1c222d;
+  --aero-window-border: #2a3547;
+  --aero-caption-top: #2c384a;
+  --aero-caption-bottom: #1f2735;
+  --aero-caption-text: #d8e2ee;
+  --aero-menubar-bg: #212836;
+  --aero-menubar-border: #323d52;
+  --aero-ribbon-bg: #242c3b;
+  --aero-ribbon-border: #37435a;
+  --aero-panel-bg: #181d26;
+  --aero-panel-border: #37435a;
+  --aero-text: #e2e8f0;
+  --aero-text-muted: #94a3b8;
+
+  --btn-grad-top: #2f3a4c;
+  --btn-grad-bottom: #242c3b;
+  --btn-border: #4a5a75;
+  --btn-hover-top: #3b4960;
+  --btn-hover-bottom: #2a3547;
+  --btn-hover-border: #60a5fa;
+  --btn-active-top: #1e3a5f;
+  --btn-active-bottom: #2563eb;
+
+  --grid-header-top: #2a3547;
+  --grid-header-bottom: #1f2735;
+  --grid-header-border: #37435a;
+  --grid-row-border: #252e3d;
+  --grid-row-alt: #1c222c;
+  --grid-row-selected-top: #1e3a5f;
+  --grid-row-selected-bottom: #172e4c;
+  --grid-row-selected-border: #3b82f6;
+  --grid-row-selected-text: #ffffff;
+
+  --sig-green: #4ade80;
+  --sig-red: #f87171;
+  --sig-blue: #60a5fa;
+  --sig-orange: #fbbf24;
+  --tpv-cursor: #22c55e;
+  --tpv-bg: #111620;
+  --tpv-grid-line: #263244;
+
+  --status-bg: #1f2735;
+  --status-border: #323d52;
+}
+
+/* Base Utility Classes */
+.aero-btn {
+  height: 24px;
+  padding: 0 8px;
+  background: linear-gradient(180deg, var(--btn-grad-top) 0%, var(--btn-grad-bottom) 100%);
+  border: 1px solid var(--btn-border);
+  border-radius: 3px;
+  font-family: inherit;
+  font-size: 11.5px;
+  color: var(--aero-text);
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.7),
+    0 1px 1px rgba(0, 0, 0, 0.06);
+  user-select: none;
+  white-space: nowrap;
+}
+.aero-btn:hover {
+  background: linear-gradient(180deg, var(--btn-hover-top) 0%, var(--btn-hover-bottom) 100%);
+  border-color: var(--btn-hover-border);
+}
+.aero-btn:active,
+.aero-btn.active {
+  background: linear-gradient(180deg, var(--btn-active-top) 0%, var(--btn-active-bottom) 100%);
+  border-color: var(--btn-hover-border);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.2);
+  font-weight: 600;
+}
+.aero-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.aero-input,
+.aero-select {
+  height: 22px;
+  padding: 0 6px;
+  border: 1px solid var(--btn-border);
+  border-radius: 2px;
+  background: var(--aero-panel-bg);
+  color: var(--aero-text);
+  font-family: inherit;
+  font-size: 11.5px;
+  outline: none;
+}
+.aero-input:focus,
+.aero-select:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 1px #3b82f6;
+}
+
+.tabular-time {
+  font-family: 'Consolas', 'Courier New', monospace;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* DIS portal window and navigation */
+.dis-portal {
+  font-family: 'Segoe UI', Arial, sans-serif;
+}
+.dis-portal .aero-title-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 36px;
+  padding: 6px 12px;
+  color: var(--aero-caption-text);
+  background: linear-gradient(var(--aero-caption-top), var(--aero-caption-bottom));
+  border-bottom: 1px solid var(--aero-window-border);
+}
+.dis-portal .window-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+}
+.dis-portal .menubar,
+.dis-portal .ribbon-bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+}
+.dis-portal .menubar {
+  background: var(--aero-menubar-bg);
+  border-bottom: 1px solid var(--aero-menubar-border);
+}
+.dis-portal .menu-btn {
+  padding: 5px 8px;
+  border-radius: 3px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.dis-portal .menu-btn:hover,
+.dis-portal .menu-btn:focus-visible {
+  background: var(--btn-hover-bottom);
+  outline-color: var(--btn-hover-border);
+}
+.dis-portal .menu-group-label {
+  padding: 2px 5px;
+  color: var(--aero-text-muted);
+  border-left: 1px solid var(--aero-menubar-border);
+  font-size: 10px;
+  text-transform: uppercase;
+}
+.aero-tool,
+.dis-simulator {
+  font-family: 'Segoe UI', Arial, sans-serif;
+}
+.aero-tool button:not([class*='absolute']),
+.aero-tool a,
+.dis-simulator button,
+.dis-simulator a {
+  border-radius: 3px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.5),
+    0 1px 1px rgba(0, 0, 0, 0.06);
+}
+.aero-tool button:not([class*='absolute']),
+.dis-simulator button {
+  background: linear-gradient(var(--btn-grad-top), var(--btn-grad-bottom));
+  color: var(--aero-text);
+  border: 1px solid var(--btn-border);
+}
+.aero-tool button:not([class*='absolute']):hover,
+.dis-simulator button:hover {
+  background: linear-gradient(var(--btn-hover-top), var(--btn-hover-bottom));
+  border-color: var(--btn-hover-border);
+}
+.dis-portal .ribbon-bar {
+  gap: 8px;
+  background: var(--aero-ribbon-bg);
+  border-bottom: 1px solid var(--aero-ribbon-border);
+}
+.dis-portal .ribbon-bar label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.dis-portal .workspace {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+.dis-portal .sidebar-panel {
+  flex: 0 0 200px;
+  background: var(--aero-panel-bg);
+  border-right: 1px solid var(--aero-panel-border);
+  overflow: auto;
+}
+.dis-portal .sidebar-header {
+  padding: 8px;
+  font-weight: 600;
+  background: linear-gradient(var(--grid-header-top), var(--grid-header-bottom));
+  border-bottom: 1px solid var(--grid-header-border);
+}
+.dis-portal .tree-content {
+  padding: 4px;
+}
+.dis-portal .tree-row {
+  padding: 5px 8px;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  cursor: pointer;
+}
+.dis-portal .tree-row:hover,
+.dis-portal .tree-row.selected {
+  background: linear-gradient(var(--grid-row-selected-top), var(--grid-row-selected-bottom));
+  border-color: var(--grid-row-selected-border);
+  color: var(--grid-row-selected-text);
+}
+.dis-portal .content-panel {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  overflow: auto;
+  background: var(--aero-panel-bg);
+  color: var(--aero-text);
+}
+.dis-portal .statusbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 24px;
+  padding: 3px 8px;
+  background: var(--status-bg);
+  border-top: 1px solid var(--status-border);
+  color: var(--aero-text-muted);
+}
+.dis-portal .status-clock {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+}
+@media (max-width: 640px) {
+  .dis-portal .sidebar-panel {
+    flex-basis: 120px;
+  }
+  .dis-portal .ribbon-bar select {
+    max-width: 170px;
+  }
+}
+/* DIS modules share the same panel palette in both themes. */
+.dis-portal .content-panel .bg-white {
+  background-color: var(--aero-panel-bg);
+}
+.dis-portal .content-panel .bg-slate-50 {
+  background-color: var(--aero-ribbon-bg);
+}
+.dis-portal .content-panel .text-slate-600,
+.dis-portal .content-panel .text-slate-500 {
+  color: var(--aero-text-muted);
+}
+.dis-simulator section {
+  background: var(--aero-panel-bg);
+  border-color: var(--aero-panel-border);
+  border-radius: 3px;
+}
+.dis-simulator input,
+.dis-simulator select {
+  background: var(--aero-panel-bg);
+  color: var(--aero-text);
+  border-color: var(--aero-panel-border);
+  border-radius: 3px;
+}
+.dis-simulator [class*='text-neutral-'] {
+  color: var(--aero-text);
+}
+.dis-simulator [class*='bg-neutral-'] {
+  background: var(--aero-ribbon-bg);
+}
+.dis-simulator button,
+.dis-simulator a {
+  border-radius: 3px;
+}
+.dis-markdown {
+  line-height: 1.6;
+}
+.dis-markdown h1,
+.dis-markdown h2,
+.dis-markdown h3 {
+  font-weight: 700;
+  margin: 1em 0 0.5em;
+}
+.dis-markdown h1 {
+  font-size: 1.6em;
+}
+.dis-markdown h2 {
+  font-size: 1.3em;
+}
+.dis-markdown ul,
+.dis-markdown ol {
+  padding-left: 1.5em;
+}
+.dis-markdown ul {
+  list-style: disc;
+}
+.dis-markdown ol {
+  list-style: decimal;
+}
+.dis-markdown table {
+  border-collapse: collapse;
+  margin: 1em 0;
+}
+.dis-markdown th,
+.dis-markdown td {
+  border: 1px solid var(--aero-panel-border);
+  padding: 0.4em 0.7em;
+}
+.dis-markdown pre,
+.dis-markdown blockquote {
+  background: var(--aero-ribbon-bg);
+  padding: 1em;
+  margin: 1em 0;
+  overflow: auto;
+}
+.dis-markdown a {
+  color: #2563eb;
+  text-decoration: underline;
+}
+@media print {
+  .dis-portal nav,
+  .dis-portal .sidebar-panel,
+  .dis-portal .ribbon-bar,
+  .dis-portal .radio-dock,
+  .dis-portal .statusbar,
+  .dis-portal button {
+    display: none !important;
+  }
+  .dis-portal,
+  .dis-portal .workspace,
+  .dis-portal .content-panel,
+  .dis-portal main > div {
+    height: auto !important;
+    overflow: visible !important;
+    display: block !important;
+  }
+}

@@ -665,12 +665,12 @@ export default function SessionMapClient() {
   }
 
   const savedTemplatePicker = (
-    <div className="mt-4 border-t border-neutral-800 pt-4">
-      <div className="text-sm font-medium text-neutral-200">Saved Roblox configurations</div>
+    <div className="mt-4 border-t border-[var(--aero-panel-border)] pt-4">
+      <div className="text-sm font-medium text-[var(--aero-text)]">Saved Roblox configurations</div>
       {savedPlaceTemplatesLoading ? (
-        <p className="mt-2 text-sm text-neutral-500">Loading saved configurations...</p>
+        <p className="mt-2 text-sm text-[var(--aero-text-muted)]">Loading saved configurations...</p>
       ) : savedPlaceTemplates.length === 0 ? (
-        <p className="mt-2 text-sm text-neutral-500">No saved Roblox configurations yet.</p>
+        <p className="mt-2 text-sm text-[var(--aero-text-muted)]">No saved Roblox configurations yet.</p>
       ) : (
         <div className="mt-3 grid gap-2 sm:grid-cols-2">
           {savedPlaceTemplates.map((template) => (
@@ -679,12 +679,12 @@ export default function SessionMapClient() {
               type="button"
               disabled={isBusy}
               onClick={() => void loadPlaceTemplate(template)}
-              className="rounded-xl border border-neutral-700 bg-neutral-950 px-3 py-3 text-left text-sm transition hover:border-amber-400 disabled:cursor-not-allowed disabled:opacity-50"
+              className="rounded-[3px] border border-[var(--aero-panel-border)] bg-[var(--aero-panel-bg)] px-3 py-3 text-left text-sm transition hover:border-[var(--btn-hover-border)] disabled:cursor-not-allowed disabled:opacity-50"
             >
-              <div className="font-mono text-neutral-100">
+              <div className="font-mono text-[var(--aero-text)]">
                 {template.universeId} / {template.placeId}
               </div>
-              <div className="mt-1 text-xs text-neutral-500">Revision {template.revision}</div>
+              <div className="mt-1 text-xs text-[var(--aero-text-muted)]">Revision {template.revision}</div>
             </button>
           ))}
         </div>
@@ -694,22 +694,22 @@ export default function SessionMapClient() {
 
   if (!sessionIdFromUrl) {
     return (
-      <section className="rounded-3xl border border-neutral-800 bg-neutral-900/80 p-4">
-        <div className="text-sm text-neutral-400">
+      <section className="rounded-[3px] border border-[var(--aero-panel-border)] bg-[var(--aero-panel-bg)] p-4">
+        <div className="text-sm text-[var(--aero-text-muted)]">
           Open an existing session, create a new one, or import a saved map schema.
         </div>
         <div className="mt-4 grid gap-3 md:grid-cols-[minmax(0,240px)_auto_auto]">
           <input
             value={sessionIdDraft}
             onChange={(event) => setSessionIdDraft(event.target.value)}
-            className="rounded-xl border border-neutral-700 bg-neutral-950 px-4 py-3 text-sm text-neutral-100 outline-none transition focus:border-amber-400"
+            className="rounded-[3px] border border-[var(--aero-panel-border)] bg-[var(--aero-panel-bg)] px-4 py-3 text-sm text-[var(--aero-text)] outline-none transition focus:border-[var(--btn-hover-border)]"
             placeholder="mock-ab12cd34"
           />
           <button
             type="button"
             disabled={!sessionIdDraft.trim()}
             onClick={handleOpenExistingSession}
-            className="rounded-full border border-neutral-700 px-4 py-2 text-sm font-medium text-neutral-200 transition hover:border-amber-400 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-[3px] border border-[var(--aero-panel-border)] px-4 py-2 text-sm font-medium text-[var(--aero-text)] transition hover:border-[var(--btn-hover-border)] hover:text-[var(--aero-text)] disabled:cursor-not-allowed disabled:opacity-50"
           >
             Open Session
           </button>
@@ -717,7 +717,7 @@ export default function SessionMapClient() {
             type="button"
             disabled={isBusy}
             onClick={() => void createMockSession()}
-            className="rounded-full bg-amber-400 px-4 py-2 text-sm font-medium text-neutral-950 disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-[3px] bg-[var(--btn-active-bottom)] px-4 py-2 text-sm font-medium text-[var(--aero-text)] disabled:cursor-not-allowed disabled:opacity-50"
           >
             Create Session
           </button>
@@ -727,44 +727,44 @@ export default function SessionMapClient() {
             type="button"
             disabled={isBusy}
             onClick={() => sessionSchemaInputRef.current?.click()}
-            className="rounded-full border border-neutral-700 px-4 py-2 text-sm font-medium text-neutral-200 transition hover:border-amber-400 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-[3px] border border-[var(--aero-panel-border)] px-4 py-2 text-sm font-medium text-[var(--aero-text)] transition hover:border-[var(--btn-hover-border)] hover:text-[var(--aero-text)] disabled:cursor-not-allowed disabled:opacity-50"
           >
             Import Map Schema
           </button>
           <Link
             href="/editor"
-            className="rounded-full border border-neutral-700 px-4 py-2 text-sm font-medium text-neutral-200 transition hover:border-amber-400 hover:text-white"
+            className="rounded-[3px] border border-[var(--aero-panel-border)] px-4 py-2 text-sm font-medium text-[var(--aero-text)] transition hover:border-[var(--btn-hover-border)] hover:text-[var(--aero-text)]"
           >
             Open Station Editor
           </Link>
         </div>
-        <div className="mt-4 grid gap-3 border-t border-neutral-800 pt-4 md:grid-cols-[minmax(0,220px)_minmax(0,220px)_auto]">
-          <div className="md:col-span-3 text-sm font-medium text-neutral-200">Open saved Roblox configuration</div>
+        <div className="mt-4 grid gap-3 border-t border-[var(--aero-panel-border)] pt-4 md:grid-cols-[minmax(0,220px)_minmax(0,220px)_auto]">
+          <div className="md:col-span-3 text-sm font-medium text-[var(--aero-text)]">Open saved Roblox configuration</div>
           <input
             value={universeIdDraft}
             onChange={(event) => setUniverseIdDraft(event.target.value.replace(/\D/g, ''))}
             inputMode="numeric"
-            className="rounded-xl border border-neutral-700 bg-neutral-950 px-4 py-3 font-mono text-sm text-neutral-100 outline-none transition focus:border-amber-400"
+            className="rounded-[3px] border border-[var(--aero-panel-border)] bg-[var(--aero-panel-bg)] px-4 py-3 font-mono text-sm text-[var(--aero-text)] outline-none transition focus:border-[var(--btn-hover-border)]"
             placeholder="Roblox UniverseId"
           />
           <input
             value={placeIdDraft}
             onChange={(event) => setPlaceIdDraft(event.target.value.replace(/\D/g, ''))}
             inputMode="numeric"
-            className="rounded-xl border border-neutral-700 bg-neutral-950 px-4 py-3 font-mono text-sm text-neutral-100 outline-none transition focus:border-amber-400"
+            className="rounded-[3px] border border-[var(--aero-panel-border)] bg-[var(--aero-panel-bg)] px-4 py-3 font-mono text-sm text-[var(--aero-text)] outline-none transition focus:border-[var(--btn-hover-border)]"
             placeholder="Roblox PlaceId"
           />
           <button
             type="button"
             disabled={isBusy || !universeIdDraft || !placeIdDraft}
             onClick={() => void loadPlaceTemplate()}
-            className="rounded-full border border-neutral-700 px-4 py-2 text-sm font-medium text-neutral-200 transition hover:border-amber-400 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-[3px] border border-[var(--aero-panel-border)] px-4 py-2 text-sm font-medium text-[var(--aero-text)] transition hover:border-[var(--btn-hover-border)] hover:text-[var(--aero-text)] disabled:cursor-not-allowed disabled:opacity-50"
           >
             Load Template To Edit
           </button>
         </div>
         {savedTemplatePicker}
-        {error ? <div className="mt-3 text-sm text-red-300">{error}</div> : null}
+        {error ? <div className="mt-3 text-sm text-red-700">{error}</div> : null}
         <input
           ref={sessionSchemaInputRef}
           type="file"
@@ -778,16 +778,16 @@ export default function SessionMapClient() {
 
   return (
     <div className="space-y-6">
-      <section className="rounded-3xl border border-neutral-800 bg-neutral-900/80 p-4">
+      <section className="rounded-[3px] border border-[var(--aero-panel-border)] bg-[var(--aero-panel-bg)] p-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="text-sm text-neutral-400">
+          <div className="text-sm text-[var(--aero-text-muted)]">
             {session ? `Map session ${session._id} active.` : 'Loading map session...'}
           </div>
           {session ? (
             <div className="flex flex-wrap gap-3">
               <Link
                 href={`/mock?sessionId=${encodeURIComponent(session._id)}`}
-                className="rounded-full border border-neutral-700 px-4 py-2 text-sm font-medium text-neutral-200 transition hover:border-amber-400 hover:text-white"
+                className="rounded-[3px] border border-[var(--aero-panel-border)] px-4 py-2 text-sm font-medium text-[var(--aero-text)] transition hover:border-[var(--btn-hover-border)] hover:text-[var(--aero-text)]"
               >
                 Open Mock Simulator
               </Link>
@@ -795,21 +795,21 @@ export default function SessionMapClient() {
                 type="button"
                 disabled={isBusy}
                 onClick={() => void exportSessionSchema()}
-                className="rounded-full border border-neutral-700 px-4 py-2 text-sm font-medium text-neutral-200 transition hover:border-amber-400 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                className="rounded-[3px] border border-[var(--aero-panel-border)] px-4 py-2 text-sm font-medium text-[var(--aero-text)] transition hover:border-[var(--btn-hover-border)] hover:text-[var(--aero-text)] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Export Map Schema
               </button>
             </div>
           ) : null}
         </div>
-        {error ? <div className="mt-3 text-sm text-red-300">{error}</div> : null}
+        {error ? <div className="mt-3 text-sm text-red-700">{error}</div> : null}
       </section>
 
-      <section className="rounded-3xl border border-neutral-800 bg-neutral-900/80 p-4">
-        <h2 className="text-sm font-semibold uppercase tracking-[0.2em] text-neutral-400">
+      <section className="rounded-[3px] border border-[var(--aero-panel-border)] bg-[var(--aero-panel-bg)] p-4">
+        <h2 className="text-sm font-semibold uppercase tracking-[0.2em] text-[var(--aero-text-muted)]">
           Roblox Place Template
         </h2>
-        <p className="mt-2 text-sm text-neutral-500">
+        <p className="mt-2 text-sm text-[var(--aero-text-muted)]">
           Enter a UniverseId and PlaceId, then load the saved configuration to edit it. Save Template
           writes your current stations and links back to that Roblox place.
         </p>
@@ -818,21 +818,21 @@ export default function SessionMapClient() {
             value={universeIdDraft}
             onChange={(event) => setUniverseIdDraft(event.target.value.replace(/\D/g, ''))}
             inputMode="numeric"
-            className="rounded-xl border border-neutral-700 bg-neutral-950 px-4 py-3 font-mono text-sm text-neutral-100 outline-none transition focus:border-amber-400"
+            className="rounded-[3px] border border-[var(--aero-panel-border)] bg-[var(--aero-panel-bg)] px-4 py-3 font-mono text-sm text-[var(--aero-text)] outline-none transition focus:border-[var(--btn-hover-border)]"
             placeholder="Roblox UniverseId"
           />
           <input
             value={placeIdDraft}
             onChange={(event) => setPlaceIdDraft(event.target.value.replace(/\D/g, ''))}
             inputMode="numeric"
-            className="rounded-xl border border-neutral-700 bg-neutral-950 px-4 py-3 font-mono text-sm text-neutral-100 outline-none transition focus:border-amber-400"
+            className="rounded-[3px] border border-[var(--aero-panel-border)] bg-[var(--aero-panel-bg)] px-4 py-3 font-mono text-sm text-[var(--aero-text)] outline-none transition focus:border-[var(--btn-hover-border)]"
             placeholder="Roblox PlaceId"
           />
           <button
             type="button"
             disabled={isBusy || !session?._id || !universeIdDraft || !placeIdDraft}
             onClick={() => void savePlaceTemplate()}
-            className="rounded-full bg-amber-400 px-4 py-2 text-sm font-medium text-neutral-950 disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-[3px] bg-[var(--btn-active-bottom)] px-4 py-2 text-sm font-medium text-[var(--aero-text)] disabled:cursor-not-allowed disabled:opacity-50"
           >
             Save Template
           </button>
@@ -840,13 +840,13 @@ export default function SessionMapClient() {
             type="button"
             disabled={isBusy || !universeIdDraft || !placeIdDraft}
             onClick={() => void loadPlaceTemplate()}
-            className="rounded-full border border-neutral-700 px-4 py-2 text-sm font-medium text-neutral-200 transition hover:border-amber-400 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-[3px] border border-[var(--aero-panel-border)] px-4 py-2 text-sm font-medium text-[var(--aero-text)] transition hover:border-[var(--btn-hover-border)] hover:text-[var(--aero-text)] disabled:cursor-not-allowed disabled:opacity-50"
           >
             Load Template To Edit
           </button>
         </div>
         {savedPlaceTemplate ? (
-          <p className="mt-3 text-xs text-emerald-300">
+          <p className="mt-3 text-xs text-green-700">
             UniverseId {savedPlaceTemplate.universeId} / PlaceId {savedPlaceTemplate.placeId} saved
             at revision {savedPlaceTemplate.revision}.
           </p>
@@ -854,22 +854,22 @@ export default function SessionMapClient() {
         {savedTemplatePicker}
       </section>
 
-      <section className="rounded-3xl border border-neutral-800 bg-neutral-900/80 p-4">
-        <h2 className="text-sm font-semibold uppercase tracking-[0.2em] text-neutral-400">
+      <section className="rounded-[3px] border border-[var(--aero-panel-border)] bg-[var(--aero-panel-bg)] p-4">
+        <h2 className="text-sm font-semibold uppercase tracking-[0.2em] text-[var(--aero-text-muted)]">
           Stations In Session
         </h2>
         <div className="mt-4 grid gap-3 md:grid-cols-[minmax(0,220px)_auto_auto]">
           <input
             value={stationIdDraft}
             onChange={(event) => setStationIdDraft(event.target.value)}
-            className="rounded-xl border border-neutral-700 bg-neutral-950 px-4 py-3 text-sm text-neutral-100 outline-none transition focus:border-amber-400"
+            className="rounded-[3px] border border-[var(--aero-panel-border)] bg-[var(--aero-panel-bg)] px-4 py-3 text-sm text-[var(--aero-text)] outline-none transition focus:border-[var(--btn-hover-border)]"
             placeholder="station-b"
           />
           <button
             type="button"
             disabled={isBusy || !session?._id}
             onClick={() => void createStation()}
-            className="rounded-full bg-amber-400 px-4 py-2 text-sm font-medium text-neutral-950 disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-[3px] bg-[var(--btn-active-bottom)] px-4 py-2 text-sm font-medium text-[var(--aero-text)] disabled:cursor-not-allowed disabled:opacity-50"
           >
             Add Station
           </button>
@@ -877,24 +877,24 @@ export default function SessionMapClient() {
             type="button"
             disabled={isBusy || !session?._id}
             onClick={() => stationLayoutInputRef.current?.click()}
-            className="rounded-full border border-neutral-700 px-4 py-2 text-sm font-medium text-neutral-200 transition hover:border-amber-400 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-[3px] border border-[var(--aero-panel-border)] px-4 py-2 text-sm font-medium text-[var(--aero-text)] transition hover:border-[var(--btn-hover-border)] hover:text-[var(--aero-text)] disabled:cursor-not-allowed disabled:opacity-50"
           >
             Import Station JSON
           </button>
         </div>
-        <p className="mt-4 text-sm text-neutral-500">
+        <p className="mt-4 text-sm text-[var(--aero-text-muted)]">
           Click a lineblock, then click a lineblock in another station to connect them. Use the station
           controls to rename or remove a station.
         </p>
         {pendingLineblockEndpoint ? (
-          <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-400/60 bg-amber-400/10 px-3 py-2 text-sm text-amber-100">
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-[3px] border border-[var(--grid-row-selected-border)] bg-[var(--grid-row-selected-top)] px-3 py-2 text-sm text-[var(--aero-text)]">
             <span>
               Connecting from <span className="font-mono">{pendingLineblockEndpoint.stationId}:{pendingLineblockEndpoint.pieceId}</span> — now click the destination lineblock.
             </span>
             <button
               type="button"
               onClick={() => setPendingLineblockEndpoint(null)}
-              className="rounded-full border border-amber-300/60 px-3 py-1 text-xs font-medium"
+              className="rounded-[3px] border border-[var(--grid-row-selected-border)] px-3 py-1 text-xs font-medium"
             >
               Cancel
             </button>
@@ -902,22 +902,22 @@ export default function SessionMapClient() {
         ) : null}
         <div className="mt-4 flex gap-4 overflow-x-auto pb-2">
           {orderedStations.length === 0 ? (
-            <p className="text-sm text-neutral-500">No stations yet.</p>
+            <p className="text-sm text-[var(--aero-text-muted)]">No stations yet.</p>
           ) : (
             orderedStations.map((station, index) => (
               <article
                 key={station.stationId}
-                className={`w-[min(34rem,85vw)] shrink-0 rounded-2xl border p-3 ${
+                className={`w-[min(34rem,85vw)] shrink-0 rounded-[3px] border p-3 ${
                   station.stationId === selectedStationId
-                    ? 'border-amber-400 bg-neutral-950/90'
-                    : 'border-neutral-800 bg-neutral-950/70'
+                    ? 'border-[var(--btn-hover-border)] bg-[var(--aero-ribbon-bg)]'
+                    : 'border-[var(--aero-panel-border)] bg-[var(--aero-ribbon-bg)]'
                 }`}
               >
                 <div className="mb-3 flex items-center justify-between gap-3">
                   <button
                     type="button"
                     onClick={() => setSelectedStationId(station.stationId)}
-                    className="font-mono text-sm text-neutral-100"
+                    className="font-mono text-sm text-[var(--aero-text)]"
                   >
                     {index + 1}. {station.stationId}
                   </button>
@@ -926,7 +926,7 @@ export default function SessionMapClient() {
                       type="button"
                       disabled={index === 0}
                       onClick={() => moveStation(station.stationId, -1)}
-                      className="rounded-full border border-neutral-700 px-3 py-1 text-xs text-neutral-200 disabled:opacity-40"
+                      className="rounded-[3px] border border-[var(--aero-panel-border)] px-3 py-1 text-xs text-[var(--aero-text)] disabled:opacity-40"
                     >
                       ←
                     </button>
@@ -934,19 +934,19 @@ export default function SessionMapClient() {
                       type="button"
                       disabled={index === orderedStations.length - 1}
                       onClick={() => moveStation(station.stationId, 1)}
-                      className="rounded-full border border-neutral-700 px-3 py-1 text-xs text-neutral-200 disabled:opacity-40"
+                      className="rounded-[3px] border border-[var(--aero-panel-border)] px-3 py-1 text-xs text-[var(--aero-text)] disabled:opacity-40"
                     >
                       →
                     </button>
                     <Link
                       href={session ? `/runtime/${session._id}/${station.stationId}` : '#'}
-                      className="rounded-full bg-amber-400 px-3 py-1 text-xs font-medium text-neutral-950"
+                      className="rounded-[3px] bg-[var(--btn-active-bottom)] px-3 py-1 text-xs font-medium text-[var(--aero-text)]"
                     >
                       Runtime
                     </Link>
                     <Link
                       href={session ? `/editor?sessionId=${encodeURIComponent(session._id)}&stationId=${encodeURIComponent(station.stationId)}` : '#'}
-                      className="rounded-full border border-emerald-700 px-3 py-1 text-xs text-emerald-200"
+                      className="rounded-[3px] border border-emerald-700 px-3 py-1 text-xs text-green-700"
                     >
                       Edit
                     </Link>
@@ -954,7 +954,7 @@ export default function SessionMapClient() {
                       type="button"
                       disabled={isBusy}
                       onClick={() => void renameStation(station.stationId)}
-                      className="rounded-full border border-neutral-700 px-3 py-1 text-xs text-neutral-200 disabled:opacity-40"
+                      className="rounded-[3px] border border-[var(--aero-panel-border)] px-3 py-1 text-xs text-[var(--aero-text)] disabled:opacity-40"
                     >
                       Rename
                     </button>
@@ -962,7 +962,7 @@ export default function SessionMapClient() {
                       type="button"
                       disabled={isBusy}
                       onClick={() => void removeStation(station.stationId)}
-                      className="rounded-full border border-red-900 px-3 py-1 text-xs text-red-300 disabled:opacity-40"
+                      className="rounded-[3px] border border-red-900 px-3 py-1 text-xs text-red-700 disabled:opacity-40"
                     >
                       Remove
                     </button>
@@ -986,11 +986,11 @@ export default function SessionMapClient() {
         />
       </section>
 
-      <section className="rounded-3xl border border-neutral-800 bg-neutral-900/80 p-4">
-        <h2 className="text-sm font-semibold uppercase tracking-[0.2em] text-neutral-400">
+      <section className="rounded-[3px] border border-[var(--aero-panel-border)] bg-[var(--aero-panel-bg)] p-4">
+        <h2 className="text-sm font-semibold uppercase tracking-[0.2em] text-[var(--aero-text-muted)]">
           Inter-station lineblock links
         </h2>
-        <p className="mt-2 text-sm text-neutral-500">
+        <p className="mt-2 text-sm text-[var(--aero-text-muted)]">
           This only chooses the initial direction for the next link you create. Each existing link can be
           changed independently below.
         </p>
@@ -1000,7 +1000,7 @@ export default function SessionMapClient() {
             onChange={(event) =>
               setLineblockDefaultFlow(event.target.value as SessionLineblockLink['defaultFlow'])
             }
-            className="rounded-xl border border-neutral-700 bg-neutral-950 px-4 py-3 text-sm text-neutral-100"
+            className="rounded-[3px] border border-[var(--aero-panel-border)] bg-[var(--aero-panel-bg)] px-4 py-3 text-sm text-[var(--aero-text)]"
           >
             <option value="neutral">New link: neutral</option>
             <option value="a-receiving">New link: endpoint A receiving</option>
@@ -1009,14 +1009,14 @@ export default function SessionMapClient() {
         </div>
         <div className="mt-4 space-y-3">
           {Object.values(session?.topology.lineblockLinks ?? {}).length === 0 ? (
-            <p className="text-sm text-neutral-500">No inter-station lineblock links configured.</p>
+            <p className="text-sm text-[var(--aero-text-muted)]">No inter-station lineblock links configured.</p>
           ) : (
             Object.values(session?.topology.lineblockLinks ?? {}).map((link) => (
               <div
                 key={link.id}
-                className="rounded-2xl border border-neutral-800 bg-neutral-950/70 p-3"
+                className="rounded-[3px] border border-[var(--aero-panel-border)] bg-[var(--aero-ribbon-bg)] p-3"
               >
-                <div className="text-sm font-medium text-neutral-100">
+                <div className="text-sm font-medium text-[var(--aero-text)]">
                   {link.a.stationId}:{link.a.pieceId} {'<->'} {link.b.stationId}:{link.b.pieceId}
                 </div>
                 <div className="mt-3 flex flex-wrap items-center gap-3">
@@ -1029,7 +1029,7 @@ export default function SessionMapClient() {
                         event.target.value as SessionLineblockLink['defaultFlow'],
                       )
                     }
-                    className="rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-2 text-xs text-neutral-100 disabled:opacity-40"
+                    className="rounded-lg border border-[var(--aero-panel-border)] bg-[var(--aero-panel-bg)] px-3 py-2 text-xs text-[var(--aero-text)] disabled:opacity-40"
                     aria-label={`Default receiving station for ${link.a.stationId} and ${link.b.stationId}`}
                   >
                     <option value="neutral">Neutral</option>
@@ -1040,11 +1040,11 @@ export default function SessionMapClient() {
                     type="button"
                     disabled={isBusy}
                     onClick={() => void removeLineblockLink(link)}
-                    className="rounded-lg border border-red-900 px-3 py-2 text-xs text-red-300 disabled:opacity-40"
+                    className="rounded-lg border border-red-900 px-3 py-2 text-xs text-red-700 disabled:opacity-40"
                   >
                     Remove link
                   </button>
-                  <div className="text-xs text-neutral-500">
+                  <div className="text-xs text-[var(--aero-text-muted)]">
                     {getLineblockDefaultFlowLabel(link)} / {link.createdAt}
                   </div>
                 </div>
@@ -1054,22 +1054,22 @@ export default function SessionMapClient() {
         </div>
       </section>
 
-      <section className="rounded-3xl border border-neutral-800 bg-neutral-900/80 p-4">
-        <h2 className="text-sm font-semibold uppercase tracking-[0.2em] text-neutral-400">
+      <section className="rounded-[3px] border border-[var(--aero-panel-border)] bg-[var(--aero-panel-bg)] p-4">
+        <h2 className="text-sm font-semibold uppercase tracking-[0.2em] text-[var(--aero-text-muted)]">
           Selected Station Summary
         </h2>
         <div className="mt-4">
           {selectedStation ? (
-            <div className="rounded-2xl border border-neutral-800 bg-neutral-950/70 p-4">
-              <div className="font-mono text-sm text-neutral-100">{selectedStation.stationId}</div>
-              <div className="mt-2 text-xs text-neutral-500">
+            <div className="rounded-[3px] border border-[var(--aero-panel-border)] bg-[var(--aero-ribbon-bg)] p-4">
+              <div className="font-mono text-sm text-[var(--aero-text)]">{selectedStation.stationId}</div>
+              <div className="mt-2 text-xs text-[var(--aero-text-muted)]">
                 {selectedStation.layout.width}x{selectedStation.layout.height}
               </div>
               <div className="mt-3 flex flex-wrap gap-2">
                 {getLineblockPieceIds(selectedStation).map((pieceId) => (
                   <span
                     key={pieceId}
-                    className="rounded-full border border-neutral-800 bg-neutral-900 px-3 py-1 text-xs text-neutral-300"
+                    className="rounded-[3px] border border-[var(--aero-panel-border)] bg-[var(--aero-panel-bg)] px-3 py-1 text-xs text-[var(--aero-text)]"
                   >
                     {pieceId}
                   </span>
@@ -1079,7 +1079,7 @@ export default function SessionMapClient() {
                 {getPremainSignalPieceIds(selectedStation).map((pieceId) => (
                   <span
                     key={pieceId}
-                    className="rounded-full border border-neutral-800 bg-neutral-900 px-3 py-1 text-xs text-neutral-300"
+                    className="rounded-[3px] border border-[var(--aero-panel-border)] bg-[var(--aero-panel-bg)] px-3 py-1 text-xs text-[var(--aero-text)]"
                   >
                     premain:{pieceId}
                   </span>
@@ -1087,7 +1087,7 @@ export default function SessionMapClient() {
               </div>
             </div>
           ) : (
-            <p className="text-sm text-neutral-500">Select a station to inspect it.</p>
+            <p className="text-sm text-[var(--aero-text-muted)]">Select a station to inspect it.</p>
           )}
         </div>
       </section>

@@ -15,10 +15,15 @@ It is intentionally practical rather than exhaustive.
 
 ## 1. Project Shape
 
-The app is split into four main surfaces:
+The app is entered through DIS, which embeds the existing station tools:
 
 - `/`
-  Root entry page for entering `sessionId` and `stationId`.
+  Redirects to `/dis`.
+- `/dis`
+  Dispatcher portal, live session entry, shifts, staff, documents, and GVD authoring.
+  The portal requires an Appwrite account and persisted profile; login and OAuth completion remain public.
+- `/map` and `/linker`
+  Station/topology management and linking, opened inside DIS alongside the station editor.
 - `/editor`
   Layout authoring tool. This is the only place where layout is edited directly in the browser.
 - `/runtime/[sessionId]/[stationId]`
@@ -672,3 +677,50 @@ If you only remember five things, remember these:
 3. Editor mode mutates local layout state directly; runtime mode must not.
 4. Persisted runtime stations live in Mongo and are pushed to clients as full snapshots.
 5. Inter-station links live on the session document, not inside a station layout.
+
+## 22. DIS persistence and workflows
+
+DIS profiles, shifts, bookings, timetables, EDD, radio messages, and documents
+use Appwrite. Browsers authenticate with their Appwrite session and send a
+short-lived JWT to explicit `/api/dis/*` routes. The server verifies the account
+and persisted profile before applying role checks. Staff assessments cannot
+change a Roblox-derived role. Missing profiles never grant fallback permissions.
+Runtime station commands and snapshots retain the MongoDB ownership described above.
+
+The portal selects one `sessionId` / `stationId` pair for EDD, TPV, radio, and the
+station pult. `/api/dis/jop-data` loads active Mongo sessions through the shared
+Mongo client. Station identity never uses the composite Mongo document ID.
+Runtime and simulation components render directly inside DIS. The editor, map
+manager, and linker remain embedded tools; their navigation is routed by the
+portal to avoid nesting a second DIS window inside an iframe.
+
+`src/lib/dis/timetable.ts` owns clock validation, midnight unfolding, dwell, and
+conflict calculation. GVD is a recurring daily plan of less than 24 hours. It
+checks overlaps on the same named station track, with at least one minute for
+an instantaneous stop. Concurrent use of an adjacent station pair is a capacity
+warning, because the model does not define track multiplicity or headway limits.
+No platform lengths or distances are inferred from tile counts. GVD does not
+operate railway routes, signals, or lineblocks.
+
+EDD imports only the selected station's timetable stops. Deterministic document
+IDs make repeated imports idempotent, and imports never overwrite actual reports.
+Arrival and departure are explicit server commands with validated transitions;
+failed writes never appear successful locally. EDD odhlaska is intentionally
+absent: real odhlaska belongs to the existing lineblock command on the pult.
+TPV draws saved GVD paths and actual EDD points, with schematic station spacing.
+
+Radio is a persisted session-scoped text log, refreshed every three seconds.
+An urgent flag requires dispatcher-manager/admin rights. It is not a Roblox
+voice transmission or a canonical interlocking command. Documents support
+persisted drafts, publication, GFM Markdown, and authenticated Appwrite Storage
+attachments (PNG/JPG/WebP/PDF, up to 10 MB). No sample traffic, radio conversations,
+or operating regulations are inserted as production records.
+
+Shifts last 150 minutes, including midnight rollover. Registrations use
+`shift_bookings` with `assignedRole`, `assignedLocation`, and `attendance`.
+A deterministic per-user/per-shift ID prevents duplicate registrations. Managers
+start/complete/cancel shifts and record attendance. A strike attendance marker
+and a personnel assessment are separate explicit records; marking attendance
+does not silently increment a person's disciplinary total.
+
+See `docs/DIS.md` for setup, access policy migration, and verification commands.

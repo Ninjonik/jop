@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 
 import type { SessionDocument, StationDocument } from '@/lib/station/domain';
+import { disRequest } from '@/lib/dis/api-client';
 
 type RecoveryAction = 'clear-physical-occupations' | 'clear-routes' | 'reset-session-state';
 
@@ -74,7 +75,7 @@ export default function AdminRecoveryClient({ sessionId }: { sessionId: string }
     setError(null);
     setMessage(null);
     try {
-      const response = await fetch(`/api/sessions/${encodeURIComponent(sessionId)}/admin-recovery`, {
+      const response = await disRequest(`/api/sessions/${encodeURIComponent(sessionId)}/admin-recovery`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ action: action.id, stationId }),

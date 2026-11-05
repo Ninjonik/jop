@@ -74,8 +74,20 @@ export default function SessionEntryForm() {
     <main className="min-h-screen bg-neutral-950 px-6 py-10 text-neutral-100">
       <div className="mx-auto flex w-full max-w-5xl flex-col gap-8">
         <header className="space-y-3">
-          <p className="text-sm uppercase tracking-[0.3em] text-amber-400">Railway Control Panel</p>
-          <h1 className="text-4xl font-semibold tracking-tight">Open a runtime station session</h1>
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <p className="text-sm uppercase tracking-[0.3em] text-amber-400">Railway Control Panel</p>
+              <h1 className="text-4xl font-semibold tracking-tight">Open a runtime station session</h1>
+            </div>
+            <Link
+              href="/dis"
+              className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white shadow-lg transition hover:bg-blue-500"
+            >
+              <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse"></span>
+              <span>Vstúpiť do DIS & Intranetu (ZSSK)</span>
+              <span>&rarr;</span>
+            </Link>
+          </div>
           <p className="max-w-3xl text-sm text-neutral-400">
             Roblox sessions now publish liveness to the backend. Pick a live session and station below,
             or fall back to manual entry when you need a direct runtime URL.

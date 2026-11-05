@@ -1,0 +1,136 @@
+import type { UserProfile } from '@/lib/dis/appwrite-client';
+import type { EddRecord } from '@/lib/dis/records';
+import { clockMinutes, clockSchema, stationKey } from '@/lib/dis/timetable';
+import { AppwriteException, ID, Query, type Models } from 'node-appwrite';
+import { createHash } from 'node:crypto';
+import { z } from 'zod';
+import { sessionRepository } from '../repositories/session-repository';
+import { stationRepository } from '../repositories/station-repository';
+import { databaseId, disDatabase, DisError, listDocuments } from './appwrite';
+import { loadTimetables } from './timetables';
+
+const identity = z.string().trim().min(1).max(64);
+export const scopeSchema = z.object({ sessionId: identity, stationId: identity });
+export type DisScope = z.infer<typeof scopeSchema>;
+export async function requireStation(scope: DisScope) {
+  const [station, session] = await Promise.all([
+    stationRepository.findBySessionAndStationId(scope.sessionId, scope.stationId),
+    sessionRepository.findById(scope.sessionId),
+  ]);
+  if (!station || !session || session.status !== 'active')
+    throw new DisError(404, 'Aktívna stanica neexistuje.');
+  return station;
+}
+export async function listEdd(scope: DisScope) {
+  await requireStation(scope);
+  return listDocuments<Models.Document & EddRecord>('edd_records', [
+    Query.equal('sessionId', scope.sessionId),
+    Query.equal('stationId', scope.stationId),
+    Query.orderAsc('schedArrival'),
+  ]);
+}
+const createSchema = scopeSchema.extend({
+  trainNumber: z.string().trim().min(1).max(32),
+  trainType: z.enum(['R', 'Os', 'Pn', 'Mn']),
+  schedArrival: clockSchema,
+  schedDeparture: clockSchema,
+  track: z.string().trim().min(1).max(16),
+  direction: z.string().trim().max(128).default(''),
+});
+export async function createEdd(body: unknown, profile: UserProfile) {
+  const command = createSchema.parse(body);
+  await requireStation(command);
+  return {
+    record: await disDatabase().createDocument(databaseId, 'edd_records', ID.unique(), {
+      ...command,
+      actualArrival: '',
+      actualDeparture: '',
+      delayMinutes: 0,
+      status: 'scheduled',
+      reportedBy: profile.userId,
+    }),
+  };
+}
+export async function importTimetable(body: unknown, profile: UserProfile) {
+  const command = scopeSchema.extend({ timetableId: identity }).parse(body);
+  await requireStation(command);
+  const timetable = (await loadTimetables()).find((item) => item.$id === command.timetableId);
+  if (!timetable) throw new DisError(404, 'Grafikon neexistuje.');
+  const stops = timetable.stops
+    .map((stop, index) => ({ stop, index }))
+    .filter(({ stop }) => stationKey(stop.station) === stationKey(command.stationId));
+  if (stops.length === 0)
+    throw new DisError(400, 'Grafikon nemá zastavenie s ID vybranej stanice.');
+  let imported = 0;
+  for (const { stop, index } of stops) {
+    const id = createHash('sha256')
+      .update(JSON.stringify([command.sessionId, command.stationId, timetable.$id, index]))
+      .digest('hex')
+      .slice(0, 36);
+    try {
+      await disDatabase().createDocument(databaseId, 'edd_records', id, {
+        sessionId: command.sessionId,
+        stationId: command.stationId,
+        trainNumber: timetable.trainNumber,
+        trainType: timetable.trainType,
+        direction: `${timetable.stops[0].station} → ${timetable.stops.at(-1)!.station}`.slice(
+          0,
+          128,
+        ),
+        schedArrival: stop.arrival,
+        schedDeparture: stop.departure,
+        track: stop.track,
+        actualArrival: '',
+        actualDeparture: '',
+        delayMinutes: 0,
+        status: 'scheduled',
+        reportedBy: profile.userId,
+      });
+      imported++;
+    } catch (error) {
+      if (!(error instanceof AppwriteException) || error.code !== 409) throw error;
+    }
+  }
+  return { imported };
+}
+export async function recordEddEvent(body: unknown, profile: UserProfile) {
+  const command = scopeSchema
+    .extend({ id: identity, event: z.enum(['arrival', 'departure']) })
+    .parse(body);
+  await requireStation(command);
+  const db = disDatabase();
+  const record = await db.getDocument<Models.Document & EddRecord>(
+    databaseId,
+    'edd_records',
+    command.id,
+  );
+  if (record.sessionId !== command.sessionId || record.stationId !== command.stationId)
+    throw new DisError(404, 'Záznam nepatrí vybranej stanici.');
+  const arrival = command.event === 'arrival';
+  if (
+    arrival
+      ? record.status !== 'scheduled' && record.status !== 'approaching'
+      : record.status !== 'arrived'
+  )
+    throw new DisError(
+      409,
+      'Tento úkon už bol vykonaný alebo nezodpovedá stavu vlaku. Obnovte denník.',
+    );
+  const now = new Intl.DateTimeFormat('sk-SK', {
+    timeZone: 'Europe/Bratislava',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).format(new Date());
+  const planned = arrival ? record.schedArrival : record.schedDeparture;
+  const difference = planned
+    ? ((clockMinutes(now) - clockMinutes(planned) + 2160) % 1440) - 720
+    : 0;
+  const updated = await db.updateDocument(databaseId, 'edd_records', command.id, {
+    [arrival ? 'actualArrival' : 'actualDeparture']: now,
+    status: arrival ? 'arrived' : 'departed',
+    delayMinutes: Math.max(0, difference),
+    reportedBy: profile.userId,
+  });
+  return { record: updated };
+}

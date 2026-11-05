@@ -5,22 +5,23 @@ import SessionMapClient from '@/app/components/map/SessionMapClient';
 
 export default function MapPage() {
   return (
-    <main className="min-h-screen bg-neutral-950 px-6 py-10 text-neutral-100">
+    <main className="aero-tool min-h-screen bg-[var(--aero-bg)] px-4 py-4 text-[var(--aero-text)]">
       <div className="mx-auto flex max-w-5xl flex-col gap-6">
         <header className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <p className="text-sm uppercase tracking-[0.3em] text-amber-400">Session Map</p>
-            <h1 className="text-3xl font-semibold tracking-tight">
-              Station and topology authoring
-            </h1>
+            <p className="text-xs text-[var(--aero-text-muted)]">Správa staníc</p>
+            <h1 className="text-lg font-semibold">Stanice a topológia</h1>
           </div>
           <div className="flex flex-wrap gap-3">
-            <Link href="/" className="text-sm text-neutral-400 underline-offset-4 hover:underline">
+            <Link
+              href="/"
+              className="text-sm text-[var(--aero-text-muted)] underline-offset-4 hover:underline"
+            >
               Back to entry
             </Link>
             <Link
               href="/editor"
-              className="text-sm text-neutral-400 underline-offset-4 hover:underline"
+              className="text-sm text-[var(--aero-text-muted)] underline-offset-4 hover:underline"
             >
               Open station editor
             </Link>
@@ -29,7 +30,7 @@ export default function MapPage() {
 
         <Suspense
           fallback={
-            <div className="rounded-3xl border border-neutral-800 bg-neutral-900/80 p-4 text-sm text-neutral-400">
+            <div className="rounded-[3px] border border-[var(--aero-panel-border)] bg-[var(--aero-panel-bg)] p-4 text-sm text-[var(--aero-text-muted)]">
               Loading map session...
             </div>
           }

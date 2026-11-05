@@ -12,6 +12,7 @@ import type {
 import StationRuntimeBoard from './StationRuntimeBoard';
 
 interface RuntimeStationClientProps {
+  embedded?: boolean;
   sessionId: string;
   stationId: string;
 }
@@ -36,7 +37,11 @@ function getRouteStatus(station: StationDocument) {
   return `${action} ${routeType} route...`;
 }
 
-export default function RuntimeStationClient({ sessionId, stationId }: RuntimeStationClientProps) {
+export default function RuntimeStationClient({
+  sessionId,
+  stationId,
+  embedded = false,
+}: RuntimeStationClientProps) {
   const [station, setStation] = useState<StationDocument | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -164,7 +169,9 @@ export default function RuntimeStationClient({ sessionId, stationId }: RuntimeSt
   const routeStatus = getRouteStatus(station);
 
   return (
-    <div className="flex min-h-screen flex-col overflow-hidden bg-neutral-300 p-4">
+    <div
+      className={`flex flex-col bg-neutral-300 p-4 ${embedded ? 'flex-1 overflow-auto min-h-0' : 'min-h-screen overflow-hidden'}`}
+    >
       <div className="mb-2 flex flex-wrap items-center gap-2 text-sm text-black">
         <div className="border border-neutral-700 bg-white px-2 py-0.5">session: {sessionId}</div>
         <div className="border border-neutral-700 bg-white px-2 py-0.5">station: {stationId}</div>

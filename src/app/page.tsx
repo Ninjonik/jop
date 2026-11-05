@@ -1,5 +1,5 @@
-import SessionEntryForm from '@/app/components/home/SessionEntryForm';
+import { redirect } from 'next/navigation';
 
 export default function HomePage() {
-  return <SessionEntryForm />;
+  redirect('/dis');
 }
