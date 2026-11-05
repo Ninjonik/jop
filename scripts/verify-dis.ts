@@ -3,6 +3,7 @@ import { MongoClient } from 'mongodb';
 import { Client, Databases, Query, Storage, Users } from 'node-appwrite';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
+import { getDisUniverseId } from '../src/lib/server/dis/places';
 
 const base = process.env.DIS_TEST_BASE_URL || 'http://localhost:3101';
 const client = new Client()
@@ -15,6 +16,10 @@ const db = new Databases(client),
 const databaseId = process.env.APPWRITE_DATABASE_ID || 'jop_dis';
 const bucketId = process.env.APPWRITE_STORAGE_BUCKET_ID || 'dis_storage';
 const tag = `qa${randomUUID().replaceAll('-', '').slice(0, 12)}`;
+const testPlace = `${Date.now()}${Math.floor(Math.random() * 1000)
+  .toString()
+  .padStart(3, '0')}`;
+const testUniverse = getDisUniverseId();
 const records: [string, string][] = [],
   userIds: string[] = [],
   files: string[] = [];
@@ -63,7 +68,52 @@ async function main() {
   sessionId = createdSession.session._id;
   const stationId = `${tag}-a`,
     otherStation = `${tag}-b`;
-  await request('/api/stations', '', { sessionId, stationId }, 201);
+  const firstStation = await request('/api/stations', '', { sessionId, stationId }, 201);
+  const secondStation = await request(
+    '/api/stations',
+    '',
+    { sessionId, stationId: otherStation },
+    201,
+  );
+  await mongo.connect();
+  const database = mongo.db(process.env.MONGODB_DB_NAME || 'jop');
+  const now = new Date().toISOString();
+  await database
+    .collection('roblox_place_templates')
+    .insertOne({
+      _id: `${testUniverse}:${testPlace}` as never,
+      universeId: testUniverse,
+      placeId: testPlace,
+      revision: 1,
+      createdAt: now,
+      updatedAt: now,
+      schema: {
+        version: 1,
+        stations: [firstStation.station, secondStation.station].map(
+          (station: { stationId: string; layout: unknown }) => ({
+            stationId: station.stationId,
+            layout: station.layout,
+          }),
+        ),
+        lineblockLinks: [],
+      },
+    });
+  await database
+    .collection('sessions')
+    .updateOne(
+      { _id: sessionId as never },
+      {
+        $set: {
+          interpreter: {
+            kind: 'roblox',
+            universeId: testUniverse,
+            placeId: testPlace,
+            serverId: tag,
+            heartbeat: { lastHeartbeatAt: now },
+          },
+        },
+      },
+    );
   const scope = { sessionId, stationId };
   const schedule = {
     trainNumber: `${tag}-1`,
@@ -75,8 +125,16 @@ async function main() {
       { station: otherStation, arrival: '00:20', departure: '00:21', track: '1' },
     ],
   };
-  await request('/api/dis/timetables', driver.token, { timetable: schedule }, 403);
-  const saved = await request('/api/dis/timetables', manager.token, { timetable: schedule });
+  await request(
+    '/api/dis/timetables',
+    driver.token,
+    { placeId: testPlace, timetable: schedule },
+    403,
+  );
+  const saved = await request('/api/dis/timetables', manager.token, {
+    placeId: testPlace,
+    timetable: schedule,
+  });
   records.push(['timetables_gvd', saved.timetable.$id]);
   const peer = {
     ...schedule,
@@ -86,7 +144,10 @@ async function main() {
       { station: otherStation, arrival: '00:30', departure: '00:31', track: '2' },
     ],
   };
-  const second = await request('/api/dis/timetables', manager.token, { timetable: peer });
+  const second = await request('/api/dis/timetables', manager.token, {
+    placeId: testPlace,
+    timetable: peer,
+  });
   records.push(['timetables_gvd', second.timetable.$id]);
   assert(second.report.conflicts.length > 0);
   assert.equal(
@@ -273,6 +334,13 @@ async function cleanup() {
   for (const [collection, id] of records.reverse())
     await attempt(() => db.deleteDocument(databaseId, collection, id));
   for (const id of userIds) await attempt(() => users.delete(id));
+  await attempt(async () => {
+    await mongo.connect();
+    await mongo
+      .db(process.env.MONGODB_DB_NAME || 'jop')
+      .collection('roblox_place_templates')
+      .deleteMany({ universeId: testUniverse, placeId: testPlace });
+  });
   await mongo.close();
   if (failures.length) throw new AggregateError(failures, 'DIS QA cleanup failed');
   console.log('All isolated QA records, users, files and Mongo session removed.');

@@ -1,35 +1,37 @@
 'use client';
 
 import type { LiveRobloxSessionSummary } from '@/lib/station/domain';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 export function SessionControlView({
   onLaunchRuntime,
+  placeId,
 }: {
   onLaunchRuntime?: (sessionId: string, stationId: string) => void;
+  placeId: string;
 }) {
   const [liveSessions, setLiveSessions] = useState<LiveRobloxSessionSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Manual entry fields
-  const [manualSessionId, setManualSessionId] = useState('');
-  const [manualStationId, setManualStationId] = useState('');
-
-  const fetchLive = async () => {
+  const fetchLive = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
       const res = await fetch('/api/sessions/live', { cache: 'no-store' });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
-      setLiveSessions(data.sessions || []);
+      setLiveSessions(
+        (data.sessions || []).filter(
+          (session: LiveRobloxSessionSummary) => session.placeId === placeId,
+        ),
+      );
     } catch (err: unknown) {
       setError((err instanceof Error ? err.message : '') || 'Nepodarilo sa načítať session');
     } finally {
       setLoading(false);
     }
-  };
+  }, [placeId]);
 
   useEffect(() => {
     const initial = setTimeout(fetchLive, 0);
@@ -38,7 +40,7 @@ export function SessionControlView({
       clearTimeout(initial);
       clearInterval(interval);
     };
-  }, []);
+  }, [fetchLive]);
 
   return (
     <div className="flex-1 flex flex-col bg-white overflow-hidden text-[12px] font-sans">
@@ -150,52 +152,9 @@ export function SessionControlView({
           </div>
 
           <div className="p-4 space-y-3">
-            <div className="grid grid-cols-2 gap-3 max-w-xl">
-              <div>
-                <label className="block text-[11px] font-semibold text-[var(--aero-text-muted)] mb-1">
-                  Session ID:
-                </label>
-                <input
-                  type="text"
-                  value={manualSessionId}
-                  onChange={(e) => setManualSessionId(e.target.value)}
-                  className="aero-input w-full font-mono font-bold"
-                />
-              </div>
-              <div>
-                <label className="block text-[11px] font-semibold text-[var(--aero-text-muted)] mb-1">
-                  Stanica (Station ID):
-                </label>
-                <input
-                  type="text"
-                  value={manualStationId}
-                  onChange={(e) => setManualStationId(e.target.value)}
-                  className="aero-input w-full font-mono font-bold"
-                />
-              </div>
-            </div>
+            <p>Reláciu a stanicu vyberte v hornej lište.</p>
 
             <div className="pt-2 flex flex-wrap gap-2">
-              <button
-                onClick={() => {
-                  if (onLaunchRuntime && manualSessionId.trim() && manualStationId.trim())
-                    onLaunchRuntime(manualSessionId.trim(), manualStationId.trim());
-                }}
-                className="aero-btn font-semibold text-emerald-800 bg-emerald-50 border-emerald-600 hover:bg-emerald-100 flex items-center space-x-1"
-              >
-                <svg
-                  viewBox="0 0 24 24"
-                  className="w-3 h-3"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                >
-                  <rect x="2" y="3" width="20" height="14" rx="2" />
-                  <polyline points="8 21 12 17 16 21" />
-                </svg>
-                <span>Vstúpiť na JOP Pult (Runtime)</span>
-              </button>
-
               <button
                 onClick={() => {
                   if (onLaunchRuntime) onLaunchRuntime('editor', '');

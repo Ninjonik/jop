@@ -17,10 +17,12 @@ const statusNames: Record<EddRecord['status'], string> = {
 export function EddTableView({
   sessionId,
   stationId,
+  placeId,
   onSelectTrain,
 }: {
   sessionId: string;
   stationId: string;
+  placeId: string;
   onSelectTrain?: (train: string) => void;
 }) {
   const { canOperateStation } = useDisAuth();
@@ -34,9 +36,12 @@ export function EddTableView({
     sessionId && stationId ? `/api/dis/edd?${new URLSearchParams(scope)}` : null,
     { records: [] },
   );
-  const { value: schedules } = useDisResource<{ timetables: Timetable[] }>('/api/dis/timetables', {
-    timetables: [],
-  });
+  const { value: schedules } = useDisResource<{ timetables: Timetable[] }>(
+    `/api/dis/timetables?placeId=${encodeURIComponent(placeId)}`,
+    {
+      timetables: [],
+    },
+  );
   const [timetableId, setTimetableId] = useState('');
   const [expectedOnly, setExpectedOnly] = useState(false);
   const [creating, setCreating] = useState(false);

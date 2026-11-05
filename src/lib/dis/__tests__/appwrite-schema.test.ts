@@ -105,6 +105,7 @@ test('fresh setup provisions OAuth fields, correct numeric bounds/defaults and r
   for (const key of ['robloxUserId', 'robloxUsername', 'robloxRoleName', 'robloxRank'])
     assert(collections.get('profiles')!.has(key), key);
   const speed = collections.get('timetables_gvd')!.get('maxSpeed')!;
+  assert(collections.get('timetables_gvd')!.has('placeId'));
   assert.equal(speed.min, 1);
   assert.equal(speed.xdefault, 120);
   assert.equal(speed.max, 300);

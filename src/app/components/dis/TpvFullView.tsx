@@ -12,9 +12,17 @@ import { useDisResource } from '@/lib/dis/use-dis-resource';
 import { useEffect, useState } from 'react';
 
 const colors = ['#2563eb', '#b45309', '#7c3aed', '#047857', '#be185d'];
-export function TpvFullView({ sessionId, stationId }: { sessionId: string; stationId: string }) {
+export function TpvFullView({
+  sessionId,
+  stationId,
+  placeId,
+}: {
+  sessionId: string;
+  stationId: string;
+  placeId: string;
+}) {
   const { value, error, loading } = useDisResource<{ timetables: Timetable[] }>(
-    '/api/dis/timetables',
+    `/api/dis/timetables?placeId=${encodeURIComponent(placeId)}`,
     { timetables: [] },
   );
   const { value: journal, error: journalError } = useDisResource<{ records: EddRecord[] }>(

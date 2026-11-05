@@ -11,8 +11,17 @@ export function useDisResource<T>(url: string | null, initial: T, intervalMs = 1
   const refresh = useCallback(async () => {
     if (!url) return;
     const request = ++generation.current;
+    let timeout: ReturnType<typeof setTimeout> | undefined;
     try {
-      const result = await disFetch<T>(url);
+      const result = await Promise.race([
+        disFetch<T>(url),
+        new Promise<never>((_, reject) => {
+          timeout = setTimeout(
+            () => reject(new Error('Načítanie trvalo príliš dlho. Skúste to znova.')),
+            12000,
+          );
+        }),
+      ]);
       if (active.current && request === generation.current) {
         setValue(result);
         setError(null);
@@ -21,6 +30,7 @@ export function useDisResource<T>(url: string | null, initial: T, intervalMs = 1
       if (active.current && request === generation.current)
         setError(error instanceof Error ? error.message : 'Údaje sa nepodarilo načítať.');
     } finally {
+      clearTimeout(timeout);
       if (active.current && request === generation.current) setLoading(false);
     }
   }, [url]);

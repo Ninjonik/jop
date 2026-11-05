@@ -81,8 +81,11 @@ it while serving an older client that still accesses collections directly.
 ## Workflows
 
 1. Select an active session and station in DIS.
-2. Create daily train schedules in **Tvorba GVD**, using station IDs from the
-   station picker. Check conflicts before using them. Conflicting schedules may
+2. Select a place and create daily train schedules in **Tvorba GVD**, choosing
+   stations from that place's saved layout. Each timetable stores its place ID;
+   duplicate numbers and conflicts are checked within that place. Existing
+   legacy timetables without a place are not assigned automatically and are not
+   listed until explicitly assigned. Check conflicts before using them. Conflicting schedules may
    be saved for further editing; the report remains visible after saving.
 3. In EDD, select a train and import its GVD. Repeating an import does not
    duplicate entries or overwrite actual times. Additional trains can be entered

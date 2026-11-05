@@ -4,7 +4,9 @@ import { loadTimetables, saveTimetable } from '@/lib/server/dis/timetables';
 export async function GET(request: Request) {
   return disResponse(async () => {
     await requireDisProfile(request);
-    return { timetables: await loadTimetables() };
+    return {
+      timetables: await loadTimetables(new URL(request.url).searchParams.get('placeId') || ''),
+    };
   });
 }
 export async function POST(request: Request) {

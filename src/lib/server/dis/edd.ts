@@ -7,6 +7,7 @@ import { z } from 'zod';
 import { sessionRepository } from '../repositories/session-repository';
 import { stationRepository } from '../repositories/station-repository';
 import { databaseId, disDatabase, DisError, listDocuments } from './appwrite';
+import { getDisUniverseId } from './places';
 import { loadTimetables } from './timetables';
 
 const identity = z.string().trim().min(1).max(64);
@@ -54,7 +55,16 @@ export async function createEdd(body: unknown, profile: UserProfile) {
 export async function importTimetable(body: unknown, profile: UserProfile) {
   const command = scopeSchema.extend({ timetableId: identity }).parse(body);
   await requireStation(command);
-  const timetable = (await loadTimetables()).find((item) => item.$id === command.timetableId);
+  const session = await sessionRepository.findById(command.sessionId);
+  if (
+    !session ||
+    session.interpreter.kind !== 'roblox' ||
+    session.interpreter.universeId !== getDisUniverseId()
+  )
+    throw new DisError(400, 'Relácia nemá priradené miesto v tomto universe.');
+  const timetable = (await loadTimetables(session.interpreter.placeId)).find(
+    (item) => item.$id === command.timetableId,
+  );
   if (!timetable) throw new DisError(404, 'Grafikon neexistuje.');
   const stops = timetable.stops
     .map((stop, index) => ({ stop, index }))

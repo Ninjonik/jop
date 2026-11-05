@@ -18,11 +18,17 @@ import {
   recordAttendance,
   registerShift,
 } from '../src/lib/server/dis/personnel';
-import { previewTimetable, saveTimetable } from '../src/lib/server/dis/timetables';
+import { getDisUniverseId } from '../src/lib/server/dis/places';
+import { loadTimetables, previewTimetable, saveTimetable } from '../src/lib/server/dis/timetables';
 import { getMongoClient, getMongoDb } from '../src/lib/server/mongo';
 import { stationService } from '../src/lib/server/services/station-service';
 
 const tag = `qa${randomUUID().replaceAll('-', '').slice(0, 12)}`;
+const testPlace = `${Date.now()}${Math.floor(Math.random() * 1000)
+  .toString()
+  .padStart(3, '0')}`;
+const secondPlace = String(BigInt(testPlace) + 1n);
+const testUniverse = getDisUniverseId();
 const manager: UserProfile = {
   userId: `${tag}-manager`,
   name: 'DIS QA',
@@ -43,6 +49,43 @@ async function verify() {
   const stationId = `${tag}-a`,
     remote = `${tag}-b`;
   const initialStation = await stationService.createStation(sessionId, stationId);
+  const remoteStation = await stationService.createStation(sessionId, remote);
+  const mongo = await getMongoDb();
+  for (const placeId of [testPlace, secondPlace]) {
+    const now = new Date().toISOString();
+    await mongo.collection('roblox_place_templates').insertOne({
+      _id: `${testUniverse}:${placeId}` as never,
+      universeId: testUniverse,
+      placeId,
+      revision: 1,
+      createdAt: now,
+      updatedAt: now,
+      schema: {
+        version: 1,
+        stations: [
+          { stationId, layout: initialStation.layout },
+          { stationId: remote, layout: remoteStation.layout },
+        ],
+        lineblockLinks: [],
+      },
+    });
+  }
+  await mongo
+    .collection('sessions')
+    .updateOne(
+      { _id: sessionId as never },
+      {
+        $set: {
+          interpreter: {
+            kind: 'roblox',
+            universeId: testUniverse,
+            placeId: testPlace,
+            serverId: tag,
+            heartbeat: { lastHeartbeatAt: new Date().toISOString() },
+          },
+        },
+      },
+    );
   const scope = { sessionId, stationId };
   const timetable = {
     trainNumber: `${tag}-1`,
@@ -54,9 +97,10 @@ async function verify() {
       { station: remote, arrival: '00:20', departure: '00:21', track: '1' },
     ],
   };
-  const first = await saveTimetable({ timetable });
+  const first = await saveTimetable({ placeId: testPlace, timetable });
   created.push(['timetables_gvd', first.timetable.$id]);
   const second = await saveTimetable({
+    placeId: testPlace,
     timetable: {
       ...timetable,
       trainNumber: `${tag}-2`,
@@ -73,7 +117,23 @@ async function verify() {
     true,
   );
   assert(
-    (await previewTimetable({ id: first.timetable.$id, timetable })).report.conflicts.length > 0,
+    (await previewTimetable({ placeId: testPlace, id: first.timetable.$id, timetable })).report
+      .conflicts.length > 0,
+  );
+  const otherPlaceTrain = await saveTimetable({ placeId: secondPlace, timetable });
+  created.push(['timetables_gvd', otherPlaceTrain.timetable.$id]);
+  assert.equal(otherPlaceTrain.report.conflicts.length, 0);
+  assert.equal(
+    (await loadTimetables(testPlace)).some((entry) => entry.$id === otherPlaceTrain.timetable.$id),
+    false,
+  );
+  await assert.rejects(
+    saveTimetable({ placeId: secondPlace, id: first.timetable.$id, timetable }),
+    /nepatrí/,
+  );
+  await assert.rejects(
+    importTimetable({ ...scope, timetableId: otherPlaceTrain.timetable.$id }, manager),
+    /neexistuje/,
   );
   assert.equal(
     (await importTimetable({ ...scope, timetableId: first.timetable.$id }, manager)).imported,
@@ -196,6 +256,12 @@ async function cleanup() {
           .deleteMany(collection === 'sessions' ? { _id: sessionId as never } : { sessionId }),
       );
   }
+  const mongo = await getMongoDb();
+  await attempt(() =>
+    mongo
+      .collection('roblox_place_templates')
+      .deleteMany({ universeId: testUniverse, placeId: { $in: [testPlace, secondPlace] } }),
+  );
   for (const [collection, id] of created.reverse())
     await attempt(() => db.deleteDocument(databaseId, collection, id));
   await (await getMongoClient()).close();

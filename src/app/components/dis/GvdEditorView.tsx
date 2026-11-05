@@ -1,7 +1,6 @@
 'use client';
 import { disFetch } from '@/lib/dis/api-client';
 import { useDisAuth } from '@/lib/dis/auth-context';
-import type { JopStationSummary } from '@/lib/dis/jop-bridge';
 import type { ConflictReport, Timetable, TimetableInput } from '@/lib/dis/timetable';
 import { useDisResource } from '@/lib/dis/use-dis-resource';
 import { useState } from 'react';
@@ -14,21 +13,22 @@ const newTimetable = (): TimetableInput => ({
   trainLength: 250,
   stops: [newStop(), newStop()],
 });
-export function GvdEditorView() {
+export function GvdEditorView({
+  place,
+}: {
+  place: { placeId: string; name: string; stations: { stationId: string; name: string }[] };
+}) {
   const { canCreateGvd } = useDisAuth();
   const {
     value,
     error: loadError,
     loading,
     refresh,
-  } = useDisResource<{ timetables: Timetable[] }>('/api/dis/timetables', { timetables: [] });
-  const {
-    value: network,
-    loading: stationsLoading,
-    error: stationsError,
-  } = useDisResource<{ stations: JopStationSummary[] }>('/api/dis/jop-data?includeClosed=true', {
-    stations: [],
-  });
+  } = useDisResource<{ timetables: Timetable[] }>(
+    `/api/dis/timetables?placeId=${encodeURIComponent(place.placeId)}`,
+    { timetables: [] },
+  );
+  const stations = place.stations;
   const [selectedId, setSelectedId] = useState('');
   const [draft, setDraft] = useState<TimetableInput>(newTimetable);
   const [report, setReport] = useState<ConflictReport | null>(null);
@@ -42,13 +42,27 @@ export function GvdEditorView() {
   }
   async function submit(save: boolean) {
     if (busy) return;
+    if (
+      !place.placeId ||
+      draft.stops.some((stop) => !stations.some((station) => station.stationId === stop.station))
+    ) {
+      setError('Vyberte platné stanice z konfigurácie zvoleného miesta.');
+      return;
+    }
     setBusy(true);
     setError(null);
     setMessage('');
     try {
       const result = await disFetch<{ timetable?: Timetable; report: ConflictReport }>(
         save ? '/api/dis/timetables' : '/api/dis/timetables/check',
-        { method: 'POST', body: JSON.stringify({ id: selectedId || undefined, timetable: draft }) },
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            placeId: place.placeId,
+            id: selectedId || undefined,
+            timetable: draft,
+          }),
+        },
       );
       setReport(result.report);
       if (result.timetable) {
@@ -101,13 +115,8 @@ export function GvdEditorView() {
           {error || loadError}
         </p>
       )}
-      {stationsError && (
-        <p role="alert" className="text-red-700">
-          Stanice sa nepodarilo načítať: {stationsError}
-        </p>
-      )}
-      {!stationsLoading && !stationsError && network.stations.length === 0 && (
-        <p role="status">Nie sú dostupné žiadne stanice na výber.</p>
+      {stations.length === 0 && (
+        <p role="status">Pre zvolené miesto nie sú uložené žiadne stanice.</p>
       )}
       {message && (
         <p role="status" className="text-emerald-700">
@@ -179,8 +188,8 @@ export function GvdEditorView() {
                     {field === 'station' ? (
                       <StationPicker
                         value={stop.station}
-                        stations={network.stations}
-                        loading={stationsLoading}
+                        stations={stations}
+                        loading={false}
                         index={index}
                         onChange={(station) =>
                           change({
@@ -263,7 +272,7 @@ function StationPicker({
   onChange,
 }: {
   value: string;
-  stations: JopStationSummary[];
+  stations: { stationId: string; name: string }[];
   loading: boolean;
   index: number;
   onChange: (value: string) => void;

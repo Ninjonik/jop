@@ -2,8 +2,10 @@ import { checkTimetableConflicts, normalizeTimetable, type Timetable } from '@/l
 import { ID, type Models } from 'node-appwrite';
 import { z } from 'zod';
 import { databaseId, disDatabase, DisError, listDocuments } from './appwrite';
+import { getDisPlaceTemplate } from './places';
 
 const commandSchema = z.object({
+  placeId: z.string().regex(/^[1-9]\d{0,31}$/),
   id: z
     .string()
     .regex(/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,35}$/)
@@ -12,28 +14,32 @@ const commandSchema = z.object({
 });
 
 type StoredTimetable = Models.Document & {
+  placeId?: string;
   trainNumber: string;
   trainType: string;
   maxSpeed: number;
   trainLength: number;
   stopsJson: string;
 };
-export async function loadTimetables(): Promise<Timetable[]> {
+export async function loadTimetables(placeId: string): Promise<Timetable[]> {
+  if (!/^[1-9]\d{0,31}$/.test(placeId)) throw new DisError(400, 'Vyberte platné miesto.');
   const documents = await listDocuments<StoredTimetable>('timetables_gvd');
-  return documents.map((document) => {
-    try {
-      return {
-        ...normalizeTimetable({ ...document, stops: JSON.parse(document.stopsJson) }),
-        $id: document.$id,
-        $updatedAt: document.$updatedAt,
-      };
-    } catch {
-      throw new DisError(
-        409,
-        `Grafikon ${document.trainNumber} má neplatné údaje. Opravte uložený záznam ${document.$id}.`,
-      );
-    }
-  });
+  return documents
+    .filter((document) => document.placeId === placeId)
+    .map((document) => {
+      try {
+        return {
+          ...normalizeTimetable({ ...document, stops: JSON.parse(document.stopsJson) }),
+          $id: document.$id,
+          $updatedAt: document.$updatedAt,
+        };
+      } catch {
+        throw new DisError(
+          409,
+          `Grafikon ${document.trainNumber} má neplatné údaje. Opravte uložený záznam ${document.$id}.`,
+        );
+      }
+    });
 }
 export async function saveTimetable(body: unknown) {
   const input = commandSchema.parse(body);
@@ -43,7 +49,14 @@ export async function saveTimetable(body: unknown) {
   } catch (error) {
     throw new DisError(400, error instanceof Error ? error.message : 'Neplatný grafikon.');
   }
-  const others = (await loadTimetables()).filter((item) => item.$id !== input.id);
+  await validateTimetablePlace(
+    input.placeId,
+    timetable.stops.map((stop) => stop.station),
+  );
+  const current = await loadTimetables(input.placeId);
+  if (input.id && !current.some((item) => item.$id === input.id))
+    throw new DisError(404, 'Grafikon nepatrí vybranému miestu.');
+  const others = current.filter((item) => item.$id !== input.id);
   if (
     others.some(
       (item) => item.trainNumber.toLocaleLowerCase() === timetable.trainNumber.toLocaleLowerCase(),
@@ -52,6 +65,7 @@ export async function saveTimetable(body: unknown) {
     throw new DisError(409, 'Vlak s týmto číslom už existuje. Upravte jeho grafikon.');
   const report = checkTimetableConflicts(timetable, others);
   const payload = {
+    placeId: input.placeId,
     trainNumber: timetable.trainNumber,
     trainType: timetable.trainType,
     maxSpeed: timetable.maxSpeed,
@@ -81,10 +95,25 @@ export async function previewTimetable(body: unknown) {
   } catch (error) {
     throw new DisError(400, error instanceof Error ? error.message : 'Neplatný grafikon.');
   }
+  await validateTimetablePlace(
+    input.placeId,
+    timetable.stops.map((stop) => stop.station),
+  );
+  const current = await loadTimetables(input.placeId);
+  if (input.id && !current.some((item) => item.$id === input.id))
+    throw new DisError(404, 'Grafikon nepatrí vybranému miestu.');
   return {
     report: checkTimetableConflicts(
       timetable,
-      (await loadTimetables()).filter((item) => item.$id !== input.id),
+      current.filter((item) => item.$id !== input.id),
     ),
   };
+}
+
+async function validateTimetablePlace(placeId: string, stops: string[]) {
+  const template = await getDisPlaceTemplate(placeId);
+  if (!template) throw new DisError(404, 'Miesto nemá uloženú konfiguráciu staníc.');
+  const stations = new Set(template.schema.stations.map((station) => station.stationId));
+  if (stops.some((station) => !stations.has(station)))
+    throw new DisError(400, 'Grafikon obsahuje stanicu mimo vybraného miesta.');
 }
