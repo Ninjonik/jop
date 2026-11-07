@@ -169,6 +169,28 @@ The offline tests cover OAuth callbacks, concurrent account creation, group-role
 lookup, authenticated attachment handling, schema setup, and timetable rules
 using simulated external-service responses.
 
+The **Komunikácia** dock is available at the bottom of DIS after selecting a
+session. Expand it, choose a station or named driver, and send a message.
+Dispatchers use the selected station; drivers use their own identity. Accounts
+with both capabilities can switch between station and driver mode. Unread
+counts remain visible while the dock is collapsed. This is web chat in DIS;
+Roblox in-game chat is a separate integration.
+
+Delivery uses authenticated Socket.IO WebSockets on the existing `/socket.io`
+path and `/chat` namespace. Run the custom server (`npm run dev` or `npm start`),
+and forward WebSocket upgrades through the proxy as for station snapshots.
+Messages are stored in MongoDB, with indexes created at server startup; no
+Appwrite schema migration is required. Reconnecting restores recent history.
+
+```sh
+node --env-file=.env.local --import tsx scripts/verify-session-chat.ts
+```
+
+This check uses actual HTTP and WebSocket clients, MongoDB and isolated Appwrite
+profiles. Account-token validation is simulated; persisted profiles, message
+writes, role checks, private delivery, session isolation, retry deduplication and
+offline history are exercised. All test fixtures are removed afterward.
+
 The service integration check uses the configured Appwrite database and MongoDB,
 creates isolated fixtures, checks intermediate and final persisted states, and
 removes its fixtures. It verifies that EDD does not mutate the railway runtime.

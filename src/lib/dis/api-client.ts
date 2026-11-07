@@ -3,7 +3,7 @@ import { account } from './appwrite-client';
 
 let token: { jwt: string; expires: number } | undefined;
 let pendingToken: Promise<{ jwt: string }> | undefined;
-export async function disRequest(url: string, init: RequestInit = {}): Promise<Response> {
+export async function getDisToken() {
   if (!token || token.expires < Date.now()) {
     pendingToken ??= account.createJWT();
     try {
@@ -13,8 +13,11 @@ export async function disRequest(url: string, init: RequestInit = {}): Promise<R
       pendingToken = undefined;
     }
   }
+  return token.jwt;
+}
+export async function disRequest(url: string, init: RequestInit = {}): Promise<Response> {
   const headers = new Headers(init.headers);
-  headers.set('Authorization', `Bearer ${token.jwt}`);
+  headers.set('Authorization', `Bearer ${await getDisToken()}`);
   if (typeof init.body === 'string') headers.set('Content-Type', 'application/json');
   const response = await fetch(url, { ...init, headers, cache: 'no-store' });
   if (!response.ok) {

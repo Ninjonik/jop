@@ -1,5 +1,6 @@
 import { createServer } from 'node:http';
 
+import type { ChatNamespace } from '@/lib/server/dis/chat-realtime';
 import { loadEnvConfig } from '@next/env';
 import type { ChangeStream, Collection } from 'mongodb';
 import next from 'next';
@@ -54,6 +55,8 @@ async function start() {
   const { getMongoDb } = await import('@/lib/server/mongo');
   const database = await getMongoDb();
   stations = database.collection<StationDocument>('stations');
+  const { startChatRealtime } = await import('@/lib/server/dis/chat-realtime');
+  const stopChat = await startChatRealtime(io.of('/chat') as unknown as ChatNamespace);
 
   io.on('connection', (socket) => {
     socket.on('station:subscribe', (rawSubscription) => {
@@ -159,6 +162,7 @@ async function start() {
 
     shuttingDown = true;
     await stationChanges?.close();
+    await stopChat();
     io.close();
     httpServer.close();
   };

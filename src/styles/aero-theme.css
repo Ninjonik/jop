@@ -514,7 +514,27 @@ button:disabled > .aero-icon {
   padding: 0.1em 0.3em;
   border-radius: 2px;
 }
+.session-chat {
+  flex: none;
+  max-height: min(360px, 50vh);
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--aero-window-border);
+  background: var(--aero-panel-bg);
+  color: var(--aero-text);
+}
+.session-chat-log {
+  min-height: 70px;
+  max-height: 180px;
+  overflow: auto;
+  border: 1px solid var(--aero-panel-border);
+  background: var(--aero-panel-bg);
+  padding: 6px;
+}
+.session-chat-message { padding: 3px 0; overflow-wrap: anywhere; }
+.session-chat-message time { color: var(--aero-text-muted); }
 @media print {
+  .dis-portal .session-chat,
   .dis-portal nav,
   .dis-portal .sidebar-panel,
   .dis-portal .ribbon-bar,

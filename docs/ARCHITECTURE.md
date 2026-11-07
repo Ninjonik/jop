@@ -736,6 +736,20 @@ in the downloaded file. No external viewer receives private attachments.
 No sample traffic, radio conversations,
 or operating regulations are inserted as production records.
 
+The separate DIS communication dock provides live station-to-station and
+station-to-driver conversations. `src/lib/server/dis/chat.ts` validates active
+session membership of stations and the sender's role/identity, then persists
+messages in MongoDB `session_chat_messages`. The `/chat` Socket.IO namespace
+authenticates Appwrite JWTs and subscribes each client to one station inbox or
+its own driver inbox. A MongoDB insert change stream publishes saved messages
+to the sender/recipient rooms; reconnects reload the last 200 inbox messages.
+Station inboxes follow the existing dispatcher access to station tools; this
+does not introduce exclusive station ownership. Drivers cannot subscribe or
+send as another driver or as a station. Contacts expose names, not full staff
+profiles. Message IDs deduplicate retried sends, and clients merge history/live
+events by persisted ID. This web chat does not operate interlocking commands
+or replace the existing radio order journal. It does not add Roblox in-game UI.
+
 Shifts last 150 minutes, including midnight rollover. Registrations use
 `shift_bookings` with `assignedRole`, `assignedLocation`, and `attendance`.
 A deterministic per-user/per-shift ID prevents duplicate registrations. Managers

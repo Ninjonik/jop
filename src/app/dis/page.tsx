@@ -6,6 +6,7 @@ import { JopEmbeddedView } from '@/app/components/dis/JopEmbeddedView';
 import { NetworkPreparationView } from '@/app/components/dis/NetworkPreparationView';
 import { RadioDockView } from '@/app/components/dis/RadioDockView';
 import { RecoveryView } from '@/app/components/dis/RecoveryView';
+import { SessionChatView } from '@/app/components/dis/SessionChatView';
 import { SessionControlView } from '@/app/components/dis/SessionControlView';
 import { ShiftManagementView } from '@/app/components/dis/ShiftManagementView';
 import { StaffManagementView } from '@/app/components/dis/StaffManagementView';
@@ -488,6 +489,13 @@ function DisPortalShell() {
           )}
         </main>
       </div>
+      {hasSession && activeTab !== 'preparation' && (
+        <SessionChatView
+          key={scopeKey}
+          sessionId={current.sessionId}
+          stationId={canOperateStation ? current.stationId : ''}
+        />
+      )}
       <div className="statusbar">
         <a
           className="status-item"
