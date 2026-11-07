@@ -30,6 +30,7 @@ test('only explicitly mapped Roblox roles receive the intended DIS role', () => 
     ['Dispatcher Trainer', 30, 'dispatcher_instructor'],
     ['Head Of Drivers', 201, 'driver_manager'],
     ['Head Of Dispatchers', 203, 'dispatcher_manager'],
+    ['Contributor', 235, 'admin'],
     ['Board of Executives', 254, 'admin'],
     ['Executive Director', 255, 'admin'],
   ] as const;
@@ -41,6 +42,8 @@ test('only explicitly mapped Roblox roles receive the intended DIS role', () => 
     ['Other Staff', 18],
     ['Driver', 255],
     ['Unknown', 255],
+    ['Contributor', 234],
+    ['Contributor', 250],
   ] as const)
     assert.equal(mapRobloxRoleToDis(name, rank), null);
 });
@@ -99,4 +102,98 @@ test('a fallback role path from another group is rejected', async (context) => {
       : json({ groupMemberships: [{ user: 'users/56', role: 'groups/999/roles/1' }] }),
   );
   await assert.rejects(getRobloxUserGroupRole('56', '34'), RobloxGroupLookupError);
+});
+
+test('Contributor does not mask Head Of Dispatchers in a multi-role membership', async (context) => {
+  const previous = process.env.ROBLOX_API_KEY;
+  process.env.ROBLOX_API_KEY = 'synthetic-test-key';
+  context.after(() => {
+    if (previous === undefined) delete process.env.ROBLOX_API_KEY;
+    else process.env.ROBLOX_API_KEY = previous;
+  });
+  context.mock.method(globalThis, 'fetch', async (input: string | URL) => {
+    const url = new URL(String(input));
+    if (url.hostname === 'groups.roblox.com')
+      return json({ data: [{ group: { id: 34 }, role: { name: 'Contributor', rank: 250 } }] });
+    if (url.pathname.endsWith('/memberships'))
+      return json({
+        groupMemberships: [
+          { user: 'users/56', roles: ['groups/34/roles/11', 'groups/34/roles/22'] },
+        ],
+      });
+    return url.pathname.endsWith('/22')
+      ? json({ displayName: 'Head Of Dispatchers', rank: 203 })
+      : json({ displayName: 'Contributor', rank: 250 });
+  });
+  assert.deepEqual(await getRobloxUserGroupRole('56', '34'), {
+    roleName: 'Head Of Dispatchers',
+    rank: 203,
+  });
+});
+
+test('unsupported group-owned keys preserve the Roblox HTTP error without exposing the key', async (context) => {
+  const previous = process.env.ROBLOX_API_KEY;
+  process.env.ROBLOX_API_KEY = 'synthetic-test-key';
+  context.after(() => {
+    if (previous === undefined) delete process.env.ROBLOX_API_KEY;
+    else process.env.ROBLOX_API_KEY = previous;
+  });
+  context.mock.method(globalThis, 'fetch', async (input: string | URL) =>
+    String(input).includes('groups.roblox.com')
+      ? json({}, 503)
+      : json(
+          {
+            code: 'UNAUTHENTICATED',
+            message:
+              'Unsupported authorization method. Only OAuth tokens and User API keys are supported at this time. synthetic-test-key',
+          },
+          401,
+        ),
+  );
+  await assert.rejects(getRobloxUserGroupRole('56', '34'), (error: unknown) => {
+    assert.ok(error instanceof RobloxGroupLookupError);
+    assert.match(
+      error.message,
+      /Membership lookup returned HTTP 401.*UNAUTHENTICATED.*User API keys/,
+    );
+    assert.ok(!error.message.includes('synthetic-test-key'));
+    return true;
+  });
+});
+
+test('login uses its OAuth token instead of the configured group API key', async (context) => {
+  context.mock.method(globalThis, 'fetch', async (input: string | URL, options: RequestInit) => {
+    const url = new URL(String(input));
+    if (url.hostname === 'groups.roblox.com') return json({}, 503);
+    const headers = new Headers(options.headers);
+    assert.equal(headers.get('Authorization'), 'Bearer login-token');
+    assert.equal(headers.has('x-api-key'), false);
+    if (url.pathname.endsWith('/memberships'))
+      return json({ groupMemberships: [{ user: 'users/56', roles: ['groups/34/roles/22'] }] });
+    return json({ displayName: 'Head Of Dispatchers', rank: 203 });
+  });
+  assert.deepEqual(await getRobloxUserGroupRole('56', '34', 'login-token'), {
+    roleName: 'Head Of Dispatchers',
+    rank: 203,
+  });
+});
+
+test('Contributor admin access is resolved even when the public API reports a lower role', async (context) => {
+  context.mock.method(globalThis, 'fetch', async (input: string | URL) => {
+    const url = new URL(String(input));
+    if (url.hostname === 'groups.roblox.com')
+      return json({ data: [{ group: { id: 34 }, role: { name: 'Dispatcher', rank: 4 } }] });
+    if (url.pathname.endsWith('/memberships'))
+      return json({
+        groupMemberships: [
+          { user: 'users/56', roles: ['groups/34/roles/11', 'groups/34/roles/22'] },
+        ],
+      });
+    return url.pathname.endsWith('/22')
+      ? json({ displayName: 'Contributor', rank: 235 })
+      : json({ displayName: 'Dispatcher', rank: 4 });
+  });
+  const role = await getRobloxUserGroupRole('56', '34', 'login-token');
+  assert.deepEqual(role, { roleName: 'Contributor', rank: 235 });
+  assert.equal(mapRobloxRoleToDis(role!.roleName, role!.rank)?.role, 'admin');
 });

@@ -3,7 +3,8 @@ import { disFetch } from '@/lib/dis/api-client';
 import { useDisAuth } from '@/lib/dis/auth-context';
 import type { ConflictReport, Timetable, TimetableInput } from '@/lib/dis/timetable';
 import { useDisResource } from '@/lib/dis/use-dis-resource';
-import { useState } from 'react';
+import { useId, useState } from 'react';
+import { TrainCategoryOptions } from './TrainCategoryOptions';
 
 const newStop = () => ({ station: '', arrival: '', departure: '', track: '', dwell: 0 });
 const newTimetable = (): TimetableInput => ({
@@ -144,9 +145,7 @@ export function GvdEditorView({
                 change({ trainType: event.target.value as TimetableInput['trainType'] })
               }
             >
-              {['R', 'Os', 'Pn', 'Mn'].map((type) => (
-                <option key={type}>{type}</option>
-              ))}
+              <TrainCategoryOptions />
             </select>
           </label>
           <label>
@@ -189,7 +188,6 @@ export function GvdEditorView({
                       <StationPicker
                         value={stop.station}
                         stations={stations}
-                        loading={false}
                         index={index}
                         onChange={(station) =>
                           change({
@@ -267,52 +265,109 @@ export function GvdEditorView({
 function StationPicker({
   value,
   stations,
-  loading,
   index,
   onChange,
 }: {
   value: string;
   stations: { stationId: string; name: string }[];
-  loading: boolean;
   index: number;
   onChange: (value: string) => void;
 }) {
-  const [search, setSearch] = useState('');
+  const listId = useId();
+  const [search, setSearch] = useState<string | null>(null);
+  const [open, setOpen] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(-1);
   const choices = [...new Map(stations.map((station) => [station.stationId, station])).values()];
+  const selected = choices.find((station) => station.stationId === value);
   const matches = choices.filter((station) =>
-    `${station.name} ${station.stationId}`.toLocaleLowerCase().includes(search.toLocaleLowerCase()),
+    `${station.name} ${station.stationId}`
+      .toLocaleLowerCase()
+      .includes((search || '').toLocaleLowerCase()),
   );
+  function select(station: (typeof choices)[number]) {
+    onChange(station.stationId);
+    setSearch(null);
+    setOpen(false);
+    setActiveIndex(-1);
+  }
   return (
-    <div className="min-w-40 space-y-1">
+    <div className="relative min-w-40">
       <input
         className="aero-input w-full"
-        aria-label={`Hľadať stanicu ${index + 1}`}
-        autoComplete="off"
-        value={search}
-        onChange={(event) => setSearch(event.target.value)}
-        placeholder="Vyhľadať stanicu..."
-      />
-      <select
-        className="aero-select w-full"
+        role="combobox"
         aria-label={`Stanica ${index + 1}`}
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        disabled={loading}
-      >
-        <option value="">{loading ? 'Načítavam stanice...' : 'Vyberte stanicu'}</option>
-        {value && !matches.some((station) => station.stationId === value) && (
-          <option value={value}>
-            {choices.find((station) => station.stationId === value)?.name || value}
-          </option>
-        )}
-        {matches.map((station) => (
-          <option key={station.stationId} value={station.stationId}>
-            {station.name}
-            {station.name !== station.stationId ? ` (${station.stationId})` : ''}
-          </option>
-        ))}
-      </select>
-      {search && !matches.length && <p>Žiadne zodpovedajúce stanice.</p>}
+        aria-autocomplete="list"
+        aria-expanded={open}
+        aria-controls={listId}
+        aria-activedescendant={
+          open && matches[activeIndex] ? `${listId}-${activeIndex}` : undefined
+        }
+        autoComplete="off"
+        value={search ?? selected?.name ?? value}
+        placeholder="Vyhľadať stanicu..."
+        onFocus={() => setOpen(true)}
+        onBlur={() => {
+          setOpen(false);
+          setSearch(null);
+          setActiveIndex(-1);
+        }}
+        onChange={(event) => {
+          setSearch(event.target.value);
+          setOpen(true);
+          setActiveIndex(-1);
+          if (value) onChange('');
+        }}
+        onKeyDown={(event) => {
+          if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+            event.preventDefault();
+            setOpen(true);
+            setActiveIndex((previous) =>
+              matches.length
+                ? (previous + (event.key === 'ArrowDown' ? 1 : -1) + matches.length) %
+                  matches.length
+                : -1,
+            );
+          } else if (event.key === 'Enter' && open) {
+            event.preventDefault();
+            const match = matches[activeIndex] || (matches.length === 1 ? matches[0] : undefined);
+            if (match) select(match);
+          } else if (event.key === 'Escape') {
+            setOpen(false);
+            setSearch(null);
+            setActiveIndex(-1);
+          }
+        }}
+      />
+      {open && (
+        <ul
+          id={listId}
+          role="listbox"
+          aria-label="Stanice"
+          className="absolute left-0 right-0 top-full z-20 max-h-60 overflow-auto border border-[#8fa6c4] bg-white shadow-md"
+        >
+          {matches.map((station, position) => (
+            <li
+              key={station.stationId}
+              id={`${listId}-${position}`}
+              role="option"
+              aria-selected={station.stationId === value}
+              className={`cursor-pointer px-2 py-1 hover:bg-blue-100 ${position === activeIndex ? 'bg-blue-100' : ''}`}
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => select(station)}
+            >
+              {station.name}
+              {station.name !== station.stationId && (
+                <span className="ml-1 text-slate-500">({station.stationId})</span>
+              )}
+            </li>
+          ))}
+          {!matches.length && (
+            <li role="presentation" className="px-2 py-1 text-slate-500">
+              Žiadne zodpovedajúce stanice.
+            </li>
+          )}
+        </ul>
+      )}
     </div>
   );
 }

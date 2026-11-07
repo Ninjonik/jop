@@ -74,14 +74,14 @@ export default function PieceContextMenu({
   return (
     <div
       ref={menuRef}
-      className="fixed z-30 flex min-w-24 max-w-[calc(100vw-1rem)] flex-col overflow-y-auto border border-neutral-800 bg-white shadow-md"
+      className="authoring-menu fixed z-30 flex min-w-24 max-w-[calc(100vw-1rem)] flex-col overflow-y-auto border border-[var(--aero-panel-border)] bg-[var(--aero-panel-bg)] shadow-md"
       style={{
         left: position.left,
         top: position.top,
         maxHeight: `calc(100vh - ${VIEWPORT_MARGIN * 2}px)`,
       }}
     >
-      <div className="border-b border-neutral-300 bg-neutral-100 px-2 py-1 text-left font-mono text-sm text-black">
+      <div className="border-b border-[var(--aero-panel-border)] bg-[var(--aero-ribbon-bg)] px-2 py-1 text-left font-mono text-sm text-[var(--aero-text)]">
         {contextMenu.pieceId}
       </div>
       {contextMenu.supportsOrientationChange ? (
@@ -90,18 +90,18 @@ export default function PieceContextMenu({
             <button
               type="button"
               onClick={onRotate}
-              className="border-b border-neutral-300 px-2 py-1 text-left text-sm text-black"
+              className="border-b border-neutral-300 px-2 py-1 text-left text-sm text-[var(--aero-text)]"
             >
-              rotate
+              Otočiť
             </button>
           ) : null}
           {contextMenu.canMirror ? (
             <button
               type="button"
               onClick={onMirror}
-              className="border-b border-neutral-300 px-2 py-1 text-left text-sm text-black"
+              className="border-b border-neutral-300 px-2 py-1 text-left text-sm text-[var(--aero-text)]"
             >
-              mirror
+              Zrkadliť
             </button>
           ) : null}
         </>
@@ -111,67 +111,71 @@ export default function PieceContextMenu({
           key={textKey}
           type="button"
           onClick={() => onEditText(textKey)}
-          className="border-b border-neutral-300 px-2 py-1 text-left text-sm text-black"
+          className="border-b border-neutral-300 px-2 py-1 text-left text-sm text-[var(--aero-text)]"
         >
-          {`edit ${textKey}`}
+          {`Upraviť ${textKey}`}
         </button>
       ))}
       {contextMenu.isTrackCrossing ? (
         <button
           type="button"
           onClick={onEditLevelCrossingTimings}
-          className="border-b border-neutral-300 px-2 py-1 text-left text-sm text-black"
+          className="border-b border-neutral-300 px-2 py-1 text-left text-sm text-[var(--aero-text)]"
         >
-          edit crossing timings
+          Upraviť časy priecestia
         </button>
       ) : null}
       {contextMenu.isSwitch ? (
         <button
           type="button"
           onClick={onEditSwitchSpeed}
-          className="border-b border-neutral-300 px-2 py-1 text-left text-sm text-black"
+          className="border-b border-neutral-300 px-2 py-1 text-left text-sm text-[var(--aero-text)]"
         >
-          edit diverging speed
+          Upraviť rýchlosť do odbočky
         </button>
       ) : null}
       {contextMenu.connectedPieceIds.length > 0 ? (
         <button
           type="button"
           onClick={onDisconnect}
-          className="border-b border-neutral-300 px-2 py-1 text-left text-sm text-black"
+          className="border-b border-neutral-300 px-2 py-1 text-left text-sm text-[var(--aero-text)]"
         >
-          {`connected: ${contextMenu.connectedPieceCells.map(([x, y]) => `${x},${y}`).join(' | ')}`}
+          {`Odpojiť: ${contextMenu.connectedPieceCells.map(([x, y]) => `${x},${y}`).join(' | ')}`}
         </button>
       ) : null}
       {contextMenu.canCancelPendingConnection ? (
         <button
           type="button"
           onClick={onCancelConnection}
-          className="border-b border-neutral-300 px-2 py-1 text-left text-sm text-black"
+          className="border-b border-neutral-300 px-2 py-1 text-left text-sm text-[var(--aero-text)]"
         >
-          cancel selection
+          Zrušiť výber
         </button>
       ) : null}
       {contextMenu.canConnectToPending ? (
         <button
           type="button"
           onClick={onConnect}
-          className="border-b border-neutral-300 px-2 py-1 text-left text-sm text-black"
+          className="border-b border-neutral-300 px-2 py-1 text-left text-sm text-[var(--aero-text)]"
         >
-          {`connect to ${contextMenu.pendingConnectionEndpointKey ?? pendingConnectionPieceId}`}
+          {`Prepojiť s: ${contextMenu.pendingConnectionEndpointKey ?? pendingConnectionPieceId}`}
         </button>
       ) : null}
       {contextMenu.canStartConnection ? (
         <button
           type="button"
           onClick={onStartConnection}
-          className="border-b border-neutral-300 px-2 py-1 text-left text-sm text-black"
+          className="border-b border-neutral-300 px-2 py-1 text-left text-sm text-[var(--aero-text)]"
         >
-          start selection
+          Vybrať na prepojenie
         </button>
       ) : null}
-      <button type="button" onClick={onRemove} className="px-2 py-1 text-left text-sm text-black">
-        remove
+      <button
+        type="button"
+        onClick={onRemove}
+        className="px-2 py-1 text-left text-sm text-[var(--aero-text)]"
+      >
+        Odstrániť
       </button>
     </div>
   );

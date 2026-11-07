@@ -1,29 +1,9 @@
 'use client';
 
-import { account } from '@/lib/dis/appwrite-client';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { Suspense, useState, type FormEvent } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { Suspense } from 'react';
 
 export default function DisLoginForm() {
-  const router = useRouter();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [passwordLoading, setPasswordLoading] = useState(false);
-  const [passwordError, setPasswordError] = useState('');
-
-  const handlePasswordLogin = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    setPasswordLoading(true);
-    setPasswordError('');
-    try {
-      await account.createEmailPasswordSession(email.trim(), password);
-      router.replace('/dis');
-    } catch {
-      setPasswordError('Prihlásenie sa nepodarilo. Skontrolujte e-mail a heslo.');
-      setPasswordLoading(false);
-    }
-  };
-
   return (
     <div className="min-h-screen bg-[#cbd7e6] flex items-center justify-center font-['Segoe_UI'] p-4 select-none">
       {/* Windows 7 Aero Window Box */}
@@ -83,44 +63,6 @@ export default function DisLoginForm() {
               <span>Prihlásiť sa cez Roblox účet</span>
             </a>
           </div>
-
-          <form onSubmit={handlePasswordLogin} className="space-y-3 border-t border-[#e2e8f0] pt-4">
-            <div className="text-xs font-semibold text-[#1e293b]">Dočasné prihlásenie e-mailom</div>
-            <label className="block text-xs text-[#475569]">
-              E-mail
-              <input
-                type="email"
-                autoComplete="username"
-                required
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
-                className="mt-1 w-full border border-[#8fa6c4] rounded-[3px] px-2 py-2"
-              />
-            </label>
-            <label className="block text-xs text-[#475569]">
-              Heslo
-              <input
-                type="password"
-                autoComplete="current-password"
-                required
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                className="mt-1 w-full border border-[#8fa6c4] rounded-[3px] px-2 py-2"
-              />
-            </label>
-            {passwordError && (
-              <p role="alert" className="text-xs text-red-700">
-                {passwordError}
-              </p>
-            )}
-            <button
-              type="submit"
-              disabled={passwordLoading}
-              className="w-full h-9 border border-[#707070] rounded-[3px] bg-gradient-to-b from-[#fbfbfb] to-[#e1e4e8] text-xs font-semibold cursor-pointer disabled:opacity-50"
-            >
-              {passwordLoading ? 'Prihlasujem...' : 'Prihlásiť sa e-mailom'}
-            </button>
-          </form>
         </div>
 
         {/* Status bar */}

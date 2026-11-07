@@ -1,14 +1,16 @@
 'use client';
+import AuthoringTools from '@/app/components/authoring/AuthoringTools';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import Link from 'next/link';
 import type { ChangeEvent, MouseEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import TileSvg from '@/app/components/tiles/TileSvg';
-import type { StateGroupRegistry, TileCatalog } from '@/app/components/tiles/tile-catalog';
 import { FILLER_TILE_KEY } from '@/app/components/editor/constants';
 import { useResponsiveTileSize } from '@/app/components/editor/hooks/useResponsiveTileSize';
 import type { EditorState } from '@/app/components/editor/types';
 import { getRenderablePieces, parseCellRef, toCellKey } from '@/app/components/editor/utils';
+import TileSvg from '@/app/components/tiles/TileSvg';
+import type { StateGroupRegistry, TileCatalog } from '@/app/components/tiles/tile-catalog';
 
 type LinkEntry = {
   stationId: string;
@@ -82,7 +84,7 @@ export default function StationLinkerClient({ tiles, stateGroups }: Props) {
             typeof traversable === 'object' &&
             selectedTraversalState in traversable;
 
-        return {
+          return {
             stationId: stationId.trim().toLowerCase(),
             pieceId,
             ...(supportsSelectedTraversal ? { traversalState: selectedTraversalState } : {}),
@@ -96,29 +98,32 @@ export default function StationLinkerClient({ tiles, stateGroups }: Props) {
     selectedPieceIdsRef.current = selectedPieceIds;
   }, [selectedPieceIds]);
 
-  const copyPieceIds = useCallback(async (pieceIds: string[]) => {
-    const normalizedStationId = stationId.trim().toLowerCase();
-    if (!normalizedStationId) {
-      setCopyStatus('Set stationId first.');
-      return;
-    }
+  const copyPieceIds = useCallback(
+    async (pieceIds: string[]) => {
+      const normalizedStationId = stationId.trim().toLowerCase();
+      if (!normalizedStationId) {
+        setCopyStatus('Najprv zadajte stanicu.');
+        return;
+      }
 
-    if (pieceIds.length === 0) {
-      return;
-    }
+      if (pieceIds.length === 0) {
+        return;
+      }
 
-    const payload = JSON.stringify(buildPayload(pieceIds), null, 2);
+      const payload = JSON.stringify(buildPayload(pieceIds), null, 2);
 
-    try {
-      await navigator.clipboard.writeText(payload);
-      setCopiedPieceIds((current) => Array.from(new Set([...current, ...pieceIds])));
-      setSelectedPieceIds([]);
-      setLastCopiedCount(pieceIds.length);
-      setCopyStatus(`Copied ${pieceIds.length} tile link${pieceIds.length === 1 ? '' : 's'}.`);
-    } catch {
-      setCopyStatus('Clipboard copy failed.');
-    }
-  }, [buildPayload, stationId]);
+      try {
+        await navigator.clipboard.writeText(payload);
+        setCopiedPieceIds((current) => Array.from(new Set([...current, ...pieceIds])));
+        setSelectedPieceIds([]);
+        setLastCopiedCount(pieceIds.length);
+        setCopyStatus(`Copied ${pieceIds.length} tile link${pieceIds.length === 1 ? '' : 's'}.`);
+      } catch {
+        setCopyStatus('Prepojenie sa nepodarilo skopírovať do schránky.');
+      }
+    },
+    [buildPayload, stationId],
+  );
 
   useEffect(() => {
     const cycleTraversal = (direction: -1 | 1) => {
@@ -254,42 +259,54 @@ export default function StationLinkerClient({ tiles, stateGroups }: Props) {
   };
 
   return (
-    <main className="flex min-h-screen flex-col bg-neutral-300 p-4">
-      <div className="mb-4 flex flex-wrap items-end gap-3 rounded border border-neutral-500 bg-neutral-200 p-3">
-        <div className="flex min-w-52 flex-col gap-1">
-          <label htmlFor="station-id" className="text-sm font-medium text-neutral-800">
-            Station ID
-          </label>
-          <input
-            id="station-id"
-            type="text"
-            value={stationId}
-            onChange={(event) => setStationId(event.target.value)}
-            placeholder="station-a"
-            className="rounded border border-neutral-500 bg-white px-3 py-2 text-sm text-neutral-900 outline-none focus:border-sky-600"
-          />
-        </div>
+    <main className="aero-tool railway-authoring flex h-screen flex-col overflow-hidden bg-[var(--aero-panel-bg)] text-[var(--aero-text)]">
+      <header className="authoring-caption">
+        <strong className="mr-auto">Prepojenie koľajiska s Roblox</strong>
+        <Link href="/map" className="aero-btn">
+          Späť na sieť staníc
+        </Link>
+      </header>
+      <AuthoringTools title="Nástroje prepojenia">
+        <div className="flex shrink-0 flex-wrap items-end gap-3 border-b border-[var(--aero-ribbon-border)] bg-[var(--aero-ribbon-bg)] p-3 text-xs">
+          <div className="flex min-w-52 flex-col gap-1">
+            <label htmlFor="station-id" className="text-xs font-semibold">
+              Stanica
+            </label>
+            <input
+              id="station-id"
+              type="text"
+              value={stationId}
+              onChange={(event) => setStationId(event.target.value)}
+              placeholder="Názov stanice"
+              className="aero-input"
+            />
+          </div>
 
-        <button
-          type="button"
-          onClick={() => fileInputRef.current?.click()}
-          className="rounded border border-neutral-600 bg-white px-4 py-2 text-sm text-neutral-900 hover:bg-neutral-100"
+          <button type="button" onClick={() => fileInputRef.current?.click()} className="aero-btn">
+            Otvoriť plán zo súboru…
+          </button>
+
+          <div className="text-xs text-[var(--aero-text)]">
+            Vybrané: {selectedCount} · Skopírované: {copiedCount}
+          </div>
+
+          <div className="w-full text-xs text-[var(--aero-text-muted)]">
+            Kliknutím skopírujete prepojenie. Podržte Ctrl na výber viacerých prvkov; šípkami doľava
+            a doprava vyberte priechod. Uvoľnením Ctrl skopírujete skupinu. Pravým tlačidlom zrušíte
+            označenie skopírovaných prvkov.
+          </div>
+        </div>
+      </AuthoringTools>
+      {copyStatus ? (
+        <div
+          role="status"
+          className="border-b border-[var(--status-border)] bg-[var(--status-bg)] px-3 py-2 text-xs"
         >
-          Import station JSON
-        </button>
-
-        <div className="text-sm text-neutral-800">
-          Selected: {selectedCount} | Copied: {copiedCount}
+          {copyStatus}
         </div>
+      ) : null}
 
-        <div className="text-sm text-neutral-700">
-          Click copies immediately. Hold `Ctrl` to build a group, use left/right arrows to pick traversal, then release `Ctrl` to copy. Right click clears copied state.
-        </div>
-      </div>
-
-      {copyStatus ? <div className="mb-3 text-sm text-neutral-800">{copyStatus}</div> : null}
-
-      <div className="relative flex flex-1 items-start justify-center overflow-auto bg-neutral-400">
+      <div className="relative flex min-h-0 flex-1 items-start justify-center overflow-auto bg-neutral-400">
         {layout ? (
           <div
             className="relative shrink-0 bg-neutral-500"
@@ -311,12 +328,12 @@ export default function StationLinkerClient({ tiles, stateGroups }: Props) {
 
             {selectedPieceIds.length > 0 ? (
               <div className="pointer-events-none absolute left-1/2 top-4 z-10 -translate-x-1/2 rounded border border-neutral-800/70 bg-neutral-950/80 px-4 py-2 text-center text-sm text-white">
-                <div>Traversal</div>
+                <div>Priechod</div>
                 <div className="font-mono text-base">
                   {selectedTraversalState === 'none' ? 'none' : selectedTraversalState}
                 </div>
                 <div className="mt-1 text-xs text-neutral-300">
-                  Last copied: {lastCopiedCount}
+                  Naposledy skopírované: {lastCopiedCount}
                 </div>
               </div>
             ) : null}
@@ -385,7 +402,9 @@ export default function StationLinkerClient({ tiles, stateGroups }: Props) {
             )}
           </div>
         ) : (
-          <div className="m-auto text-sm text-neutral-800">Import a station JSON to start.</div>
+          <div className="m-auto text-sm text-neutral-800">
+            Otvorte plán stanice zo súboru. Potom vyberajte prvky, ktoré chcete prepojiť s Roblox.
+          </div>
         )}
       </div>
 

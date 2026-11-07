@@ -4,9 +4,8 @@ import { useDisAuth } from '@/lib/dis/auth-context';
 import type { DisDocument } from '@/lib/dis/records';
 import { useDisResource } from '@/lib/dis/use-dis-resource';
 import { useState } from 'react';
-import Markdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
-import { DocumentAttachment } from './DocumentAttachment';
+import { DocumentMarkdown } from './DocumentMarkdown';
+import { MarkdownEditor } from './MarkdownEditor';
 
 export function DocumentCenterView() {
   const { canManageStaff } = useDisAuth();
@@ -19,12 +18,13 @@ export function DocumentCenterView() {
   const [selectedId, setSelectedId] = useState('');
   const [draft, setDraft] = useState<Partial<DisDocument> | null>(null);
   const [busy, setBusy] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const active =
     value.documents.find((document) => document.$id === selectedId) || value.documents[0];
   async function save(event: React.FormEvent) {
     event.preventDefault();
-    if (!draft || busy || !canManageStaff) return;
+    if (!draft || busy || uploading || !canManageStaff) return;
     setBusy(true);
     setError(null);
     try {
@@ -47,34 +47,9 @@ export function DocumentCenterView() {
       setBusy(false);
     }
   }
-  async function upload(file: File) {
-    if (!draft || busy) return;
-    setBusy(true);
-    setError(null);
-    try {
-      const body = new FormData();
-      body.set('file', file);
-      const result = await disFetch<{ markdownSnippet: string }>('/api/dis/upload', {
-        method: 'POST',
-        body,
-      });
-      setDraft((previous) =>
-        previous
-          ? {
-              ...previous,
-              contentMarkdown: `${previous.contentMarkdown || ''}\n\n${result.markdownSnippet}`,
-            }
-          : previous,
-      );
-    } catch (error) {
-      setError(error instanceof Error ? error.message : 'Nahrávanie zlyhalo.');
-    } finally {
-      setBusy(false);
-    }
-  }
   return (
-    <div className="flex flex-1 flex-col overflow-hidden bg-white text-xs">
-      <div className="flex gap-2 border-b p-2">
+    <div className="flex flex-1 flex-col overflow-hidden bg-[var(--aero-panel-bg)] text-xs text-[var(--aero-text)]">
+      <div className="flex flex-wrap items-center gap-2 border-b border-[var(--aero-ribbon-border)] bg-[var(--aero-ribbon-bg)] p-2">
         <strong>Dokumentačné centrum a SPP</strong>
         <button className="aero-btn" onClick={refresh}>
           Obnoviť
@@ -97,7 +72,7 @@ export function DocumentCenterView() {
         </p>
       )}
       <div className="flex flex-1 overflow-hidden">
-        <aside className="w-64 overflow-auto border-r bg-slate-50 p-2">
+        <aside className="w-44 shrink-0 overflow-auto border-r border-[var(--aero-panel-border)] bg-[var(--grid-row-alt)] p-2 md:w-64">
           {loading ? (
             <p>Načítavam dokumenty...</p>
           ) : value.documents.length === 0 ? (
@@ -116,62 +91,59 @@ export function DocumentCenterView() {
             ))
           )}
         </aside>
-        <div className="flex flex-1 flex-col overflow-auto p-4">
+        <div className="flex min-w-0 flex-1 flex-col overflow-auto p-3">
           {draft ? (
             <form onSubmit={save} className="flex flex-1 flex-col gap-3">
-              <input
-                aria-label="Názov dokumentu"
-                placeholder="Názov dokumentu"
-                className="aero-input"
-                required
-                maxLength={256}
-                value={draft.title}
-                onChange={(event) => setDraft({ ...draft, title: event.target.value })}
-              />
-              <input
-                aria-label="Kategória dokumentu"
-                className="aero-input"
-                required
-                maxLength={64}
-                value={draft.category}
-                onChange={(event) => setDraft({ ...draft, category: event.target.value })}
-              />
-              <textarea
-                aria-label="Obsah dokumentu v Markdown"
-                className="aero-input flex-1 min-h-64 font-mono"
-                maxLength={50000}
-                value={draft.contentMarkdown}
-                onChange={(event) => setDraft({ ...draft, contentMarkdown: event.target.value })}
+              <label className="grid gap-1">
+                Názov dokumentu
+                <input
+                  aria-label="Názov dokumentu"
+                  placeholder="Názov dokumentu"
+                  className="aero-input"
+                  disabled={busy || uploading}
+                  required
+                  maxLength={256}
+                  value={draft.title}
+                  onChange={(event) => setDraft({ ...draft, title: event.target.value })}
+                />
+              </label>
+              <label className="grid gap-1">
+                Kategória
+                <input
+                  aria-label="Kategória dokumentu"
+                  className="aero-input"
+                  disabled={busy || uploading}
+                  required
+                  maxLength={64}
+                  value={draft.category}
+                  onChange={(event) => setDraft({ ...draft, category: event.target.value })}
+                />
+              </label>
+              <MarkdownEditor
+                value={draft.contentMarkdown || ''}
+                disabled={busy || uploading}
+                onUploadingChange={setUploading}
+                onChange={(contentMarkdown) =>
+                  setDraft((previous) => (previous ? { ...previous, contentMarkdown } : previous))
+                }
               />
               <label>
                 <input
                   type="checkbox"
+                  disabled={busy || uploading}
                   checked={!!draft.isPublished}
                   onChange={(event) => setDraft({ ...draft, isPublished: event.target.checked })}
                 />{' '}
                 Publikovať
               </label>
-              <label>
-                Príloha (PNG, JPG, WebP alebo PDF, max. 10 MB){' '}
-                <input
-                  type="file"
-                  accept="image/png,image/jpeg,image/webp,application/pdf"
-                  disabled={busy}
-                  onChange={(event) => {
-                    const file = event.target.files?.[0];
-                    if (file) void upload(file);
-                    event.target.value = '';
-                  }}
-                />
-              </label>
               <div className="flex gap-2">
-                <button className="aero-btn" disabled={busy}>
+                <button className="aero-btn" disabled={busy || uploading}>
                   {busy ? 'Ukladám...' : 'Uložiť dokument'}
                 </button>
                 <button
                   type="button"
                   className="aero-btn"
-                  disabled={busy}
+                  disabled={busy || uploading}
                   onClick={() => setDraft(null)}
                 >
                   Zrušiť
@@ -192,28 +164,8 @@ export function DocumentCenterView() {
                 {active.category} • {active.authorName} •{' '}
                 {new Date(active.$updatedAt).toLocaleDateString('sk-SK')}
               </p>
-              <div className="dis-markdown mt-4 select-text">
-                <Markdown
-                  remarkPlugins={[remarkGfm]}
-                  components={{
-                    img: ({ src, alt }) =>
-                      typeof src === 'string' && src.startsWith('/api/dis/attachments/') ? (
-                        <DocumentAttachment key={src} src={src} label={alt || 'Príloha'} image />
-                      ) : (
-                        <span>{alt || 'Externý obrázok'}</span>
-                      ),
-                    a: ({ href, children }) =>
-                      href?.startsWith('/api/dis/attachments/') ? (
-                        <DocumentAttachment key={href} src={href} label={String(children)} />
-                      ) : (
-                        <a href={href} target="_blank" rel="noopener noreferrer">
-                          {children}
-                        </a>
-                      ),
-                  }}
-                >
-                  {active.contentMarkdown}
-                </Markdown>
+              <div className="mt-4">
+                <DocumentMarkdown content={active.contentMarkdown} />
               </div>
             </>
           ) : (

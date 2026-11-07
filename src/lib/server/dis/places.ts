@@ -1,4 +1,5 @@
 import { getMongoDb } from '@/lib/server/mongo';
+import { getRobloxPlaceNames } from '@/lib/server/roblox/place-names';
 import type { PlaceTemplateDocument } from '@/lib/station/domain';
 
 const defaultUniverse = '9571094123';
@@ -31,18 +32,7 @@ export async function loadDisPlaces() {
   const names = new Map<string, string>();
   let placesComplete = true;
   try {
-    let cursor: string | null = null;
-    do {
-      const url = new URL(`https://develop.roblox.com/v1/universes/${universeId}/places`);
-      url.searchParams.set('limit', '100');
-      if (cursor) url.searchParams.set('cursor', cursor);
-      const response = await fetch(url, { signal: AbortSignal.timeout(3000), cache: 'no-store' });
-      if (!response.ok) throw new Error(`Roblox returned ${response.status}`);
-      const page: { data: { id: number; name: string }[]; nextPageCursor: string | null } =
-        await response.json();
-      for (const place of page.data) names.set(String(place.id), place.name);
-      cursor = page.nextPageCursor;
-    } while (cursor);
+    for (const [placeId, name] of await getRobloxPlaceNames(universeId)) names.set(placeId, name);
   } catch {
     placesComplete = false;
   }
@@ -59,9 +49,7 @@ export async function loadDisPlaces() {
     places.set(placeId, { placeId, name, stations: [], hasTemplate: false });
   for (const template of templates) {
     const name =
-      names.get(template.placeId) ||
-      knownPlaceNames[template.placeId] ||
-      `Place ${template.placeId}`;
+      names.get(template.placeId) || knownPlaceNames[template.placeId] || 'Nedostupný názov';
     places.set(template.placeId, {
       placeId: template.placeId,
       name,

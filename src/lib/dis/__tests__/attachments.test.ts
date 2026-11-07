@@ -1,3 +1,4 @@
+import { strToU8, zipSync } from 'fflate';
 import { Account, Databases, Storage } from 'node-appwrite';
 import assert from 'node:assert/strict';
 import { test, type TestContext } from 'node:test';
@@ -58,6 +59,72 @@ test('unsupported bytes and oversized attachments never reach Storage', async (c
 test('a driver cannot upload a document attachment', async (context) => {
   authorize(context, 'driver');
   assert.equal((await POST(uploadRequest(png))).status, 403);
+});
+
+test('PowerPoint uploads retain their filename and produce an authenticated file link', async (context) => {
+  authorize(context);
+  const create = context.mock.method(Storage.prototype, 'createFile', async () => ({
+    $id: 'slides',
+  }));
+  const pptx = zipSync({
+    '[Content_Types].xml': strToU8('<Types/>'),
+    'ppt/presentation.xml': strToU8('<presentation/>'),
+  });
+  const response = await POST(uploadRequest(pptx, 'Školenie.pptx'));
+  assert.equal(response.status, 200);
+  const result = await response.json();
+  assert.equal(result.fileName, 'Školenie.pptx');
+  assert.equal(result.markdownSnippet, '[Školenie.pptx](/api/dis/attachments/slides)');
+  assert.equal(create.mock.callCount(), 1);
+});
+
+test('ZIP files renamed to Office formats and wrong file signatures are rejected', async (context) => {
+  authorize(context);
+  const create = context.mock.method(Storage.prototype, 'createFile', async () => {
+    throw new Error('Must not upload');
+  });
+  const zip = zipSync({ 'readme.txt': strToU8('not a presentation') });
+  assert.equal((await POST(uploadRequest(zip, 'fake.pptx'))).status, 400);
+  assert.equal((await POST(uploadRequest(png, 'fake.pdf'))).status, 400);
+  assert.equal(create.mock.callCount(), 0);
+});
+
+test('oversized compressed Office metadata is rejected without storing the file', async (context) => {
+  authorize(context);
+  const create = context.mock.method(Storage.prototype, 'createFile', async () => {
+    throw new Error('Must not upload');
+  });
+  const pptx = zipSync({
+    '[Content_Types].xml': strToU8('<Types/>'),
+    'ppt/presentation.xml': new Uint8Array(3 * 1024 * 1024),
+  });
+  assert.equal((await POST(uploadRequest(pptx, 'oversized.pptx'))).status, 400);
+  assert.equal(create.mock.callCount(), 0);
+});
+
+test('Office downloads use their real MIME type and retain authentication', async (context) => {
+  authorize(context, 'driver');
+  context.mock.method(Storage.prototype, 'getFile', async () => ({
+    mimeType: 'application/zip',
+    name: 'Školenie.pptx',
+  }));
+  context.mock.method(Storage.prototype, 'getFileView', async () => new ArrayBuffer(0));
+  const response = await GET(
+    new Request('http://localhost/api/dis/attachments/slides', {
+      headers: { Authorization: 'Bearer synthetic-test-token' },
+    }),
+    { params: Promise.resolve({ fileId: 'slides' }) },
+  );
+  assert.equal(response.status, 200);
+  assert.equal(
+    response.headers.get('content-type'),
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  );
+  assert.match(response.headers.get('content-disposition')!, /^attachment;/);
+  assert.match(
+    response.headers.get('content-disposition')!,
+    /filename\*=UTF-8''%C5%A0kolenie.pptx/,
+  );
 });
 test('download verifies the account and returns the stored bytes with private headers', async (context) => {
   authorize(context, 'driver');

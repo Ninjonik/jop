@@ -13,6 +13,8 @@ export function StaffManagementView() {
   const [editing, setEditing] = useState<UserProfile | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [strikeTargetId, setStrikeTargetId] = useState('');
+  const [notice, setNotice] = useState('');
 
   const loadProfiles = useCallback(async () => {
     try {
@@ -47,6 +49,7 @@ export function StaffManagementView() {
         }),
       });
       await loadProfiles();
+      setNotice(`Hodnotenie a sankcie pre ${editing.name} boli uložené.`);
       setEditing(null);
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Profil sa nepodarilo uložiť.');
@@ -122,74 +125,200 @@ export function StaffManagementView() {
         </div>
       </div>
 
-      {error && (
+      {activeTab === 'strikes' && canManageStaff && (
+        <div className="flex flex-wrap items-end gap-2 border-b border-[var(--aero-panel-border)] bg-[var(--grid-row-alt)] p-3">
+          <label className="grid gap-1">
+            Pridať sankciu zamestnancovi
+            <select
+              className="aero-select max-w-full"
+              value={strikeTargetId}
+              disabled={loading || saving}
+              onChange={(event) => setStrikeTargetId(event.target.value)}
+            >
+              <option value="">Vyberte zamestnanca</option>
+              {employees.map((employee) => (
+                <option key={employee.$id} value={employee.$id}>
+                  {employee.name}
+                  {employee.robloxUsername ? ` (@${employee.robloxUsername})` : ''} —{' '}
+                  {employee.strikes || 0} sankcií
+                </option>
+              ))}
+            </select>
+          </label>
+          <button
+            className="aero-btn"
+            disabled={
+              !strikeTargetId ||
+              saving ||
+              (employees.find((employee) => employee.$id === strikeTargetId)?.strikes || 0) >= 10
+            }
+            onClick={() => {
+              const employee = employees.find((person) => person.$id === strikeTargetId);
+              if (!employee) return;
+              setError(null);
+              setNotice('');
+              setEditing({ ...employee, strikes: Math.min(10, (employee.strikes || 0) + 1) });
+            }}
+          >
+            Pridať sankciu…
+          </button>
+          <span className="text-[var(--aero-text-muted)]">
+            Vybrať môžete aj zamestnanca bez sankcií. Zmenu potvrďte v okne hodnotenia.
+          </span>
+        </div>
+      )}
+      {notice && (
+        <p
+          role="status"
+          className="border-b border-[var(--aero-panel-border)] bg-[var(--status-bg)] px-3 py-2"
+        >
+          {notice}
+        </p>
+      )}
+      {error && !editing && (
         <div className="bg-red-50 border-b border-red-200 px-3 py-1.5 text-xs text-red-700">
           {error}
         </div>
       )}
 
       {editing && canManageStaff && (
-        <form
-          className="p-3 border-b space-y-2"
-          onSubmit={(event) => {
-            event.preventDefault();
-            void saveProfile();
+        <dialog
+          ref={(dialog) => {
+            if (dialog && !dialog.open) dialog.showModal();
           }}
+          aria-labelledby="staff-assessment-title"
+          onCancel={(event) => {
+            event.preventDefault();
+            if (!saving) setEditing(null);
+          }}
+          onClick={(event) => {
+            if (event.target === event.currentTarget && !saving) setEditing(null);
+          }}
+          className="m-auto w-[min(480px,calc(100vw-2rem))] max-h-[90vh] overflow-auto rounded-[3px] border border-[var(--aero-window-border)] bg-[var(--aero-panel-bg)] p-0 text-xs text-[var(--aero-text)] shadow-xl backdrop:bg-black/40"
         >
-          <strong>{editing.name} — Hodnotenie</strong>
-          <label className="block">
-            Fáza výcviku{' '}
-            <select
-              className="aero-select"
-              value={editing.trainingStage}
-              onChange={(event) =>
-                setEditing({
-                  ...editing,
-                  trainingStage: event.target.value as UserProfile['trainingStage'],
-                })
-              }
+          <header className="authoring-caption">
+            <h2 id="staff-assessment-title" className="mr-auto font-semibold">
+              Hodnotenie a sankcie — {editing.name}
+            </h2>
+            <button
+              type="button"
+              className="aero-btn"
+              disabled={saving}
+              onClick={() => setEditing(null)}
+              aria-label="Zavrieť hodnotenie"
             >
-              {['cadet', 'theory', 'simulator', 'exam', 'certified'].map((stage) => (
-                <option key={stage}>{stage}</option>
-              ))}
-            </select>
-          </label>
-          <label className="block">
-            Strikes{' '}
-            <input
-              className="aero-input"
-              type="number"
-              min="0"
-              max="10"
-              step="1"
-              required
-              value={editing.strikes}
-              onChange={(event) => setEditing({ ...editing, strikes: Number(event.target.value) })}
-            />
-          </label>
-          <label className="block">
-            Poznámky{' '}
-            <textarea
-              className="aero-input"
-              maxLength={2000}
-              value={editing.notes || ''}
-              onChange={(event) => setEditing({ ...editing, notes: event.target.value })}
-            />
-          </label>
-          <button className="aero-btn" disabled={saving} type="submit">
-            {saving ? 'Ukladám...' : 'Uložiť hodnotenie'}
-          </button>
-          <button
-            className="aero-btn"
-            disabled={saving}
-            type="button"
-            onClick={() => setEditing(null)}
+              ✕
+            </button>
+          </header>
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              void saveProfile();
+            }}
           >
-            Zrušiť
-          </button>
-        </form>
+            <fieldset disabled={saving} className="space-y-4 p-4">
+              <p className="text-[var(--aero-text-muted)]">
+                {editing.robloxUsername ? `@${editing.robloxUsername}` : editing.callsign} ·{' '}
+                {roleTitleMap[editing.role] || editing.role}
+              </p>
+              {error && (
+                <p role="alert" className="border border-red-200 bg-red-50 p-2 text-red-700">
+                  {error}
+                </p>
+              )}
+              <label className="grid gap-1">
+                Fáza výcviku
+                <select
+                  className="aero-select w-full"
+                  value={editing.trainingStage}
+                  onChange={(event) =>
+                    setEditing({
+                      ...editing,
+                      trainingStage: event.target.value as UserProfile['trainingStage'],
+                    })
+                  }
+                >
+                  <option value="cadet">Základná príprava</option>
+                  <option value="theory">Teoretická príprava</option>
+                  <option value="simulator">Služba pod dohľadom</option>
+                  <option value="exam">Skúška</option>
+                  <option value="certified">Autorizovaný (plný výkon)</option>
+                </select>
+              </label>
+              <section
+                className="space-y-2 border border-[var(--aero-panel-border)] bg-[var(--grid-row-alt)] p-3"
+                aria-label="Správa sankcií"
+              >
+                <h3 className="font-semibold">Sankcie (strikes)</h3>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    className="aero-btn"
+                    disabled={saving || (editing.strikes || 0) <= 0}
+                    onClick={() =>
+                      setEditing({ ...editing, strikes: Math.max(0, (editing.strikes || 0) - 1) })
+                    }
+                  >
+                    − Odobrať sankciu
+                  </button>
+                  <label className="grid gap-1">
+                    Počet sankcií
+                    <input
+                      className="aero-input w-24"
+                      type="number"
+                      min={0}
+                      max={10}
+                      step={1}
+                      required
+                      value={editing.strikes || 0}
+                      onChange={(event) =>
+                        setEditing({ ...editing, strikes: Number(event.target.value) })
+                      }
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    className="aero-btn"
+                    disabled={saving || (editing.strikes || 0) >= 10}
+                    onClick={() =>
+                      setEditing({ ...editing, strikes: Math.min(10, (editing.strikes || 0) + 1) })
+                    }
+                  >
+                    + Pridať sankciu
+                  </button>
+                </div>
+                <p className="text-[var(--aero-text-muted)]">
+                  Počet môže byť od 0 do 10. Zmeny sa prejavia až po uložení. Dôvod môžete zapísať
+                  do poznámok nižšie.
+                </p>
+              </section>
+              <label className="grid gap-1">
+                Poznámky a dôvod sankcie
+                <textarea
+                  className="aero-input h-auto! min-h-28 w-full resize-y p-2!"
+                  rows={5}
+                  maxLength={2000}
+                  value={editing.notes || ''}
+                  onChange={(event) => setEditing({ ...editing, notes: event.target.value })}
+                />
+              </label>
+            </fieldset>
+            <footer className="flex justify-end gap-2 border-t border-[var(--aero-panel-border)] bg-[var(--aero-ribbon-bg)] p-3">
+              <button
+                className="aero-btn"
+                disabled={saving}
+                type="button"
+                onClick={() => setEditing(null)}
+              >
+                Zrušiť
+              </button>
+              <button className="aero-btn" disabled={saving} type="submit">
+                {saving ? 'Ukladám…' : 'Uložiť hodnotenie a sankcie'}
+              </button>
+            </footer>
+          </form>
+        </dialog>
       )}
-
       {/* Main Content Grid View */}
       <div className="flex-1 overflow-auto p-2">
         {loading ? (
@@ -268,10 +397,14 @@ export function StaffManagementView() {
                   <td className="py-1 px-2 text-right space-x-1">
                     {canManageStaff && (
                       <button
-                        onClick={() => setEditing({ ...emp })}
+                        onClick={() => {
+                          setError(null);
+                          setNotice('');
+                          setEditing({ ...emp });
+                        }}
                         className="aero-btn text-[10.5px] font-semibold"
                       >
-                        Hodnotenie
+                        {activeTab === 'strikes' ? 'Spravovať sankcie' : 'Hodnotenie'}
                       </button>
                     )}
                   </td>

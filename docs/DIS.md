@@ -47,16 +47,24 @@ when the DIS role is unchanged. Name and rank must both match the explicit mappi
 | Dispatcher Trainer (30)                             | dispatcher instructor |
 | Head Of Drivers (201)                               | driver manager        |
 | Head Of Dispatchers (203)                           | dispatcher manager    |
+| Contributor (235)                                  | admin                 |
 | Board of Executives (254), Executive Director (255) | admin                 |
 
-Passenger, Member, Other Staff, Head Of Conductors, Contributor, Relations
+Passenger, Member, Other Staff, Head Of Conductors, Relations
 Director, Workforce Director, Shift Manager, unused roles, and unknown roles
 do not currently grant DIS access. Assign these only after their responsibilities
 are defined. Existing sessions and temporary password accounts are not revoked
 when this mapping changes.
-The Open Cloud fallback requires `ROBLOX_API_KEY` with read access to group
-memberships and roles. It resolves the assigned role resource paths to actual
-names and ranks and selects the highest rank, following the
+Login uses the OAuth access token from the Roblox sign-in to read Open Cloud
+memberships and roles; no additional user-owned API key is required. The existing
+group-owned bridge key remains unchanged. Calls outside login can use a user-owned
+`ROBLOX_API_KEY`; group-owned keys are rejected by the membership endpoint.
+It resolves the assigned role resource paths to actual
+names and ranks and selects the highest explicitly authorized rank. An unmapped
+legacy single-role response also triggers this lookup, so another assigned role
+can grant access even when an unrelated role is the legacy primary role. OAuth
+logins resolve the complete role set even if the public response already matches
+a lower DIS role, so Contributor admin access is not masked. This follows the
 [Roblox Groups API](https://create.roblox.com/docs/cloud/reference/features/groups).
 Lookup failures do not grant membership or downgrade staff to an invented rank.
 Login errors must be fixed at their source; do not grant a fallback staff profile.
@@ -79,6 +87,13 @@ It preserves data. API-key-backed server access continues to work. Do not run
 it while serving an older client that still accesses collections directly.
 
 ## Workflows
+
+Train categories for both GVD and manual EDD entry are defined in
+`src/lib/dis/train-categories.ts`. Both server schemas use that same catalog.
+The menus show codes and names, grouped into passenger, freight, and operational
+trains. Historical Slovak categories remain available for older-era timetables.
+Passenger designations follow [ŽSR GVD 2025/2026, section 3.1](https://tis.zsr.sk/pogvd/data_2026/zcp/rzgvd.pdf);
+historical freight codes are also documented in the [ŽSR 2004 annual report](https://www.zsr.sk/files/o-nas/vyrocne-spravy/vyrocnasprava2004.pdf).
 
 1. Select an active session and station in DIS.
 2. Select a place and create daily train schedules in **Tvorba GVD**, choosing
@@ -103,6 +118,31 @@ identifies same-track dwell overlaps and warns about concurrent section use.
 It does not certify operational safety or calculate missing infrastructure data.
 
 ## Checks
+
+To populate personnel before members first log in, run:
+
+```sh
+node --env-file=.env.local --import tsx scripts/import-roblox-personnel.ts
+node --env-file=.env.local --import tsx scripts/import-roblox-personnel.ts --apply
+```
+
+The first command previews the complete roster; the second adds missing profiles.
+Only roles in the existing DIS role mapping qualify. Multi-role members use
+their highest authorized role. Existing profiles and assessments are preserved.
+The import creates no login sessions or credentials; first login creates the
+account and reuses the deterministic `rbx_<Roblox user ID>` profile. Re-running
+the import is safe. It is a one-time backfill, not ongoing group synchronization.
+
+The document editor has formatting controls, write/split/preview modes, multiple
+file upload, file drop and clipboard-image paste. Images can be enlarged; PDFs
+use the browser viewer; text, PPTX slides and DOCX have text previews. Other
+Office files and ZIPs provide downloads. Attachments remain authenticated.
+The limit is 10 MB per file. Run `npm run dis:setup` after deploying to update
+the allowed file extensions on an existing storage bucket.
+
+`scripts/verify-document-attachments.ts` checks the live document/upload APIs,
+original filenames, protected downloads, and persisted draft links with isolated
+fixtures and cleanup. Set `DIS_TEST_BASE_URL` if the app is not on port 3000.
 
 ```sh
 npm run build

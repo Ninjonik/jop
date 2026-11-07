@@ -13,32 +13,16 @@ import type {
   SessionSchemaDocument,
   StationDocument,
 } from '@/lib/station/domain';
+import { stationIdSchema } from '@/lib/station/domain';
 import { isLineblockPieceType, type StationLayout } from '@/lib/station/layout';
 
-import StationTopologyBoard from './StationTopologyBoard';
+import StationNetworkCanvas from './StationNetworkCanvas';
 
 function getLineblockPieceIds(station: StationDocument): string[] {
   return Object.entries(station.layout.pieces)
     .filter(([, piece]) => isLineblockPieceType(piece.type))
     .map(([pieceId]) => pieceId)
     .sort();
-}
-
-function getPremainSignalPieceIds(station: StationDocument): string[] {
-  return Object.entries(station.layout.pieces)
-    .filter(([, piece]) => piece.type === 'premainSignal' || piece.type === 'premainSignalNoOcp')
-    .map(([pieceId]) => pieceId)
-    .sort();
-}
-
-function getLineblockDefaultFlowLabel(link: SessionLineblockLink) {
-  if (link.defaultFlow === 'a-receiving') {
-    return `${link.a.stationId} receiving`;
-  }
-  if (link.defaultFlow === 'b-receiving') {
-    return `${link.b.stationId} receiving`;
-  }
-  return 'Neutral';
 }
 
 export default function SessionMapClient() {
@@ -52,11 +36,17 @@ export default function SessionMapClient() {
   const [selectedStationId, setSelectedStationId] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [sessionIdDraft, setSessionIdDraft] = useState('');
-  const [stationIdDraft, setStationIdDraft] = useState('station-a');
+  const [stationIdDraft, setStationIdDraft] = useState('');
   const [universeIdDraft, setUniverseIdDraft] = useState(universeIdFromUrl);
   const [placeIdDraft, setPlaceIdDraft] = useState(placeIdFromUrl);
   const [savedPlaceTemplate, setSavedPlaceTemplate] = useState<PlaceTemplateDocument | null>(null);
-  const [savedPlaceTemplates, setSavedPlaceTemplates] = useState<PlaceTemplateSummary[]>([]);
+  const [savedPlaceTemplates, setSavedPlaceTemplates] = useState<
+    (PlaceTemplateSummary & { name?: string | null })[]
+  >([]);
+  const [destinations, setDestinations] = useState<
+    { universeId: string; placeId: string; name: string }[]
+  >([]);
+  const [namesComplete, setNamesComplete] = useState(true);
   const [savedPlaceTemplatesLoading, setSavedPlaceTemplatesLoading] = useState(true);
   const [isBusy, setIsBusy] = useState(false);
   const [stationOrder, setStationOrder] = useState<string[]>([]);
@@ -66,6 +56,11 @@ export default function SessionMapClient() {
   } | null>(null);
   const [lineblockDefaultFlow, setLineblockDefaultFlow] =
     useState<SessionLineblockLink['defaultFlow']>('neutral');
+  const [tab, setTab] = useState<'stations' | 'links' | 'save'>('stations');
+  const [stationSearch, setStationSearch] = useState('');
+  const [linkFrom, setLinkFrom] = useState('');
+  const [linkTo, setLinkTo] = useState('');
+  const [notice, setNotice] = useState('');
   const stationLayoutInputRef = useRef<HTMLInputElement | null>(null);
   const sessionSchemaInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -80,24 +75,29 @@ export default function SessionMapClient() {
     void fetch('/api/roblox/place-templates', { cache: 'no-store' })
       .then(async (response) => {
         const payload = (await response.json()) as
-          { templates: PlaceTemplateSummary[] } | { error?: { message?: string } };
+          | {
+              templates: (PlaceTemplateSummary & { name?: string | null })[];
+              destinations: { universeId: string; placeId: string; name: string }[];
+              namesComplete: boolean;
+            }
+          | { error?: { message?: string } };
         if (!response.ok || !('templates' in payload)) {
           throw new Error(
             'error' in payload
-              ? (payload.error?.message ?? 'Failed to load saved Roblox configurations.')
-              : 'Failed to load saved Roblox configurations.',
+              ? (payload.error?.message ?? 'Nepodarilo sa načítať uložené siete.')
+              : 'Nepodarilo sa načítať uložené siete.',
           );
         }
         if (active) {
           setSavedPlaceTemplates(payload.templates);
+          setDestinations(payload.destinations);
+          setNamesComplete(payload.namesComplete);
         }
       })
       .catch((loadError: unknown) => {
         if (active) {
           setError(
-            loadError instanceof Error
-              ? loadError.message
-              : 'Failed to load saved Roblox configurations.',
+            loadError instanceof Error ? loadError.message : 'Nepodarilo sa načítať uložené siete.',
           );
         }
       })
@@ -138,16 +138,16 @@ export default function SessionMapClient() {
     if (!sessionResponse.ok || !('session' in sessionPayload)) {
       throw new Error(
         'error' in sessionPayload
-          ? (sessionPayload.error?.message ?? 'Failed to load session.')
-          : 'Failed to load session.',
+          ? (sessionPayload.error?.message ?? 'Nepodarilo sa načítať sieť.')
+          : 'Nepodarilo sa načítať sieť.',
       );
     }
 
     if (!stationsResponse.ok || !('stations' in stationsPayload)) {
       throw new Error(
         'error' in stationsPayload
-          ? (stationsPayload.error?.message ?? 'Failed to load session stations.')
-          : 'Failed to load session stations.',
+          ? (stationsPayload.error?.message ?? 'Nepodarilo sa načítať stanice.')
+          : 'Nepodarilo sa načítať stanice.',
       );
     }
 
@@ -203,7 +203,7 @@ export default function SessionMapClient() {
         }
 
         setError(
-          bootstrapError instanceof Error ? bootstrapError.message : 'Failed to load map session.',
+          bootstrapError instanceof Error ? bootstrapError.message : 'Nepodarilo sa otvoriť sieť.',
         );
       }
     }
@@ -226,8 +226,8 @@ export default function SessionMapClient() {
       if (!response.ok || !('session' in payload)) {
         throw new Error(
           'error' in payload
-            ? (payload.error?.message ?? 'Failed to create session.')
-            : 'Failed to create session.',
+            ? (payload.error?.message ?? 'Nepodarilo sa vytvoriť sieť.')
+            : 'Nepodarilo sa vytvoriť sieť.',
         );
       }
       openSession(payload.session._id);
@@ -236,7 +236,7 @@ export default function SessionMapClient() {
       setError(
         createSessionError instanceof Error
           ? createSessionError.message
-          : 'Failed to create session.',
+          : 'Nepodarilo sa vytvoriť sieť.',
       );
     } finally {
       setIsBusy(false);
@@ -245,6 +245,13 @@ export default function SessionMapClient() {
 
   async function createStation(layout?: StationLayout) {
     if (!session?._id || !stationIdDraft.trim()) {
+      return;
+    }
+
+    if (!stationIdSchema.safeParse(stationIdDraft).success) {
+      setError(
+        'Názov môže mať najviac 64 znakov. Použite písmená bez diakritiky, číslice, pomlčky alebo podčiarkovníky.',
+      );
       return;
     }
 
@@ -268,16 +275,22 @@ export default function SessionMapClient() {
       if (!response.ok || !('station' in payload)) {
         throw new Error(
           'error' in payload
-            ? (payload.error?.message ?? 'Failed to create station.')
-            : 'Failed to create station.',
+            ? (payload.error?.message ?? 'Nepodarilo sa pridať stanicu.')
+            : 'Nepodarilo sa pridať stanicu.',
         );
       }
 
       await refreshSession(session._id);
       setSelectedStationId(payload.station.stationId);
+      setStationIdDraft('');
+      setNotice(
+        `Stanica ${payload.station.stationId} bola pridaná. Koľajisko môžete upraviť v editore.`,
+      );
       setError(null);
     } catch (createError) {
-      setError(createError instanceof Error ? createError.message : 'Failed to create station.');
+      setError(
+        createError instanceof Error ? createError.message : 'Nepodarilo sa pridať stanicu.',
+      );
     } finally {
       setIsBusy(false);
     }
@@ -295,7 +308,9 @@ export default function SessionMapClient() {
       await createStation(parsedLayout);
     } catch (importError) {
       setError(
-        importError instanceof Error ? importError.message : 'Failed to import station JSON.',
+        importError instanceof Error
+          ? importError.message
+          : 'Súbor stanice sa nepodarilo načítať. Vyberte plán exportovaný z editora.',
       );
     } finally {
       event.target.value = '';
@@ -332,15 +347,18 @@ export default function SessionMapClient() {
       if (!response.ok || !('link' in payload)) {
         throw new Error(
           'error' in payload
-            ? (payload.error?.message ?? 'Failed to create lineblock link.')
-            : 'Failed to create lineblock link.',
+            ? (payload.error?.message ?? 'Stanice sa nepodarilo prepojiť.')
+            : 'Stanice sa nepodarilo prepojiť.',
         );
       }
 
       await refreshSession(session._id);
+      setLinkFrom('');
+      setLinkTo('');
+      setNotice(`Stanice ${a.stationId} a ${b.stationId} boli prepojené.`);
       setError(null);
     } catch (linkError) {
-      setError(linkError instanceof Error ? linkError.message : 'Failed to create lineblock link.');
+      setError(linkError instanceof Error ? linkError.message : 'Stanice sa nepodarilo prepojiť.');
     } finally {
       setIsBusy(false);
     }
@@ -361,19 +379,26 @@ export default function SessionMapClient() {
       });
       if (!response.ok) {
         const payload = (await response.json()) as { error?: { message?: string } };
-        throw new Error(payload.error?.message ?? 'Failed to update lineblock direction.');
+        throw new Error(payload.error?.message ?? 'Nepodarilo sa zmeniť počiatočný smer trate.');
       }
       await refreshSession(session._id);
       setError(null);
     } catch (updateError) {
-      setError(updateError instanceof Error ? updateError.message : 'Failed to update lineblock direction.');
+      setError(
+        updateError instanceof Error
+          ? updateError.message
+          : 'Nepodarilo sa zmeniť počiatočný smer trate.',
+      );
     } finally {
       setIsBusy(false);
     }
   }
 
   async function removeLineblockLink(link: SessionLineblockLink) {
-    if (!session?._id || !window.confirm(`Remove the link between ${link.a.stationId} and ${link.b.stationId}?`)) {
+    if (
+      !session?._id ||
+      !window.confirm(`Odstrániť prepojenie medzi ${link.a.stationId} a ${link.b.stationId}?`)
+    ) {
       return;
     }
 
@@ -384,12 +409,14 @@ export default function SessionMapClient() {
       });
       if (!response.ok) {
         const payload = (await response.json()) as { error?: { message?: string } };
-        throw new Error(payload.error?.message ?? 'Failed to remove lineblock link.');
+        throw new Error(payload.error?.message ?? 'Nepodarilo sa odstrániť prepojenie.');
       }
       await refreshSession(session._id);
       setError(null);
     } catch (removeError) {
-      setError(removeError instanceof Error ? removeError.message : 'Failed to remove lineblock link.');
+      setError(
+        removeError instanceof Error ? removeError.message : 'Nepodarilo sa odstrániť prepojenie.',
+      );
     } finally {
       setIsBusy(false);
     }
@@ -397,55 +424,75 @@ export default function SessionMapClient() {
 
   async function renameStation(stationId: string) {
     if (!session?._id) return;
-    const nextStationId = window.prompt('Station ID', stationId)?.trim();
+    const nextStationId = window.prompt('Nový názov stanice', stationId)?.trim();
     if (!nextStationId || nextStationId === stationId) return;
+    if (!stationIdSchema.safeParse(nextStationId).success) {
+      setError(
+        'Použite názov bez medzier a diakritiky, najviac 64 znakov. Slová môžete oddeliť pomlčkou.',
+      );
+      return;
+    }
 
     setIsBusy(true);
     try {
-      const response = await fetch(`/api/stations/${session._id}/${encodeURIComponent(stationId)}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ stationId: nextStationId }),
-      });
+      const response = await fetch(
+        `/api/stations/${session._id}/${encodeURIComponent(stationId)}`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ stationId: nextStationId }),
+        },
+      );
       if (!response.ok) {
         const payload = (await response.json()) as { error?: { message?: string } };
-        throw new Error(payload.error?.message ?? 'Failed to rename station.');
+        throw new Error(payload.error?.message ?? 'Stanicu sa nepodarilo premenovať.');
       }
       setStationOrder((current) => current.map((id) => (id === stationId ? nextStationId : id)));
       setSelectedStationId(nextStationId);
       await refreshSession(session._id);
       setError(null);
     } catch (renameError) {
-      setError(renameError instanceof Error ? renameError.message : 'Failed to rename station.');
+      setError(
+        renameError instanceof Error ? renameError.message : 'Stanicu sa nepodarilo premenovať.',
+      );
     } finally {
       setIsBusy(false);
     }
   }
 
   async function removeStation(stationId: string) {
-    if (!session?._id || !window.confirm(`Remove station ${stationId} and all of its lineblock links?`)) {
+    if (
+      !session?._id ||
+      !window.confirm(`Odstrániť stanicu ${stationId} aj všetky jej prepojenia?`)
+    ) {
       return;
     }
 
     setIsBusy(true);
     try {
-      const response = await fetch(`/api/stations/${session._id}/${encodeURIComponent(stationId)}`, {
-        method: 'DELETE',
-      });
+      const response = await fetch(
+        `/api/stations/${session._id}/${encodeURIComponent(stationId)}`,
+        {
+          method: 'DELETE',
+        },
+      );
       if (!response.ok) {
         const payload = (await response.json()) as { error?: { message?: string } };
-        throw new Error(payload.error?.message ?? 'Failed to remove station.');
+        throw new Error(payload.error?.message ?? 'Stanicu sa nepodarilo odstrániť.');
       }
       await refreshSession(session._id);
       setError(null);
     } catch (removeError) {
-      setError(removeError instanceof Error ? removeError.message : 'Failed to remove station.');
+      setError(
+        removeError instanceof Error ? removeError.message : 'Stanicu sa nepodarilo odstrániť.',
+      );
     } finally {
       setIsBusy(false);
     }
   }
 
   function handleLineblockSelect(endpoint: { stationId: string; pieceId: string }) {
+    if (isBusy) return;
     if (!pendingLineblockEndpoint) {
       setPendingLineblockEndpoint(endpoint);
       setError(null);
@@ -461,21 +508,12 @@ export default function SessionMapClient() {
     }
 
     const pending = pendingLineblockEndpoint;
+    if (pending.stationId === endpoint.stationId) {
+      setError('Vyberte traťový súhlas v inej stanici.');
+      return;
+    }
     setPendingLineblockEndpoint(null);
     void createInterStationLineblockLink(pending, endpoint);
-  }
-
-  function moveStation(stationId: string, direction: -1 | 1) {
-    setStationOrder((current) => {
-      const index = current.indexOf(stationId);
-      const destination = index + direction;
-      if (index < 0 || destination < 0 || destination >= current.length) {
-        return current;
-      }
-      const next = [...current];
-      [next[index], next[destination]] = [next[destination], next[index]];
-      return next;
-    });
   }
 
   const orderedStations = useMemo(
@@ -501,8 +539,8 @@ export default function SessionMapClient() {
       if (!response.ok || !('schema' in payload)) {
         throw new Error(
           'error' in payload
-            ? (payload.error?.message ?? 'Failed to export session schema.')
-            : 'Failed to export session schema.',
+            ? (payload.error?.message ?? 'Zálohu siete sa nepodarilo stiahnuť.')
+            : 'Zálohu siete sa nepodarilo stiahnuť.',
         );
       }
 
@@ -518,7 +556,7 @@ export default function SessionMapClient() {
       setError(null);
     } catch (schemaError) {
       setError(
-        schemaError instanceof Error ? schemaError.message : 'Failed to export session schema.',
+        schemaError instanceof Error ? schemaError.message : 'Zálohu siete sa nepodarilo stiahnuť.',
       );
     } finally {
       setIsBusy(false);
@@ -545,26 +583,27 @@ export default function SessionMapClient() {
       if (!response.ok || !('template' in payload)) {
         throw new Error(
           'error' in payload
-            ? (payload.error?.message ?? 'Failed to save Roblox place template.')
-            : 'Failed to save Roblox place template.',
+            ? (payload.error?.message ?? 'Sieť sa nepodarilo uložiť.')
+            : 'Sieť sa nepodarilo uložiť.',
         );
       }
       setSavedPlaceTemplate(payload.template);
+      setNotice('Sieť bola uložená.');
       setSavedPlaceTemplates((current) => [
         payload.template,
         ...current.filter((template) => template._id !== payload.template._id),
       ]);
       setError(null);
     } catch (saveError) {
-      setError(
-        saveError instanceof Error ? saveError.message : 'Failed to save Roblox place template.',
-      );
+      setError(saveError instanceof Error ? saveError.message : 'Sieť sa nepodarilo uložiť.');
     } finally {
       setIsBusy(false);
     }
   }
 
-  async function loadPlaceTemplate(templateIdentity?: Pick<PlaceTemplateSummary, 'universeId' | 'placeId'>) {
+  async function loadPlaceTemplate(
+    templateIdentity?: Pick<PlaceTemplateSummary, 'universeId' | 'placeId'>,
+  ) {
     const universeId = templateIdentity?.universeId ?? universeIdDraft.trim();
     const placeId = templateIdentity?.placeId ?? placeIdDraft.trim();
     if (!universeId || !placeId) {
@@ -582,8 +621,8 @@ export default function SessionMapClient() {
       if (!response.ok || !('template' in payload)) {
         throw new Error(
           'error' in payload
-            ? (payload.error?.message ?? 'Failed to load Roblox map template.')
-            : 'Failed to load Roblox map template.',
+            ? (payload.error?.message ?? 'Sieť sa nepodarilo načítať.')
+            : 'Sieť sa nepodarilo načítať.',
         );
       }
 
@@ -597,8 +636,8 @@ export default function SessionMapClient() {
       if (!importResponse.ok || !('session' in imported)) {
         throw new Error(
           'error' in imported
-            ? (imported.error?.message ?? 'Failed to open map template for editing.')
-            : 'Failed to open map template for editing.',
+            ? (imported.error?.message ?? 'Konfiguráciu sa nepodarilo otvoriť na úpravu.')
+            : 'Konfiguráciu sa nepodarilo otvoriť na úpravu.',
         );
       }
 
@@ -611,9 +650,7 @@ export default function SessionMapClient() {
       });
       setError(null);
     } catch (loadError) {
-      setError(
-        loadError instanceof Error ? loadError.message : 'Failed to load Roblox map template.',
-      );
+      setError(loadError instanceof Error ? loadError.message : 'Sieť sa nepodarilo načítať.');
     } finally {
       setIsBusy(false);
     }
@@ -640,15 +677,18 @@ export default function SessionMapClient() {
       if (!response.ok || !('session' in payload)) {
         throw new Error(
           'error' in payload
-            ? (payload.error?.message ?? 'Failed to import session schema.')
-            : 'Failed to import session schema.',
+            ? (payload.error?.message ??
+                'Súbor siete sa nepodarilo načítať. Vyberte zálohu exportovanú zo správcu.')
+            : 'Súbor siete sa nepodarilo načítať. Vyberte zálohu exportovanú zo správcu.',
         );
       }
       openSession(payload.session._id);
       setError(null);
     } catch (schemaError) {
       setError(
-        schemaError instanceof Error ? schemaError.message : 'Failed to import session schema.',
+        schemaError instanceof Error
+          ? schemaError.message
+          : 'Súbor siete sa nepodarilo načítať. Vyberte zálohu exportovanú zo správcu.',
       );
     } finally {
       event.target.value = '';
@@ -664,433 +704,619 @@ export default function SessionMapClient() {
     openSession(sessionIdDraft.trim());
   }
 
+  const links = Object.values(session?.topology.lineblockLinks ?? {});
+  const endpoints = orderedStations.flatMap((station) =>
+    getLineblockPieceIds(station).map((pieceId) => ({
+      stationId: station.stationId,
+      pieceId,
+      label:
+        station.layout.pieces[pieceId].state.texts.name ||
+        Object.values(station.layout.pieces[pieceId].state.texts).find((text) => text.trim()) ||
+        pieceId,
+    })),
+  );
+  const visibleStations = orderedStations.filter((station) =>
+    station.stationId.toLocaleLowerCase().includes(stationSearch.toLocaleLowerCase()),
+  );
+  const selectedDestination = destinations.find(
+    (destination) =>
+      destination.universeId === universeIdDraft && destination.placeId === placeIdDraft,
+  );
+  const templateFields = (
+    <label className="grid max-w-lg gap-1">
+      Uložiť pre
+      <select
+        className="aero-select w-full"
+        aria-label="Uložiť pre"
+        value={selectedDestination ? JSON.stringify([universeIdDraft, placeIdDraft]) : ''}
+        onChange={(event) => {
+          const destination = destinations.find(
+            (item) => JSON.stringify([item.universeId, item.placeId]) === event.target.value,
+          );
+          if (destination) {
+            setUniverseIdDraft(destination.universeId);
+            setPlaceIdDraft(destination.placeId);
+          }
+        }}
+      >
+        <option value="">Vyberte zo zoznamu</option>
+        {destinations.map((destination) => (
+          <option
+            key={JSON.stringify([destination.universeId, destination.placeId])}
+            value={JSON.stringify([destination.universeId, destination.placeId])}
+          >
+            {destination.name}
+          </option>
+        ))}
+      </select>
+      {!namesComplete && (
+        <span role="status" className="text-[var(--aero-text-muted)]">
+          Niektoré názvy sa nepodarilo načítať z Roblox. Skúste stránku obnoviť.
+        </span>
+      )}
+    </label>
+  );
   const savedTemplatePicker = (
-    <div className="mt-4 border-t border-[var(--aero-panel-border)] pt-4">
-      <div className="text-sm font-medium text-[var(--aero-text)]">Saved Roblox configurations</div>
+    <div className="border border-[var(--aero-panel-border)]">
+      <div className="manager-heading">Uložené siete</div>
       {savedPlaceTemplatesLoading ? (
-        <p className="mt-2 text-sm text-[var(--aero-text-muted)]">Loading saved configurations...</p>
+        <p className="p-4" role="status">
+          Načítavam siete…
+        </p>
       ) : savedPlaceTemplates.length === 0 ? (
-        <p className="mt-2 text-sm text-[var(--aero-text-muted)]">No saved Roblox configurations yet.</p>
+        <p className="p-4 text-[var(--aero-text-muted)]">
+          Zatiaľ nemáte uloženú sieť. Začnite vytvorením novej siete.
+        </p>
       ) : (
-        <div className="mt-3 grid gap-2 sm:grid-cols-2">
-          {savedPlaceTemplates.map((template) => (
-            <button
-              key={template._id}
-              type="button"
-              disabled={isBusy}
-              onClick={() => void loadPlaceTemplate(template)}
-              className="rounded-[3px] border border-[var(--aero-panel-border)] bg-[var(--aero-panel-bg)] px-3 py-3 text-left text-sm transition hover:border-[var(--btn-hover-border)] disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <div className="font-mono text-[var(--aero-text)]">
-                {template.universeId} / {template.placeId}
-              </div>
-              <div className="mt-1 text-xs text-[var(--aero-text-muted)]">Revision {template.revision}</div>
-            </button>
-          ))}
+        <div className="overflow-auto">
+          <table className="w-full text-left manager-table">
+            <thead>
+              <tr>
+                <th>Názov</th>
+                <th>Posledná zmena</th>
+                <th />
+              </tr>
+            </thead>
+            <tbody>
+              {savedPlaceTemplates.map((template) => (
+                <tr key={template._id}>
+                  <td>
+                    <strong>
+                      {template.name ||
+                        destinations.find(
+                          (destination) =>
+                            destination.universeId === template.universeId &&
+                            destination.placeId === template.placeId,
+                        )?.name ||
+                        'Názov sa nepodarilo načítať'}
+                    </strong>
+                  </td>
+                  <td>{new Date(template.updatedAt).toLocaleString('sk-SK')}</td>
+                  <td>
+                    <button
+                      className="aero-btn"
+                      disabled={isBusy}
+                      onClick={() => void loadPlaceTemplate(template)}
+                    >
+                      Otvoriť sieť
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
     </div>
   );
-
-  if (!sessionIdFromUrl) {
-    return (
-      <section className="rounded-[3px] border border-[var(--aero-panel-border)] bg-[var(--aero-panel-bg)] p-4">
-        <div className="text-sm text-[var(--aero-text-muted)]">
-          Open an existing session, create a new one, or import a saved map schema.
-        </div>
-        <div className="mt-4 grid gap-3 md:grid-cols-[minmax(0,240px)_auto_auto]">
-          <input
-            value={sessionIdDraft}
-            onChange={(event) => setSessionIdDraft(event.target.value)}
-            className="rounded-[3px] border border-[var(--aero-panel-border)] bg-[var(--aero-panel-bg)] px-4 py-3 text-sm text-[var(--aero-text)] outline-none transition focus:border-[var(--btn-hover-border)]"
-            placeholder="mock-ab12cd34"
-          />
-          <button
-            type="button"
-            disabled={!sessionIdDraft.trim()}
-            onClick={handleOpenExistingSession}
-            className="rounded-[3px] border border-[var(--aero-panel-border)] px-4 py-2 text-sm font-medium text-[var(--aero-text)] transition hover:border-[var(--btn-hover-border)] hover:text-[var(--aero-text)] disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            Open Session
-          </button>
-          <button
-            type="button"
-            disabled={isBusy}
-            onClick={() => void createMockSession()}
-            className="rounded-[3px] bg-[var(--btn-active-bottom)] px-4 py-2 text-sm font-medium text-[var(--aero-text)] disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            Create Session
-          </button>
-        </div>
-        <div className="mt-3 flex flex-wrap gap-3">
-          <button
-            type="button"
-            disabled={isBusy}
-            onClick={() => sessionSchemaInputRef.current?.click()}
-            className="rounded-[3px] border border-[var(--aero-panel-border)] px-4 py-2 text-sm font-medium text-[var(--aero-text)] transition hover:border-[var(--btn-hover-border)] hover:text-[var(--aero-text)] disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            Import Map Schema
-          </button>
-          <Link
-            href="/editor"
-            className="rounded-[3px] border border-[var(--aero-panel-border)] px-4 py-2 text-sm font-medium text-[var(--aero-text)] transition hover:border-[var(--btn-hover-border)] hover:text-[var(--aero-text)]"
-          >
-            Open Station Editor
-          </Link>
-        </div>
-        <div className="mt-4 grid gap-3 border-t border-[var(--aero-panel-border)] pt-4 md:grid-cols-[minmax(0,220px)_minmax(0,220px)_auto]">
-          <div className="md:col-span-3 text-sm font-medium text-[var(--aero-text)]">Open saved Roblox configuration</div>
-          <input
-            value={universeIdDraft}
-            onChange={(event) => setUniverseIdDraft(event.target.value.replace(/\D/g, ''))}
-            inputMode="numeric"
-            className="rounded-[3px] border border-[var(--aero-panel-border)] bg-[var(--aero-panel-bg)] px-4 py-3 font-mono text-sm text-[var(--aero-text)] outline-none transition focus:border-[var(--btn-hover-border)]"
-            placeholder="Roblox UniverseId"
-          />
-          <input
-            value={placeIdDraft}
-            onChange={(event) => setPlaceIdDraft(event.target.value.replace(/\D/g, ''))}
-            inputMode="numeric"
-            className="rounded-[3px] border border-[var(--aero-panel-border)] bg-[var(--aero-panel-bg)] px-4 py-3 font-mono text-sm text-[var(--aero-text)] outline-none transition focus:border-[var(--btn-hover-border)]"
-            placeholder="Roblox PlaceId"
-          />
-          <button
-            type="button"
-            disabled={isBusy || !universeIdDraft || !placeIdDraft}
-            onClick={() => void loadPlaceTemplate()}
-            className="rounded-[3px] border border-[var(--aero-panel-border)] px-4 py-2 text-sm font-medium text-[var(--aero-text)] transition hover:border-[var(--btn-hover-border)] hover:text-[var(--aero-text)] disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            Load Template To Edit
-          </button>
-        </div>
-        {savedTemplatePicker}
-        {error ? <div className="mt-3 text-sm text-red-700">{error}</div> : null}
-        <input
-          ref={sessionSchemaInputRef}
-          type="file"
-          accept="application/json"
-          onChange={(event) => void handleImportSessionSchema(event)}
-          className="hidden"
-        />
-      </section>
-    );
-  }
-
   return (
-    <div className="space-y-6">
-      <section className="rounded-[3px] border border-[var(--aero-panel-border)] bg-[var(--aero-panel-bg)] p-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="text-sm text-[var(--aero-text-muted)]">
-            {session ? `Map session ${session._id} active.` : 'Loading map session...'}
-          </div>
-          {session ? (
-            <div className="flex flex-wrap gap-3">
-              <Link
-                href={`/mock?sessionId=${encodeURIComponent(session._id)}`}
-                className="rounded-[3px] border border-[var(--aero-panel-border)] px-4 py-2 text-sm font-medium text-[var(--aero-text)] transition hover:border-[var(--btn-hover-border)] hover:text-[var(--aero-text)]"
-              >
-                Open Mock Simulator
-              </Link>
-              <button
-                type="button"
-                disabled={isBusy}
-                onClick={() => void exportSessionSchema()}
-                className="rounded-[3px] border border-[var(--aero-panel-border)] px-4 py-2 text-sm font-medium text-[var(--aero-text)] transition hover:border-[var(--btn-hover-border)] hover:text-[var(--aero-text)] disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                Export Map Schema
-              </button>
-            </div>
-          ) : null}
-        </div>
-        {error ? <div className="mt-3 text-sm text-red-700">{error}</div> : null}
-      </section>
-
-      <section className="rounded-[3px] border border-[var(--aero-panel-border)] bg-[var(--aero-panel-bg)] p-4">
-        <h2 className="text-sm font-semibold uppercase tracking-[0.2em] text-[var(--aero-text-muted)]">
-          Roblox Place Template
-        </h2>
-        <p className="mt-2 text-sm text-[var(--aero-text-muted)]">
-          Enter a UniverseId and PlaceId, then load the saved configuration to edit it. Save Template
-          writes your current stations and links back to that Roblox place.
-        </p>
-        <div className="mt-4 grid gap-3 md:grid-cols-[minmax(0,260px)_minmax(0,260px)_auto_auto]">
-          <input
-            value={universeIdDraft}
-            onChange={(event) => setUniverseIdDraft(event.target.value.replace(/\D/g, ''))}
-            inputMode="numeric"
-            className="rounded-[3px] border border-[var(--aero-panel-border)] bg-[var(--aero-panel-bg)] px-4 py-3 font-mono text-sm text-[var(--aero-text)] outline-none transition focus:border-[var(--btn-hover-border)]"
-            placeholder="Roblox UniverseId"
-          />
-          <input
-            value={placeIdDraft}
-            onChange={(event) => setPlaceIdDraft(event.target.value.replace(/\D/g, ''))}
-            inputMode="numeric"
-            className="rounded-[3px] border border-[var(--aero-panel-border)] bg-[var(--aero-panel-bg)] px-4 py-3 font-mono text-sm text-[var(--aero-text)] outline-none transition focus:border-[var(--btn-hover-border)]"
-            placeholder="Roblox PlaceId"
-          />
-          <button
-            type="button"
-            disabled={isBusy || !session?._id || !universeIdDraft || !placeIdDraft}
-            onClick={() => void savePlaceTemplate()}
-            className="rounded-[3px] bg-[var(--btn-active-bottom)] px-4 py-2 text-sm font-medium text-[var(--aero-text)] disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            Save Template
-          </button>
-          <button
-            type="button"
-            disabled={isBusy || !universeIdDraft || !placeIdDraft}
-            onClick={() => void loadPlaceTemplate()}
-            className="rounded-[3px] border border-[var(--aero-panel-border)] px-4 py-2 text-sm font-medium text-[var(--aero-text)] transition hover:border-[var(--btn-hover-border)] hover:text-[var(--aero-text)] disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            Load Template To Edit
-          </button>
-        </div>
-        {savedPlaceTemplate ? (
-          <p className="mt-3 text-xs text-green-700">
-            UniverseId {savedPlaceTemplate.universeId} / PlaceId {savedPlaceTemplate.placeId} saved
-            at revision {savedPlaceTemplate.revision}.
-          </p>
-        ) : null}
-        {savedTemplatePicker}
-      </section>
-
-      <section className="rounded-[3px] border border-[var(--aero-panel-border)] bg-[var(--aero-panel-bg)] p-4">
-        <h2 className="text-sm font-semibold uppercase tracking-[0.2em] text-[var(--aero-text-muted)]">
-          Stations In Session
-        </h2>
-        <div className="mt-4 grid gap-3 md:grid-cols-[minmax(0,220px)_auto_auto]">
-          <input
-            value={stationIdDraft}
-            onChange={(event) => setStationIdDraft(event.target.value)}
-            className="rounded-[3px] border border-[var(--aero-panel-border)] bg-[var(--aero-panel-bg)] px-4 py-3 text-sm text-[var(--aero-text)] outline-none transition focus:border-[var(--btn-hover-border)]"
-            placeholder="station-b"
-          />
-          <button
-            type="button"
-            disabled={isBusy || !session?._id}
-            onClick={() => void createStation()}
-            className="rounded-[3px] bg-[var(--btn-active-bottom)] px-4 py-2 text-sm font-medium text-[var(--aero-text)] disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            Add Station
-          </button>
-          <button
-            type="button"
-            disabled={isBusy || !session?._id}
-            onClick={() => stationLayoutInputRef.current?.click()}
-            className="rounded-[3px] border border-[var(--aero-panel-border)] px-4 py-2 text-sm font-medium text-[var(--aero-text)] transition hover:border-[var(--btn-hover-border)] hover:text-[var(--aero-text)] disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            Import Station JSON
-          </button>
-        </div>
-        <p className="mt-4 text-sm text-[var(--aero-text-muted)]">
-          Click a lineblock, then click a lineblock in another station to connect them. Use the station
-          controls to rename or remove a station.
-        </p>
-        {pendingLineblockEndpoint ? (
-          <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-[3px] border border-[var(--grid-row-selected-border)] bg-[var(--grid-row-selected-top)] px-3 py-2 text-sm text-[var(--aero-text)]">
-            <span>
-              Connecting from <span className="font-mono">{pendingLineblockEndpoint.stationId}:{pendingLineblockEndpoint.pieceId}</span> — now click the destination lineblock.
-            </span>
+    <div className="station-manager flex min-h-0 flex-1 flex-col text-xs">
+      <div className="flex flex-wrap items-center gap-2 border-b border-[var(--aero-ribbon-border)] bg-[var(--aero-ribbon-bg)] px-3 py-2">
+        <strong>Správa staníc a tratí</strong>
+        <span className="mr-auto text-[var(--aero-text-muted)]">
+          {session
+            ? `${stations.length} staníc · ${links.length} prepojení`
+            : 'Vyberte sieť alebo vytvorte novú sieť'}
+        </span>
+        {session && (
+          <>
             <button
-              type="button"
-              onClick={() => setPendingLineblockEndpoint(null)}
-              className="rounded-[3px] border border-[var(--grid-row-selected-border)] px-3 py-1 text-xs font-medium"
+              className="aero-btn"
+              disabled={isBusy}
+              onClick={() =>
+                void refreshSession(session._id).catch((error: unknown) =>
+                  setError(error instanceof Error ? error.message : 'Obnovenie sa nepodarilo.'),
+                )
+              }
             >
-              Cancel
+              Obnoviť
             </button>
+            <button className="aero-btn" onClick={() => setTab('save')}>
+              Uložiť sieť…
+            </button>
+          </>
+        )}
+      </div>
+      {error && (
+        <div role="alert" className="m-3 border border-red-300 bg-red-50 p-2 text-red-800">
+          {error}
+        </div>
+      )}
+      {isBusy && (
+        <div role="status" className="border-b border-[var(--aero-panel-border)] px-3 py-1">
+          Spracúvam požiadavku…
+        </div>
+      )}
+      {notice && (
+        <div
+          role="status"
+          className="flex items-center justify-between border-b border-[var(--aero-panel-border)] px-3 py-2"
+        >
+          {notice}
+          <button className="aero-btn" onClick={() => setNotice('')}>
+            Zavrieť
+          </button>
+        </div>
+      )}
+      {!sessionIdFromUrl ? (
+        <div className="space-y-4 p-4">
+          <div>
+            <h2 className="mb-1 font-semibold">Ktorú sieť chcete upraviť?</h2>
+            <p className="text-[var(--aero-text-muted)]">
+              Otvorte uloženú sieť. Potom môžete pridávať stanice, upravovať koľajiská a prepájať
+              susedné stanice.
+            </p>
           </div>
-        ) : null}
-        <div className="mt-4 flex gap-4 overflow-x-auto pb-2">
-          {orderedStations.length === 0 ? (
-            <p className="text-sm text-[var(--aero-text-muted)]">No stations yet.</p>
-          ) : (
-            orderedStations.map((station, index) => (
-              <article
-                key={station.stationId}
-                className={`w-[min(34rem,85vw)] shrink-0 rounded-[3px] border p-3 ${
-                  station.stationId === selectedStationId
-                    ? 'border-[var(--btn-hover-border)] bg-[var(--aero-ribbon-bg)]'
-                    : 'border-[var(--aero-panel-border)] bg-[var(--aero-ribbon-bg)]'
-                }`}
+          {savedTemplatePicker}
+          <div className="flex flex-wrap items-center gap-3">
+            <button className="aero-btn" disabled={isBusy} onClick={() => void createMockSession()}>
+              Vytvoriť novú sieť
+            </button>
+            <span className="text-[var(--aero-text-muted)]">
+              Začnete s prázdnym zoznamom staníc.
+            </span>
+          </div>
+          <details className="border border-[var(--aero-panel-border)] p-3">
+            <summary className="cursor-pointer font-semibold">Ďalšie možnosti otvorenia</summary>
+            <div className="mt-3 space-y-4">
+              <div className="flex flex-wrap items-end gap-2">
+                <label className="grid gap-1">
+                  ID existujúcej siete
+                  <input
+                    className="aero-input"
+                    value={sessionIdDraft}
+                    onChange={(event) => setSessionIdDraft(event.target.value)}
+                  />
+                </label>
+                <button
+                  className="aero-btn"
+                  disabled={isBusy || !sessionIdDraft.trim()}
+                  onClick={handleOpenExistingSession}
+                >
+                  Otvoriť sieť
+                </button>
+              </div>
+              <button
+                className="aero-btn"
+                disabled={isBusy}
+                onClick={() => sessionSchemaInputRef.current?.click()}
               >
-                <div className="mb-3 flex items-center justify-between gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setSelectedStationId(station.stationId)}
-                    className="font-mono text-sm text-[var(--aero-text)]"
-                  >
-                    {index + 1}. {station.stationId}
-                  </button>
-                  <div className="flex gap-2">
+                Načítať sieť zo súboru…
+              </button>
+              <div className="space-y-2">
+                {templateFields}
+                <button
+                  className="aero-btn"
+                  disabled={isBusy || !universeIdDraft || !placeIdDraft}
+                  onClick={() => void loadPlaceTemplate()}
+                >
+                  Otvoriť vybranú sieť
+                </button>
+              </div>
+            </div>
+          </details>
+        </div>
+      ) : !session ? (
+        <p className="p-4" role="status">
+          {error ? 'Sieť sa nepodarilo otvoriť.' : 'Načítavam sieť…'}
+        </p>
+      ) : (
+        <>
+          <nav
+            aria-label="Časti správcu"
+            className="flex flex-wrap gap-1 border-b border-[var(--aero-panel-border)] bg-[var(--aero-menubar-bg)] px-3 py-2"
+          >
+            {(
+              [
+                ['stations', 'Stanice'],
+                ['links', 'Prepojenia staníc'],
+                ['save', 'Uloženie a súbory'],
+              ] as const
+            ).map(([id, label]) => (
+              <button
+                key={id}
+                className={`aero-btn ${tab === id ? 'active' : ''}`}
+                aria-pressed={tab === id}
+                onClick={() => setTab(id)}
+              >
+                {label}
+              </button>
+            ))}
+          </nav>
+          {tab === 'stations' && (
+            <div className="grid min-h-0 flex-1 md:grid-cols-[250px_minmax(0,1fr)]">
+              <aside className="border-b border-[var(--aero-panel-border)] bg-[var(--grid-row-alt)] md:border-r md:border-b-0">
+                <div className="manager-heading">Stanice v sieti</div>
+                <label className="m-2 grid gap-1">
+                  Vyhľadať stanicu
+                  <input
+                    className="aero-input w-full"
+                    value={stationSearch}
+                    onChange={(event) => setStationSearch(event.target.value)}
+                  />
+                </label>
+                <div className="max-h-80 overflow-auto">
+                  {visibleStations.map((station) => (
                     <button
-                      type="button"
-                      disabled={index === 0}
-                      onClick={() => moveStation(station.stationId, -1)}
-                      className="rounded-[3px] border border-[var(--aero-panel-border)] px-3 py-1 text-xs text-[var(--aero-text)] disabled:opacity-40"
+                      key={station.stationId}
+                      className={`manager-station w-full px-3 py-2 text-left ${selectedStationId === station.stationId ? 'manager-selected' : ''}`}
+                      aria-pressed={selectedStationId === station.stationId}
+                      onClick={() => setSelectedStationId(station.stationId)}
                     >
-                      ←
+                      <strong className="block">{station.stationId}</strong>
+                      <span className="text-[var(--aero-text-muted)]">
+                        {getLineblockPieceIds(station).length} traťových súhlasov
+                      </span>
+                    </button>
+                  ))}
+                  {!visibleStations.length && (
+                    <p className="p-3 text-[var(--aero-text-muted)]">
+                      {stations.length
+                        ? 'Žiadna stanica nezodpovedá hľadaniu.'
+                        : 'Sieť je prázdna. Pridajte prvú stanicu nižšie.'}
+                    </p>
+                  )}
+                </div>
+                <form
+                  className="space-y-2 border-t border-[var(--aero-panel-border)] p-3"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    void createStation();
+                  }}
+                >
+                  <label className="grid gap-1 font-semibold">
+                    Nová stanica
+                    <input
+                      className="aero-input w-full font-normal"
+                      required
+                      maxLength={64}
+                      aria-describedby="station-name-help"
+                      value={stationIdDraft}
+                      placeholder="Napr. Bratislava-hlavna"
+                      onChange={(event) => setStationIdDraft(event.target.value)}
+                    />
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    <button className="aero-btn" disabled={isBusy || !stationIdDraft.trim()}>
+                      Pridať stanicu
                     </button>
                     <button
                       type="button"
-                      disabled={index === orderedStations.length - 1}
-                      onClick={() => moveStation(station.stationId, 1)}
-                      className="rounded-[3px] border border-[var(--aero-panel-border)] px-3 py-1 text-xs text-[var(--aero-text)] disabled:opacity-40"
+                      className="aero-btn"
+                      disabled={isBusy || !stationIdDraft.trim()}
+                      onClick={() => stationLayoutInputRef.current?.click()}
                     >
-                      →
-                    </button>
-                    <Link
-                      href={session ? `/runtime/${session._id}/${station.stationId}` : '#'}
-                      className="rounded-[3px] bg-[var(--btn-active-bottom)] px-3 py-1 text-xs font-medium text-[var(--aero-text)]"
-                    >
-                      Runtime
-                    </Link>
-                    <Link
-                      href={session ? `/editor?sessionId=${encodeURIComponent(session._id)}&stationId=${encodeURIComponent(station.stationId)}` : '#'}
-                      className="rounded-[3px] border border-emerald-700 px-3 py-1 text-xs text-green-700"
-                    >
-                      Edit
-                    </Link>
-                    <button
-                      type="button"
-                      disabled={isBusy}
-                      onClick={() => void renameStation(station.stationId)}
-                      className="rounded-[3px] border border-[var(--aero-panel-border)] px-3 py-1 text-xs text-[var(--aero-text)] disabled:opacity-40"
-                    >
-                      Rename
-                    </button>
-                    <button
-                      type="button"
-                      disabled={isBusy}
-                      onClick={() => void removeStation(station.stationId)}
-                      className="rounded-[3px] border border-red-900 px-3 py-1 text-xs text-red-700 disabled:opacity-40"
-                    >
-                      Remove
+                      Zo súboru…
                     </button>
                   </div>
-                </div>
-                <StationTopologyBoard
-                  station={station}
+                  <p id="station-name-help" className="text-[var(--aero-text-muted)]">
+                    Názov bez medzier a diakritiky, napr. Bratislava-hlavna. Pridajte prázdne
+                    koľajisko alebo načítajte plán zo súboru.
+                  </p>
+                </form>
+              </aside>
+              <div className="min-w-0">
+                {selectedStation && (
+                  <div className="flex flex-wrap items-center gap-2 border-b border-[var(--aero-panel-border)] p-2">
+                    <strong className="mr-auto">{selectedStation.stationId}</strong>
+                    <Link
+                      className="aero-btn"
+                      href={`/runtime/${encodeURIComponent(session._id)}/${encodeURIComponent(selectedStation.stationId)}`}
+                    >
+                      Staničný pult
+                    </Link>
+                    <button
+                      className="aero-btn"
+                      disabled={isBusy}
+                      onClick={() => void renameStation(selectedStation.stationId)}
+                    >
+                      Premenovať…
+                    </button>
+                    <button
+                      className="aero-btn"
+                      disabled={isBusy}
+                      onClick={() => void removeStation(selectedStation.stationId)}
+                    >
+                      Odstrániť…
+                    </button>
+                  </div>
+                )}
+                {pendingLineblockEndpoint && (
+                  <div
+                    role="status"
+                    className="border-b border-[var(--grid-row-selected-border)] bg-[var(--grid-row-selected-top)] p-2"
+                  >
+                    Vybraný traťový súhlas: {pendingLineblockEndpoint.stationId}. Teraz kliknite na
+                    súhlas v susednej stanici.
+                    <button
+                      className="aero-btn ml-2"
+                      onClick={() => setPendingLineblockEndpoint(null)}
+                    >
+                      Zrušiť výber
+                    </button>
+                  </div>
+                )}
+                <StationNetworkCanvas
+                  stations={orderedStations}
+                  links={links}
+                  sessionId={session._id}
+                  selectedStationId={selectedStationId}
                   pendingEndpoint={pendingLineblockEndpoint}
+                  busy={isBusy}
+                  onSelect={setSelectedStationId}
                   onLineblockSelect={handleLineblockSelect}
                 />
-              </article>
-            ))
-          )}
-        </div>
-        <input
-          ref={stationLayoutInputRef}
-          type="file"
-          accept="application/json"
-          onChange={(event) => void handleImportStationLayout(event)}
-          className="hidden"
-        />
-      </section>
-
-      <section className="rounded-[3px] border border-[var(--aero-panel-border)] bg-[var(--aero-panel-bg)] p-4">
-        <h2 className="text-sm font-semibold uppercase tracking-[0.2em] text-[var(--aero-text-muted)]">
-          Inter-station lineblock links
-        </h2>
-        <p className="mt-2 text-sm text-[var(--aero-text-muted)]">
-          This only chooses the initial direction for the next link you create. Each existing link can be
-          changed independently below.
-        </p>
-        <div className="mt-3 max-w-sm">
-          <select
-            value={lineblockDefaultFlow}
-            onChange={(event) =>
-              setLineblockDefaultFlow(event.target.value as SessionLineblockLink['defaultFlow'])
-            }
-            className="rounded-[3px] border border-[var(--aero-panel-border)] bg-[var(--aero-panel-bg)] px-4 py-3 text-sm text-[var(--aero-text)]"
-          >
-            <option value="neutral">New link: neutral</option>
-            <option value="a-receiving">New link: endpoint A receiving</option>
-            <option value="b-receiving">New link: endpoint B receiving</option>
-          </select>
-        </div>
-        <div className="mt-4 space-y-3">
-          {Object.values(session?.topology.lineblockLinks ?? {}).length === 0 ? (
-            <p className="text-sm text-[var(--aero-text-muted)]">No inter-station lineblock links configured.</p>
-          ) : (
-            Object.values(session?.topology.lineblockLinks ?? {}).map((link) => (
-              <div
-                key={link.id}
-                className="rounded-[3px] border border-[var(--aero-panel-border)] bg-[var(--aero-ribbon-bg)] p-3"
-              >
-                <div className="text-sm font-medium text-[var(--aero-text)]">
-                  {link.a.stationId}:{link.a.pieceId} {'<->'} {link.b.stationId}:{link.b.pieceId}
-                </div>
-                <div className="mt-3 flex flex-wrap items-center gap-3">
-                  <select
-                    value={link.defaultFlow}
-                    disabled={isBusy}
-                    onChange={(event) =>
-                      void updateLineblockDefaultFlow(
-                        link.id,
-                        event.target.value as SessionLineblockLink['defaultFlow'],
-                      )
-                    }
-                    className="rounded-lg border border-[var(--aero-panel-border)] bg-[var(--aero-panel-bg)] px-3 py-2 text-xs text-[var(--aero-text)] disabled:opacity-40"
-                    aria-label={`Default receiving station for ${link.a.stationId} and ${link.b.stationId}`}
-                  >
-                    <option value="neutral">Neutral</option>
-                    <option value="a-receiving">{link.a.stationId} receiving</option>
-                    <option value="b-receiving">{link.b.stationId} receiving</option>
-                  </select>
-                  <button
-                    type="button"
-                    disabled={isBusy}
-                    onClick={() => void removeLineblockLink(link)}
-                    className="rounded-lg border border-red-900 px-3 py-2 text-xs text-red-700 disabled:opacity-40"
-                  >
-                    Remove link
-                  </button>
-                  <div className="text-xs text-[var(--aero-text-muted)]">
-                    {getLineblockDefaultFlowLabel(link)} / {link.createdAt}
-                  </div>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-      </section>
-
-      <section className="rounded-[3px] border border-[var(--aero-panel-border)] bg-[var(--aero-panel-bg)] p-4">
-        <h2 className="text-sm font-semibold uppercase tracking-[0.2em] text-[var(--aero-text-muted)]">
-          Selected Station Summary
-        </h2>
-        <div className="mt-4">
-          {selectedStation ? (
-            <div className="rounded-[3px] border border-[var(--aero-panel-border)] bg-[var(--aero-ribbon-bg)] p-4">
-              <div className="font-mono text-sm text-[var(--aero-text)]">{selectedStation.stationId}</div>
-              <div className="mt-2 text-xs text-[var(--aero-text-muted)]">
-                {selectedStation.layout.width}x{selectedStation.layout.height}
-              </div>
-              <div className="mt-3 flex flex-wrap gap-2">
-                {getLineblockPieceIds(selectedStation).map((pieceId) => (
-                  <span
-                    key={pieceId}
-                    className="rounded-[3px] border border-[var(--aero-panel-border)] bg-[var(--aero-panel-bg)] px-3 py-1 text-xs text-[var(--aero-text)]"
-                  >
-                    {pieceId}
-                  </span>
-                ))}
-              </div>
-              <div className="mt-3 flex flex-wrap gap-2">
-                {getPremainSignalPieceIds(selectedStation).map((pieceId) => (
-                  <span
-                    key={pieceId}
-                    className="rounded-[3px] border border-[var(--aero-panel-border)] bg-[var(--aero-panel-bg)] px-3 py-1 text-xs text-[var(--aero-text)]"
-                  >
-                    premain:{pieceId}
-                  </span>
-                ))}
               </div>
             </div>
-          ) : (
-            <p className="text-sm text-[var(--aero-text-muted)]">Select a station to inspect it.</p>
           )}
-        </div>
-      </section>
+          {tab === 'links' && (
+            <section className="space-y-4 p-3">
+              <div>
+                <h2 className="font-semibold">Prepojenia susedných staníc</h2>
+                <p className="mt-1 text-[var(--aero-text-muted)]">
+                  Vyberte traťový súhlas na oboch koncoch trate. Stanice musia mať tieto prvky
+                  vložené v koľajisku.
+                </p>
+              </div>
+              <form
+                className="space-y-3 border border-[var(--aero-panel-border)] p-3"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  const a = endpoints.find(
+                    (endpoint) =>
+                      JSON.stringify([endpoint.stationId, endpoint.pieceId]) === linkFrom,
+                  );
+                  const b = endpoints.find(
+                    (endpoint) => JSON.stringify([endpoint.stationId, endpoint.pieceId]) === linkTo,
+                  );
+                  if (a && b && a.stationId !== b.stationId)
+                    void createInterStationLineblockLink(a, b);
+                }}
+              >
+                <h3 className="font-semibold">Nové prepojenie</h3>
+                <div className="flex flex-wrap gap-3">
+                  <label className="grid gap-1">
+                    Prvá stanica a traťový súhlas
+                    <select
+                      className="aero-select max-w-full"
+                      value={linkFrom}
+                      onChange={(event) => {
+                        setLinkFrom(event.target.value);
+                        setLinkTo('');
+                      }}
+                      required
+                    >
+                      <option value="">Vyberte prvý koniec trate</option>
+                      {endpoints.map((endpoint) => (
+                        <option
+                          key={JSON.stringify([endpoint.stationId, endpoint.pieceId])}
+                          value={JSON.stringify([endpoint.stationId, endpoint.pieceId])}
+                        >
+                          {endpoint.stationId} — {endpoint.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="grid gap-1">
+                    Druhá stanica a traťový súhlas
+                    <select
+                      className="aero-select max-w-full"
+                      value={linkTo}
+                      onChange={(event) => setLinkTo(event.target.value)}
+                      required
+                      disabled={!linkFrom}
+                    >
+                      <option value="">Vyberte druhý koniec trate</option>
+                      {endpoints
+                        .filter(
+                          (endpoint) =>
+                            endpoint.stationId !== (JSON.parse(linkFrom || '[]') as string[])[0],
+                        )
+                        .map((endpoint) => (
+                          <option
+                            key={JSON.stringify([endpoint.stationId, endpoint.pieceId])}
+                            value={JSON.stringify([endpoint.stationId, endpoint.pieceId])}
+                          >
+                            {endpoint.stationId} — {endpoint.label}
+                          </option>
+                        ))}
+                    </select>
+                  </label>
+                  <label className="grid gap-1">
+                    Počiatočný smer
+                    <select
+                      className="aero-select"
+                      value={lineblockDefaultFlow}
+                      onChange={(event) =>
+                        setLineblockDefaultFlow(
+                          event.target.value as SessionLineblockLink['defaultFlow'],
+                        )
+                      }
+                    >
+                      <option value="neutral">Neutrálny</option>
+                      <option value="a-receiving">Prijíma prvá stanica</option>
+                      <option value="b-receiving">Prijíma druhá stanica</option>
+                    </select>
+                  </label>
+                </div>
+                <button className="aero-btn" disabled={isBusy || !linkFrom || !linkTo}>
+                  Prepojiť stanice
+                </button>
+                {endpoints.length === 0 && (
+                  <p>Najprv pridajte traťové súhlasy v editore koľajiska.</p>
+                )}
+              </form>
+              <div className="overflow-auto border border-[var(--aero-panel-border)]">
+                <table className="manager-table w-full text-left">
+                  <thead>
+                    <tr>
+                      <th>Prvá stanica</th>
+                      <th>Druhá stanica</th>
+                      <th>Počiatočný smer</th>
+                      <th />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {links.map((link) => (
+                      <tr key={link.id}>
+                        <td>
+                          {link.a.stationId}
+                          <div className="text-[var(--aero-text-muted)]">
+                            {
+                              endpoints.find(
+                                (endpoint) =>
+                                  endpoint.stationId === link.a.stationId &&
+                                  endpoint.pieceId === link.a.pieceId,
+                              )?.label
+                            }
+                          </div>
+                        </td>
+                        <td>
+                          {link.b.stationId}
+                          <div className="text-[var(--aero-text-muted)]">
+                            {
+                              endpoints.find(
+                                (endpoint) =>
+                                  endpoint.stationId === link.b.stationId &&
+                                  endpoint.pieceId === link.b.pieceId,
+                              )?.label
+                            }
+                          </div>
+                        </td>
+                        <td>
+                          <select
+                            className="aero-select"
+                            aria-label={`Počiatočný smer: ${link.a.stationId} – ${link.b.stationId}`}
+                            disabled={isBusy}
+                            value={link.defaultFlow}
+                            onChange={(event) =>
+                              void updateLineblockDefaultFlow(
+                                link.id,
+                                event.target.value as SessionLineblockLink['defaultFlow'],
+                              )
+                            }
+                          >
+                            <option value="neutral">Neutrálny</option>
+                            <option value="a-receiving">Prijíma {link.a.stationId}</option>
+                            <option value="b-receiving">Prijíma {link.b.stationId}</option>
+                          </select>
+                        </td>
+                        <td>
+                          <button
+                            className="aero-btn"
+                            disabled={isBusy}
+                            onClick={() => void removeLineblockLink(link)}
+                          >
+                            Odstrániť…
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                    {!links.length && (
+                      <tr>
+                        <td colSpan={4}>Zatiaľ nie sú prepojené žiadne stanice.</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+              <p className="text-[var(--aero-text-muted)]">
+                Počiatočný smer sa použije pri spustení siete. Každé prepojenie má vlastné
+                nastavenie.
+              </p>
+            </section>
+          )}
+          {tab === 'save' && (
+            <section className="space-y-4 p-3">
+              <div className="space-y-3 border border-[var(--aero-panel-border)] p-3">
+                <h2 className="font-semibold">Uložiť sieť</h2>
+                <p>
+                  Uložia sa všetky stanice, ich koľajiská a prepojenia pre vybranú sieť.
+                  Predchádzajúca uložená sieť sa nahradí.
+                </p>
+                {templateFields}
+                <button
+                  className="aero-btn"
+                  disabled={isBusy || !universeIdDraft || !placeIdDraft}
+                  onClick={() => void savePlaceTemplate()}
+                >
+                  Uložiť sieť
+                </button>
+                {savedPlaceTemplate && (
+                  <p className="text-[var(--aero-text-muted)]">
+                    {selectedDestination?.name || 'Sieť'} · verzia {savedPlaceTemplate.revision}
+                  </p>
+                )}
+              </div>
+              <div className="space-y-3 border border-[var(--aero-panel-border)] p-3">
+                <h2 className="font-semibold">Záloha siete a skúšobná prevádzka</h2>
+                <p>
+                  Stiahnite celú sieť do súboru alebo otvorte simulátor na overenie jej fungovania.
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    className="aero-btn"
+                    disabled={isBusy}
+                    onClick={() => void exportSessionSchema()}
+                  >
+                    Stiahnuť zálohu siete
+                  </button>
+                  <Link
+                    className="aero-btn"
+                    href={`/mock?sessionId=${encodeURIComponent(session._id)}`}
+                  >
+                    Otvoriť simulátor
+                  </Link>
+                </div>
+              </div>
+              <details className="border border-[var(--aero-panel-border)] p-3">
+                <summary className="cursor-pointer">Otvoriť inú sieť</summary>
+                <div className="mt-3">{savedTemplatePicker}</div>
+              </details>
+            </section>
+          )}
+        </>
+      )}
+      <input
+        ref={stationLayoutInputRef}
+        type="file"
+        accept="application/json,.json"
+        onChange={(event) => void handleImportStationLayout(event)}
+        className="hidden"
+      />
+      <input
+        ref={sessionSchemaInputRef}
+        type="file"
+        accept="application/json,.json"
+        onChange={(event) => void handleImportSessionSchema(event)}
+        className="hidden"
+      />
+      <footer className="mt-auto border-t border-[var(--status-border)] bg-[var(--status-bg)] px-3 py-1 text-[11px] text-[var(--aero-text-muted)]">
+        {session
+          ? 'Zmeny siete sa ukladajú priebežne. Pre použitie v Roblox uložte aj sieť.'
+          : 'Správa sietí'}
+        {isBusy ? ' · Pracujem…' : ''}
+      </footer>
     </div>
   );
 }

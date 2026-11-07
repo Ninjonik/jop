@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { trainCategorySchema } from './train-categories';
 
 export const clockSchema = z
   .string()
@@ -12,7 +13,7 @@ export const stopSchema = z.object({
 });
 export const timetableSchema = z.object({
   trainNumber: z.string().trim().min(1).max(32),
-  trainType: z.enum(['R', 'Os', 'Pn', 'Mn']),
+  trainType: trainCategorySchema,
   maxSpeed: z.number().int().min(1).max(300),
   trainLength: z.number().int().min(1).max(1000),
   stops: z.array(stopSchema).min(2).max(100),

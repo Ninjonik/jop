@@ -3,6 +3,7 @@ import { DocumentCenterView } from '@/app/components/dis/DocumentCenterView';
 import { EddTableView } from '@/app/components/dis/EddTableView';
 import { GvdEditorView } from '@/app/components/dis/GvdEditorView';
 import { JopEmbeddedView } from '@/app/components/dis/JopEmbeddedView';
+import { NetworkPreparationView } from '@/app/components/dis/NetworkPreparationView';
 import { RadioDockView } from '@/app/components/dis/RadioDockView';
 import { RecoveryView } from '@/app/components/dis/RecoveryView';
 import { SessionControlView } from '@/app/components/dis/SessionControlView';
@@ -14,11 +15,12 @@ import RuntimeStationClient from '@/app/components/runtime/RuntimeStationClient'
 import { DisAuthProvider, useDisAuth } from '@/lib/dis/auth-context';
 import type { JopStationSummary } from '@/lib/dis/jop-bridge';
 import { useDisResource } from '@/lib/dis/use-dis-resource';
-import { Link2, Map, Moon, Pencil, Sun, TrainFront } from 'lucide-react';
+import { Moon, Sun, TrainFront } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { Suspense, useEffect, useState } from 'react';
 
 type Tab =
+  | 'preparation'
   | 'sessions'
   | 'runtime'
   | 'edd'
@@ -87,6 +89,12 @@ function DisPortalShell() {
       sessionId: network.sessions.find((session) => session.isLive)?.sessionId || '',
       stationId: '',
     };
+  const hasSession = Boolean(selectedPlace && current.sessionId);
+  const sessionStations = network.stations.filter(
+    (station) => station.sessionId === current.sessionId,
+  );
+  const hasStation =
+    hasSession && sessionStations.some((station) => station.stationId === current.stationId);
   const scopeKey = `${current.sessionId}/${current.stationId}`;
   const sessions = network.sessions.filter((session) => {
     const date = session.createdAt ? new Date(session.createdAt) : null;
@@ -129,26 +137,28 @@ function DisPortalShell() {
       '/map': 'Správca staníc a topológie',
       '/linker': 'Prepojovač staníc',
     };
-    if (titles[destination.pathname])
+    if (titles[destination.pathname]) {
+      setTab('preparation');
       setTool({
         url: destination.pathname + destination.search,
         title: titles[destination.pathname],
       });
-    else {
+    } else {
       setTool(null);
     }
   }
   function launch(target: string, stationId: string) {
-    if (!selectedPlace) return;
     const tools: Record<string, { url: string; title: string }> = {
       editor: { url: '/editor', title: 'Editor staníc' },
       linker: { url: '/linker', title: 'Prepojovač staníc' },
       map: { url: '/map', title: 'Správca staníc a topológie' },
     };
     if (tools[target]) {
+      setTab('preparation');
       setTool(tools[target]);
       return;
     }
+    if (!selectedPlace) return;
     if (target === 'mock') {
       if (!current.sessionId) return;
       openTab('mock');
@@ -173,16 +183,18 @@ function DisPortalShell() {
     );
   const tabs: { id: Tab; title: string; visible?: boolean }[] = [
     { id: 'sessions', title: 'Relácie' },
-    { id: 'runtime', title: 'Staničný pult', visible: canOperateStation },
-    { id: 'edd', title: 'Dopravný denník' },
-    { id: 'tpv', title: 'TPV' },
+    { id: 'runtime', title: 'Staničný pult', visible: hasSession && canOperateStation },
+    { id: 'edd', visible: hasStation, title: 'Dopravný denník' },
+    { id: 'tpv', title: 'TPV', visible: hasSession },
     { id: 'shifts', title: 'Šichty' },
     { id: 'staff', title: 'Personál', visible: canManageStaff },
     { id: 'docs', title: 'Dokumenty' },
+    { id: 'preparation', title: 'Príprava siete' },
     { id: 'gvd', title: 'Tvorba GVD', visible: canCreateGvd },
-    { id: 'mock', title: 'Simulátor', visible: canOperateStation },
-    { id: 'recovery', title: 'Obnova', visible: profile.role === 'admin' },
+    { id: 'mock', title: 'Simulátor', visible: hasSession && canOperateStation },
+    { id: 'recovery', title: 'Obnova', visible: hasSession && profile.role === 'admin' },
   ];
+  const activeTab = tabs.find((item) => item.id === tab)?.visible === false ? 'sessions' : tab;
   return (
     <div className="dis-portal h-screen flex flex-col overflow-hidden bg-[var(--aero-bg)] text-[var(--aero-text)] text-xs">
       <div className="aero-title-bar">
@@ -204,7 +216,7 @@ function DisPortalShell() {
           .map((item) => (
             <button
               key={item.id}
-              className={`menu-btn ${tab === item.id && !tool ? 'font-bold underline' : ''}`}
+              className={`menu-btn ${activeTab === item.id && !tool ? 'font-bold underline' : ''}`}
               disabled={!selectedPlace}
               onClick={() => openTab(item.id)}
             >
@@ -215,13 +227,14 @@ function DisPortalShell() {
         {tabs
           .filter(
             (item) =>
-              item.visible !== false && ['shifts', 'staff', 'docs', 'gvd'].includes(item.id),
+              item.visible !== false &&
+              ['shifts', 'staff', 'docs', 'gvd', 'preparation'].includes(item.id),
           )
           .map((item) => (
             <button
               key={item.id}
-              className={`menu-btn ${tab === item.id && !tool ? 'font-bold underline' : ''}`}
-              disabled={!selectedPlace}
+              className={`menu-btn ${activeTab === item.id && !tool ? 'font-bold underline' : ''}`}
+              disabled={item.id !== 'preparation' && !selectedPlace}
               onClick={() => openTab(item.id)}
             >
               {item.title}
@@ -243,136 +256,129 @@ function DisPortalShell() {
           </button>
         </div>
       </nav>
-      <div className="ribbon-bar flex-wrap">
-        <label>
-          Miesto{' '}
-          <select
-            aria-label="Miesto"
-            className="aero-select max-w-80"
-            value={placeId}
-            disabled={placesLoading && !places.places.length}
-            onChange={(event) => {
-              setPlaceChoice(event.target.value);
-              setScope(null);
-              setTool(null);
-              setTab('sessions');
-              setSessionSearch('');
-            }}
-          >
-            <option value="">Vybrať miesto</option>
-            {places.places.map((place) => (
-              <option key={place.placeId} value={place.placeId}>
-                {place.name} ({place.placeId})
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          Relácia{' '}
-          <select
-            aria-label="Aktívna relácia"
-            className="aero-select max-w-80"
-            disabled={!selectedPlace}
-            value={current.sessionId}
-            onChange={(event) => {
-              const sessionId = event.target.value;
-              setScope({
-                sessionId,
-                stationId:
-                  network.stations.find((station) => station.sessionId === sessionId)?.stationId ||
-                  '',
-              });
-            }}
-          >
-            <option value="">Vybrať reláciu</option>
-            {sessions.map((session) => (
-              <option key={session.sessionId} value={session.sessionId}>
-                {session.isLive ? '● ' : ''}
-                {session.createdAt
-                  ? new Date(session.createdAt).toLocaleString('sk-SK')
-                  : 'Dátum neznámy'}{' '}
-                — {session.sessionId}
-              </option>
-            ))}
-          </select>
-        </label>
-        <button
-          className="aero-btn"
-          disabled={!selectedPlace}
-          onClick={() => {
-            setShowMore(!showMore);
-            setSessionSearch('');
-            if (showMore) setScope(null);
-          }}
-        >
-          {showMore ? 'Len živé' : 'Zobraziť ďalšie'}
-        </button>
-        {showMore && (
-          <input
-            className="aero-input"
-            disabled={!selectedPlace}
-            aria-label="Hľadať reláciu podľa dátumu alebo ID"
-            placeholder="Hľadať dátum alebo ID"
-            value={sessionSearch}
-            onChange={(event) => setSessionSearch(event.target.value)}
-          />
-        )}
-        <label>
-          Stanica{' '}
-          <select
-            aria-label="Aktívna stanica"
-            className="aero-select"
-            disabled={!selectedPlace || !current.sessionId}
-            value={current.stationId}
-            onChange={(event) =>
-              setScope({ sessionId: current.sessionId, stationId: event.target.value })
-            }
-          >
-            <option value="">Vybrať stanicu</option>
-            {network.stations
-              .filter((station) => station.sessionId === current.sessionId)
-              .map((station) => (
-                <option key={station.stationId} value={station.stationId}>
-                  {station.name}
+      {activeTab !== 'preparation' && !tool && (
+        <div className="ribbon-bar flex-wrap">
+          <label>
+            Sieť{' '}
+            <select
+              aria-label="Sieť"
+              className="aero-select max-w-80"
+              value={placeId}
+              disabled={placesLoading && !places.places.length}
+              onChange={(event) => {
+                setPlaceChoice(event.target.value);
+                setScope(null);
+                setTool(null);
+                setTab('sessions');
+                setSessionSearch('');
+              }}
+            >
+              <option value="">Vybrať sieť</option>
+              {places.places.map((place) => (
+                <option key={place.placeId} value={place.placeId}>
+                  {place.name}
                 </option>
               ))}
-          </select>
-        </label>
-        <button className="aero-btn" disabled={!selectedPlace} onClick={() => launch('editor', '')}>
-          <Pencil size={14} />
-          Editor staníc
-        </button>
-        <button className="aero-btn" disabled={!selectedPlace} onClick={() => launch('map', '')}>
-          <Map size={14} />
-          Správca staníc
-        </button>
-        <button className="aero-btn" disabled={!selectedPlace} onClick={() => launch('linker', '')}>
-          <Link2 size={14} />
-          Linker
-        </button>
-      </div>
-      {placesError && (
+            </select>
+          </label>
+          {selectedPlace && (
+            <>
+              <label>
+                Relácia{' '}
+                <select
+                  aria-label="Aktívna relácia"
+                  className="aero-select max-w-80"
+                  disabled={!selectedPlace}
+                  value={current.sessionId}
+                  onChange={(event) => {
+                    const sessionId = event.target.value;
+                    setScope({
+                      sessionId,
+                      stationId:
+                        network.stations.find((station) => station.sessionId === sessionId)
+                          ?.stationId || '',
+                    });
+                  }}
+                >
+                  <option value="">Vybrať reláciu</option>
+                  {sessions.map((session) => (
+                    <option key={session.sessionId} value={session.sessionId}>
+                      {session.isLive ? '● ' : ''}
+                      {session.createdAt
+                        ? new Date(session.createdAt).toLocaleString('sk-SK')
+                        : 'Dátum neznámy'}{' '}
+                      — {session.sessionId}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <button
+                className="aero-btn"
+                disabled={!selectedPlace}
+                onClick={() => {
+                  setShowMore(!showMore);
+                  setSessionSearch('');
+                  if (showMore) setScope(null);
+                }}
+              >
+                {showMore ? 'Len živé' : 'Zobraziť ďalšie'}
+              </button>
+              {showMore && (
+                <input
+                  className="aero-input"
+                  disabled={!selectedPlace}
+                  aria-label="Hľadať reláciu podľa dátumu alebo ID"
+                  placeholder="Hľadať dátum alebo ID"
+                  value={sessionSearch}
+                  onChange={(event) => setSessionSearch(event.target.value)}
+                />
+              )}
+              {hasSession && sessionStations.length > 0 && (
+                <label>
+                  Stanica{' '}
+                  <select
+                    aria-label="Aktívna stanica"
+                    className="aero-select"
+                    disabled={!selectedPlace || !current.sessionId}
+                    value={current.stationId}
+                    onChange={(event) =>
+                      setScope({ sessionId: current.sessionId, stationId: event.target.value })
+                    }
+                  >
+                    <option value="">Vybrať stanicu</option>
+                    {sessionStations.map((station) => (
+                      <option key={station.stationId} value={station.stationId}>
+                        {station.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
+            </>
+          )}
+        </div>
+      )}
+      {activeTab !== 'preparation' && placesError && (
         <p role="alert" className="p-2 text-red-700">
-          Miesta sa nepodarilo načítať: {placesError}
+          Siete sa nepodarilo načítať: {placesError}
         </p>
       )}
-      {!places.placesComplete && (
+      {activeTab !== 'preparation' && !places.placesComplete && (
         <p role="status" className="p-2">
-          Roblox nie je dostupný; zobrazené sú uložené konfigurácie miest.
+          Roblox nie je dostupný; zobrazené sú uložené siete.
         </p>
       )}
-      {networkError && (
+      {activeTab !== 'preparation' && networkError && (
         <p role="alert" className="p-2 text-red-700">
           {networkError}
         </p>
       )}
       <div className="workspace min-h-0">
-        <aside className="sidebar-panel">
-          <div className="sidebar-header">Stanice vybranej relácie</div>
-          <div className="tree-content">
-            {network.stations
-              .filter((station) => station.sessionId === current.sessionId)
-              .map((station) => (
+        {activeTab !== 'preparation' && !tool && hasSession && sessionStations.length > 0 && (
+          <aside className="sidebar-panel">
+            <div className="sidebar-header">Stanice vybranej relácie</div>
+            <div className="tree-content">
+              {sessionStations.map((station) => (
                 <button
                   key={station.stationId}
                   className={`tree-row w-full text-left ${current.stationId === station.stationId ? 'selected' : ''}`}
@@ -381,31 +387,39 @@ function DisPortalShell() {
                   {station.name}
                 </button>
               ))}
-            {!network.stations.length && <p className="p-2">Žiadne aktívne stanice.</p>}
-          </div>
-        </aside>
+              {!network.stations.length && <p className="p-2">Žiadne aktívne stanice.</p>}
+            </div>
+          </aside>
+        )}
         <main className="content-panel min-w-0">
-          {!selectedPlace ? (
-            <p className="p-4">Najprv vyberte miesto.</p>
-          ) : tool ? (
+          {tool ? (
             <JopEmbeddedView {...tool} onClose={() => setTool(null)} onNavigate={navigateTool} />
+          ) : activeTab === 'preparation' ? (
+            <NetworkPreparationView onOpenTool={(target) => launch(target, '')} />
+          ) : !selectedPlace ? (
+            <p className="p-4">Najprv vyberte sieť.</p>
           ) : (
             <>
-              {tab === 'sessions' && (
-                <SessionControlView key={placeId} placeId={placeId} onLaunchRuntime={launch} />
+              {activeTab === 'sessions' && (
+                <SessionControlView
+                  key={placeId}
+                  placeId={placeId}
+                  onLaunchRuntime={launch}
+                  canLaunchSimulator={hasSession && canOperateStation}
+                />
               )}
               {!current.sessionId &&
-                ['runtime', 'edd', 'tpv', 'mock', 'recovery'].includes(tab) && (
-                  <p className="p-4">Najprv vyberte reláciu pre zvolené miesto.</p>
+                ['runtime', 'edd', 'tpv', 'mock', 'recovery'].includes(activeTab) && (
+                  <p className="p-4">Najprv vyberte reláciu pre vybranú sieť.</p>
                 )}
-              {tab === 'runtime' &&
+              {activeTab === 'runtime' &&
                 current.sessionId &&
                 (current.sessionId && current.stationId && canOperateStation ? (
                   <RuntimeStationClient key={scopeKey} {...current} embedded />
                 ) : (
                   <p className="p-4">Vyberte stanicu. Staničný pult je určený pre výpravcov.</p>
                 ))}
-              {tab === 'edd' && current.sessionId && (
+              {activeTab === 'edd' && current.sessionId && (
                 <div className="flex flex-1 flex-col overflow-hidden">
                   <EddTableView
                     key={scopeKey}
@@ -420,23 +434,23 @@ function DisPortalShell() {
                   />
                 </div>
               )}
-              {tab === 'tpv' && current.sessionId && (
+              {activeTab === 'tpv' && current.sessionId && (
                 <TpvFullView key={scopeKey} {...current} placeId={placeId} />
               )}
-              {tab === 'shifts' && <ShiftManagementView />}
-              {tab === 'staff' && canManageStaff && <StaffManagementView />}
-              {tab === 'docs' && <DocumentCenterView />}
-              {tab === 'gvd' && canCreateGvd && (
+              {activeTab === 'shifts' && <ShiftManagementView />}
+              {activeTab === 'staff' && canManageStaff && <StaffManagementView />}
+              {activeTab === 'docs' && <DocumentCenterView />}
+              {activeTab === 'gvd' && canCreateGvd && (
                 <GvdEditorView key={placeId} place={selectedPlace} />
               )}
-              {tab === 'recovery' && current.sessionId && profile.role === 'admin' && (
+              {activeTab === 'recovery' && current.sessionId && profile.role === 'admin' && (
                 <RecoveryView
                   key={current.sessionId}
                   sessionId={current.sessionId}
                   stations={network.stations}
                 />
               )}
-              {tab === 'mock' && current.sessionId && canOperateStation && (
+              {activeTab === 'mock' && current.sessionId && canOperateStation && (
                 <div className="dis-simulator flex-1 overflow-auto p-3">
                   <Suspense fallback={<p>Načítavam simulátor...</p>}>
                     <MockControlClient
@@ -462,7 +476,9 @@ function DisPortalShell() {
       </div>
       <div className="statusbar">
         <span className="status-item">{profile.role}</span>
-        <span className="status-item">Stanica: {current.stationId || 'nevybraná'}</span>
+        {hasStation && (
+          <span className="status-item">Stanica: {current.stationId || 'nevybraná'}</span>
+        )}
         <span className="status-item">
           {networkError ? 'Chyba načítania siete' : `Stanice: ${network.stations.length}`}
         </span>

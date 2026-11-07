@@ -1,14 +1,18 @@
 'use client';
 
 import TileSvg from '@/app/components/tiles/TileSvg';
-import type { StateGroupRegistry, TileData, TileCatalog } from '@/app/components/tiles/tile-catalog';
+import type {
+  StateGroupRegistry,
+  TileCatalog,
+  TileData,
+} from '@/app/components/tiles/tile-catalog';
 
 import { FILLER_TILE_KEY } from '../constants';
 import type {
   EditorState,
+  PendingPlacementPosition,
   PieceContextMenuState,
   PlacementVariant,
-  PendingPlacementPosition,
 } from '../types';
 import { getRenderablePieces, parseCellRef } from '../utils';
 import PieceContextMenu from './PieceContextMenu';
@@ -16,11 +20,7 @@ import PlacementVariantPicker from './PlacementVariantPicker';
 
 const TRAVERSABLE_PATH_COLORS = ['#0ea5e9', '#f97316', '#a855f7', '#16a34a', '#e11d48'];
 
-function getPathEndpoint(
-  coordinate: string,
-  space: { x: number; y: number },
-  tileSize: number,
-) {
+function getPathEndpoint(coordinate: string, space: { x: number; y: number }, tileSize: number) {
   const [tileX, tileY] = coordinate.split(',').map(Number);
   const width = space.x * tileSize;
   const height = space.y * tileSize;
@@ -162,7 +162,7 @@ export default function StationCanvas({
 
   return (
     <div
-      className="relative flex flex-1 items-start justify-center overflow-auto bg-neutral-400"
+      className="relative flex min-h-0 flex-1 items-start justify-center overflow-auto bg-neutral-400"
       onContextMenu={(event) => event.preventDefault()}
     >
       <div
@@ -244,7 +244,7 @@ export default function StationCanvas({
                 }}
               />
             );
-          })
+          }),
         )}
 
         <PlacementVariantPicker
@@ -259,8 +259,8 @@ export default function StationCanvas({
           onRotate={onContextMenuRotate}
           onMirror={onContextMenuMirror}
           onEditText={onContextMenuEditText}
-      onEditLevelCrossingTimings={onContextMenuEditLevelCrossingTimings}
-      onEditSwitchSpeed={onContextMenuEditSwitchSpeed}
+          onEditLevelCrossingTimings={onContextMenuEditLevelCrossingTimings}
+          onEditSwitchSpeed={onContextMenuEditSwitchSpeed}
           onStartConnection={onContextMenuStartConnection}
           onCancelConnection={onContextMenuCancelConnection}
           onConnect={onContextMenuConnect}

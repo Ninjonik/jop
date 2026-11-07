@@ -21,6 +21,39 @@ const stop = (station: string, arrival: string, departure: string, track = '1') 
   departure,
   track,
 });
+
+test('passenger, freight and operational category codes survive timetable normalization', () => {
+  for (const trainType of [
+    'EC',
+    'EN',
+    'IC',
+    'Ex',
+    'RR',
+    'REX',
+    'Zr',
+    'rj',
+    'RJ',
+    'Nex',
+    'Zn',
+    'Vn',
+    'Pv',
+    'Vleč',
+    'Sv',
+    'Rv',
+    'P',
+  ] as const) {
+    const input = normalizeTimetable({
+      ...timetable([stop('A', '12:00', '12:01'), stop('B', '12:20', '12:21')]),
+      trainType,
+    });
+    assert.equal(input.trainType, trainType);
+  }
+});
+
+test('unsupported category codes are rejected at the timetable boundary', () => {
+  const input = timetable([stop('A', '12:00', '12:01'), stop('B', '12:20', '12:21')]);
+  assert.throws(() => normalizeTimetable({ ...input, trainType: 'unknown' }));
+});
 test('midnight rollover preserves ordered arrivals, departures and dwell', () => {
   const input = normalizeTimetable(
     timetable([stop('A', '23:55', '00:05'), stop('B', '00:20', '00:22')]),

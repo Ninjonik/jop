@@ -680,6 +680,14 @@ If you only remember five things, remember these:
 
 ## 22. DIS persistence and workflows
 
+The station manager uses `src/lib/station/network-layout.ts` to arrange station
+previews from persisted inter-station links on one scrollable canvas. Isolated
+stations appear below connected components. These coordinates are display-only;
+they do not change tile placement, topology, or railway traversal. The editor
+and Roblox linker share Aero controls while retaining their existing tile rendering.
+`src/lib/server/roblox/place-names.ts` resolves Roblox names for both DIS and the
+manager; numeric Roblox identifiers remain transport/persistence details.
+
 DIS profiles, shifts, bookings, timetables, EDD, radio messages, and documents
 use Appwrite. Browsers authenticate with their Appwrite session and send a
 short-lived JWT to explicit `/api/dis/*` routes. The server verifies the account
@@ -713,7 +721,12 @@ Radio is a persisted session-scoped text log, refreshed every three seconds.
 An urgent flag requires dispatcher-manager/admin rights. It is not a Roblox
 voice transmission or a canonical interlocking command. Documents support
 persisted drafts, publication, GFM Markdown, and authenticated Appwrite Storage
-attachments (PNG/JPG/WebP/PDF, up to 10 MB). No sample traffic, radio conversations,
+attachments (images, PDF, Office documents, text, and ZIP, up to 10 MB). The shared
+Markdown renderer handles both live editing previews and published documents.
+PDF/image previews use authenticated blob URLs. PPTX and DOCX previews extract
+text locally with bounded ZIP decompression; original Office layout is available
+in the downloaded file. No external viewer receives private attachments.
+No sample traffic, radio conversations,
 or operating regulations are inserted as production records.
 
 Shifts last 150 minutes, including midnight rollover. Registrations use

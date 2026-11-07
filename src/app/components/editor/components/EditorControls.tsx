@@ -46,96 +46,116 @@ export default function EditorControls({
   saveLabel,
 }: Props) {
   return (
-    <div className="mb-2 flex flex-col gap-2">
-      <div className="flex items-center gap-2">
-        <input
-          type="number"
-          min={1}
-          value={width}
-          onChange={(event) => onWidthChange(Number(event.target.value) || 1)}
-          className="w-16 border border-neutral-500 bg-white px-1 py-0.5 text-sm text-black"
-        />
-        <input
-          type="number"
-          min={1}
-          value={height}
-          onChange={(event) => onHeightChange(Number(event.target.value) || 1)}
-          className="w-16 border border-neutral-500 bg-white px-1 py-0.5 text-sm text-black"
-        />
-        <button type="button" onClick={onSet} className="border border-neutral-700 bg-white px-2 py-0.5 text-sm text-black">
-          set
+    <div className="authoring-controls space-y-2 border-b border-[var(--aero-ribbon-border)] bg-[var(--aero-ribbon-bg)] p-2 text-xs">
+      <div className="flex flex-wrap items-center gap-2">
+        <button type="button" onClick={onImport} className="aero-btn">
+          Otvoriť zo súboru…
         </button>
-        <div className="grid grid-cols-3 gap-px text-sm text-black">
-          <span />
-          <button type="button" onClick={() => onExpand('top')} className="border border-neutral-700 bg-white px-2 py-0.5" aria-label="Expand upward">↑</button>
-          <span />
-          <button type="button" onClick={() => onExpand('left')} className="border border-neutral-700 bg-white px-2 py-0.5" aria-label="Expand left">←</button>
-          <span className="px-1 text-xs"></span>
-          <button type="button" onClick={() => onExpand('right')} className="border border-neutral-700 bg-white px-2 py-0.5" aria-label="Expand right">→</button>
-          <span />
-          <button type="button" onClick={() => onExpand('bottom')} className="border border-neutral-700 bg-white px-2 py-0.5" aria-label="Expand downward">↓</button>
-          <span />
-        </div>
-        <button type="button" onClick={onImport} className="border border-neutral-700 bg-white px-2 py-0.5 text-sm text-black">
-          import
+        <button type="button" onClick={onExport} className="aero-btn">
+          Stiahnuť plán
         </button>
-        <button type="button" onClick={onExport} className="border border-neutral-700 bg-white px-2 py-0.5 text-sm text-black">
-          export
-        </button>
-        {onSave ? (
-          <button type="button" onClick={onSave} className="border border-neutral-700 bg-emerald-100 px-2 py-0.5 text-sm text-black">
-            {saveLabel ?? 'save'}
+        {onSave && (
+          <button type="button" onClick={onSave} className="aero-btn">
+            {saveLabel ?? 'Uložiť koľajisko'}
           </button>
-        ) : null}
-        <label className="flex cursor-pointer items-center gap-1 border border-neutral-700 bg-white px-2 py-0.5 text-sm text-black">
+        )}
+        <label className="ml-2 flex items-center gap-1">
           <input
             type="checkbox"
             checked={showTraversablePaths}
             onChange={(event) => onShowTraversablePathsChange(event.target.checked)}
           />
-          show paths
+          Zobraziť priechodné cesty
         </label>
-        <input
-          type="text"
-          value={pieceIdLookup}
-          onChange={(event) => onPieceIdLookupChange(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter') {
-              onFindPieceId();
-            }
-          }}
-          placeholder="piece id"
-          className="w-40 border border-neutral-500 bg-white px-1 py-0.5 text-sm text-black"
-        />
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <strong>Rozmer koľajiska</strong>
+        <label className="flex items-center gap-1">
+          Šírka
+          <input
+            type="number"
+            min={1}
+            value={width}
+            onChange={(event) => onWidthChange(Number(event.target.value) || 1)}
+            className="aero-input w-16"
+          />
+        </label>
+        <label className="flex items-center gap-1">
+          Výška
+          <input
+            type="number"
+            min={1}
+            value={height}
+            onChange={(event) => onHeightChange(Number(event.target.value) || 1)}
+            className="aero-input w-16"
+          />
+        </label>
         <button
           type="button"
-          onClick={onFindPieceId}
-          className="border border-neutral-700 bg-white px-2 py-0.5 text-sm text-black"
+          onClick={onSet}
+          className="aero-btn"
+          title="Vymaže aktuálne koľajisko a vytvorí nové"
         >
-          find
+          Vytvoriť prázdne koľajisko
         </button>
-        <textarea
-            value={jopPieceLinksInput}
-            onChange={(event) => onJopPieceLinksInputChange(event.target.value)}
-            placeholder="JOPPieceLinks as JSON"
-            className="w-96 resize-y border border-neutral-500 bg-white px-2 py-1 font-mono text-xs text-black"
-            rows={1}
-        />
-        <div className="flex flex-col gap-2">
+        <span className="ml-2">Rozšíriť:</span>
+        {(
+          [
+            ['top', '↑', 'nahor'],
+            ['left', '←', 'doľava'],
+            ['right', '→', 'doprava'],
+            ['bottom', '↓', 'nadol'],
+          ] as const
+        ).map(([direction, arrow, label]) => (
           <button
-              type="button"
-              onClick={onHighlightJopPieceLinks}
-              className="border border-neutral-700 bg-white px-2 py-1 text-sm text-black"
+            key={direction}
+            type="button"
+            className="aero-btn"
+            onClick={() => onExpand(direction)}
+            aria-label={`Rozšíriť ${label}`}
           >
-            highlight links
+            {arrow}
           </button>
-          {jopPieceLinksError ? (
-              <div className="max-w-72 border border-red-300 bg-red-50 px-2 py-1 text-xs text-red-700">
-                {jopPieceLinksError}
-              </div>
-          ) : null}
-        </div>
+        ))}
       </div>
+      <details>
+        <summary className="cursor-pointer text-[var(--aero-text-muted)]">
+          Vyhľadanie prvkov a technické prepojenia
+        </summary>
+        <div className="mt-2 flex flex-wrap items-start gap-2">
+          <label className="grid gap-1">
+            Identifikátor prvku
+            <input
+              className="aero-input w-40"
+              value={pieceIdLookup}
+              onChange={(event) => onPieceIdLookupChange(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') onFindPieceId();
+              }}
+            />
+          </label>
+          <button type="button" className="aero-btn mt-5" onClick={onFindPieceId}>
+            Nájsť prvok
+          </button>
+          <label className="grid min-w-0 gap-1">
+            Prepojenia z Roblox (JOPPieceLinks)
+            <textarea
+              className="aero-input h-auto! w-80 max-w-full resize-y font-mono"
+              rows={2}
+              value={jopPieceLinksInput}
+              onChange={(event) => onJopPieceLinksInputChange(event.target.value)}
+            />
+          </label>
+          <button type="button" className="aero-btn mt-5" onClick={onHighlightJopPieceLinks}>
+            Zvýrazniť prepojenia
+          </button>
+          {jopPieceLinksError && (
+            <p role="alert" className="text-red-700">
+              {jopPieceLinksError}
+            </p>
+          )}
+        </div>
+      </details>
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import type { UserProfile } from '@/lib/dis/appwrite-client';
 import type { EddRecord } from '@/lib/dis/records';
 import { clockMinutes, clockSchema, stationKey } from '@/lib/dis/timetable';
+import { trainCategorySchema } from '@/lib/dis/train-categories';
 import { AppwriteException, ID, Query, type Models } from 'node-appwrite';
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
@@ -32,7 +33,7 @@ export async function listEdd(scope: DisScope) {
 }
 const createSchema = scopeSchema.extend({
   trainNumber: z.string().trim().min(1).max(32),
-  trainType: z.enum(['R', 'Os', 'Pn', 'Mn']),
+  trainType: trainCategorySchema,
   schedArrival: clockSchema,
   schedDeparture: clockSchema,
   track: z.string().trim().min(1).max(16),

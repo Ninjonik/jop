@@ -101,6 +101,94 @@ html.dark {
 }
 
 /* Base Utility Classes */
+.authoring-caption {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  font-size: 12px;
+  color: var(--aero-caption-text);
+  background: linear-gradient(var(--aero-caption-top), var(--aero-caption-bottom));
+  border-bottom: 1px solid var(--aero-window-border);
+}
+.authoring-section-title {
+  padding: 5px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  background: linear-gradient(var(--grid-header-top), var(--grid-header-bottom));
+  border-bottom: 1px solid var(--grid-header-border);
+}
+.railway-authoring .authoring-controls {
+  flex-shrink: 0;
+  max-height: 40vh;
+  overflow: auto;
+}
+.aero-tool.railway-authoring .authoring-tile {
+  background: white;
+  border: 1px solid var(--btn-border);
+  border-radius: 2px;
+  box-shadow: none;
+}
+.aero-tool.railway-authoring .authoring-tile:hover {
+  outline: 2px solid var(--btn-hover-border);
+}
+.aero-tool .authoring-menu button {
+  padding: 5px 12px;
+  border: 0;
+  border-radius: 0;
+  background: var(--aero-panel-bg);
+  box-shadow: none;
+  color: var(--aero-text);
+  text-align: left;
+  font-size: 12px;
+}
+.aero-tool .authoring-menu button:hover {
+  background: linear-gradient(var(--grid-row-selected-top), var(--grid-row-selected-bottom));
+}
+.station-manager .manager-heading {
+  padding: 6px 10px;
+  font-weight: 600;
+  background: linear-gradient(var(--grid-header-top), var(--grid-header-bottom));
+  border-bottom: 1px solid var(--grid-header-border);
+}
+.station-manager .manager-table th,
+.station-manager .manager-table td {
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--grid-row-border);
+}
+.station-manager .manager-table th {
+  background: linear-gradient(var(--grid-header-top), var(--grid-header-bottom));
+  font-weight: 600;
+}
+.station-manager .manager-table tbody tr:nth-child(even) {
+  background: var(--grid-row-alt);
+}
+.aero-tool .station-manager button.manager-station {
+  height: auto;
+  min-height: 44px;
+  border: 0;
+  border-bottom: 1px solid var(--grid-row-border);
+  border-radius: 0;
+  background: var(--aero-panel-bg);
+  box-shadow: none;
+  display: block;
+  white-space: normal;
+}
+.aero-tool .station-manager button.manager-station:hover,
+.aero-tool .station-manager button.manager-selected {
+  background: linear-gradient(var(--grid-row-selected-top), var(--grid-row-selected-bottom));
+  color: var(--grid-row-selected-text);
+}
+.aero-tool .station-manager .aero-btn.active {
+  background: linear-gradient(var(--btn-active-top), var(--btn-active-bottom));
+  border-color: var(--btn-hover-border);
+}
+.station-manager :is(button, a, summary):focus-visible {
+  outline: 2px solid var(--btn-hover-border);
+  outline-offset: 2px;
+}
+
 .aero-btn {
   height: 24px;
   padding: 0 8px;
@@ -383,6 +471,32 @@ html.dark {
 .dis-markdown a {
   color: #2563eb;
   text-decoration: underline;
+}
+.dis-markdown .aero-btn {
+  color: var(--aero-text);
+  text-decoration: none;
+}
+.dis-markdown .document-image-button {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  box-shadow: none;
+}
+.document-preview-dialog {
+  margin: auto;
+}
+.dis-markdown :is(h4, h5, h6) {
+  margin: 1em 0 0.5em;
+  font-weight: 600;
+}
+.dis-markdown hr {
+  margin: 1.5em 0;
+  border-color: var(--aero-panel-border);
+}
+.dis-markdown code {
+  background: var(--aero-ribbon-bg);
+  padding: 0.1em 0.3em;
+  border-radius: 2px;
 }
 @media print {
   .dis-portal nav,

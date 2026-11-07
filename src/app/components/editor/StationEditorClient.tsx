@@ -1,4 +1,5 @@
 'use client';
+import AuthoringTools from '@/app/components/authoring/AuthoringTools';
 
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
@@ -27,18 +28,18 @@ import {
   createInitialEditorState,
   createPieceRecord,
   expandStationLayout,
+  getAhBlockSignalConnectionKey,
   getAllConnectionEndpointKeysForPiece,
   getAllowedPlacements,
   getConnectedPieceIdsForEndpointKey,
   getConnectionEndpointKey,
   getConnectionPieceId,
-  getAhBlockSignalConnectionKey,
   getLevelCrossingConnectionKey,
   getPieceCells,
   getPrivolavaciaConnectionKey,
-  isLineblockPieceType,
   isAhLineblockPieceType,
   isBlockSignalPieceType,
+  isLineblockPieceType,
   isPremainSignalPieceType,
   isPrivolavaciaCounterPieceType,
   isPrivolavaciaSignalPieceType,
@@ -375,7 +376,7 @@ export default function StationEditorClient({ tiles, stateGroups }: Props) {
     const canStartConnection =
       eligibleType &&
       Boolean(endpointKey) &&
-        (connectedPieceIds.length === 0 ||
+      (connectedPieceIds.length === 0 ||
         isAhLineblockPieceType(piece.type) ||
         isPrivolavaciaCounterPieceType(piece.type) ||
         isTrackCrossingPieceType(piece.type));
@@ -755,10 +756,7 @@ export default function StationEditorClient({ tiles, stateGroups }: Props) {
         };
       }
 
-      if (
-        isAhLineblockPieceType(sourcePiece.type) &&
-        isBlockSignalPieceType(targetPiece.type)
-      ) {
+      if (isAhLineblockPieceType(sourcePiece.type) && isBlockSignalPieceType(targetPiece.type)) {
         if (current.connections[targetEndpointKey]) {
           return current;
         }
@@ -776,10 +774,7 @@ export default function StationEditorClient({ tiles, stateGroups }: Props) {
         };
       }
 
-      if (
-        isAhLineblockPieceType(targetPiece.type) &&
-        isBlockSignalPieceType(sourcePiece.type)
-      ) {
+      if (isAhLineblockPieceType(targetPiece.type) && isBlockSignalPieceType(sourcePiece.type)) {
         if (current.connections[pendingConnectionEndpointKey]) {
           return current;
         }
@@ -882,7 +877,9 @@ export default function StationEditorClient({ tiles, stateGroups }: Props) {
           });
       } else if (isAhLineblockPieceType(piece.type)) {
         Object.keys(nextConnections)
-          .filter((endpointKey) => endpointKey.startsWith(`${disconnectMenu.pieceId}:ah-block-signal:`))
+          .filter((endpointKey) =>
+            endpointKey.startsWith(`${disconnectMenu.pieceId}:ah-block-signal:`),
+          )
           .forEach((endpointKey) => {
             const linkedEndpointKey = nextConnections[endpointKey];
             if (linkedEndpointKey) delete nextConnections[linkedEndpointKey];
@@ -915,49 +912,61 @@ export default function StationEditorClient({ tiles, stateGroups }: Props) {
 
   return (
     <main
-      className="flex min-h-screen flex-col overflow-hidden bg-neutral-300 p-4"
+      className="aero-tool railway-authoring flex h-screen flex-col overflow-hidden bg-[var(--aero-panel-bg)] text-[var(--aero-text)]"
       onClick={() => clearContextMenu()}
       onContextMenu={(event) => event.preventDefault()}
     >
-      {sessionId && stationId ? (
-        <section className="mb-2 flex flex-wrap items-center gap-2 border border-neutral-500 bg-neutral-200 p-2 text-sm text-black">
-          <span>
-            editing saved station {sessionId} / {stationId}
-          </span>
-          <Link href={`/map?sessionId=${encodeURIComponent(sessionId)}`} className="underline">
-            back to map
-          </Link>
-          {isStationLoading ? <span>loading…</span> : null}
-          {stationLoadError ? <span className="text-red-700">{stationLoadError}</span> : null}
-        </section>
-      ) : null}
-      <EditorControls
-        width={draftWidth}
-        height={draftHeight}
-        pieceIdLookup={pieceIdLookup}
-        jopPieceLinksInput={jopPieceLinksInput}
-        jopPieceLinksError={jopPieceLinksError}
-        onWidthChange={setDraftWidth}
-        onHeightChange={setDraftHeight}
-        onPieceIdLookupChange={setPieceIdLookup}
-        onFindPieceId={handleFindPieceId}
-        onJopPieceLinksInputChange={setJopPieceLinksInput}
-        onHighlightJopPieceLinks={handleHighlightJopPieceLinks}
-        showTraversablePaths={showTraversablePaths}
-        onShowTraversablePathsChange={setShowTraversablePaths}
-        onSet={handleResetBoard}
-        onExpand={handleExpandBoard}
-        onImport={() => fileInputRef.current?.click()}
-        onExport={handleExport}
-        onSave={sessionId && stationId && !isStationLoading ? handleSaveStation : undefined}
-        saveLabel={isSaving ? 'saving…' : `save ${stationId}`}
-      />
-      <PlacementToolbar
-        tileKeys={toolbarTileKeys}
-        tiles={tiles}
-        stateGroups={stateGroups}
-        onSelect={handleToolbarTileClick}
-      />
+      <header className="authoring-caption">
+        <strong className="mr-auto">Editor koľajiska{stationId ? ` — ${stationId}` : ''}</strong>
+        <Link
+          href={sessionId ? `/map?sessionId=${encodeURIComponent(sessionId)}` : '/map'}
+          className="aero-btn"
+        >
+          Späť na sieť staníc
+        </Link>
+      </header>
+      {isStationLoading && (
+        <p role="status" className="px-3 py-1 text-xs">
+          Načítavam koľajisko…
+        </p>
+      )}
+      {stationLoadError && (
+        <p role="alert" className="px-3 py-1 text-xs text-red-700">
+          {stationLoadError}
+        </p>
+      )}
+      <AuthoringTools title="Nástroje a prvky koľajiska">
+        <EditorControls
+          width={draftWidth}
+          height={draftHeight}
+          pieceIdLookup={pieceIdLookup}
+          jopPieceLinksInput={jopPieceLinksInput}
+          jopPieceLinksError={jopPieceLinksError}
+          onWidthChange={setDraftWidth}
+          onHeightChange={setDraftHeight}
+          onPieceIdLookupChange={setPieceIdLookup}
+          onFindPieceId={handleFindPieceId}
+          onJopPieceLinksInputChange={setJopPieceLinksInput}
+          onHighlightJopPieceLinks={handleHighlightJopPieceLinks}
+          showTraversablePaths={showTraversablePaths}
+          onShowTraversablePathsChange={setShowTraversablePaths}
+          onSet={handleResetBoard}
+          onExpand={handleExpandBoard}
+          onImport={() => fileInputRef.current?.click()}
+          onExport={handleExport}
+          onSave={sessionId && stationId && !isStationLoading ? handleSaveStation : undefined}
+          saveLabel={isSaving ? 'Ukladám…' : 'Uložiť koľajisko'}
+        />
+        <div className="authoring-section-title">
+          Prvky koľajiska · vyberte prvok a kliknite do plánu
+        </div>
+        <PlacementToolbar
+          tileKeys={toolbarTileKeys}
+          tiles={tiles}
+          stateGroups={stateGroups}
+          onSelect={handleToolbarTileClick}
+        />
+      </AuthoringTools>
       <StationCanvas
         editorState={editorState}
         tiles={tiles}

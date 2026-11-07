@@ -35,6 +35,12 @@ function mockRoblox(context: TestContext, member = true, role = { name: 'Dispatc
       return Response.json({
         data: member ? [{ group: { id: 34 }, role }] : [],
       });
+    if (url.includes('/cloud/v2/groups/34/memberships'))
+      return Response.json({
+        groupMemberships: member ? [{ user: 'users/56', roles: ['groups/34/roles/22'] }] : [],
+      });
+    if (url.endsWith('/cloud/v2/groups/34/roles/22'))
+      return Response.json({ displayName: role.name, rank: role.rank });
     throw new Error(`Unexpected external request: ${url}`);
   });
 }

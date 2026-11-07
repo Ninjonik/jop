@@ -5,6 +5,7 @@ import type { EddRecord } from '@/lib/dis/records';
 import type { Timetable } from '@/lib/dis/timetable';
 import { useDisResource } from '@/lib/dis/use-dis-resource';
 import { useState } from 'react';
+import { TrainCategoryOptions } from './TrainCategoryOptions';
 
 const statusNames: Record<EddRecord['status'], string> = {
   scheduled: 'Plánovaný',
@@ -153,9 +154,7 @@ export function EddTableView({
             value={trainType}
             onChange={(event) => setTrainType(event.target.value)}
           >
-            {['R', 'Os', 'Pn', 'Mn'].map((type) => (
-              <option key={type}>{type}</option>
-            ))}
+            <TrainCategoryOptions />
           </select>
           <input
             aria-label="Plánovaný príchod"

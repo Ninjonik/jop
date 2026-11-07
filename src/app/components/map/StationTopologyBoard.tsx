@@ -11,21 +11,31 @@ interface Props {
   station: StationDocument;
   pendingEndpoint: LineblockEndpoint | null;
   onLineblockSelect: (endpoint: LineblockEndpoint) => void;
+  disabled?: boolean;
+  overview?: boolean;
 }
 
 export default function StationTopologyBoard({
   station,
   pendingEndpoint,
   onLineblockSelect,
+  disabled = false,
+  overview = false,
 }: Props) {
-  const tileSize = Math.max(
-    6,
-    Math.min(18, Math.floor(460 / station.layout.width), Math.floor(230 / station.layout.height)),
-  );
+  const tileSize = overview
+    ? Math.min(18, 460 / station.layout.width, 230 / station.layout.height)
+    : Math.max(
+        6,
+        Math.min(
+          18,
+          Math.floor(460 / station.layout.width),
+          Math.floor(230 / station.layout.height),
+        ),
+      );
   const renderablePieces = getRenderablePieces(station.layout);
 
   return (
-    <div className="overflow-auto rounded-xl bg-neutral-500 p-2">
+    <div className="overflow-auto bg-neutral-500 p-3">
       <div
         className="relative shrink-0"
         style={{
@@ -69,8 +79,9 @@ export default function StationTopologyBoard({
               {isLineblock ? (
                 <button
                   type="button"
-                  aria-label={`Select lineblock ${pieceId} in ${station.stationId}`}
-                  title="Click to select or connect this lineblock"
+                  disabled={disabled}
+                  aria-label={`Vybrať traťový súhlas ${pieceId} v stanici ${station.stationId}`}
+                  title="Vyberte traťový súhlas a potom súhlas v susednej stanici"
                   onClick={() => onLineblockSelect({ stationId: station.stationId, pieceId })}
                   onContextMenu={(event) => {
                     event.preventDefault();

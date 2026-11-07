@@ -1,3 +1,4 @@
+import { attachmentExtensions, attachmentMaxBytes } from '@/lib/dis/attachment-types';
 import { AppwriteException, Client, Databases, Storage } from 'node-appwrite';
 import { secureDisCollections, secureDisStorage } from './access-policy';
 
@@ -111,7 +112,15 @@ async function ensureCollection(id: string, name: string, attributesCreator: () 
 async function initStorageBucket() {
   console.log(`Checking storage bucket '${BUCKET_ID}'...`);
   try {
-    await storage.getBucket(BUCKET_ID);
+    const existingBucket = await storage.getBucket(BUCKET_ID);
+    await storage.updateBucket({
+      bucketId: BUCKET_ID,
+      name: existingBucket.name || 'DIS Attachments & Documents',
+      permissions: [],
+      fileSecurity: false,
+      maximumFileSize: attachmentMaxBytes,
+      allowedFileExtensions: attachmentExtensions,
+    });
     console.log(`Storage bucket '${BUCKET_ID}' already exists.`);
   } catch (error) {
     if (!(error instanceof AppwriteException) || error.code !== 404) throw error;
@@ -122,8 +131,8 @@ async function initStorageBucket() {
       [],
       false, // fileSecurity
       true, // enabled
-      10 * 1024 * 1024,
-      ['jpg', 'jpeg', 'png', 'webp', 'pdf'],
+      attachmentMaxBytes,
+      attachmentExtensions,
     );
     console.log(`Storage bucket created.`);
   }

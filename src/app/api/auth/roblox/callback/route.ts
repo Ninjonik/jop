@@ -1,4 +1,5 @@
 import { getRobloxCallbackUrl, getRobloxReturnUrl } from '@/lib/dis/roblox-oauth-url';
+import { createRobloxPersonnelProfile } from '@/lib/dis/roblox-profile';
 import {
   getRobloxUserGroupRole,
   mapRobloxRoleToDis,
@@ -83,7 +84,7 @@ export async function GET(request: NextRequest) {
     const displayName = userinfo.name || robloxUsername;
 
     // 3. Fetch Group Role & Rank
-    const groupRoleInfo = await getRobloxUserGroupRole(robloxUserId);
+    const groupRoleInfo = await getRobloxUserGroupRole(robloxUserId, undefined, accessToken);
     if (!groupRoleInfo || groupRoleInfo.rank <= 0)
       return NextResponse.redirect(
         getRobloxReturnUrl(request, '/dis/login?error=not_group_member'),
@@ -138,18 +139,10 @@ export async function GET(request: NextRequest) {
     } catch (error) {
       if (!(error instanceof AppwriteException) || error.code !== 404) throw error;
       // Create profile document
-      const newProfile = {
-        userId: appwriteUserId,
-        name: displayName,
-        callsign: `ZSSK-${robloxUserId.slice(-3)}`,
-        role: disRole,
-        trainingStage,
-        strikes: 0,
-        robloxUserId,
-        robloxUsername,
-        robloxRoleName: roleName,
-        robloxRank: roleRank,
-      };
+      const newProfile = createRobloxPersonnelProfile(
+        { id: robloxUserId, username: robloxUsername, displayName },
+        { name: roleName, rank: roleRank },
+      )!;
       try {
         await databases.createDocument(DB_ID, 'profiles', appwriteUserId, newProfile);
       } catch (createError) {

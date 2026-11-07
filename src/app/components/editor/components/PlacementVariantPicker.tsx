@@ -1,6 +1,6 @@
 'use client';
 
-import type { PlacementVariant, PendingPlacementPosition } from '../types';
+import type { PendingPlacementPosition, PlacementVariant } from '../types';
 
 interface Props {
   variants: PlacementVariant[];
@@ -9,19 +9,14 @@ interface Props {
   onPick: (variant: PlacementVariant) => void;
 }
 
-export default function PlacementVariantPicker({
-  variants,
-  position,
-  tileSize,
-  onPick,
-}: Props) {
+export default function PlacementVariantPicker({ variants, position, tileSize, onPick }: Props) {
   if (variants.length === 0 || !position) {
     return null;
   }
 
   return (
     <div
-      className="absolute z-20 flex gap-1 border border-neutral-800 bg-white p-1"
+      className="absolute z-20 flex gap-1 border border-[var(--aero-panel-border)] bg-[var(--aero-panel-bg)] p-1"
       style={{
         left: position.x * tileSize,
         top: Math.max(0, position.y * tileSize - 40),
@@ -32,7 +27,7 @@ export default function PlacementVariantPicker({
           type="button"
           key={`${variant.tileKey}-${variant.orientation.rotation}-${variant.orientation.mirrored}`}
           onClick={() => onPick(variant)}
-          className="border border-neutral-700 px-2 py-0.5 text-xs text-black"
+          className="aero-btn"
         >
           {variant.orientation.rotation === 180 ? '180°' : '0°'}
           {variant.orientation.mirrored ? ' mirror' : ''}
