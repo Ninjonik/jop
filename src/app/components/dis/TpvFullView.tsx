@@ -1,4 +1,5 @@
 'use client';
+import { AeroIcon } from '@/app/components/ui/AeroIcon';
 import type { EddRecord } from '@/lib/dis/records';
 import {
   alignClockMinute,
@@ -104,12 +105,14 @@ export function TpvFullView({
           className="aero-btn"
           onClick={() => setZoom((previous) => Math.min(4, previous + 0.5))}
         >
+          <AeroIcon name="zoomIn" />
           Priblížiť
         </button>
         <button
           className="aero-btn"
           onClick={() => setZoom((previous) => Math.max(1, previous - 0.5))}
         >
+          <AeroIcon name="zoomOut" />
           Oddialiť
         </button>
         <span>{stationId || 'Celá sieť'}</span>

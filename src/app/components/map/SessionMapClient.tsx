@@ -1,4 +1,5 @@
 'use client';
+import { AeroIcon } from '@/app/components/ui/AeroIcon';
 
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -798,6 +799,7 @@ export default function SessionMapClient() {
                       disabled={isBusy}
                       onClick={() => void loadPlaceTemplate(template)}
                     >
+                      <AeroIcon name="open" />
                       Otvoriť sieť
                     </button>
                   </td>
@@ -829,9 +831,11 @@ export default function SessionMapClient() {
                 )
               }
             >
+              <AeroIcon name="refresh" />
               Obnoviť
             </button>
             <button className="aero-btn" onClick={() => setTab('save')}>
+              <AeroIcon name="save" />
               Uložiť sieť…
             </button>
           </>
@@ -854,6 +858,7 @@ export default function SessionMapClient() {
         >
           {notice}
           <button className="aero-btn" onClick={() => setNotice('')}>
+            <AeroIcon name="close" />
             Zavrieť
           </button>
         </div>
@@ -870,6 +875,7 @@ export default function SessionMapClient() {
           {savedTemplatePicker}
           <div className="flex flex-wrap items-center gap-3">
             <button className="aero-btn" disabled={isBusy} onClick={() => void createMockSession()}>
+              <AeroIcon name="add" />
               Vytvoriť novú sieť
             </button>
             <span className="text-[var(--aero-text-muted)]">
@@ -893,6 +899,7 @@ export default function SessionMapClient() {
                   disabled={isBusy || !sessionIdDraft.trim()}
                   onClick={handleOpenExistingSession}
                 >
+                  <AeroIcon name="open" />
                   Otvoriť sieť
                 </button>
               </div>
@@ -901,6 +908,7 @@ export default function SessionMapClient() {
                 disabled={isBusy}
                 onClick={() => sessionSchemaInputRef.current?.click()}
               >
+                <AeroIcon name="open" />
                 Načítať sieť zo súboru…
               </button>
               <div className="space-y-2">
@@ -910,6 +918,7 @@ export default function SessionMapClient() {
                   disabled={isBusy || !universeIdDraft || !placeIdDraft}
                   onClick={() => void loadPlaceTemplate()}
                 >
+                  <AeroIcon name="open" />
                   Otvoriť vybranú sieť
                 </button>
               </div>
@@ -939,6 +948,7 @@ export default function SessionMapClient() {
                 aria-pressed={tab === id}
                 onClick={() => setTab(id)}
               >
+                <AeroIcon name={id === 'stations' ? 'train' : id === 'links' ? 'link' : 'save'} />{' '}
                 {label}
               </button>
             ))}
@@ -998,6 +1008,7 @@ export default function SessionMapClient() {
                   </label>
                   <div className="flex flex-wrap gap-2">
                     <button className="aero-btn" disabled={isBusy || !stationIdDraft.trim()}>
+                      <AeroIcon name="add" />
                       Pridať stanicu
                     </button>
                     <button
@@ -1006,6 +1017,7 @@ export default function SessionMapClient() {
                       disabled={isBusy || !stationIdDraft.trim()}
                       onClick={() => stationLayoutInputRef.current?.click()}
                     >
+                      <AeroIcon name="open" />
                       Zo súboru…
                     </button>
                   </div>
@@ -1023,6 +1035,7 @@ export default function SessionMapClient() {
                       className="aero-btn"
                       href={`/runtime/${encodeURIComponent(session._id)}/${encodeURIComponent(selectedStation.stationId)}`}
                     >
+                      <AeroIcon name="train" />
                       Staničný pult
                     </Link>
                     <button
@@ -1030,6 +1043,7 @@ export default function SessionMapClient() {
                       disabled={isBusy}
                       onClick={() => void renameStation(selectedStation.stationId)}
                     >
+                      <AeroIcon name="edit" />
                       Premenovať…
                     </button>
                     <button
@@ -1037,6 +1051,7 @@ export default function SessionMapClient() {
                       disabled={isBusy}
                       onClick={() => void removeStation(selectedStation.stationId)}
                     >
+                      <AeroIcon name="delete" />
                       Odstrániť…
                     </button>
                   </div>
@@ -1052,6 +1067,7 @@ export default function SessionMapClient() {
                       className="aero-btn ml-2"
                       onClick={() => setPendingLineblockEndpoint(null)}
                     >
+                      <AeroIcon name="close" />
                       Zrušiť výber
                     </button>
                   </div>
@@ -1160,6 +1176,7 @@ export default function SessionMapClient() {
                   </label>
                 </div>
                 <button className="aero-btn" disabled={isBusy || !linkFrom || !linkTo}>
+                  <AeroIcon name="link" />
                   Prepojiť stanice
                 </button>
                 {endpoints.length === 0 && (
@@ -1227,6 +1244,7 @@ export default function SessionMapClient() {
                             disabled={isBusy}
                             onClick={() => void removeLineblockLink(link)}
                           >
+                            <AeroIcon name="delete" />
                             Odstrániť…
                           </button>
                         </td>
@@ -1260,6 +1278,7 @@ export default function SessionMapClient() {
                   disabled={isBusy || !universeIdDraft || !placeIdDraft}
                   onClick={() => void savePlaceTemplate()}
                 >
+                  <AeroIcon name="save" />
                   Uložiť sieť
                 </button>
                 {savedPlaceTemplate && (
@@ -1279,12 +1298,14 @@ export default function SessionMapClient() {
                     disabled={isBusy}
                     onClick={() => void exportSessionSchema()}
                   >
+                    <AeroIcon name="download" />
                     Stiahnuť zálohu siete
                   </button>
                   <Link
                     className="aero-btn"
                     href={`/mock?sessionId=${encodeURIComponent(session._id)}`}
                   >
+                    <AeroIcon name="play" />
                     Otvoriť simulátor
                   </Link>
                 </div>

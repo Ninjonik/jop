@@ -1,4 +1,5 @@
 'use client';
+import { AeroIcon } from '@/app/components/ui/AeroIcon';
 import { disFetch } from '@/lib/dis/api-client';
 import { useDisAuth } from '@/lib/dis/auth-context';
 import type { EddRecord } from '@/lib/dis/records';
@@ -86,14 +87,17 @@ export function EddTableView({
           Iba očakávané
         </label>
         <button className="aero-btn" onClick={refresh}>
+          <AeroIcon name="refresh" />
           Obnoviť
         </button>
         <button className="aero-btn" onClick={() => window.print()}>
+          <AeroIcon name="print" />
           Tlač denníka
         </button>
         {canOperateStation && (
           <>
             <button className="aero-btn" onClick={() => setCreating(!creating)}>
+              <AeroIcon name="train" />
               Mimoriadny vlak
             </button>
             <select
@@ -114,6 +118,7 @@ export function EddTableView({
               disabled={busy || !timetableId}
               onClick={() => command({ command: 'import', timetableId })}
             >
+              <AeroIcon name="open" />
               Importovať z GVD
             </button>
           </>
@@ -182,6 +187,7 @@ export function EddTableView({
             onChange={(event) => setTrack(event.target.value)}
           />
           <button className="aero-btn" disabled={busy}>
+            <AeroIcon name="add" />
             Pridať vlak
           </button>
         </form>
@@ -246,6 +252,7 @@ export function EddTableView({
                               });
                             }}
                           >
+                            <AeroIcon name="confirm" />
                             {record.status === 'arrived' ? 'Zápis odchodu' : 'Zápis príchodu'}
                           </button>
                         )}

@@ -1,4 +1,5 @@
 'use client';
+import { AeroIcon } from '@/app/components/ui/AeroIcon';
 
 import type { SessionLineblockLink, StationDocument } from '@/lib/station/domain';
 import {
@@ -56,9 +57,10 @@ export default function StationNetworkCanvas({
           onClick={() => setZoom((value) => Math.max(0.4, value - 0.2))}
           aria-label="Oddialiť"
         >
-          −
+          <AeroIcon name="zoomOut" />−
         </button>
         <button className="aero-btn" onClick={() => setZoom(1)} aria-label="Obnoviť veľkosť">
+          <AeroIcon name="zoomReset" />
           {Math.round(zoom * 100)} %
         </button>
         <button
@@ -67,9 +69,10 @@ export default function StationNetworkCanvas({
           onClick={() => setZoom((value) => Math.min(1.6, value + 0.2))}
           aria-label="Priblížiť"
         >
-          +
+          <AeroIcon name="zoomIn" />+
         </button>
         <button className="aero-btn" disabled={!selectedStationId} onClick={focusSelected}>
+          <AeroIcon name="search" />
           Nájsť vybranú stanicu
         </button>
       </div>
@@ -168,6 +171,7 @@ export default function StationNetworkCanvas({
                         className="aero-btn"
                         href={`/editor?sessionId=${encodeURIComponent(sessionId)}&stationId=${encodeURIComponent(station.stationId)}`}
                       >
+                        <AeroIcon name="edit" />
                         Upraviť koľajisko
                       </Link>
                     </div>

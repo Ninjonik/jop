@@ -251,6 +251,13 @@ export async function initializeDisAppwrite() {
     await ensureStringAttribute({
       databaseId: DB_ID,
       collectionId: 'shifts',
+      key: 'planJson',
+      size: 100000,
+      required: false,
+    });
+    await ensureStringAttribute({
+      databaseId: DB_ID,
+      collectionId: 'shifts',
       key: 'title',
       size: 128,
       required: true,

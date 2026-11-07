@@ -12,6 +12,10 @@ if sessionId == "" then
 end
 local placeId = tostring(game.PlaceId)
 local universeId = tostring(game.GameId)
+print(string.format(
+	"[JOP] Bridge boot: backend=%s universe=%s place=%s session=%s topic=%s",
+	Config.BackendBaseUrl, universeId, placeId, sessionId, Config.MessagingTopic
+))
 local api = ApiClient.new(Config)
 local updateFetchInProgress = false
 local updateFetchRequested = false
@@ -21,8 +25,12 @@ local isRegistered = false
 local currentUpdateCursor = 0
 local occupationFlushScheduled = false
 local switchFeedbackFlushScheduled = false
+local occupationFlushInProgress = false
+local switchFeedbackFlushInProgress = false
 local REPORT_FLUSH_DELAY_SECONDS = 0.25
-local HEARTBEAT_INTERVAL_SECONDS = 55
+-- The backend's liveness timeout is 60 seconds. Leave room for request retries.
+local HEARTBEAT_INTERVAL_SECONDS = 20
+local UPDATE_POLL_INTERVAL_SECONDS = 10
 local pendingOccupationReports = {}
 local pendingOccupationOrder = {}
 local pendingSwitchFeedbackReports = {}
@@ -74,12 +82,13 @@ local function popAllReports(store, order)
 end
 
 local function flushOccupationReports()
-	if not isRegistered or bridgeDisabled then
-		occupationFlushScheduled = false
+	occupationFlushScheduled = false
+	if occupationFlushInProgress then
 		return
 	end
-
-	occupationFlushScheduled = false
+	if not isRegistered or bridgeDisabled then
+		return
+	end
 
 	if not hasPendingReports(pendingOccupationOrder) then
 		return
@@ -94,6 +103,7 @@ local function flushOccupationReports()
 	if #batch == 0 then
 		return
 	end
+	occupationFlushInProgress = true
 
 	local success, err = pcall(function()
 		api:ReportOccupationBatch(sessionId, batch)
@@ -113,12 +123,10 @@ local function flushOccupationReports()
 				payload.pieceId,
 				payload.traversalState or "",
 			}, "\0")
-			queueUniqueReport(
-				pendingOccupationReports,
-				pendingOccupationOrder,
-				key,
-				payload
-			)
+			-- A newer sensor transition may have arrived while HTTP was in flight.
+			if pendingOccupationReports[key] == nil then
+				queueUniqueReport(pendingOccupationReports, pendingOccupationOrder, key, payload)
+			end
 		end
 
 		if not occupationFlushScheduled then
@@ -126,15 +134,21 @@ local function flushOccupationReports()
 			task.delay(1, flushOccupationReports)
 		end
 	end
+	occupationFlushInProgress = false
+	if hasPendingReports(pendingOccupationOrder) and not occupationFlushScheduled then
+		occupationFlushScheduled = true
+		task.delay(REPORT_FLUSH_DELAY_SECONDS, flushOccupationReports)
+	end
 end
 
 local function flushSwitchFeedbackReports()
-	if not isRegistered or bridgeDisabled then
-		switchFeedbackFlushScheduled = false
+	switchFeedbackFlushScheduled = false
+	if switchFeedbackFlushInProgress then
 		return
 	end
-
-	switchFeedbackFlushScheduled = false
+	if not isRegistered or bridgeDisabled then
+		return
+	end
 
 	if not hasPendingReports(pendingSwitchFeedbackOrder) then
 		return
@@ -149,6 +163,7 @@ local function flushSwitchFeedbackReports()
 	if #batch == 0 then
 		return
 	end
+	switchFeedbackFlushInProgress = true
 
 	local success, err = pcall(function()
 		api:ReportSwitchFeedbackBatch(sessionId, batch)
@@ -168,18 +183,20 @@ local function flushSwitchFeedbackReports()
 				payload.pieceId,
 				payload.controlSlot or "",
 			}, "\0")
-			queueUniqueReport(
-				pendingSwitchFeedbackReports,
-				pendingSwitchFeedbackOrder,
-				key,
-				payload
-			)
+			if pendingSwitchFeedbackReports[key] == nil then
+				queueUniqueReport(pendingSwitchFeedbackReports, pendingSwitchFeedbackOrder, key, payload)
+			end
 		end
 
 		if not switchFeedbackFlushScheduled then
 			switchFeedbackFlushScheduled = true
 			task.delay(1, flushSwitchFeedbackReports)
 		end
+	end
+	switchFeedbackFlushInProgress = false
+	if hasPendingReports(pendingSwitchFeedbackOrder) and not switchFeedbackFlushScheduled then
+		switchFeedbackFlushScheduled = true
+		task.delay(REPORT_FLUSH_DELAY_SECONDS, flushSwitchFeedbackReports)
 	end
 end
 
@@ -242,12 +259,10 @@ registry = InstanceRegistry.new(
 registry:Start()
 registry:DebugPrintLinks()
 
-print(string.format("[JOP] Bridge boot for PlaceId %s using runtime sessionId %s", placeId, sessionId))
-
 local function applyInit(initPayload)
-	if not initPayload then
-		return
-	end
+	assert(type(initPayload) == "table" and type(initPayload.snapshot) == "table",
+		"[JOP] Registration returned no initialization snapshot.")
+	assert(initPayload.snapshot.protocolVersion == 1, "[JOP] Unsupported backend snapshot protocol. Update the bridge scripts.")
 
 	if initPayload.snapshot then
 		print(
@@ -266,7 +281,10 @@ local function applyInit(initPayload)
 end
 
 local function applyUpdates(updateBatch)
-	if not updateBatch then
+	assert(type(updateBatch) == "table" and type(updateBatch.updates) == "table"
+		and type(updateBatch.cursor) == "number", "[JOP] Invalid backend update batch.")
+	if #updateBatch.updates == 0 then
+		currentUpdateCursor = updateBatch.cursor
 		return
 	end
 
@@ -289,7 +307,7 @@ local function shouldDisableAfterRegistrationFailure(message)
 		return false
 	end
 
-	return string.find(message, "No Roblox map template is configured for PlaceId", 1, true) ~= nil
+	return string.find(message, "No Roblox map template is configured for ", 1, true) ~= nil
 end
 
 local function disableBridge(reason)
@@ -319,11 +337,10 @@ local function fetchQueuedUpdates()
 	repeat
 		updateFetchRequested = false
 		local success, response = pcall(function()
-			return api:FetchUpdates(sessionId, currentUpdateCursor)
+			local updates = api:FetchUpdates(sessionId, currentUpdateCursor)
+			applyUpdates(updates)
 		end)
-		if success then
-			applyUpdates(response)
-		else
+		if not success then
 			warn("[JOP] Queued update fetch failed: " .. tostring(response))
 		end
 	until not updateFetchRequested
@@ -331,6 +348,7 @@ local function fetchQueuedUpdates()
 end
 
 local function heartbeatLoop()
+	local confirmed = false
 	while not bridgeDisabled do
 		if isRegistered then
 			local success, response = pcall(function()
@@ -338,6 +356,9 @@ local function heartbeatLoop()
 			end)
 			if not success then
 				warn("[JOP] Heartbeat failed: " .. tostring(response))
+			elseif not confirmed then
+				confirmed = true
+				print(string.format("[JOP] Heartbeat confirmed by %s for session %s", Config.BackendBaseUrl, sessionId))
 			end
 		end
 
@@ -363,10 +384,10 @@ end
 task.spawn(function()
 	while true do
 		local success, response = pcall(function()
-			return api:Register(sessionId, universeId, placeId)
+			local init = api:Register(sessionId, universeId, placeId)
+			applyInit(init)
 		end)
 		if success then
-			applyInit(response)
 			isRegistered = true
 			print(
 				string.format(
@@ -378,6 +399,8 @@ task.spawn(function()
 			)
 			scheduleOccupationFlush()
 			scheduleSwitchFeedbackFlush()
+			-- Catch changes published between the registration snapshot and becoming ready.
+			task.spawn(fetchQueuedUpdates)
 			break
 		end
 
@@ -392,3 +415,12 @@ task.spawn(function()
 end)
 
 task.spawn(heartbeatLoop)
+
+-- MessagingService is a low-latency hint. Recover queued deltas even if a
+-- notification is missed or publishing/subscription is temporarily unavailable.
+task.spawn(function()
+	while not bridgeDisabled do
+		task.wait(UPDATE_POLL_INTERVAL_SECONDS)
+		fetchQueuedUpdates()
+	end
+end)

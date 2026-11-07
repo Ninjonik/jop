@@ -1,4 +1,5 @@
 'use client';
+import { AeroIcon } from '@/app/components/ui/AeroIcon';
 
 import { disFetch } from '@/lib/dis/api-client';
 import type { UserProfile } from '@/lib/dis/appwrite-client';
@@ -59,7 +60,7 @@ export function StaffManagementView() {
   }
 
   const roleTitleMap: Record<string, string> = {
-    admin: 'Administrátor & Hl. Výpravca',
+    admin: 'Administrátor',
     dispatcher_manager: 'Vedúci výpravca',
     driver_manager: 'Vedúci rušňovodič',
     dispatcher_instructor: 'Inštruktor výpravca',
@@ -88,18 +89,21 @@ export function StaffManagementView() {
               onClick={() => setActiveTab('employees')}
               className={`aero-btn ${activeTab === 'employees' ? 'active' : ''}`}
             >
+              <AeroIcon name="staff" />
               Zamestnanci
             </button>
             <button
               onClick={() => setActiveTab('cadets')}
               className={`aero-btn ${activeTab === 'cadets' ? 'active' : ''}`}
             >
+              <AeroIcon name="assessment" />
               Kadetný program & Zácvik
             </button>
             <button
               onClick={() => setActiveTab('strikes')}
               className={`aero-btn ${activeTab === 'strikes' ? 'active' : ''}`}
             >
+              <AeroIcon name="warning" />
               Evidencia sankcií (Strikes)
             </button>
           </div>
@@ -110,16 +114,7 @@ export function StaffManagementView() {
             onClick={loadProfiles}
             className="aero-btn text-[11px] flex items-center space-x-1"
           >
-            <svg
-              viewBox="0 0 24 24"
-              className="w-3 h-3"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.5"
-            >
-              <path d="M23 4v6h-6" />
-              <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
-            </svg>
+            <AeroIcon name="refresh" />
             <span>Obnoviť</span>
           </button>
         </div>
@@ -160,6 +155,7 @@ export function StaffManagementView() {
               setEditing({ ...employee, strikes: Math.min(10, (employee.strikes || 0) + 1) });
             }}
           >
+            <AeroIcon name="add" />
             Pridať sankciu…
           </button>
           <span className="text-[var(--aero-text-muted)]">
@@ -207,7 +203,7 @@ export function StaffManagementView() {
               onClick={() => setEditing(null)}
               aria-label="Zavrieť hodnotenie"
             >
-              ✕
+              <AeroIcon name="close" />
             </button>
           </header>
           <form
@@ -220,6 +216,7 @@ export function StaffManagementView() {
               <p className="text-[var(--aero-text-muted)]">
                 {editing.robloxUsername ? `@${editing.robloxUsername}` : editing.callsign} ·{' '}
                 {roleTitleMap[editing.role] || editing.role}
+                {editing.robloxRoleName && ` · Roblox: ${editing.robloxRoleName}`}
               </p>
               {error && (
                 <p role="alert" className="border border-red-200 bg-red-50 p-2 text-red-700">
@@ -259,7 +256,7 @@ export function StaffManagementView() {
                       setEditing({ ...editing, strikes: Math.max(0, (editing.strikes || 0) - 1) })
                     }
                   >
-                    − Odobrať sankciu
+                    <AeroIcon name="delete" />− Odobrať sankciu
                   </button>
                   <label className="grid gap-1">
                     Počet sankcií
@@ -284,7 +281,7 @@ export function StaffManagementView() {
                       setEditing({ ...editing, strikes: Math.min(10, (editing.strikes || 0) + 1) })
                     }
                   >
-                    + Pridať sankciu
+                    <AeroIcon name="add" />+ Pridať sankciu
                   </button>
                 </div>
                 <p className="text-[var(--aero-text-muted)]">
@@ -310,9 +307,11 @@ export function StaffManagementView() {
                 type="button"
                 onClick={() => setEditing(null)}
               >
+                <AeroIcon name="close" />
                 Zrušiť
               </button>
               <button className="aero-btn" disabled={saving} type="submit">
+                <AeroIcon name="save" />
                 {saving ? 'Ukladám…' : 'Uložiť hodnotenie a sankcie'}
               </button>
             </footer>
@@ -365,6 +364,11 @@ export function StaffManagementView() {
                     <span className="px-1.5 py-0.5 rounded bg-slate-100 border border-slate-300 text-[10.5px]">
                       {roleTitleMap[emp.role] || emp.role}
                     </span>
+                    {emp.robloxRoleName && (
+                      <span className="ml-2 text-[var(--aero-text-muted)]">
+                        Roblox: {emp.robloxRoleName}
+                      </span>
+                    )}
                   </td>
                   <td className="py-1 px-2">
                     {emp.trainingStage === 'certified' ? (
@@ -404,6 +408,7 @@ export function StaffManagementView() {
                         }}
                         className="aero-btn text-[10.5px] font-semibold"
                       >
+                        <AeroIcon name="assessment" />
                         {activeTab === 'strikes' ? 'Spravovať sankcie' : 'Hodnotenie'}
                       </button>
                     )}

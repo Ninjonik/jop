@@ -1,17 +1,13 @@
 'use client';
+import { AeroIcon } from '@/app/components/ui/AeroIcon';
 
 import { disFetch } from '@/lib/dis/api-client';
 import { useDisAuth } from '@/lib/dis/auth-context';
+import type { PlannedShift, ShiftPlan } from '@/lib/dis/shift-plan';
 import { useCallback, useEffect, useState } from 'react';
+import { ShiftPlanView } from './ShiftPlanView';
 
-type Shift = {
-  $id: string;
-  title: string;
-  date: string;
-  startTime: string;
-  endTime: string;
-  status: 'draft' | 'open' | 'active' | 'completed' | 'cancelled';
-};
+type Shift = PlannedShift;
 type Booking = {
   $id: string;
   shiftId: string;
@@ -61,10 +57,17 @@ export function ShiftManagementView() {
     let cancelled = false;
     const refresh = async () => {
       try {
-        const result = await disFetch<{ bookings: Booking[] }>(
+        const result = await disFetch<{ bookings: Booking[]; plan: ShiftPlan | null }>(
           `/api/dis/shifts?${new URLSearchParams({ shiftId: selectedShiftId })}`,
         );
-        if (!cancelled) setBookings(result.bookings);
+        if (!cancelled) {
+          setBookings(result.bookings);
+          setShifts((previous) =>
+            previous.map((shift) =>
+              shift.$id === selectedShiftId ? { ...shift, plan: result.plan } : shift,
+            ),
+          );
+        }
       } catch (error) {
         if (!cancelled)
           setError(error instanceof Error ? error.message : 'Registrácie sa nepodarilo načítať.');
@@ -174,6 +177,7 @@ export function ShiftManagementView() {
               disabled={busy}
               onClick={() => manage('status', currentShift.$id, 'active')}
             >
+              <AeroIcon name="play" />
               Začať zmenu
             </button>
           )}
@@ -183,6 +187,7 @@ export function ShiftManagementView() {
               disabled={busy}
               onClick={() => manage('status', currentShift.$id, 'completed')}
             >
+              <AeroIcon name="confirm" />
               Ukončiť zmenu
             </button>
           )}
@@ -192,6 +197,7 @@ export function ShiftManagementView() {
               disabled={busy}
               onClick={() => manage('status', currentShift.$id, 'cancelled')}
             >
+              <AeroIcon name="close" />
               Zrušiť zmenu
             </button>
           )}
@@ -230,6 +236,7 @@ export function ShiftManagementView() {
             onChange={(event) => setStartTime(event.target.value)}
           />
           <button className="aero-btn" disabled={busy || !title.trim()}>
+            <AeroIcon name="calendar" />
             Vytvoriť zmenu
           </button>
         </form>
@@ -252,6 +259,20 @@ export function ShiftManagementView() {
               </option>
             ))}
           </select>
+          {currentShift && (
+            <ShiftPlanView
+              key={currentShift.$id}
+              shift={currentShift}
+              canManage={canManageStaff}
+              onPlan={(plan) =>
+                setShifts((previous) =>
+                  previous.map((shift) =>
+                    shift.$id === currentShift.$id ? { ...shift, plan } : shift,
+                  ),
+                )
+              }
+            />
+          )}
           {currentShift?.status === 'open' &&
             !alreadyRegistered &&
             (canDriveTrain || canOperateStation) && (
@@ -279,6 +300,7 @@ export function ShiftManagementView() {
                   onChange={(event) => setLocation(event.target.value)}
                 />
                 <button className="aero-btn" disabled={busy}>
+                  <AeroIcon name="addUser" />
                   Zapísať sa na zmenu
                 </button>
               </form>

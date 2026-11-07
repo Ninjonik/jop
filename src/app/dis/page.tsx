@@ -12,10 +12,10 @@ import { StaffManagementView } from '@/app/components/dis/StaffManagementView';
 import { TpvFullView } from '@/app/components/dis/TpvFullView';
 import MockControlClient from '@/app/components/mock/MockControlClient';
 import RuntimeStationClient from '@/app/components/runtime/RuntimeStationClient';
+import { AeroIcon, type AeroIconName } from '@/app/components/ui/AeroIcon';
 import { DisAuthProvider, useDisAuth } from '@/lib/dis/auth-context';
 import type { JopStationSummary } from '@/lib/dis/jop-bridge';
 import { useDisResource } from '@/lib/dis/use-dis-resource';
-import { Moon, Sun, TrainFront } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { Suspense, useEffect, useState } from 'react';
 
@@ -32,6 +32,19 @@ type Tab =
   | 'mock'
   | 'recovery';
 type Scope = { sessionId: string; stationId: string };
+const tabIcons: Record<Tab, AeroIconName> = {
+  preparation: 'network',
+  sessions: 'launch',
+  runtime: 'train',
+  edd: 'table',
+  tpv: 'chart',
+  shifts: 'calendar',
+  staff: 'staff',
+  docs: 'documents',
+  gvd: 'edit',
+  mock: 'play',
+  recovery: 'settings',
+};
 type Network = {
   placeId: string;
   stations: JopStationSummary[];
@@ -199,7 +212,7 @@ function DisPortalShell() {
     <div className="dis-portal h-screen flex flex-col overflow-hidden bg-[var(--aero-bg)] text-[var(--aero-text)] text-xs">
       <div className="aero-title-bar">
         <div className="window-title">
-          <TrainFront size={18} />
+          <AeroIcon name="train" size={24} />
           <span>ZSSK DIS — Dopravný informačný systém</span>
         </div>
         <span>
@@ -220,7 +233,7 @@ function DisPortalShell() {
               disabled={!selectedPlace}
               onClick={() => openTab(item.id)}
             >
-              {item.title}
+              <AeroIcon name={tabIcons[item.id]} /> {item.title}
             </button>
           ))}
         <span className="menu-group-label">Všeobecné</span>
@@ -237,7 +250,7 @@ function DisPortalShell() {
               disabled={item.id !== 'preparation' && !selectedPlace}
               onClick={() => openTab(item.id)}
             >
-              {item.title}
+              <AeroIcon name={tabIcons[item.id]} /> {item.title}
             </button>
           ))}
         <div className="ml-auto flex gap-2">
@@ -248,10 +261,11 @@ function DisPortalShell() {
               setDark(!dark);
             }}
           >
-            {dark ? <Sun size={14} /> : <Moon size={14} />}
+            <AeroIcon name={dark ? 'sun' : 'moon'} />
             {dark ? 'Svetlý motív' : 'Tmavý motív'}
           </button>
           <button className="aero-btn" onClick={logout}>
+            <AeroIcon name="logout" />
             Odhlásiť
           </button>
         </div>
@@ -475,6 +489,15 @@ function DisPortalShell() {
         </main>
       </div>
       <div className="statusbar">
+        <a
+          className="status-item"
+          href="https://www.fatcow.com/free-icons"
+          target="_blank"
+          rel="noopener noreferrer"
+          title="Farm-Fresh icons © FatCow Web Hosting · CC BY 3.0"
+        >
+          Ikony: FatCow
+        </a>
         <span className="status-item">{profile.role}</span>
         {hasStation && (
           <span className="status-item">Stanica: {current.stationId || 'nevybraná'}</span>

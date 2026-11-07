@@ -1,4 +1,5 @@
 'use client';
+import { AeroIcon } from '@/app/components/ui/AeroIcon';
 
 export function NetworkPreparationView({
   onOpenTool,
@@ -23,6 +24,7 @@ export function NetworkPreparationView({
         </p>
         <div className="grid gap-2 border-b border-[var(--grid-row-border)] p-3 sm:grid-cols-[200px_1fr] sm:items-center">
           <button className="aero-btn justify-center" onClick={() => onOpenTool('map')}>
+            <AeroIcon name="network" />
             Správca staníc
           </button>
           <p className="text-[var(--aero-text-muted)]">
@@ -31,6 +33,7 @@ export function NetworkPreparationView({
         </div>
         <div className="grid gap-2 border-b border-[var(--grid-row-border)] p-3 sm:grid-cols-[200px_1fr] sm:items-center">
           <button className="aero-btn justify-center" onClick={() => onOpenTool('editor')}>
+            <AeroIcon name="edit" />
             Editor staníc
           </button>
           <p className="text-[var(--aero-text-muted)]">
@@ -40,6 +43,7 @@ export function NetworkPreparationView({
         </div>
         <div className="grid gap-2 p-3 sm:grid-cols-[200px_1fr] sm:items-center">
           <button className="aero-btn justify-center" onClick={() => onOpenTool('linker')}>
+            <AeroIcon name="link" />
             Prepojenie s Roblox (Linker)
           </button>
           <p className="text-[var(--aero-text-muted)]">

@@ -1,4 +1,5 @@
 'use client';
+import { AeroIcon } from '@/app/components/ui/AeroIcon';
 import { useEffect, useRef } from 'react';
 
 export function JopEmbeddedView({
@@ -59,9 +60,11 @@ export function JopEmbeddedView({
         <strong>{title}</strong>
         <div className="flex gap-2">
           <a href={url} target="_blank" rel="noopener noreferrer" className="aero-btn">
+            <AeroIcon name="launch" />
             Samostatné okno
           </a>
           <button onClick={onClose} className="aero-btn">
+            <AeroIcon name="close" />
             Zavrieť nástroj
           </button>
         </div>

@@ -1,9 +1,13 @@
 import type { UserProfile } from '@/lib/dis/appwrite-client';
+import type { PlannedShift } from '@/lib/dis/shift-plan';
 import { clockMinutes, clockSchema, formatMinute } from '@/lib/dis/timetable';
 import { ID, Query, type Models } from 'node-appwrite';
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
 import { databaseId, disDatabase, DisError, dispatchers, listDocuments } from './appwrite';
+import { readShiftPlan } from './shift-planning';
+
+type StoredShift = Models.Document & Omit<PlannedShift, 'plan'> & { planJson?: string };
 
 export async function loadStaff() {
   return {
@@ -24,9 +28,18 @@ export async function assessStaff(body: unknown) {
   return { profile: await disDatabase().updateDocument(databaseId, 'profiles', id, assessment) };
 }
 export async function loadShifts(shiftId?: string) {
-  if (shiftId)
-    return { bookings: await listDocuments('shift_bookings', [Query.equal('shiftId', shiftId)]) };
-  return { shifts: await listDocuments('shifts', [Query.orderDesc('date')]) };
+  if (shiftId) {
+    const [bookings, shift] = await Promise.all([
+      listDocuments('shift_bookings', [Query.equal('shiftId', shiftId)]),
+      disDatabase().getDocument(databaseId, 'shifts', shiftId),
+    ]);
+    return { bookings, plan: readShiftPlan(shift.planJson) };
+  }
+  return {
+    shifts: (await listDocuments<StoredShift>('shifts', [Query.orderDesc('date')])).map(
+      ({ planJson, ...shift }) => ({ ...shift, plan: readShiftPlan(planJson) }),
+    ),
+  };
 }
 export async function createShift(body: unknown) {
   const input = z

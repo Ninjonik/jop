@@ -1,4 +1,5 @@
 'use client';
+import { AeroIcon } from '@/app/components/ui/AeroIcon';
 
 import { disFetch } from '@/lib/dis/api-client';
 import type { JopStationSummary } from '@/lib/dis/jop-bridge';
@@ -93,6 +94,7 @@ export function RecoveryView({
               disabled={!sessionId || running}
               onClick={() => void run(action)}
             >
+              <AeroIcon name="settings" />
               {action.title}
             </button>
           </section>

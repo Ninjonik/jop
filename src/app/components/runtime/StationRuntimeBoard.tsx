@@ -1,4 +1,5 @@
 'use client';
+import { AeroIcon } from '@/app/components/ui/AeroIcon';
 
 import { useEffect, useRef, useState } from 'react';
 
@@ -110,7 +111,6 @@ export default function StationRuntimeBoard({
   const [heldInspectionButtonId, setHeldInspectionButtonId] = useState<string | null>(null);
   const fittedTileSize = viewportWidth > 0 ? viewportWidth / layout.width : 75;
   const tileSize = fitWidth ? fittedTileSize : manualTileSize;
-
 
   useEffect(() => {
     const boardViewport = boardViewportRef.current;
@@ -514,6 +514,7 @@ export default function StationRuntimeBoard({
           onClick={() => (fitWidth ? disableFitWidth() : setFitWidth(true))}
           className="rounded border border-neutral-500 px-2 py-1 text-xs font-medium text-neutral-900 hover:bg-neutral-100"
         >
+          <AeroIcon name="zoomReset" />
           Fit width
         </button>
         {!fitWidth ? (
@@ -524,14 +525,7 @@ export default function StationRuntimeBoard({
               onClick={() => changeManualZoom(1 / 1.2)}
               className="grid size-7 place-items-center rounded border border-neutral-500 text-neutral-900 hover:bg-neutral-100"
             >
-              <svg
-                aria-hidden="true"
-                viewBox="0 0 24 24"
-                className="size-4 fill-none stroke-current stroke-2"
-              >
-                <circle cx="11" cy="11" r="6" />
-                <path d="m16 16 4 4M8 11h6" />
-              </svg>
+              <AeroIcon name="zoomOut" />
             </button>
             <button
               type="button"
@@ -539,14 +533,7 @@ export default function StationRuntimeBoard({
               onClick={() => changeManualZoom(1.2)}
               className="grid size-7 place-items-center rounded border border-neutral-500 text-neutral-900 hover:bg-neutral-100"
             >
-              <svg
-                aria-hidden="true"
-                viewBox="0 0 24 24"
-                className="size-4 fill-none stroke-current stroke-2"
-              >
-                <circle cx="11" cy="11" r="6" />
-                <path d="m16 16 4 4M8 11h6M11 8v6" />
-              </svg>
+              <AeroIcon name="zoomIn" />
             </button>
           </>
         ) : null}
@@ -660,23 +647,24 @@ export default function StationRuntimeBoard({
                       }}
                     />
                   )}
-                  {!isAhLineblockPieceType(piece.type) ? <button
-                    type="button"
-                    aria-label={`Grant or revoke lineblock consent on ${pieceId}`}
-                    disabled={isPiecePending}
-                    onClick={() => void submitLineblockAction(pieceId, 'lineblock:grant-consent')}
-                    onContextMenu={(event) => {
-                      event.preventDefault();
-                      void submitLineblockAction(pieceId, 'lineblock:revoke-consent');
-                    }}
-                    className="pointer-events-auto absolute bottom-0 rounded-sm border border-transparent bg-transparent disabled:cursor-wait"
-                    style={{
-                      width: tileSize * 0.8,
-                      height: tileSize * 0.5,
-                      left: rightLineblockActionOffset * tileSize,
-                    }}
-                  />
-                  : null}
+                  {!isAhLineblockPieceType(piece.type) ? (
+                    <button
+                      type="button"
+                      aria-label={`Grant or revoke lineblock consent on ${pieceId}`}
+                      disabled={isPiecePending}
+                      onClick={() => void submitLineblockAction(pieceId, 'lineblock:grant-consent')}
+                      onContextMenu={(event) => {
+                        event.preventDefault();
+                        void submitLineblockAction(pieceId, 'lineblock:revoke-consent');
+                      }}
+                      className="pointer-events-auto absolute bottom-0 rounded-sm border border-transparent bg-transparent disabled:cursor-wait"
+                      style={{
+                        width: tileSize * 0.8,
+                        height: tileSize * 0.5,
+                        left: rightLineblockActionOffset * tileSize,
+                      }}
+                    />
+                  ) : null}
                 </>
               ) : null}
 

@@ -668,6 +668,13 @@ Relevant files:
 - `src/lib/server/repositories/place-template-repository.ts`
 - `roblox/ServerScriptService/JopBridge/*`
 
+The Roblox bridge sends heartbeats every 20 seconds against the backend's
+60-second liveness timeout. MessagingService invalidations trigger delta queue
+fetches; a 10-second delta poll recovers missed notifications without periodic
+full snapshots. Report batches are serialized per channel and failed batches
+do not overwrite newer queued sensor transitions. See `roblox/README.md` for
+deployment, source refresh, diagnostics, and executable protocol checks.
+
 ## 21. Short Summary
 
 If you only remember five things, remember these:
@@ -735,5 +742,17 @@ A deterministic per-user/per-shift ID prevents duplicate registrations. Managers
 start/complete/cancel shifts and record attendance. A strike attendance marker
 and a personnel assessment are separate explicit records; marking attendance
 does not silently increment a person's disciplinary total.
+
+Shift planning is owned by `src/lib/server/dis/shift-planning.ts`. The optional
+`shifts.planJson` contains a validated snapshot of the selected location, its
+participating stations, selected train timetables, and station/driver assignments.
+Existing shifts without a plan normalize to `plan: null`. Managers select trains
+from the location's saved GVD before starting a shift; later GVD edits do not
+change its snapshot. Re-selecting GVD preserves assignments only for retained
+targets in the same location. Assignments can change during an active shift,
+but completed/cancelled shifts are read-only. Staff eligibility is checked on
+the server. A dispatcher has one station; a driver may have multiple trains.
+This staffing plan is separate from self-registration preferences and attendance
+in `shift_bookings`; it does not change runtime station ownership or train state.
 
 See `docs/DIS.md` for setup, access policy migration, and verification commands.

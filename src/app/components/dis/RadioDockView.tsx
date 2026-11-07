@@ -1,4 +1,5 @@
 'use client';
+import { AeroIcon } from '@/app/components/ui/AeroIcon';
 import { disFetch } from '@/lib/dis/api-client';
 import { useDisAuth } from '@/lib/dis/auth-context';
 import type { RadioMessage } from '@/lib/dis/records';
@@ -104,6 +105,7 @@ export function RadioDockView({
           </label>
         )}
         <button className="aero-btn" disabled={busy || !sessionId || !stationId}>
+          <AeroIcon name="send" />
           {busy ? 'Odosielam...' : 'Odoslať'}
         </button>
       </form>

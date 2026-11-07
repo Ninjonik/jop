@@ -1,4 +1,5 @@
 'use client';
+import { AeroIcon } from '@/app/components/ui/AeroIcon';
 
 import { disFetch } from '@/lib/dis/api-client';
 import {
@@ -10,28 +11,66 @@ import { useRef, useState } from 'react';
 import { DocumentMarkdown } from './DocumentMarkdown';
 
 const tools = [
-  { label: 'Nadpis', text: 'H', before: '## ', after: '', sample: 'Nadpis' },
-  { label: 'Tučné (Ctrl+B)', text: 'B', before: '**', after: '**', sample: 'tučný text' },
-  { label: 'Kurzíva (Ctrl+I)', text: 'I', before: '*', after: '*', sample: 'text kurzívou' },
+  { icon: 'heading', label: 'Nadpis', text: 'H', before: '## ', after: '', sample: 'Nadpis' },
   {
+    icon: 'bold',
+    label: 'Tučné (Ctrl+B)',
+    text: 'B',
+    before: '**',
+    after: '**',
+    sample: 'tučný text',
+  },
+  {
+    icon: 'italic',
+    label: 'Kurzíva (Ctrl+I)',
+    text: 'I',
+    before: '*',
+    after: '*',
+    sample: 'text kurzívou',
+  },
+  {
+    icon: 'link',
     label: 'Odkaz (Ctrl+K)',
     text: 'Odkaz',
     before: '[',
     after: '](https://)',
     sample: 'názov odkazu',
   },
-  { label: 'Odrážky', text: '• Zoznam', before: '- ', after: '', sample: 'Položka\nPoložka' },
   {
+    icon: 'bullets',
+    label: 'Odrážky',
+    text: '• Zoznam',
+    before: '- ',
+    after: '',
+    sample: 'Položka\nPoložka',
+  },
+  {
+    icon: 'numbered',
     label: 'Číslovaný zoznam',
     text: '1. Zoznam',
     before: '1. ',
     after: '',
     sample: 'Položka\nPoložka',
   },
-  { label: 'Kontrolný zoznam', text: '☑ Úlohy', before: '- [ ] ', after: '', sample: 'Úloha' },
-  { label: 'Citácia', text: '❝ Citácia', before: '> ', after: '', sample: 'Citovaný text' },
-  { label: 'Kód', text: '</>', before: '`', after: '`', sample: 'kód' },
   {
+    icon: 'confirm',
+    label: 'Kontrolný zoznam',
+    text: '☑ Úlohy',
+    before: '- [ ] ',
+    after: '',
+    sample: 'Úloha',
+  },
+  {
+    icon: 'quote',
+    label: 'Citácia',
+    text: '❝ Citácia',
+    before: '> ',
+    after: '',
+    sample: 'Citovaný text',
+  },
+  { icon: 'code', label: 'Kód', text: '</>', before: '`', after: '`', sample: 'kód' },
+  {
+    icon: 'table',
     label: 'Tabuľka',
     text: 'Tabuľka',
     before: '\n',
@@ -156,7 +195,8 @@ export function MarkdownEditor({
             onMouseDown={(event) => event.preventDefault()}
             onClick={() => insert(tool.before, tool.after, tool.sample)}
           >
-            {tool.text}
+            <AeroIcon name={tool.icon} />
+            {!['B', 'I', 'H', '</>'].includes(tool.text) && tool.text}
           </button>
         ))}
         <button
@@ -165,7 +205,8 @@ export function MarkdownEditor({
           disabled={busy}
           onClick={() => fileInput.current?.click()}
         >
-          📎 Pridať obrázok alebo súbor…
+          <AeroIcon name="attach" />
+          Pridať obrázok alebo súbor…
         </button>
       </div>
       <div
@@ -186,6 +227,7 @@ export function MarkdownEditor({
             aria-pressed={mode === id}
             onClick={() => setMode(id)}
           >
+            <AeroIcon name={id === 'write' ? 'edit' : id === 'split' ? 'split' : 'preview'} />
             {title}
           </button>
         ))}

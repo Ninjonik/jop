@@ -59,6 +59,43 @@ The project explicitly follows KISS, YAGNI, and DRY.
 - Keep files cohesive. Extract a module when a file contains a distinct responsibility, not solely because it reached an arbitrary line count.
 - Match existing project conventions before introducing a new pattern.
 
+## Design Language And User Experience
+
+### Windows Aero desktop application
+
+- The visual language is Windows 7 Aero / WPF: a compact desktop railway application with blue glass-like captions, subtle gradients, thin borders, inset work areas, and clearly grouped controls.
+- Reuse `src/styles/aero-theme.css` and its CSS variables as the authoritative theme. Inspect nearby components before adding styles; extend shared classes when the same control appears in multiple views.
+- Use existing window captions, menu bars, toolbars, section headers, data grids, and status bars to establish hierarchy. Keep typography compact and readable, with modest corner radii and restrained shadows.
+- Avoid introducing a different visual system: oversized dashboard cards, pill-shaped controls, giant headings, excessive whitespace, floating decorative panels, or unrelated flat icon styles.
+- Support both the default light Aero theme and the dark industrial theme through existing tokens. Do not hard-code light backgrounds or text colors into shared controls.
+
+### Icons And Actions
+
+- Use the shared `AeroIcon` component in `src/app/components/ui/AeroIcon.tsx` and names from `aero-icons.ts` for navigation, toolbars, and common actions. The locally bundled Farm-Fresh artwork provides the established colorful, shaded desktop icon style.
+- Default to 16 px icons beside action labels; use 24 or 32 px only where the existing hierarchy calls for a larger icon. Keep the same icon meaning across screens.
+- Keep visible text labels on ordinary actions. Icon-only buttons are suitable for familiar compact controls such as zoom or close and must have an accessible name; provide a tooltip where useful.
+- Do not use emoji as substitutes for interface icons or mix in a new icon family for an action already covered by the shared set.
+- Preserve the asset license and attribution in `THIRD_PARTY_NOTICES.md` and `public/icons/aero/ATTRIBUTION.txt` when adding artwork. Keep icons local rather than depending on a remote image service.
+
+### Layout And Discoverability
+
+- Design for an ordinary dispatcher or staff member, not someone who knows the database or source code. Use concise Slovak labels, familiar railway terminology, and clear explanations of the next available action.
+- Show resolved human-readable names for stations and Roblox locations. Raw IDs and implementation terms belong in technical diagnostics only when needed.
+- Put actions beside the content they affect. Reserve global navigation for app sections; place station editing, station management, and linking under network preparation and its contextual tools.
+- Network and station preparation is independent of relations. Do not require creating or selecting a relation just to create or edit a station.
+- Use one autocomplete field for selecting a station, with suggestions attached to that field. Do not split search and selection into separate controls.
+- Keep editor and linker tool areas collapsible so the working canvas has room. Preserve access to the existing tools and make expanded/collapsed state clear.
+- Use a scrollable workspace for spatial station networks; place connected stations according to their links and keep unconnected stations discoverable for connection.
+- Use dialogs for focused contextual tasks such as personnel assessments and strikes. Keep the relevant person or item visible in the dialog title and return users to their original context on close.
+- Provide clear empty, loading, success, disabled, and error states. Errors should explain what failed and what the user can do next without exposing secrets or a stack trace.
+
+### Accessibility And Railway Displays
+
+- Preserve semantic buttons, labels, keyboard operation, visible focus, and readable contrast. Do not rely on an icon or color alone to communicate an action or status.
+- Keep forms, toolbars, and dialogs usable at smaller window sizes through wrapping or appropriate scrolling. Avoid clipping primary actions or making the entire page scroll when only a workspace needs to scroll.
+- Apply Aero styling to application chrome, not to railway symbols. Preserve tile artwork, signal colors, track geometry, orientation, visual states, and editor/runtime rendering behavior.
+- For UI changes, check the affected screen in both themes and relevant expanded, collapsed, empty, and dialog states when browser access is available. Report any visual verification limitation honestly.
+
 ## Architecture Invariants
 
 ### App surfaces

@@ -1,4 +1,5 @@
 'use client';
+import { AeroIcon } from '@/app/components/ui/AeroIcon';
 
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -345,6 +346,7 @@ export default function MockControlClient({
             onClick={handleOpenExistingSession}
             className="rounded-[3px] border border-[var(--aero-panel-border)] px-4 py-2 text-sm font-medium text-[var(--aero-text)] transition hover:border-[var(--btn-hover-border)] hover:text-[var(--aero-text)] disabled:cursor-not-allowed disabled:opacity-50"
           >
+            <AeroIcon name="open" />
             Open Session
           </button>
         </div>
@@ -361,6 +363,7 @@ export default function MockControlClient({
             }
             className="rounded-[3px] bg-[var(--btn-active-bottom)] px-4 py-2 text-sm font-medium text-[var(--aero-text)]"
           >
+            <AeroIcon name="network" />
             Open Map Editor
           </Link>
           <button
@@ -369,6 +372,7 @@ export default function MockControlClient({
             onClick={() => sessionSchemaInputRef.current?.click()}
             className="rounded-[3px] border border-[var(--aero-panel-border)] px-4 py-2 text-sm font-medium text-[var(--aero-text)] transition hover:border-[var(--btn-hover-border)] hover:text-[var(--aero-text)] disabled:cursor-not-allowed disabled:opacity-50"
           >
+            <AeroIcon name="upload" />
             Import Session Schema
           </button>
         </div>
@@ -405,6 +409,7 @@ export default function MockControlClient({
                 }
                 className="rounded-[3px] border border-[var(--aero-panel-border)] px-4 py-2 text-sm font-medium text-[var(--aero-text)] transition hover:border-[var(--btn-hover-border)] hover:text-[var(--aero-text)]"
               >
+                <AeroIcon name="network" />
                 Open Map Editor
               </Link>
               <Link
@@ -419,6 +424,7 @@ export default function MockControlClient({
                 }
                 className="rounded-[3px] border border-[var(--aero-panel-border)] px-4 py-2 text-sm font-medium text-[var(--aero-text)] transition hover:border-[var(--btn-hover-border)] hover:text-[var(--aero-text)]"
               >
+                <AeroIcon name="edit" />
                 Open Station Editor
               </Link>
             </div>
@@ -515,6 +521,7 @@ export default function MockControlClient({
           onClick={() => void createTrain()}
           className="mt-3 rounded-[3px] bg-[var(--btn-active-bottom)] px-4 py-2 text-sm font-medium text-[var(--aero-text)] disabled:opacity-50"
         >
+          <AeroIcon name="add" />
           Create And Spawn Train
         </button>
 
@@ -551,6 +558,7 @@ export default function MockControlClient({
                       onClick={() => void moveTrain(train.id)}
                       className="rounded-[3px] bg-[var(--btn-active-bottom)] px-3 py-2 text-xs font-medium text-[var(--aero-text)] disabled:opacity-50"
                     >
+                      <AeroIcon name="play" />
                       Move To Next Signal
                     </button>
                     <button
@@ -559,6 +567,7 @@ export default function MockControlClient({
                       onClick={() => void reverseTrain(train.id)}
                       className="rounded-[3px] border border-[var(--aero-panel-border)] px-3 py-2 text-xs text-[var(--aero-text)] disabled:opacity-50"
                     >
+                      <AeroIcon name="undo" />
                       Reverse Direction
                     </button>
                     <button
@@ -567,6 +576,7 @@ export default function MockControlClient({
                       onClick={() => void removeTrain(train.id)}
                       className="rounded-[3px] border border-red-900 px-3 py-2 text-xs text-red-700 disabled:opacity-50"
                     >
+                      <AeroIcon name="delete" />
                       Remove
                     </button>
                   </div>
@@ -592,7 +602,9 @@ export default function MockControlClient({
               >
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <div className="font-mono text-sm text-[var(--aero-text)]">{station.stationId}</div>
+                    <div className="font-mono text-sm text-[var(--aero-text)]">
+                      {station.stationId}
+                    </div>
                     <div className="text-xs text-[var(--aero-text-muted)]">
                       {station.layout.width}x{station.layout.height}
                     </div>
@@ -609,6 +621,7 @@ export default function MockControlClient({
                     }
                     className="rounded-[3px] bg-[var(--btn-active-bottom)] px-3 py-2 text-xs font-medium text-[var(--aero-text)]"
                   >
+                    <AeroIcon name="train" />
                     Open Runtime
                   </Link>
                 </div>

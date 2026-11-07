@@ -1,4 +1,5 @@
 'use client';
+import { AeroIcon } from '@/app/components/ui/AeroIcon';
 import { disFetch } from '@/lib/dis/api-client';
 import { useDisAuth } from '@/lib/dis/auth-context';
 import type { DisDocument } from '@/lib/dis/records';
@@ -52,6 +53,7 @@ export function DocumentCenterView() {
       <div className="flex flex-wrap items-center gap-2 border-b border-[var(--aero-ribbon-border)] bg-[var(--aero-ribbon-bg)] p-2">
         <strong>Dokumentačné centrum a SPP</strong>
         <button className="aero-btn" onClick={refresh}>
+          <AeroIcon name="refresh" />
           Obnoviť
         </button>
         {canManageStaff && (
@@ -62,6 +64,7 @@ export function DocumentCenterView() {
               setDraft({ title: '', category: 'spp', contentMarkdown: '', isPublished: false })
             }
           >
+            <AeroIcon name="newDocument" />
             Nový dokument
           </button>
         )}
@@ -138,6 +141,7 @@ export function DocumentCenterView() {
               </label>
               <div className="flex gap-2">
                 <button className="aero-btn" disabled={busy || uploading}>
+                  <AeroIcon name="save" />
                   {busy ? 'Ukladám...' : 'Uložiť dokument'}
                 </button>
                 <button
@@ -146,6 +150,7 @@ export function DocumentCenterView() {
                   disabled={busy || uploading}
                   onClick={() => setDraft(null)}
                 >
+                  <AeroIcon name="close" />
                   Zrušiť
                 </button>
               </div>
@@ -156,6 +161,7 @@ export function DocumentCenterView() {
                 <h2 className="font-bold text-sm">{active.title}</h2>
                 {canManageStaff && (
                   <button className="aero-btn" onClick={() => setDraft({ ...active })}>
+                    <AeroIcon name="edit" />
                     Upraviť
                   </button>
                 )}

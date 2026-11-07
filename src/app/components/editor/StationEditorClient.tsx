@@ -1,5 +1,6 @@
 'use client';
 import AuthoringTools from '@/app/components/authoring/AuthoringTools';
+import { AeroIcon } from '@/app/components/ui/AeroIcon';
 
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
@@ -917,6 +918,7 @@ export default function StationEditorClient({ tiles, stateGroups }: Props) {
       onContextMenu={(event) => event.preventDefault()}
     >
       <header className="authoring-caption">
+        <AeroIcon name="edit" size={24} />
         <strong className="mr-auto">Editor koľajiska{stationId ? ` — ${stationId}` : ''}</strong>
         <Link
           href={sessionId ? `/map?sessionId=${encodeURIComponent(sessionId)}` : '/map'}

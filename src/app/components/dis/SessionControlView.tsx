@@ -1,4 +1,5 @@
 'use client';
+import { AeroIcon } from '@/app/components/ui/AeroIcon';
 
 import type { LiveRobloxSessionSummary } from '@/lib/station/domain';
 import { useCallback, useEffect, useState } from 'react';
@@ -62,16 +63,7 @@ export function SessionControlView({
           onClick={fetchLive}
           className="aero-btn text-[11px] font-semibold text-blue-700 flex items-center space-x-1"
         >
-          <svg
-            viewBox="0 0 24 24"
-            className="w-3 h-3"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2.5"
-          >
-            <path d="M23 4v6h-6" />
-            <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
-          </svg>
+          <AeroIcon name="refresh" />
           <span>Obnoviť session</span>
         </button>
       </div>
@@ -126,16 +118,7 @@ export function SessionControlView({
                             }}
                             className="aero-btn font-semibold text-emerald-800 bg-emerald-50 border-emerald-600 hover:bg-emerald-100 flex items-center space-x-1"
                           >
-                            <svg
-                              viewBox="0 0 24 24"
-                              className="w-3 h-3"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="2"
-                            >
-                              <circle cx="12" cy="12" r="10" />
-                              <polygon points="10 8 16 12 10 16 10 8" fill="currentColor" />
-                            </svg>
+                            <AeroIcon name="play" />
                             <span>Otvoriť stanicu: {st.stationId}</span>
                           </button>
                         ))}
@@ -154,6 +137,7 @@ export function SessionControlView({
               disabled={!onLaunchRuntime}
               onClick={() => onLaunchRuntime?.('mock', '')}
             >
+              <AeroIcon name="play" />
               Otvoriť simulátor vlakov
             </button>
             <span className="text-[var(--aero-text-muted)]">

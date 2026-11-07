@@ -7,6 +7,7 @@ import {
   recordAttendance,
   registerShift,
 } from '@/lib/server/dis/personnel';
+import { assignShiftStaff, configureShiftPlan } from '@/lib/server/dis/shift-planning';
 import { z } from 'zod';
 export async function GET(request: Request) {
   return disResponse(async () => {
@@ -19,12 +20,14 @@ export async function POST(request: Request) {
   return disResponse(async () => {
     const body = await request.json();
     const { command } = z
-      .object({ command: z.enum(['create', 'register', 'status', 'attendance']) })
+      .object({ command: z.enum(['create', 'register', 'status', 'attendance', 'plan', 'assign']) })
       .parse(body);
     const profile = await requireDisProfile(request, command === 'register' ? undefined : managers);
     if (command === 'create') return createShift(body);
     if (command === 'register') return registerShift(body, profile);
     if (command === 'status') return changeShiftStatus(body);
+    if (command === 'plan') return configureShiftPlan(body);
+    if (command === 'assign') return assignShiftStaff(body);
     return recordAttendance(body);
   });
 }

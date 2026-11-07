@@ -1,4 +1,5 @@
 'use client';
+import { AeroIcon } from '@/app/components/ui/AeroIcon';
 
 import { useLayoutEffect, useRef, useState } from 'react';
 
@@ -92,6 +93,7 @@ export default function PieceContextMenu({
               onClick={onRotate}
               className="border-b border-neutral-300 px-2 py-1 text-left text-sm text-[var(--aero-text)]"
             >
+              <AeroIcon name="redo" />
               Otočiť
             </button>
           ) : null}
@@ -101,6 +103,7 @@ export default function PieceContextMenu({
               onClick={onMirror}
               className="border-b border-neutral-300 px-2 py-1 text-left text-sm text-[var(--aero-text)]"
             >
+              <AeroIcon name="split" />
               Zrkadliť
             </button>
           ) : null}
@@ -113,6 +116,7 @@ export default function PieceContextMenu({
           onClick={() => onEditText(textKey)}
           className="border-b border-neutral-300 px-2 py-1 text-left text-sm text-[var(--aero-text)]"
         >
+          <AeroIcon name="edit" />
           {`Upraviť ${textKey}`}
         </button>
       ))}
@@ -122,6 +126,7 @@ export default function PieceContextMenu({
           onClick={onEditLevelCrossingTimings}
           className="border-b border-neutral-300 px-2 py-1 text-left text-sm text-[var(--aero-text)]"
         >
+          <AeroIcon name="settings" />
           Upraviť časy priecestia
         </button>
       ) : null}
@@ -131,6 +136,7 @@ export default function PieceContextMenu({
           onClick={onEditSwitchSpeed}
           className="border-b border-neutral-300 px-2 py-1 text-left text-sm text-[var(--aero-text)]"
         >
+          <AeroIcon name="settings" />
           Upraviť rýchlosť do odbočky
         </button>
       ) : null}
@@ -140,6 +146,7 @@ export default function PieceContextMenu({
           onClick={onDisconnect}
           className="border-b border-neutral-300 px-2 py-1 text-left text-sm text-[var(--aero-text)]"
         >
+          <AeroIcon name="delete" />
           {`Odpojiť: ${contextMenu.connectedPieceCells.map(([x, y]) => `${x},${y}`).join(' | ')}`}
         </button>
       ) : null}
@@ -149,6 +156,7 @@ export default function PieceContextMenu({
           onClick={onCancelConnection}
           className="border-b border-neutral-300 px-2 py-1 text-left text-sm text-[var(--aero-text)]"
         >
+          <AeroIcon name="close" />
           Zrušiť výber
         </button>
       ) : null}
@@ -158,6 +166,7 @@ export default function PieceContextMenu({
           onClick={onConnect}
           className="border-b border-neutral-300 px-2 py-1 text-left text-sm text-[var(--aero-text)]"
         >
+          <AeroIcon name="link" />
           {`Prepojiť s: ${contextMenu.pendingConnectionEndpointKey ?? pendingConnectionPieceId}`}
         </button>
       ) : null}
@@ -167,6 +176,7 @@ export default function PieceContextMenu({
           onClick={onStartConnection}
           className="border-b border-neutral-300 px-2 py-1 text-left text-sm text-[var(--aero-text)]"
         >
+          <AeroIcon name="link" />
           Vybrať na prepojenie
         </button>
       ) : null}
@@ -175,6 +185,7 @@ export default function PieceContextMenu({
         onClick={onRemove}
         className="px-2 py-1 text-left text-sm text-[var(--aero-text)]"
       >
+        <AeroIcon name="delete" />
         Odstrániť
       </button>
     </div>

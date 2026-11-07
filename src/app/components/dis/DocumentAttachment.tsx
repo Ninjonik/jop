@@ -1,4 +1,5 @@
 'use client';
+import { AeroIcon } from '@/app/components/ui/AeroIcon';
 
 import { disRequest } from '@/lib/dis/api-client';
 import { attachmentExtension } from '@/lib/dis/attachment-types';
@@ -126,6 +127,19 @@ export function DocumentAttachment({
     };
   }, [src, requested, label]);
   const isImage = preview?.mime.startsWith('image/');
+  const extension = attachmentExtension(preview?.name || label);
+  const fileIcon =
+    extension === 'pdf'
+      ? 'pdf'
+      : extension === 'ppt' || extension === 'pptx'
+        ? 'presentation'
+        : extension === 'doc' || extension === 'docx'
+          ? 'word'
+          : extension === 'xls' || extension === 'xlsx' || extension === 'csv'
+            ? 'spreadsheet'
+            : extension === 'zip'
+              ? 'archive'
+              : 'document';
   return (
     <>
       {image ? (
@@ -150,7 +164,9 @@ export function DocumentAttachment({
       ) : (
         <span className="my-2 flex flex-wrap items-center gap-2 rounded-sm border border-[var(--aero-panel-border)] bg-[var(--grid-row-alt)] p-3">
           <span className="min-w-0 flex-1 break-words">
-            <strong className="block">📎 {label}</strong>
+            <strong className="flex items-center gap-2">
+              <AeroIcon name={fileIcon} /> {label}
+            </strong>
             {preview && (
               <span className="text-xs text-[var(--aero-text-muted)]">
                 {(preview.size / 1024).toLocaleString('sk-SK', { maximumFractionDigits: 0 })} KB
@@ -165,10 +181,12 @@ export function DocumentAttachment({
               setOpen(true);
             }}
           >
+            <AeroIcon name="preview" />
             Zobraziť prílohu
           </button>
           {preview && (
             <a className="aero-btn" href={preview.url} download={preview.name}>
+              <AeroIcon name="download" />
               Stiahnuť
             </a>
           )}
@@ -189,10 +207,12 @@ export function DocumentAttachment({
             <strong className="mr-auto truncate">{preview?.name || label}</strong>
             {preview && (
               <a className="aero-btn" href={preview.url} download={preview.name}>
+                <AeroIcon name="download" />
                 Stiahnuť súbor
               </a>
             )}
             <button type="button" className="aero-btn" onClick={() => setOpen(false)}>
+              <AeroIcon name="close" />
               Zavrieť
             </button>
           </div>

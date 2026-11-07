@@ -25,13 +25,25 @@ template key. If a saved JOP place template exists for that UniverseId and Place
 session in MongoDB from that template and returns one full initialization
 payload containing the entire physical state plus the current update cursor. If
 no template exists for that UniverseId and PlaceId, the bridge disables itself instead of
-retrying forever.
+retrying forever. Save the template, then restart that Roblox server.
 
 After initialization, Roblox no longer performs periodic full-state refreshes.
 The backend publishes only `session:changed` invalidations through
 MessagingService. On each invalidation, Roblox fetches queued piece updates from
 `/api/roblox/sessions/[sessionId]/updates?afterSequence=...` and applies only
 those changed pieces locally.
+It also checks the same delta queue every 10 seconds, so missed messages or a
+temporary MessagingService failure do not leave the model permanently stale.
+This fallback does not download periodic full snapshots. Heartbeats run every
+20 seconds; the backend's liveness timeout is 60 seconds.
+
+The server Output begins with `[JOP] Bridge boot: backend=... universe=... place=...
+session=... topic=...`, then `[JOP] Registered session ...` and the first
+`[JOP] Heartbeat confirmed ...`. HTTP failures include the method and full
+endpoint. If startup stops before registration, check that HTTP is enabled and
+the `JOP_INBOUND_SECRET` Roblox secret exists, matches `ROBLOX_INBOUND_SECRET`
+on the backend, and is allowed for the backend host. Studio tests need the
+corresponding Local Secret. Never paste a secret value into logs.
 
 Link any `Instance` to one or more station pieces with a child `StringValue`
 named `JOPPieceLinks`. Its `Value` is JSON:
@@ -127,8 +139,8 @@ Example Studio command-bar updater:
 ```lua
 local HttpService = game:GetService("HttpService")
 
-local backendBaseUrl = "https://your-jop-host.example.com"
-local authorization = HttpService:GetSecret("jop-inbound-secret"):AddPrefix("Bearer ")
+local backendBaseUrl = "https://jop.igportals.eu"
+local authorization = HttpService:GetSecret("JOP_INBOUND_SECRET"):AddPrefix("Bearer ")
 
 local response = HttpService:RequestAsync({
 	Url = backendBaseUrl .. "/api/roblox/bridge-scripts",
@@ -146,12 +158,8 @@ if not root then
 	root = Instance.new("Script")
 	root.Name = "JopBridge"
 	root.Parent = game:GetService("ServerScriptService")
-else
-	root:Destroy()
-	root = Instance.new("Script")
-	root.Name = "JopBridge"
-	root.Parent = game:GetService("ServerScriptService")
 end
+assert(root:IsA("Script"), "JopBridge must be a Script")
 
 for _, scriptInfo in ipairs(payload.scripts) do
 	if scriptInfo.name == "JopBridge" then
@@ -167,15 +175,42 @@ for _, scriptInfo in ipairs(payload.scripts) do
 		clientScript.Source = scriptInfo.source
 	else
 		local child = root:FindFirstChild(scriptInfo.name)
+		local preserveConfig = scriptInfo.name == "Config" and child ~= nil
 		if not child then
 			child = Instance.new(scriptInfo.className)
 			child.Name = scriptInfo.name
 			child.Parent = root
 		end
-		child.Source = scriptInfo.source
+		-- Keep the installed backend URL/secret/topic when refreshing bridge code.
+		if not preserveConfig then
+			child.Source = scriptInfo.source
+		end
 	end
 end
+print("JOP bridge refreshed. Check Config, publish the place, then restart live servers to use the new scripts.")
 ```
+
+Run this in Studio's command bar in edit mode. Updating repository files or
+deploying the web server does not replace scripts already published in a Roblox
+place or scripts running in an existing game server. The updater preserves an
+existing Config module; verify its URL, secret name, and topic separately.
+
+## Protocol verification
+
+With a [Luau CLI](https://github.com/luau-lang/luau/releases) installed, run:
+
+```sh
+node --import tsx scripts/verify-roblox-bridge.ts /path/to/luau
+node --env-file=.env.local --import tsx scripts/verify-roblox-protocol.ts
+```
+
+The first executes the actual Lua sources with service doubles, including
+missed notifications, failed initialization and newer sensor events arriving
+during a failed request. The second replays HTTP handlers against isolated Mongo
+fixtures, verifies persisted state and delta acknowledgements, and cleans up.
+It stubs outbound MessagingService publication and does not contact live game
+servers. Neither test replaces a Studio test of physical models or a published
+server's HTTP/Secrets configuration.
 
 `JopSignalVisualController` and `JopLevelCrossingVisualController` are installed
 in `StarterPlayer/StarterPlayerScripts`. The server remains authoritative for

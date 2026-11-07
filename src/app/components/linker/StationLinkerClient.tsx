@@ -1,5 +1,6 @@
 'use client';
 import AuthoringTools from '@/app/components/authoring/AuthoringTools';
+import { AeroIcon } from '@/app/components/ui/AeroIcon';
 
 import Link from 'next/link';
 import type { ChangeEvent, MouseEvent } from 'react';
@@ -261,8 +262,10 @@ export default function StationLinkerClient({ tiles, stateGroups }: Props) {
   return (
     <main className="aero-tool railway-authoring flex h-screen flex-col overflow-hidden bg-[var(--aero-panel-bg)] text-[var(--aero-text)]">
       <header className="authoring-caption">
+        <AeroIcon name="link" size={24} />
         <strong className="mr-auto">Prepojenie koľajiska s Roblox</strong>
         <Link href="/map" className="aero-btn">
+          <AeroIcon name="back" />
           Späť na sieť staníc
         </Link>
       </header>
@@ -283,6 +286,7 @@ export default function StationLinkerClient({ tiles, stateGroups }: Props) {
           </div>
 
           <button type="button" onClick={() => fileInputRef.current?.click()} className="aero-btn">
+            <AeroIcon name="open" />
             Otvoriť plán zo súboru…
           </button>
 

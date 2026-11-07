@@ -150,6 +150,21 @@ npm run test:dis
 node --env-file=.env.local --import tsx scripts/verify-dis-services.ts
 ```
 
+Shift planning adds optional `shifts.planJson` storage. Run `npm run dis:setup`
+on existing installations before using it. In Shifts, select a shift, choose its
+station network and saved GVD trains, then assign eligible dispatchers and drivers
+in the station/train tables. Everyone can read the resulting plan. Registrations
+remain staff preferences; the staffing tables show the manager's assignments.
+
+Run the isolated persistence check with:
+
+```sh
+node --env-file=.env.local --import tsx scripts/verify-shift-planning.ts
+```
+
+It checks real Appwrite/Mongo persistence, eligibility, retained assignments,
+snapshot isolation, removal, and shift status restrictions, then removes fixtures.
+
 The offline tests cover OAuth callbacks, concurrent account creation, group-role
 lookup, authenticated attachment handling, schema setup, and timetable rules
 using simulated external-service responses.

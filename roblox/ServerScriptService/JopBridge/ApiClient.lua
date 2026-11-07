@@ -7,7 +7,15 @@ function ApiClient.new(config)
 	local self = setmetatable({}, ApiClient)
 	self._baseUrl = string.gsub(config.BackendBaseUrl, "/+$", "")
 	self._attempts = config.RequestAttempts
-	self._authorization = HttpService:GetSecret(config.InboundSecretName):AddPrefix("Bearer ")
+	assert(HttpService.HttpEnabled, "[JOP] Enable Allow HTTP Requests in the experience security settings.")
+	local success, authorization = pcall(function()
+		return HttpService:GetSecret(config.InboundSecretName):AddPrefix("Bearer ")
+	end)
+	assert(success, string.format(
+		"[JOP] Cannot load Roblox secret %s. Configure it for this experience (and Local Secrets when testing in Studio).",
+		config.InboundSecretName
+	))
+	self._authorization = authorization
 	return self
 end
 
@@ -39,7 +47,7 @@ function ApiClient:_request(method, path, body)
 			task.wait(2 ^ (attempt - 1))
 		end
 	end
-	error(lastError)
+	error(string.format("[JOP] %s %s%s failed: %s", method, self._baseUrl, path, lastError))
 end
 
 function ApiClient:Register(sessionId, universeId, placeId)

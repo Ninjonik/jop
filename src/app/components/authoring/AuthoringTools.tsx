@@ -1,5 +1,6 @@
 'use client';
 
+import { AeroIcon } from '@/app/components/ui/AeroIcon';
 import { useId, useState, type ReactNode } from 'react';
 
 export default function AuthoringTools({
@@ -21,8 +22,14 @@ export default function AuthoringTools({
         aria-controls={contentId}
         onClick={() => setExpanded((current) => !current)}
       >
-        <span>{title}</span>
-        <span>{expanded ? 'Zbaliť ▲' : 'Rozbaliť ▼'}</span>
+        <span className="inline-flex items-center gap-2">
+          <AeroIcon name="tools" />
+          {title}
+        </span>
+        <span className="inline-flex items-center gap-1">
+          <AeroIcon name={expanded ? 'collapse' : 'expand'} />
+          {expanded ? 'Zbaliť' : 'Rozbaliť'}
+        </span>
       </button>
       <div id={contentId} hidden={!expanded} className="max-h-[55vh] overflow-auto">
         {children}

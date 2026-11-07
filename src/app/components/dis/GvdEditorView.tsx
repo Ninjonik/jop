@@ -1,4 +1,5 @@
 'use client';
+import { AeroIcon } from '@/app/components/ui/AeroIcon';
 import { disFetch } from '@/lib/dis/api-client';
 import { useDisAuth } from '@/lib/dis/auth-context';
 import type { ConflictReport, Timetable, TimetableInput } from '@/lib/dis/timetable';
@@ -103,10 +104,12 @@ export function GvdEditorView({
           ))}
         </select>
         <button className="aero-btn" disabled={busy} onClick={() => submit(false)}>
+          <AeroIcon name="warning" />
           Prepočítať kolízie
         </button>
         {canCreateGvd && (
           <button className="aero-btn" disabled={busy} onClick={() => submit(true)}>
+            <AeroIcon name="save" />
             {busy ? 'Spracúvam...' : 'Uložiť vlak do GVD'}
           </button>
         )}
@@ -222,6 +225,7 @@ export function GvdEditorView({
                       change({ stops: draft.stops.filter((_, position) => position !== index) })
                     }
                   >
+                    <AeroIcon name="delete" />
                     Odstrániť
                   </button>
                 </td>
@@ -230,6 +234,7 @@ export function GvdEditorView({
           </tbody>
         </table>
         <button className="aero-btn" onClick={() => change({ stops: [...draft.stops, newStop()] })}>
+          <AeroIcon name="add" />
           Pridať zastavenie
         </button>
       </fieldset>

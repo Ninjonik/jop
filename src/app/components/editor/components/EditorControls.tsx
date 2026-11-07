@@ -1,4 +1,5 @@
 'use client';
+import { AeroIcon } from '@/app/components/ui/AeroIcon';
 
 import type { LayoutExpansionDirection } from '../utils';
 
@@ -49,13 +50,16 @@ export default function EditorControls({
     <div className="authoring-controls space-y-2 border-b border-[var(--aero-ribbon-border)] bg-[var(--aero-ribbon-bg)] p-2 text-xs">
       <div className="flex flex-wrap items-center gap-2">
         <button type="button" onClick={onImport} className="aero-btn">
+          <AeroIcon name="open" />
           Otvoriť zo súboru…
         </button>
         <button type="button" onClick={onExport} className="aero-btn">
+          <AeroIcon name="download" />
           Stiahnuť plán
         </button>
         {onSave && (
           <button type="button" onClick={onSave} className="aero-btn">
+            <AeroIcon name="save" />
             {saveLabel ?? 'Uložiť koľajisko'}
           </button>
         )}
@@ -96,6 +100,7 @@ export default function EditorControls({
           className="aero-btn"
           title="Vymaže aktuálne koľajisko a vytvorí nové"
         >
+          <AeroIcon name="add" />
           Vytvoriť prázdne koľajisko
         </button>
         <span className="ml-2">Rozšíriť:</span>
@@ -106,7 +111,7 @@ export default function EditorControls({
             ['right', '→', 'doprava'],
             ['bottom', '↓', 'nadol'],
           ] as const
-        ).map(([direction, arrow, label]) => (
+        ).map(([direction, , label]) => (
           <button
             key={direction}
             type="button"
@@ -114,7 +119,17 @@ export default function EditorControls({
             onClick={() => onExpand(direction)}
             aria-label={`Rozšíriť ${label}`}
           >
-            {arrow}
+            <AeroIcon
+              name={
+                direction === 'top'
+                  ? 'up'
+                  : direction === 'bottom'
+                    ? 'down'
+                    : direction === 'left'
+                      ? 'back'
+                      : 'right'
+              }
+            />
           </button>
         ))}
       </div>
@@ -135,6 +150,7 @@ export default function EditorControls({
             />
           </label>
           <button type="button" className="aero-btn mt-5" onClick={onFindPieceId}>
+            <AeroIcon name="search" />
             Nájsť prvok
           </button>
           <label className="grid min-w-0 gap-1">
@@ -147,6 +163,7 @@ export default function EditorControls({
             />
           </label>
           <button type="button" className="aero-btn mt-5" onClick={onHighlightJopPieceLinks}>
+            <AeroIcon name="link" />
             Zvýrazniť prepojenia
           </button>
           {jopPieceLinksError && (

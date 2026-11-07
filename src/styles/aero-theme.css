@@ -101,6 +101,22 @@ html.dark {
 }
 
 /* Base Utility Classes */
+.aero-icon {
+  display: inline-block;
+  flex: none;
+  object-fit: contain;
+  vertical-align: middle;
+  user-select: none;
+  pointer-events: none;
+}
+button:disabled > .aero-icon {
+  filter: grayscale(1);
+}
+.dis-portal .menu-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
 .authoring-caption {
   display: flex;
   flex-wrap: wrap;
