@@ -8,6 +8,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Socket } from 'socket.io-client';
 import { attachRadioAudio } from './radio-audio';
 import { playCallCue, startCallRing } from './voice-sounds';
+import { VoiceLevelMeter } from './VoiceLevelMeter';
 
 type Call = { id: string; contact: ChatContact; incoming: boolean; phase: 'ringing' | 'connected' };
 type ChatSocket = Socket<ChatServerEvents, ChatClientEvents>;
@@ -17,16 +18,20 @@ export function VoiceCall({
   recipient,
   connected,
   mode,
+  onCallChange,
 }: {
   socket: ChatSocket | null;
   recipient?: ChatContact;
   connected: boolean;
   mode: 'station' | 'driver';
+  onCallChange: (contact: ChatContact | null, incoming?: boolean) => void;
 }) {
   const t = useTranslation();
   const [call, setCall] = useState<Call | null>(null);
   const [notice, setNotice] = useState('');
   const [muted, setMuted] = useState(false);
+  const [microphoneTrack, setMicrophoneTrack] = useState<MediaStreamTrack | null>(null);
+  const [incomingTrack, setIncomingTrack] = useState<MediaStreamTrack | null>(null);
   const room = useRef<Room | null>(null);
   const callRef = useRef<Call | null>(null);
   const audio = useRef<HTMLDivElement>(null);
@@ -46,8 +51,11 @@ export function VoiceCall({
     if (audio.current) audio.current.replaceChildren();
     callRef.current = null;
     setCall(null);
+    onCallChange(null);
     setMuted(false);
-  }, [stopSound]);
+    setMicrophoneTrack(null);
+    setIncomingTrack(null);
+  }, [stopSound, onCallChange]);
   useEffect(() => {
     if (!socket) return;
     const onRinging: ChatServerEvents['call:ringing'] = (next) => {
@@ -55,6 +63,7 @@ export function VoiceCall({
       const active = { ...next, phase: 'ringing' as const };
       callRef.current = active;
       setCall(active);
+      onCallChange(next.contact, next.incoming);
       setNotice('');
       soundKind.current =
         next.contact.kind === 'driver' || mode === 'driver' ? 'radio' : 'telephone';
@@ -75,6 +84,7 @@ export function VoiceCall({
       room.current = voice;
       voice.on(RoomEvent.TrackSubscribed, (track) => {
         if (track.kind !== Track.Kind.Audio || !audio.current) return;
+        setIncomingTrack(track.mediaStreamTrack);
         if (soundKind.current === 'radio') {
           radioTracks.current.set(track, attachRadioAudio(track, audio.current));
         } else {
@@ -82,6 +92,8 @@ export function VoiceCall({
         }
       });
       voice.on(RoomEvent.TrackUnsubscribed, (track) => {
+        if (track.kind === Track.Kind.Audio)
+          setIncomingTrack((current) => (current === track.mediaStreamTrack ? null : current));
         const cleanup = radioTracks.current.get(track);
         if (cleanup) {
           cleanup();
@@ -101,7 +113,9 @@ export function VoiceCall({
         try {
           await voice.connect(credentials.url, credentials.token);
           if (room.current !== voice) return;
-          await voice.localParticipant.setMicrophoneEnabled(true);
+          const microphone = await voice.localParticipant.setMicrophoneEnabled(true);
+          if (room.current === voice)
+            setMicrophoneTrack(microphone?.track?.mediaStreamTrack ?? null);
         } catch {
           socket.emit('call:end', credentials.id);
           stop();
@@ -138,7 +152,7 @@ export function VoiceCall({
       socket.off('disconnect', onDisconnect);
       stop();
     };
-  }, [socket, mode, stop, stopSound]);
+  }, [socket, mode, stop, stopSound, onCallChange]);
   return (
     <div className="flex flex-wrap items-center gap-2 px-2 py-1" aria-live="polite">
       <div ref={audio} />
@@ -176,6 +190,21 @@ export function VoiceCall({
             </button>
           )}
           {call.phase === 'connected' && (
+            <div className="voice-levels" aria-live="off" aria-label={t('Úrovne zvuku')}>
+              <VoiceLevelMeter
+                key={microphoneTrack?.id ?? 'microphone'}
+                label={t('Mikrofón')}
+                track={microphoneTrack}
+                muted={muted}
+              />
+              <VoiceLevelMeter
+                key={incomingTrack?.id ?? 'incoming'}
+                label={t('Druhý účastník')}
+                track={incomingTrack}
+              />
+            </div>
+          )}
+          {call.phase === 'connected' && (
             <button
               type="button"
               className="aero-btn"
@@ -183,7 +212,10 @@ export function VoiceCall({
                 const next = !muted;
                 void room.current?.localParticipant
                   .setMicrophoneEnabled(!next)
-                  .then(() => setMuted(next))
+                  .then((microphone) => {
+                    if (!next) setMicrophoneTrack(microphone?.track?.mediaStreamTrack ?? null);
+                    setMuted(next);
+                  })
                   .catch(() => setNotice('Mikrofón sa nepodarilo zmeniť.'));
               }}
             >

@@ -15,7 +15,7 @@ import {
 } from '@/lib/dis/chat';
 import type { DriverTrain } from '@/lib/dis/driver-train';
 import { getStationDisplayName } from '@/lib/station/display-name';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { io, type Socket } from 'socket.io-client';
 import { VoiceCall } from './VoiceCall';
 
@@ -44,8 +44,11 @@ export function SessionChatView({
   const [contacts, setContacts] = useState<ChatContact[]>([globalChatContact]);
   const [messages, setMessages] = useState<DisplayMessage[]>([]);
   const [target, setTarget] = useState(chatEndpointKey(globalChatContact));
+  const [tabs, setTabs] = useState<ChatContact[]>([globalChatContact]);
+  const [activeCall, setActiveCall] = useState<ChatContact | null>(null);
   const [unread, setUnread] = useState<Record<string, number>>({});
-  const [text, setText] = useState('');
+  const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const text = drafts[target] ?? '';
   const [error, setError] = useState('');
   const [selfName, setSelfName] = useState('');
   const seen = useRef(new Set<string>());
@@ -129,7 +132,9 @@ export function SessionChatView({
     };
   }, [sessionId, mode, endpointId, endpointKey, profile]);
 
-  const recipient = contacts.find((contact) => chatEndpointKey(contact) === target);
+  const recipient =
+    contacts.find((contact) => chatEndpointKey(contact) === target) ??
+    tabs.find((contact) => chatEndpointKey(contact) === target);
   const conversation = messages.filter(
     (message) =>
       chatEndpointKey(message.sender) === target || chatEndpointKey(message.recipient) === target,
@@ -139,10 +144,36 @@ export function SessionChatView({
   }, [messages, target, expanded]);
   const totalUnread = Object.values(unread).reduce((sum, count) => sum + count, 0);
 
-  function chooseTarget(value: string) {
+  const chooseTarget = useCallback((value: string) => {
     setTarget(value);
     setUnread((previous) => ({ ...previous, [value]: 0 }));
     follow.current = true;
+  }, []);
+  const openConversation = useCallback(
+    (contact: ChatContact) => {
+      const key = chatEndpointKey(contact);
+      setTabs((previous) =>
+        previous.some((item) => chatEndpointKey(item) === key) ? previous : [...previous, contact],
+      );
+      chooseTarget(key);
+    },
+    [chooseTarget],
+  );
+  const onCallChange = useCallback(
+    (contact: ChatContact | null, incoming?: boolean) => {
+      setActiveCall(contact);
+      if (contact && incoming) {
+        openConversation(contact);
+        setExpanded(true);
+      }
+    },
+    [openConversation],
+  );
+  function closeTab(key: string) {
+    const remaining = tabs.filter((tab) => chatEndpointKey(tab) !== key);
+    setTabs(remaining);
+    if (target === key)
+      chooseTarget(chatEndpointKey(remaining[remaining.length - 1] ?? globalChatContact));
   }
   async function deliver(message: DisplayMessage) {
     setMessages((previous) =>
@@ -202,7 +233,7 @@ export function SessionChatView({
     };
     follow.current = true;
     setMessages((previous) => mergeChatMessages(previous, [message]));
-    setText('');
+    setDrafts((previous) => ({ ...previous, [target]: '' }));
     void deliver(message);
   }
 
@@ -229,10 +260,51 @@ export function SessionChatView({
             : t('Rušňovodič: {0}', profile?.name)}
         </span>
       </div>
-      <VoiceCall socket={voiceSocket} recipient={recipient} connected={connected} mode={mode} />
-      {expanded && (
-        <div className="flex min-h-0 flex-col gap-2 overflow-auto p-2">
-          <div className="flex flex-wrap items-center gap-2">
+      {activeCall && (!expanded || chatEndpointKey(activeCall) !== target) && (
+        <button
+          type="button"
+          className="aero-btn session-chat-active-call"
+          onClick={() => {
+            openConversation(activeCall);
+            setExpanded(true);
+          }}
+        >
+          <AeroIcon name="network" /> {t('Hovor: {0}', activeCall.name)}
+        </button>
+      )}
+      <div className="session-chat-workspace" hidden={!expanded}>
+        <aside className="session-chat-contacts" aria-label={t('Kontakty')}>
+          <div className="session-chat-contacts-title">{t('Kontakty')}</div>
+          {(['station', 'driver'] as const).map((kind) => {
+            const group = contacts.filter((contact) => contact.kind === kind);
+            return (
+              <div key={kind} className="session-chat-contact-group">
+                <strong>{kind === 'station' ? t('Stanice') : t('Rušňovodiči')}</strong>
+                {group.length ? (
+                  group.map((contact) => {
+                    const key = chatEndpointKey(contact);
+                    return (
+                      <button
+                        key={key}
+                        type="button"
+                        className="session-chat-contact"
+                        onClick={() => openConversation(contact)}
+                      >
+                        <AeroIcon name={kind === 'station' ? 'network' : 'train'} />
+                        <span>{contact.name}</span>
+                        {unread[key] ? <strong>{unread[key]}</strong> : null}
+                      </button>
+                    );
+                  })
+                ) : (
+                  <span className="session-chat-empty">{t('Žiadne kontakty')}</span>
+                )}
+              </div>
+            );
+          })}
+        </aside>
+        <div className="session-chat-conversations">
+          <div className="session-chat-toolbar">
             {!connected && (
               <button
                 type="button"
@@ -243,12 +315,11 @@ export function SessionChatView({
                   connection.current?.disconnect().connect();
                 }}
               >
-                <AeroIcon name="refresh" /> {t('Znova pripojiť')}{' '}
+                <AeroIcon name="refresh" /> {t('Znova pripojiť')}
               </button>
             )}
             {canOperateStation && canDriveTrain && (
               <label>
-                {' '}
                 {t('Komunikujem ako')}{' '}
                 <select
                   aria-label={t('Komunikujem ako')}
@@ -260,12 +331,13 @@ export function SessionChatView({
                     setMessages([]);
                     setContacts([globalChatContact]);
                     setUnread({});
+                    setTabs([globalChatContact]);
+                    setDrafts({});
                     chooseTarget(chatEndpointKey(globalChatContact));
                     setConnected(false);
                   }}
                 >
                   <option value="station" disabled={!stationId}>
-                    {' '}
                     {t('Stanica')} {stationId}
                   </option>
                   <option value="driver">
@@ -274,40 +346,54 @@ export function SessionChatView({
                 </select>
               </label>
             )}
-            <label>
-              {' '}
-              {t('Príjemca')}{' '}
-              <select
-                className="aero-select"
-                aria-label={t('Príjemca správy')}
-                value={target}
-                onChange={(event) => chooseTarget(event.target.value)}
-              >
-                <option value="">{t('Vyberte stanicu alebo rušňovodiča')}</option>
-                <option value={chatEndpointKey(globalChatContact)}>
-                  {' '}
-                  {t('Celá relácia')}{' '}
-                  {unread[chatEndpointKey(globalChatContact)]
-                    ? t(' ({0} nových)', unread[chatEndpointKey(globalChatContact)])
-                    : ''}
-                </option>
-                {(['station', 'driver'] as const).map((kind) => (
-                  <optgroup key={kind} label={kind === 'station' ? t('Stanice') : t('Rušňovodiči')}>
-                    {contacts
-                      .filter((contact) => contact.kind === kind)
-                      .map((contact) => {
-                        const key = chatEndpointKey(contact);
-                        return (
-                          <option key={key} value={key}>
-                            {contact.name}
-                            {unread[key] ? t(' ({0} nových)', unread[key]) : ''}
-                          </option>
-                        );
-                      })}
-                  </optgroup>
-                ))}
-              </select>
-            </label>
+          </div>
+          <div className="session-chat-tabs" role="group" aria-label={t('Rozhovory')}>
+            {tabs.map((tab) => {
+              const key = chatEndpointKey(tab);
+              const currentContact =
+                contacts.find((contact) => chatEndpointKey(contact) === key) ?? tab;
+              const name =
+                currentContact.kind === 'session' ? t('Celá relácia') : currentContact.name;
+              return (
+                <div
+                  key={key}
+                  className={`session-chat-tab ${key === target ? 'is-selected' : ''}`}
+                >
+                  <button
+                    type="button"
+                    aria-pressed={key === target}
+                    onClick={() => chooseTarget(key)}
+                  >
+                    {name}
+                    {unread[key] ? ` (${unread[key]})` : ''}
+                    {activeCall && chatEndpointKey(activeCall) === key ? ' •' : ''}
+                  </button>
+                  {tab.kind !== 'session' && (
+                    <button
+                      type="button"
+                      className="session-chat-tab-close"
+                      aria-label={t('Zavrieť rozhovor {0}', name)}
+                      title={t('Zavrieť rozhovor')}
+                      onClick={() => closeTab(key)}
+                    >
+                      <AeroIcon name="close" />
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+          <div
+            className="session-chat-voice"
+            hidden={!!activeCall && chatEndpointKey(activeCall) !== target}
+          >
+            <VoiceCall
+              socket={voiceSocket}
+              recipient={recipient}
+              connected={connected}
+              mode={mode}
+              onCallChange={onCallChange}
+            />
           </div>
           {error && (
             <p role="alert" className="text-red-700">
@@ -380,7 +466,8 @@ export function SessionChatView({
               disabled={!recipient}
               value={text}
               onChange={(event) => {
-                setText(event.target.value);
+                const value = event.target.value;
+                setDrafts((previous) => ({ ...previous, [target]: value }));
               }}
             />
             <button className="aero-btn" disabled={!recipient || !text.trim() || !endpointId}>
@@ -388,7 +475,7 @@ export function SessionChatView({
             </button>
           </form>
         </div>
-      )}
+      </div>
     </section>
   );
 }

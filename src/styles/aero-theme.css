@@ -790,3 +790,175 @@ button:disabled > .aero-icon {
     display: block !important;
   }
 }
+
+/* Call meters show microphone and remote activity without changing audio playback. */
+.voice-levels {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  align-items: center;
+}
+.voice-level {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+}
+.voice-level-track {
+  display: block;
+  width: 68px;
+  height: 9px;
+  overflow: hidden;
+  border: 1px solid var(--aero-panel-border);
+  background: var(--aero-panel-bg);
+  box-shadow: inset 0 1px 2px #0003;
+}
+.voice-level-fill {
+  display: block;
+  height: 100%;
+  background: var(--grid-row-selected-border);
+  transition: width 120ms ease-out;
+}
+.voice-level-status {
+  color: var(--aero-text-muted);
+  min-width: 3em;
+}
+
+/* Communication dock: compact contacts and independent conversation tabs. */
+.session-chat-workspace {
+  display: flex;
+  min-height: 0;
+  height: 285px;
+}
+.session-chat-workspace[hidden],
+.session-chat-voice[hidden] {
+  display: none;
+}
+.session-chat-contacts {
+  flex: 0 0 175px;
+  min-width: 0;
+  overflow: auto;
+  border-right: 1px solid var(--aero-panel-border);
+  background: var(--aero-ribbon-bg);
+  padding: 4px;
+}
+.session-chat-contacts-title {
+  font-weight: 600;
+  padding: 2px 4px 4px;
+}
+.session-chat-contact-group {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 3px 0;
+}
+.session-chat-contact-group > strong {
+  color: var(--aero-text-muted);
+  padding: 2px 4px;
+  font-size: 11px;
+}
+.session-chat-contact {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  width: 100%;
+  min-width: 0;
+  padding: 3px 4px;
+  text-align: left;
+  border: 1px solid transparent;
+  border-radius: 2px;
+}
+.session-chat-contact:hover,
+.session-chat-contact:focus-visible {
+  background: var(--grid-row-selected-bottom);
+  border-color: var(--grid-row-selected-border);
+  color: var(--grid-row-selected-text);
+}
+.session-chat-contact span {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.session-chat-empty {
+  color: var(--aero-text-muted);
+  font-size: 11px;
+  padding: 2px 4px;
+}
+.session-chat-conversations {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  gap: 4px;
+  padding: 4px;
+}
+.session-chat-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+}
+.session-chat-tabs {
+  display: flex;
+  flex: none;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--aero-panel-border);
+}
+.session-chat-tab {
+  display: flex;
+  flex: none;
+  align-items: center;
+  border: 1px solid var(--aero-panel-border);
+  border-bottom: 0;
+  background: var(--aero-ribbon-bg);
+  margin-right: 2px;
+}
+.session-chat-tab.is-selected {
+  background: var(--aero-panel-bg);
+  font-weight: 600;
+}
+.session-chat-tab > button {
+  padding: 3px 7px;
+  white-space: nowrap;
+}
+.session-chat-tab > .session-chat-tab-close {
+  padding: 3px;
+}
+.session-chat-tab button:focus-visible {
+  outline: 2px solid var(--grid-row-selected-border);
+  outline-offset: -2px;
+}
+.session-chat-voice > div {
+  padding: 2px 0;
+}
+.session-chat-conversations .session-chat-log {
+  flex: 1;
+  min-height: 40px;
+  max-height: none;
+}
+.session-chat-conversations form {
+  flex: none;
+}
+.session-chat-active-call {
+  align-self: flex-start;
+  margin: 2px 4px;
+}
+@media (max-width: 600px) {
+  .session-chat-contacts {
+    flex-basis: 110px;
+  }
+  .session-chat-workspace {
+    height: 300px;
+  }
+}
+
+.session-chat-contact,
+.session-chat-tab > button {
+  background: transparent;
+  color: inherit;
+}
+.session-chat-tab > button {
+  border: 0;
+}

@@ -771,7 +771,10 @@ messages are visible to every station/driver in that session, while direct
 conversations retain their inbox restrictions. Chat alone uses local optimistic
 messages with sending/failed states; the persisted `clientMessageId` reconciles
 HTTP confirmations, WebSocket delivery, reconnect history, and explicit retries.
-This exception does not permit optimistic railway/runtime state changes.
+This exception does not permit optimistic railway/runtime state changes. The dock
+opens contacts as closable local conversation tabs, retaining a separate draft
+per tab; closing a tab does not delete messages or terminate an active call.
+Incoming calls open the caller's conversation even when the dock is collapsed.
 
 `Môj vlak` is the DIS driver dashboard. The server persists the current train per
 session/user in MongoDB `session_driver_trains`, separately from runtime trains.
@@ -820,7 +823,10 @@ call receives short-lived, room-scoped LiveKit tokens; room names start with
 inboxes may have multiple listeners; the first to answer receives the call.
 Voice is not persisted and does not change railway state. The browser needs
 microphone permission and may require a user interaction before playing audio.
-Station calls use a local telephone bell recording; calls involving drivers use
-a simple radio alert tone. Set `LIVEKIT_URL`, `LIVEKIT_API_KEY` and
+Station calls use local telephone bell and handset recordings; calls involving
+drivers use generated radio-style alerts and a mild receive-side audio filter.
+LiveKit's original audio remains the fallback until processed audio is detected,
+and is restored if the processor stops producing sound. Microphone and incoming
+track meters do not publish or play additional audio. Set `LIVEKIT_URL`, `LIVEKIT_API_KEY` and
 `LIVEKIT_API_SECRET` on the custom server. The browser-facing URL must support
 secure WebSockets when the application uses HTTPS.

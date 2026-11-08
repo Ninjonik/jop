@@ -1,15 +1,21 @@
-﻿import type { RemoteTrack } from 'livekit-client';
+import type { RemoteTrack } from 'livekit-client';
 
-/** Add a mild cab-radio colour to received speech, preserving the original track. */
+/** Keep LiveKit playback as a fallback until the radio graph produces audio. */
 export function attachRadioAudio(track: RemoteTrack, container: HTMLElement) {
   const element = track.attach();
   container.appendChild(element);
   let context: AudioContext | undefined;
-  let output: MediaStreamAudioDestinationNode | undefined;
+  let timer: ReturnType<typeof setInterval> | undefined;
   let closed = false;
+  let processing = false;
+  let silentSamples = 0;
   try {
     context = new AudioContext();
+    const audioContext = context;
     const source = context.createMediaStreamSource(new MediaStream([track.mediaStreamTrack]));
+    const inputMeter = context.createAnalyser();
+    inputMeter.fftSize = 512;
+    source.connect(inputMeter);
     const highpass = context.createBiquadFilter();
     highpass.type = 'highpass';
     highpass.frequency.value = 320;
@@ -30,35 +36,59 @@ export function attachRadioAudio(track: RemoteTrack, container: HTMLElement) {
     }
     saturation.curve = curve;
     saturation.oversample = '2x';
-    output = context.createMediaStreamDestination();
+    const outputMeter = context.createAnalyser();
+    outputMeter.fftSize = 512;
+    const gain = context.createGain();
+    gain.gain.value = 0;
     source
       .connect(highpass)
       .connect(lowpass)
       .connect(compressor)
       .connect(saturation)
-      .connect(output);
-    const processedOutput = output;
-    // Keep the original attached until the browser permits Web Audio playback.
-    void context
-      .resume()
-      .then(() => {
-        if (!closed && context?.state === 'running') {
-          element.srcObject = processedOutput.stream;
-          void element.play().catch(() => {});
-        }
-      })
-      .catch(() => {});
+      .connect(outputMeter)
+      .connect(gain)
+      .connect(context.destination);
+    const inputSamples = new Float32Array(inputMeter.fftSize);
+    const outputSamples = new Float32Array(outputMeter.fftSize);
+    const hasSignal = (samples: Float32Array) => samples.some((sample) => Math.abs(sample) > 0.002);
+    const restoreOriginal = () => {
+      gain.gain.value = 0;
+      element.muted = false;
+      processing = false;
+      void element.play().catch(() => {});
+    };
+    timer = setInterval(() => {
+      if (closed) return;
+      if (audioContext.state !== 'running') {
+        if (processing) restoreOriginal();
+        return;
+      }
+      inputMeter.getFloatTimeDomainData(inputSamples);
+      outputMeter.getFloatTimeDomainData(outputSamples);
+      const inputActive = hasSignal(inputSamples);
+      const outputActive = hasSignal(outputSamples);
+      if (!processing && outputActive) {
+        element.muted = true;
+        gain.gain.value = 1;
+        processing = true;
+        silentSamples = 0;
+      } else if (processing && inputActive && !outputActive) {
+        if (++silentSamples >= 4) restoreOriginal();
+      } else {
+        silentSamples = 0;
+      }
+    }, 150);
+    void context.resume().catch(() => {});
   } catch {
-    // An unsupported audio graph should not prevent the call from being heard.
-    void context?.close();
+    // If Web Audio is unavailable, the original LiveKit element stays audible.
+    if (context && context.state !== 'closed') void context.close();
     context = undefined;
   }
   return () => {
     closed = true;
+    if (timer) clearInterval(timer);
     track.detach(element);
     element.remove();
-    output?.stream.getTracks().forEach((outputTrack) => outputTrack.stop());
     if (context && context.state !== 'closed') void context.close();
   };
 }
-
