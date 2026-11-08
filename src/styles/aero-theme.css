@@ -625,6 +625,128 @@ button:disabled > .aero-icon {
   background: var(--grid-row-selected-bottom);
   color: var(--grid-row-selected-text);
 }
+.gvd-editor {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--aero-panel-bg);
+  color: var(--aero-text);
+  font-size: 12px;
+}
+.gvd-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  padding: 8px 12px;
+  background: var(--aero-ribbon-bg);
+  border-bottom: 1px solid var(--aero-ribbon-border);
+}
+.gvd-toolbar strong,
+.gvd-section legend,
+.gvd-saved-train,
+.gvd-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.gvd-saved-train {
+  flex-wrap: wrap;
+}
+.gvd-saved-train select {
+  min-width: 160px;
+  max-width: 100%;
+}
+.gvd-toolbar-actions {
+  flex-wrap: wrap;
+  margin-left: auto;
+}
+.gvd-workspace {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 12px;
+}
+.gvd-section {
+  min-width: 0;
+  margin: 0 0 14px;
+  padding: 10px 12px 12px;
+  border: 1px solid var(--aero-panel-border);
+}
+.gvd-section legend {
+  padding: 0 6px;
+  font-weight: 600;
+}
+.gvd-train-fields,
+.gvd-working-fields {
+  display: grid;
+  gap: 10px 12px;
+}
+.gvd-train-fields {
+  grid-template-columns: minmax(100px, 160px) minmax(200px, 320px) repeat(2, minmax(100px, 140px));
+}
+.gvd-working-fields {
+  grid-template-columns: minmax(220px, 360px) minmax(220px, 1fr);
+  margin-top: 10px;
+}
+.gvd-section label {
+  display: grid;
+  align-content: start;
+  gap: 4px;
+  min-width: 0;
+}
+.gvd-section label > :is(input, select) {
+  width: 100%;
+  min-width: 0;
+}
+.gvd-stops {
+  width: 100%;
+  min-width: 800px;
+  table-layout: fixed;
+}
+.gvd-stops th,
+.gvd-stops td {
+  padding: 5px 6px;
+  vertical-align: middle;
+}
+.gvd-stops .gvd-station-column {
+  width: 28%;
+}
+.gvd-time-column {
+  width: 112px;
+}
+.gvd-track-column {
+  width: 80px;
+}
+.gvd-action-column {
+  width: 108px;
+}
+.gvd-add-stop {
+  margin-top: 10px;
+}
+.gvd-help {
+  margin: 0 0 10px;
+  color: var(--aero-text-muted);
+  line-height: 1.5;
+}
+@media (max-width: 850px) {
+  .gvd-train-fields,
+  .gvd-working-fields {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 480px) {
+  .gvd-train-fields,
+  .gvd-working-fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .gvd-toolbar-actions {
+    margin-left: 0;
+  }
+}
 .driver-timetable th,
 .driver-timetable td {
   padding: 5px 12px 5px 0;

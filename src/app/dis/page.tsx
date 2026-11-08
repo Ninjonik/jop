@@ -114,16 +114,20 @@ function DisPortalShell() {
     sessionId: string;
     train: DriverTrain | null;
   }>();
-  const current = (scope &&
-  (!scope.sessionId || network.sessions.some((session) => session.sessionId === scope.sessionId))
-    ? scope
-    : null) ||
-    network.stations.find((station) =>
-      network.sessions.find((session) => session.sessionId === station.sessionId && session.isLive),
-    ) || {
-      sessionId: network.sessions.find((session) => session.isLive)?.sessionId || '',
-      stationId: '',
-    };
+  const selectedScope =
+    scope && network.sessions.some((session) => session.sessionId === scope.sessionId)
+      ? scope
+      : null;
+  // Remember the automatic choice so later polling cannot replace it with another session.
+  if (!selectedScope?.sessionId && network.sessions.length === 1) {
+    const sessionId = network.sessions[0].sessionId;
+    setScope({
+      sessionId,
+      stationId:
+        network.stations.find((station) => station.sessionId === sessionId)?.stationId || '',
+    });
+  }
+  const current = selectedScope || { sessionId: '', stationId: '' };
   const hasSession = Boolean(selectedPlace && current.sessionId);
   const onDriverTrainChange = useCallback(
     (train: DriverTrain | null) => {

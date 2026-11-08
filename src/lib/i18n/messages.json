@@ -1,4 +1,6 @@
 {
+  "Údaje o vlaku": ["Údaje o vlaku", "Train details"],
+  "Cestovný poriadok": ["Cestovný poriadok", "Timetable"],
   "{0}?\nRozsah: {1}.\n{2}": ["{0}?\nRozsah: {1}.\n{2}", "{0}?\nScope: {1}.\n{2}"],
   "{0}\n\nScope: {1}.": ["{0}\n\nRozsah: {1}.", "{0}\n\nScope: {1}."],
   "station {0}": ["stanica {0}", "station {0}"],
