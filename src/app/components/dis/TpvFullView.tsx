@@ -10,6 +10,7 @@ import {
   type Timetable,
 } from '@/lib/dis/timetable';
 import { useDisResource } from '@/lib/dis/use-dis-resource';
+import { isPublicStation } from '@/lib/station/visibility';
 import { useEffect, useState } from 'react';
 
 const colors = ['#2563eb', '#b45309', '#7c3aed', '#047857', '#be185d'];
@@ -44,7 +45,9 @@ export function TpvFullView({
   const stations = [
     ...new Map(
       timetables.flatMap((timetable) =>
-        timetable.stops.map((stop) => [stationKey(stop.station), stop.station] as const),
+        timetable.stops
+          .filter((stop) => isPublicStation(stop.station))
+          .map((stop) => [stationKey(stop.station), stop.station] as const),
       ),
     ).values(),
   ];

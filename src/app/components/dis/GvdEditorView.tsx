@@ -1,10 +1,11 @@
 'use client';
+import { AeroAutocomplete } from '@/app/components/ui/AeroAutocomplete';
 import { AeroIcon } from '@/app/components/ui/AeroIcon';
 import { disFetch } from '@/lib/dis/api-client';
 import { useDisAuth } from '@/lib/dis/auth-context';
 import type { ConflictReport, Timetable, TimetableInput } from '@/lib/dis/timetable';
 import { useDisResource } from '@/lib/dis/use-dis-resource';
-import { useId, useState } from 'react';
+import { useState } from 'react';
 import { TrainCategoryOptions } from './TrainCategoryOptions';
 
 const newStop = () => ({ station: '', arrival: '', departure: '', track: '', dwell: 0 });
@@ -174,10 +175,39 @@ export function GvdEditorView({
             />
           </label>
         </div>
+        <div className="flex flex-wrap gap-3">
+          <label>
+            Nadväzujúci vlak{' '}
+            <select
+              className="aero-select"
+              value={draft.nextTrainId || ''}
+              onChange={(event) => change({ nextTrainId: event.target.value })}
+            >
+              <option value="">Bez nadväzujúceho vlaku</option>
+              {value.timetables
+                .filter((train) => train.$id !== selectedId)
+                .map((train) => (
+                  <option key={train.$id} value={train.$id}>
+                    {train.trainType} {train.trainNumber} · {train.stops[0].station} –{' '}
+                    {train.stops.at(-1)?.station}
+                  </option>
+                ))}
+            </select>
+          </label>
+          <label className="flex-1">
+            Poznámky k vlaku{' '}
+            <input
+              className="aero-input w-full"
+              maxLength={1000}
+              value={draft.notes || ''}
+              onChange={(event) => change({ notes: event.target.value })}
+            />
+          </label>
+        </div>
         <table className="aero-grid w-full text-left">
           <thead>
             <tr>
-              {['Stanica', 'Príchod', 'Odchod', 'Koľaj', ''].map((heading, index) => (
+              {['Stanica', 'Príchod', 'Odchod', 'Koľaj', 'Poznámky', ''].map((heading, index) => (
                 <th key={index}>{heading}</th>
               ))}
             </tr>
@@ -185,7 +215,7 @@ export function GvdEditorView({
           <tbody>
             {draft.stops.map((stop, index) => (
               <tr key={index}>
-                {(['station', 'arrival', 'departure', 'track'] as const).map((field) => (
+                {(['station', 'arrival', 'departure', 'track', 'notes'] as const).map((field) => (
                   <td key={field}>
                     {field === 'station' ? (
                       <StationPicker
@@ -205,7 +235,7 @@ export function GvdEditorView({
                         aria-label={`${field} ${index + 1}`}
                         className="aero-input w-full"
                         type={field === 'arrival' || field === 'departure' ? 'time' : 'text'}
-                        value={stop[field]}
+                        value={stop[field] || ''}
                         onChange={(event) =>
                           change({
                             stops: draft.stops.map((item, position) =>
@@ -278,101 +308,14 @@ function StationPicker({
   index: number;
   onChange: (value: string) => void;
 }) {
-  const listId = useId();
-  const [search, setSearch] = useState<string | null>(null);
-  const [open, setOpen] = useState(false);
-  const [activeIndex, setActiveIndex] = useState(-1);
-  const choices = [...new Map(stations.map((station) => [station.stationId, station])).values()];
-  const selected = choices.find((station) => station.stationId === value);
-  const matches = choices.filter((station) =>
-    `${station.name} ${station.stationId}`
-      .toLocaleLowerCase()
-      .includes((search || '').toLocaleLowerCase()),
-  );
-  function select(station: (typeof choices)[number]) {
-    onChange(station.stationId);
-    setSearch(null);
-    setOpen(false);
-    setActiveIndex(-1);
-  }
   return (
-    <div className="relative min-w-40">
-      <input
-        className="aero-input w-full"
-        role="combobox"
-        aria-label={`Stanica ${index + 1}`}
-        aria-autocomplete="list"
-        aria-expanded={open}
-        aria-controls={listId}
-        aria-activedescendant={
-          open && matches[activeIndex] ? `${listId}-${activeIndex}` : undefined
-        }
-        autoComplete="off"
-        value={search ?? selected?.name ?? value}
-        placeholder="Vyhľadať stanicu..."
-        onFocus={() => setOpen(true)}
-        onBlur={() => {
-          setOpen(false);
-          setSearch(null);
-          setActiveIndex(-1);
-        }}
-        onChange={(event) => {
-          setSearch(event.target.value);
-          setOpen(true);
-          setActiveIndex(-1);
-          if (value) onChange('');
-        }}
-        onKeyDown={(event) => {
-          if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-            event.preventDefault();
-            setOpen(true);
-            setActiveIndex((previous) =>
-              matches.length
-                ? (previous + (event.key === 'ArrowDown' ? 1 : -1) + matches.length) %
-                  matches.length
-                : -1,
-            );
-          } else if (event.key === 'Enter' && open) {
-            event.preventDefault();
-            const match = matches[activeIndex] || (matches.length === 1 ? matches[0] : undefined);
-            if (match) select(match);
-          } else if (event.key === 'Escape') {
-            setOpen(false);
-            setSearch(null);
-            setActiveIndex(-1);
-          }
-        }}
-      />
-      {open && (
-        <ul
-          id={listId}
-          role="listbox"
-          aria-label="Stanice"
-          className="absolute left-0 right-0 top-full z-20 max-h-60 overflow-auto border border-[#8fa6c4] bg-white shadow-md"
-        >
-          {matches.map((station, position) => (
-            <li
-              key={station.stationId}
-              id={`${listId}-${position}`}
-              role="option"
-              aria-selected={station.stationId === value}
-              className={`cursor-pointer px-2 py-1 hover:bg-blue-100 ${position === activeIndex ? 'bg-blue-100' : ''}`}
-              onMouseDown={(event) => event.preventDefault()}
-              onClick={() => select(station)}
-            >
-              {station.name}
-              {station.name !== station.stationId && (
-                <span className="ml-1 text-slate-500">({station.stationId})</span>
-              )}
-            </li>
-          ))}
-          {!matches.length && (
-            <li role="presentation" className="px-2 py-1 text-slate-500">
-              Žiadne zodpovedajúce stanice.
-            </li>
-          )}
-        </ul>
-      )}
-    </div>
+    <AeroAutocomplete
+      label={`Stanica ${index + 1}`}
+      placeholder="Vyhľadať stanicu…"
+      value={stations.find((station) => station.stationId === value)?.name || value}
+      options={stations.map((station) => ({ value: station.stationId, label: station.name }))}
+      onInput={() => onChange('')}
+      onSelect={(option) => onChange(option.value)}
+    />
   );
 }

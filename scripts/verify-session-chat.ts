@@ -154,6 +154,22 @@ async function verify() {
   await post(direct);
   assert.equal((await directReceived).recipient.id, staff[1].userId);
   const replyReceived = once<ChatMessage>(a.socket, 'chat:message');
+  await mongo
+    .collection('session_driver_trains')
+    .insertOne({
+      _id: `${tag}-train` as never,
+      sessionId: sessions[0],
+      userId: staff[1].userId,
+      userName: staff[1].name,
+      trainType: 'R',
+      trainNumber: '4984',
+      timetableId: null,
+      endStation: 'b',
+      length: 150,
+      tonnage: null,
+      wagons: null,
+      updatedAt: new Date().toISOString(),
+    });
   await post(
     {
       ...direct,
@@ -165,7 +181,9 @@ async function verify() {
     },
     staff[1].userId,
   );
-  assert.equal((await replyReceived).senderName, staff[1].name);
+  const driverReply = await replyReceived;
+  assert.equal(driverReply.senderName, staff[1].name);
+  assert.equal(driverReply.sender.name, 'R 4984');
   await post({ ...command, messageId: randomUUID() }, staff[1].userId, 403);
   await post(
     {
@@ -194,6 +212,46 @@ async function verify() {
     !reconnected.snapshot.messages.some((message) => message._id === sent.message._id),
     'A driver cannot read station-to-station traffic',
   );
+  const otherMessages: ChatMessage[] = [];
+  otherSession.socket.on('chat:message', (message) => otherMessages.push(message));
+  const globalAtStation = once<ChatMessage>(c.socket, 'chat:message');
+  const globalAtDriver = once<ChatMessage>(reconnected.socket, 'chat:message');
+  const globalCommand = {
+    ...command,
+    recipient: { kind: 'session', id: 'all' },
+    content: 'Celá relácia',
+    messageId: randomUUID(),
+  };
+  const global = await post(globalCommand);
+  assert.equal((await globalAtStation)._id, global.message._id);
+  assert.equal((await globalAtDriver)._id, global.message._id);
+  assert.equal(global.message.clientMessageId, globalCommand.messageId);
+  assert.equal(otherMessages.length, 0, 'Session-wide chat stays inside its session');
+  const driverGlobalAtA = once<ChatMessage>(a.socket, 'chat:message');
+  await mongo
+    .collection('session_driver_trains')
+    .updateOne(
+      { sessionId: sessions[0], userId: staff[1].userId },
+      { $set: { trainType: 'Pos', trainNumber: '90001' } },
+    );
+  await post(
+    {
+      ...globalCommand,
+      endpoint: direct.recipient,
+      content: 'Driver to everyone',
+      messageId: randomUUID(),
+    },
+    staff[1].userId,
+  );
+  const driverGlobal = await driverGlobalAtA;
+  assert.equal(driverGlobal.sender.id, staff[1].userId);
+  assert.equal(driverGlobal.sender.name, 'Pos 90001');
+  assert.equal(
+    (await mongo.collection('session_chat_messages').findOne({ _id: driverReply._id as never }))
+      ?.sender.name,
+    'R 4984',
+    'History keeps the train identity at send time',
+  );
   const denied = io(`${base}/chat`, {
     transports: ['websocket'],
     auth: { token: 'invalid' },
@@ -217,7 +275,12 @@ async function main() {
     await new Promise<void>((resolve) => sockets.close(() => resolve()));
     auth.mock.restore();
     const mongo = await getMongoDb();
-    for (const collection of ['stations', 'station_actions', 'session_chat_messages'])
+    for (const collection of [
+      'stations',
+      'station_actions',
+      'session_chat_messages',
+      'session_driver_trains',
+    ])
       await mongo.collection(collection).deleteMany({ sessionId: { $in: sessions } });
     await mongo.collection('sessions').deleteMany({ _id: { $in: sessions } as never });
     for (const id of profiles) await disDatabase().deleteDocument(databaseId, 'profiles', id);

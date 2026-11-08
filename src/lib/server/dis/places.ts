@@ -1,6 +1,7 @@
 import { getMongoDb } from '@/lib/server/mongo';
 import { getRobloxPlaceNames } from '@/lib/server/roblox/place-names';
 import type { PlaceTemplateDocument } from '@/lib/station/domain';
+import { isPublicStation } from '@/lib/station/visibility';
 
 const defaultUniverse = '9571094123';
 const defaultPlace = '113144512557419';
@@ -54,10 +55,12 @@ export async function loadDisPlaces() {
       placeId: template.placeId,
       name,
       hasTemplate: true,
-      stations: template.schema.stations.map((station) => ({
-        stationId: station.stationId,
-        name: station.stationId,
-      })),
+      stations: template.schema.stations
+        .filter((station) => isPublicStation(station.stationId))
+        .map((station) => ({
+          stationId: station.stationId,
+          name: station.stationId,
+        })),
     });
   }
   const selected = places.has(defaultPlace) ? defaultPlace : templates[0]?.placeId || '';

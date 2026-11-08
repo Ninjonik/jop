@@ -1,4 +1,5 @@
 import { checkTimetableConflicts, normalizeTimetable, type Timetable } from '@/lib/dis/timetable';
+import { isPublicStation } from '@/lib/station/visibility';
 import { ID, type Models } from 'node-appwrite';
 import { z } from 'zod';
 import { databaseId, disDatabase, DisError, listDocuments } from './appwrite';
@@ -57,6 +58,7 @@ export async function saveTimetable(body: unknown) {
   if (input.id && !current.some((item) => item.$id === input.id))
     throw new DisError(404, 'Grafikon nepatrí vybranému miestu.');
   const others = current.filter((item) => item.$id !== input.id);
+  validateNextTrain(timetable, input.id, current);
   if (
     others.some(
       (item) => item.trainNumber.toLocaleLowerCase() === timetable.trainNumber.toLocaleLowerCase(),
@@ -70,6 +72,8 @@ export async function saveTimetable(body: unknown) {
     trainType: timetable.trainType,
     maxSpeed: timetable.maxSpeed,
     trainLength: timetable.trainLength,
+    nextTrainId: timetable.nextTrainId || '',
+    notes: timetable.notes || '',
     routeTitle: `${timetable.stops[0].station} – ${timetable.stops.at(-1)!.station}`,
     stopsJson: JSON.stringify(timetable.stops),
     hasConflict: report.conflicts.length > 0,
@@ -100,6 +104,7 @@ export async function previewTimetable(body: unknown) {
     timetable.stops.map((stop) => stop.station),
   );
   const current = await loadTimetables(input.placeId);
+  validateNextTrain(timetable, input.id, current);
   if (input.id && !current.some((item) => item.$id === input.id))
     throw new DisError(404, 'Grafikon nepatrí vybranému miestu.');
   return {
@@ -113,7 +118,23 @@ export async function previewTimetable(body: unknown) {
 async function validateTimetablePlace(placeId: string, stops: string[]) {
   const template = await getDisPlaceTemplate(placeId);
   if (!template) throw new DisError(404, 'Miesto nemá uloženú konfiguráciu staníc.');
-  const stations = new Set(template.schema.stations.map((station) => station.stationId));
+  const stations = new Set(
+    template.schema.stations
+      .filter((station) => isPublicStation(station.stationId))
+      .map((station) => station.stationId),
+  );
   if (stops.some((station) => !stations.has(station)))
     throw new DisError(400, 'Grafikon obsahuje stanicu mimo vybraného miesta.');
+}
+
+function validateNextTrain(
+  timetable: { nextTrainId?: string },
+  id: string | undefined,
+  current: Timetable[],
+) {
+  if (!timetable.nextTrainId) return;
+  if (timetable.nextTrainId === id)
+    throw new DisError(400, 'Nadväzujúci vlak nemôže byť ten istý vlak.');
+  if (!current.some((train) => train.$id === timetable.nextTrainId))
+    throw new DisError(400, 'Nadväzujúci vlak musí byť uložený v rovnakom GVD.');
 }

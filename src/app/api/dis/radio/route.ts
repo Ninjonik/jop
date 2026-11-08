@@ -1,5 +1,5 @@
 import { requireDisProfile } from '@/lib/server/dis/appwrite';
-import { loadRadio, sendRadio } from '@/lib/server/dis/content';
+import { loadRadio, loadRadioRecipients, sendRadio } from '@/lib/server/dis/content';
 import { disResponse } from '@/lib/server/dis/http';
 import { z } from 'zod';
 export async function GET(request: Request) {
@@ -11,6 +11,8 @@ export async function GET(request: Request) {
       .min(1)
       .max(64)
       .parse(new URL(request.url).searchParams.get('sessionId'));
+    if (new URL(request.url).searchParams.get('recipients') === 'true')
+      return { recipients: await loadRadioRecipients(sessionId) };
     return { messages: await loadRadio(sessionId) };
   });
 }

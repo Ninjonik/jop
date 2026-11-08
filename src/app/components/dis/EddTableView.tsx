@@ -1,10 +1,13 @@
 'use client';
+import { AeroAutocomplete } from '@/app/components/ui/AeroAutocomplete';
 import { AeroIcon } from '@/app/components/ui/AeroIcon';
 import { disFetch } from '@/lib/dis/api-client';
 import { useDisAuth } from '@/lib/dis/auth-context';
+import { currentBratislavaTime } from '@/lib/dis/clock';
 import type { EddRecord } from '@/lib/dis/records';
 import type { Timetable } from '@/lib/dis/timetable';
 import { useDisResource } from '@/lib/dis/use-dis-resource';
+import { getStationDisplayName } from '@/lib/station/display-name';
 import { useState } from 'react';
 import { TrainCategoryOptions } from './TrainCategoryOptions';
 
@@ -44,7 +47,6 @@ export function EddTableView({
       timetables: [],
     },
   );
-  const [timetableId, setTimetableId] = useState('');
   const [expectedOnly, setExpectedOnly] = useState(false);
   const [creating, setCreating] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -54,6 +56,11 @@ export function EddTableView({
   const [arrival, setArrival] = useState('');
   const [departure, setDeparture] = useState('');
   const [track, setTrack] = useState('');
+  const [recording, setRecording] = useState<{
+    record: EddRecord;
+    event: 'arrival' | 'departure';
+  } | null>(null);
+  const [actualTime, setActualTime] = useState('');
 
   async function command(payload: object) {
     if (busy) return;
@@ -66,18 +73,25 @@ export function EddTableView({
       });
       await refresh();
       setCreating(false);
+      return true;
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Úkon zlyhal.');
+      return false;
     } finally {
       setBusy(false);
     }
+  }
+  function openRecord(record: EddRecord, event: 'arrival' | 'departure') {
+    setError(null);
+    setActualTime(currentBratislavaTime());
+    setRecording({ record, event });
   }
   if (!sessionId || !stationId)
     return <div className="p-4">Vyberte reláciu a stanicu v hornej lište.</div>;
   return (
     <div className="flex flex-1 flex-col overflow-hidden bg-white text-xs">
       <div className="flex flex-wrap items-center gap-2 border-b p-2">
-        <strong>Elektronický dopravný denník — {stationId}</strong>
+        <strong>Elektronický dopravný denník — {getStationDisplayName(stationId)}</strong>
         <label>
           <input
             type="checkbox"
@@ -100,27 +114,9 @@ export function EddTableView({
               <AeroIcon name="train" />
               Mimoriadny vlak
             </button>
-            <select
-              aria-label="Grafikon na import"
-              className="aero-select"
-              value={timetableId}
-              onChange={(event) => setTimetableId(event.target.value)}
-            >
-              <option value="">Vybrať vlak z GVD</option>
-              {schedules.timetables.map((item) => (
-                <option key={item.$id} value={item.$id}>
-                  {item.trainNumber}
-                </option>
-              ))}
-            </select>
-            <button
-              className="aero-btn"
-              disabled={busy || !timetableId}
-              onClick={() => command({ command: 'import', timetableId })}
-            >
-              <AeroIcon name="open" />
-              Importovať z GVD
-            </button>
+            <span className="text-[var(--aero-text-muted)]">
+              Vlaky z GVD sa načítavajú automaticky.
+            </span>
           </>
         )}
       </div>
@@ -144,14 +140,23 @@ export function EddTableView({
             });
           }}
         >
-          <input
-            aria-label="Číslo mimoriadneho vlaku"
-            placeholder="Číslo vlaku"
-            className="aero-input"
-            required
-            maxLength={32}
+          <AeroAutocomplete
+            label="Číslo mimoriadneho vlaku"
+            placeholder="Číslo vlaku…"
             value={trainNumber}
-            onChange={(event) => setTrainNumber(event.target.value)}
+            options={schedules.timetables.map((item) => ({
+              value: item.$id,
+              label: item.trainNumber,
+              description: item.trainType,
+            }))}
+            onInput={(value) => setTrainNumber(value.slice(0, 32))}
+            onSelect={(option) => {
+              const timetable = schedules.timetables.find((item) => item.$id === option.value);
+              if (timetable) {
+                setTrainNumber(timetable.trainNumber);
+                setTrainType(timetable.trainType);
+              }
+            }}
           />
           <select
             aria-label="Kategória"
@@ -196,7 +201,7 @@ export function EddTableView({
         {loading ? (
           <p>Načítavam denník...</p>
         ) : value.records.length === 0 ? (
-          <p>Žiadne vlaky. Importujte GVD alebo pridajte mimoriadny vlak.</p>
+          <p>V GVD nie sú vlaky pre túto stanicu. Môžete pridať mimoriadny vlak.</p>
         ) : (
           <table className="aero-grid w-full text-left">
             <thead>
@@ -225,10 +230,12 @@ export function EddTableView({
                 .map((record) => (
                   <tr
                     key={record.$id}
-                    onClick={() => onSelectTrain?.(record.trainNumber)}
+                    onClick={() => onSelectTrain?.(`${record.trainType} ${record.trainNumber}`)}
                     className="cursor-pointer hover:bg-blue-50"
                   >
-                    <td className="font-bold">{record.trainNumber}</td>
+                    <td className="font-bold">
+                      {record.trainType} {record.trainNumber}
+                    </td>
                     <td>{record.direction}</td>
                     <td>{record.schedArrival}</td>
                     <td>{record.actualArrival || '—'}</td>
@@ -238,24 +245,32 @@ export function EddTableView({
                     <td>{record.delayMinutes || 0} min</td>
                     <td>{statusNames[record.status]}</td>
                     <td>
-                      {canOperateStation &&
-                        ['scheduled', 'approaching', 'arrived'].includes(record.status) && (
+                      {canOperateStation && (
+                        <div className="flex flex-wrap gap-1">
                           <button
                             className="aero-btn"
-                            disabled={busy}
+                            disabled={busy || !['scheduled', 'approaching'].includes(record.status)}
                             onClick={(event) => {
                               event.stopPropagation();
-                              void command({
-                                command: 'record',
-                                id: record.$id,
-                                event: record.status === 'arrived' ? 'departure' : 'arrival',
-                              });
+                              openRecord(record, 'arrival');
                             }}
                           >
-                            <AeroIcon name="confirm" />
-                            {record.status === 'arrived' ? 'Zápis odchodu' : 'Zápis príchodu'}
+                            <AeroIcon name="down" />
+                            Zápis príchodu
                           </button>
-                        )}
+                          <button
+                            className="aero-btn"
+                            disabled={busy || record.status !== 'arrived'}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              openRecord(record, 'departure');
+                            }}
+                          >
+                            <AeroIcon name="up" />
+                            Zápis odchodu
+                          </button>
+                        </div>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -263,6 +278,85 @@ export function EddTableView({
           </table>
         )}
       </div>
+      {recording && (
+        <dialog
+          ref={(dialog) => {
+            if (dialog && !dialog.open) dialog.showModal();
+          }}
+          aria-labelledby="edd-record-title"
+          onCancel={(event) => {
+            event.preventDefault();
+            if (!busy) setRecording(null);
+          }}
+          className="m-auto w-[min(420px,calc(100vw-2rem))] rounded-[3px] border border-[var(--aero-window-border)] bg-[var(--aero-panel-bg)] p-0 text-xs text-[var(--aero-text)] shadow-xl backdrop:bg-black/40"
+        >
+          <header className="authoring-caption">
+            <h2 id="edd-record-title" className="font-semibold">
+              {recording.event === 'arrival' ? 'Zápis príchodu' : 'Zápis odchodu'} ·{' '}
+              {recording.record.trainType} {recording.record.trainNumber}
+            </h2>
+          </header>
+          <form
+            className="space-y-3 p-4"
+            onSubmit={async (event) => {
+              event.preventDefault();
+              if (
+                await command({
+                  command: 'record',
+                  id: recording.record.$id,
+                  event: recording.event,
+                  time: actualTime,
+                })
+              )
+                setRecording(null);
+            }}
+          >
+            <p>Stanica: {getStationDisplayName(stationId)}</p>
+            <label className="flex items-center gap-2">
+              {recording.event === 'arrival' ? 'Skutočný príchod' : 'Skutočný odchod'}{' '}
+              <input
+                aria-label="Čas zápisu"
+                className="aero-input"
+                type="time"
+                required
+                autoFocus
+                value={actualTime}
+                disabled={busy}
+                onChange={(event) => setActualTime(event.target.value)}
+              />
+            </label>
+            <button
+              type="button"
+              className="aero-btn"
+              disabled={busy}
+              onClick={() => setActualTime(currentBratislavaTime())}
+            >
+              <AeroIcon name="refresh" />
+              Aktuálny čas
+            </button>
+            {error && (
+              <p role="alert" className="text-red-700">
+                {error}
+              </p>
+            )}
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                className="aero-btn"
+                disabled={busy}
+                onClick={() => setRecording(null)}
+              >
+                <AeroIcon name="close" />
+                Zrušiť
+              </button>
+              <button className="aero-btn" disabled={busy}>
+                <AeroIcon name="save" />
+                {busy ? 'Ukladám…' : 'Zapísať'}
+              </button>
+            </div>
+          </form>
+        </dialog>
+      )}
       <p className="border-t p-2 text-slate-600">
         Odhlášku a návestidlá ovládajte na staničnom pulte. Zápis v EDD nemení zabezpečovacie
         zariadenie.

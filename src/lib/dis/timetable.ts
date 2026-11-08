@@ -8,7 +8,8 @@ export const stopSchema = z.object({
   station: z.string().trim().min(1).max(128),
   arrival: clockSchema,
   departure: clockSchema,
-  track: z.string().trim().min(1).max(16),
+  track: z.string().trim().max(16).default(''),
+  notes: z.string().trim().max(500).optional(),
   dwell: z.number().optional(),
 });
 export const timetableSchema = z.object({
@@ -17,6 +18,8 @@ export const timetableSchema = z.object({
   maxSpeed: z.number().int().min(1).max(300),
   trainLength: z.number().int().min(1).max(1000),
   stops: z.array(stopSchema).min(2).max(100),
+  nextTrainId: z.string().max(36).optional(),
+  notes: z.string().trim().max(1000).optional(),
 });
 export type TimetableInput = z.infer<typeof timetableSchema>;
 export type Timetable = TimetableInput & { $id: string; $updatedAt?: string };
@@ -86,6 +89,7 @@ export function normalizeTimetable(input: unknown): TimetableInput {
       departure: stop.departure,
       track: stop.track,
       dwell: stop.dwell,
+      ...(stop.notes !== undefined ? { notes: stop.notes } : {}),
     })),
   };
 }
@@ -110,6 +114,8 @@ export function checkTimetableConflicts(
       for (const peer of otherStops) {
         if (
           stationKey(stop.station) === stationKey(peer.station) &&
+          !!stop.track &&
+          !!peer.track &&
           stationKey(stop.track) === stationKey(peer.track) &&
           overlaps(
             stop.arrivalMinute,

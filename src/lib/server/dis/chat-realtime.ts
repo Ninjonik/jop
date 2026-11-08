@@ -1,6 +1,7 @@
 import type { UserProfile } from '@/lib/dis/appwrite-client';
 import {
   chatRoom,
+  globalChatContact,
   type ChatClientEvents,
   type ChatMessage,
   type ChatServerEvents,
@@ -70,10 +71,13 @@ export async function startChatRealtime(namespace: ChatNamespace) {
         const scope = await authorizeChatScope(rawScope, profile);
         if (!socket.connected) return;
         if (socket.data.room) await socket.leave(socket.data.room);
+        if (socket.data.scope)
+          await socket.leave(chatRoom(socket.data.scope.sessionId, globalChatContact));
         socket.data.profile = profile;
         socket.data.scope = { sessionId: scope.sessionId, endpoint: scope.contact };
         socket.data.room = chatRoom(scope.sessionId, scope.endpoint);
         await socket.join(socket.data.room);
+        await socket.join(chatRoom(scope.sessionId, globalChatContact));
         // Join before history is read; clients merge by persisted message ID.
         socket.emit('chat:snapshot', await loadChat(rawScope, profile));
       })().catch((error) =>

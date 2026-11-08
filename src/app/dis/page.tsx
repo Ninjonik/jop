@@ -1,5 +1,6 @@
 'use client';
 import { DocumentCenterView } from '@/app/components/dis/DocumentCenterView';
+import { DriverDashboardView } from '@/app/components/dis/DriverDashboardView';
 import { EddTableView } from '@/app/components/dis/EddTableView';
 import { GvdEditorView } from '@/app/components/dis/GvdEditorView';
 import { JopEmbeddedView } from '@/app/components/dis/JopEmbeddedView';
@@ -15,14 +16,16 @@ import MockControlClient from '@/app/components/mock/MockControlClient';
 import RuntimeStationClient from '@/app/components/runtime/RuntimeStationClient';
 import { AeroIcon, type AeroIconName } from '@/app/components/ui/AeroIcon';
 import { DisAuthProvider, useDisAuth } from '@/lib/dis/auth-context';
+import type { DriverTrain } from '@/lib/dis/driver-train';
 import type { JopStationSummary } from '@/lib/dis/jop-bridge';
 import { useDisResource } from '@/lib/dis/use-dis-resource';
 import { useRouter } from 'next/navigation';
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useCallback, useEffect, useState } from 'react';
 
 type Tab =
   | 'preparation'
   | 'sessions'
+  | 'driver'
   | 'runtime'
   | 'edd'
   | 'tpv'
@@ -36,6 +39,7 @@ type Scope = { sessionId: string; stationId: string };
 const tabIcons: Record<Tab, AeroIconName> = {
   preparation: 'network',
   sessions: 'launch',
+  driver: 'train',
   runtime: 'train',
   edd: 'table',
   tpv: 'chart',
@@ -59,10 +63,19 @@ type Place = {
 };
 type Places = { defaultPlaceId: string; placesComplete: boolean; places: Place[] };
 function DisPortalShell() {
-  const { user, profile, loading, logout, canCreateGvd, canManageStaff, canOperateStation } =
-    useDisAuth();
+  const {
+    user,
+    profile,
+    loading,
+    logout,
+    canCreateGvd,
+    canManageStaff,
+    canOperateStation,
+    canDriveTrain,
+  } = useDisAuth();
   const router = useRouter();
   const [showMore, setShowMore] = useState(false);
+  const [stationsCollapsed, setStationsCollapsed] = useState(false);
   const [sessionSearch, setSessionSearch] = useState('');
   const [placeChoice, setPlaceChoice] = useState<string | null>(null);
   const {
@@ -93,6 +106,10 @@ function DisPortalShell() {
   const [dark, setDark] = useState(false);
   const [clock, setClock] = useState('');
   const [radioTarget, setRadioTarget] = useState('Všetci');
+  const [driverSelection, setDriverSelection] = useState<{
+    sessionId: string;
+    train: DriverTrain | null;
+  }>();
   const current = (scope &&
   (!scope.sessionId || network.sessions.some((session) => session.sessionId === scope.sessionId))
     ? scope
@@ -104,6 +121,12 @@ function DisPortalShell() {
       stationId: '',
     };
   const hasSession = Boolean(selectedPlace && current.sessionId);
+  const onDriverTrainChange = useCallback(
+    (train: DriverTrain | null) => {
+      setDriverSelection({ sessionId: current.sessionId, train });
+    },
+    [current.sessionId],
+  );
   const sessionStations = network.stations.filter(
     (station) => station.sessionId === current.sessionId,
   );
@@ -197,6 +220,7 @@ function DisPortalShell() {
     );
   const tabs: { id: Tab; title: string; visible?: boolean }[] = [
     { id: 'sessions', title: 'Relácie' },
+    { id: 'driver', title: 'Môj vlak', visible: hasSession && canDriveTrain },
     { id: 'runtime', title: 'Staničný pult', visible: hasSession && canOperateStation },
     { id: 'edd', visible: hasStation, title: 'Dopravný denník' },
     { id: 'tpv', title: 'TPV', visible: hasSession },
@@ -225,7 +249,7 @@ function DisPortalShell() {
         {tabs
           .filter((item) => item.visible !== false)
           .filter((item) =>
-            ['sessions', 'runtime', 'edd', 'tpv', 'mock', 'recovery'].includes(item.id),
+            ['sessions', 'driver', 'runtime', 'edd', 'tpv', 'mock', 'recovery'].includes(item.id),
           )
           .map((item) => (
             <button
@@ -390,9 +414,20 @@ function DisPortalShell() {
       )}
       <div className="workspace min-h-0">
         {activeTab !== 'preparation' && !tool && hasSession && sessionStations.length > 0 && (
-          <aside className="sidebar-panel">
-            <div className="sidebar-header">Stanice vybranej relácie</div>
-            <div className="tree-content">
+          <aside className={`sidebar-panel ${stationsCollapsed ? 'is-collapsed' : ''}`}>
+            <button
+              type="button"
+              className="sidebar-header station-selector-toggle"
+              onClick={() => setStationsCollapsed((collapsed) => !collapsed)}
+              aria-expanded={!stationsCollapsed}
+              aria-controls="session-station-selector"
+              aria-label={stationsCollapsed ? 'Rozbaliť výber stanice' : 'Zbaliť výber stanice'}
+              title={stationsCollapsed ? 'Rozbaliť výber stanice' : 'Zbaliť výber stanice'}
+            >
+              {!stationsCollapsed && <span>Stanice vybranej relácie</span>}
+              <AeroIcon name={stationsCollapsed ? 'expand' : 'collapse'} />
+            </button>
+            <div id="session-station-selector" className="tree-content" hidden={stationsCollapsed}>
               {sessionStations.map((station) => (
                 <button
                   key={station.stationId}
@@ -416,11 +451,27 @@ function DisPortalShell() {
           ) : (
             <>
               {activeTab === 'sessions' && (
-                <SessionControlView
-                  key={placeId}
-                  placeId={placeId}
-                  onLaunchRuntime={launch}
-                  canLaunchSimulator={hasSession && canOperateStation}
+                <>
+                  <SessionControlView
+                    key={placeId}
+                    placeId={placeId}
+                    onLaunchRuntime={launch}
+                    canLaunchSimulator={hasSession && canOperateStation}
+                  />
+                  {hasSession && canDriveTrain && !canOperateStation && (
+                    <DriverDashboardView
+                      key={current.sessionId}
+                      sessionId={current.sessionId}
+                      onTrainChange={onDriverTrainChange}
+                    />
+                  )}
+                </>
+              )}
+              {activeTab === 'driver' && hasSession && (
+                <DriverDashboardView
+                  key={current.sessionId}
+                  sessionId={current.sessionId}
+                  onTrainChange={onDriverTrainChange}
                 />
               )}
               {!current.sessionId &&
@@ -440,7 +491,7 @@ function DisPortalShell() {
                     key={scopeKey}
                     {...current}
                     placeId={placeId}
-                    onSelectTrain={(train) => setRadioTarget(`${train} (Rušňovodič)`)}
+                    onSelectTrain={(train) => setRadioTarget(train)}
                   />
                   <RadioDockView
                     key={`${scopeKey}/${radioTarget}`}
@@ -494,6 +545,9 @@ function DisPortalShell() {
           key={scopeKey}
           sessionId={current.sessionId}
           stationId={canOperateStation ? current.stationId : ''}
+          driverTrain={
+            driverSelection?.sessionId === current.sessionId ? driverSelection.train : undefined
+          }
         />
       )}
       <div className="statusbar">

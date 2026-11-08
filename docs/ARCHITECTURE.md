@@ -717,12 +717,19 @@ warning, because the model does not define track multiplicity or headway limits.
 No platform lengths or distances are inferred from tile counts. GVD does not
 operate railway routes, signals, or lineblocks.
 
-EDD imports only the selected station's timetable stops. Deterministic document
-IDs make repeated imports idempotent, and imports never overwrite actual reports.
+EDD automatically materializes only the selected station's timetable stops when
+the journal is loaded. Deterministic document IDs make repeated loads idempotent;
+existing IDs are skipped, and recorded actual times are never overwritten.
+The legacy explicit import API reuses the same materialization function.
 Arrival and departure are explicit server commands with validated transitions;
 failed writes never appear successful locally. EDD odhlaska is intentionally
 absent: real odhlaska belongs to the existing lineblock command on the pult.
 TPV draws saved GVD paths and actual EDD points, with schematic station spacing.
+Arrival/departure dialogs default to the current Europe/Bratislava time and send
+an explicit validated HH:mm value; the server stores that chosen time and
+calculates delay from it. Older API callers without a time retain the server-now
+default. Radio recipient autocomplete lists visible stations, GVD trains and
+current driver train labels, with manual recipient entry retained.
 
 Radio is a persisted session-scoped text log, refreshed every three seconds.
 An urgent flag requires dispatcher-manager/admin rights. It is not a Roblox
@@ -733,8 +740,9 @@ Markdown renderer handles both live editing previews and published documents.
 PDF/image previews use authenticated blob URLs. PPTX and DOCX previews extract
 text locally with bounded ZIP decompression; original Office layout is available
 in the downloaded file. No external viewer receives private attachments.
-No sample traffic, radio conversations,
-or operating regulations are inserted as production records.
+No sample traffic, radio conversations, or operating regulations are seeded
+automatically. The explicitly requested sample GVD is created by
+`scripts/create-sample-gvd.ts --apply`, never by app startup or schema setup.
 
 The separate DIS communication dock provides live station-to-station and
 station-to-driver conversations. `src/lib/server/dis/chat.ts` validates active
@@ -749,6 +757,27 @@ send as another driver or as a station. Contacts expose names, not full staff
 profiles. Message IDs deduplicate retried sends, and clients merge history/live
 events by persisted ID. This web chat does not operate interlocking commands
 or replace the existing radio order journal. It does not add Roblox in-game UI.
+Every inbox also joins the session's global channel (`session:all`). Global
+messages are visible to every station/driver in that session, while direct
+conversations retain their inbox restrictions. Chat alone uses local optimistic
+messages with sending/failed states; the persisted `clientMessageId` reconciles
+HTTP confirmations, WebSocket delivery, reconnect history, and explicit retries.
+This exception does not permit optimistic railway/runtime state changes.
+
+`Môj vlak` is the DIS driver dashboard. The server persists the current train per
+session/user in MongoDB `session_driver_trains`, separately from runtime trains.
+A selected GVD preset supplies an explicit timetable ID and number; operating
+category (including `Pos`) is independent. Custom numbers have no timetable ID
+and never bind by number alone. Consist length, tonnage, wagons and destination
+are descriptive metadata, not movement commands. Timetable stops support notes
+and an optional track; unknown tracks do not produce invented same-track conflicts.
+GVD next-leg references must point to another saved train in the same location;
+the dashboard offers that train as an explicit next selection.
+
+`src/lib/station/visibility.ts` identifies the exact internal helper station
+`inter`. Normal station lists, contacts, authoring choices and driver schedules
+hide it. Its persisted layout, topology, runtime derivation and direct debug
+URLs remain intact; never filter it out of saved/exported railway schemas.
 
 Shifts last 150 minutes, including midnight rollover. Registrations use
 `shift_bookings` with `assignedRole`, `assignedLocation`, and `attendance`.

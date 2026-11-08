@@ -365,6 +365,20 @@ button:disabled > .aero-icon {
   background: linear-gradient(var(--grid-header-top), var(--grid-header-bottom));
   border-bottom: 1px solid var(--grid-header-border);
 }
+.dis-portal .sidebar-panel.is-collapsed {
+  flex-basis: 32px;
+}
+.dis-portal .station-selector-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  width: 100%;
+  min-height: 32px;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
 .dis-portal .tree-content {
   padding: 4px;
 }
@@ -514,6 +528,72 @@ button:disabled > .aero-icon {
   padding: 0.1em 0.3em;
   border-radius: 2px;
 }
+.aero-autocomplete-options.aero-autocomplete-up {
+  top: auto;
+  bottom: 100%;
+}
+.dis-portal .radio-dock {
+  flex: none;
+  border-top: 1px solid var(--aero-panel-border);
+  background: var(--aero-panel-bg);
+  color: var(--aero-text);
+}
+.radio-dock-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: var(--aero-ribbon-bg);
+  border-bottom: 1px solid var(--aero-ribbon-border);
+}
+.radio-messages {
+  max-height: 120px;
+  overflow: auto;
+  margin: 8px 10px;
+  padding: 6px 8px;
+  border: 1px solid var(--aero-panel-border);
+  background: var(--grid-row-alt);
+}
+.radio-messages .msg-line {
+  padding: 3px 0;
+  overflow-wrap: anywhere;
+}
+.radio-messages .msg-time {
+  color: var(--aero-text-muted);
+}
+.radio-messages .alert {
+  border-left: 3px solid var(--sig-orange);
+  padding-left: 6px;
+}
+.radio-input-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 8px;
+  padding: 0 10px 10px;
+}
+.radio-input-strip > label {
+  display: grid;
+  gap: 4px;
+}
+.radio-input-strip .radio-recipient {
+  flex: 0 1 220px;
+  min-width: 180px;
+}
+.radio-input-strip .radio-text {
+  flex: 1 1 300px;
+  min-width: 180px;
+}
+.radio-input-strip .radio-text input {
+  width: 100%;
+}
+.radio-input-strip > label:not(.radio-recipient):not(.radio-text) {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding-bottom: 4px;
+}
 .session-chat {
   flex: none;
   max-height: min(360px, 50vh);
@@ -523,6 +603,37 @@ button:disabled > .aero-icon {
   background: var(--aero-panel-bg);
   color: var(--aero-text);
 }
+.aero-autocomplete-options {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 100%;
+  z-index: 30;
+  max-height: 240px;
+  overflow: auto;
+  border: 1px solid var(--aero-panel-border);
+  background: var(--aero-panel-bg);
+  color: var(--aero-text);
+  box-shadow: 0 2px 5px #0003;
+}
+.aero-autocomplete-options li {
+  padding: 4px 6px;
+  cursor: pointer;
+}
+.aero-autocomplete-options li.active,
+.aero-autocomplete-options li:hover {
+  background: var(--grid-row-selected-bottom);
+  color: var(--grid-row-selected-text);
+}
+.driver-timetable th,
+.driver-timetable td {
+  padding: 5px 12px 5px 0;
+  border: none;
+  background: transparent;
+}
+.driver-timetable th {
+  font-weight: 600;
+}
 .session-chat-log {
   min-height: 70px;
   max-height: 180px;
@@ -531,8 +642,13 @@ button:disabled > .aero-icon {
   background: var(--aero-panel-bg);
   padding: 6px;
 }
-.session-chat-message { padding: 3px 0; overflow-wrap: anywhere; }
-.session-chat-message time { color: var(--aero-text-muted); }
+.session-chat-message {
+  padding: 3px 0;
+  overflow-wrap: anywhere;
+}
+.session-chat-message time {
+  color: var(--aero-text-muted);
+}
 @media print {
   .dis-portal .session-chat,
   .dis-portal nav,

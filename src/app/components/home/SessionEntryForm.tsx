@@ -1,4 +1,5 @@
 'use client';
+import { isPublicStation } from '@/lib/station/visibility';
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
@@ -50,7 +51,9 @@ export default function SessionEntryForm() {
         }
       } catch (loadError) {
         if (!cancelled) {
-          setError(loadError instanceof Error ? loadError.message : 'Failed to load live sessions.');
+          setError(
+            loadError instanceof Error ? loadError.message : 'Failed to load live sessions.',
+          );
         }
       } finally {
         if (!cancelled) {
@@ -76,8 +79,12 @@ export default function SessionEntryForm() {
         <header className="space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
-              <p className="text-sm uppercase tracking-[0.3em] text-amber-400">Railway Control Panel</p>
-              <h1 className="text-4xl font-semibold tracking-tight">Open a runtime station session</h1>
+              <p className="text-sm uppercase tracking-[0.3em] text-amber-400">
+                Railway Control Panel
+              </p>
+              <h1 className="text-4xl font-semibold tracking-tight">
+                Open a runtime station session
+              </h1>
             </div>
             <Link
               href="/dis"
@@ -89,8 +96,8 @@ export default function SessionEntryForm() {
             </Link>
           </div>
           <p className="max-w-3xl text-sm text-neutral-400">
-            Roblox sessions now publish liveness to the backend. Pick a live session and station below,
-            or fall back to manual entry when you need a direct runtime URL.
+            Roblox sessions now publish liveness to the backend. Pick a live session and station
+            below, or fall back to manual entry when you need a direct runtime URL.
           </p>
         </header>
 
@@ -163,7 +170,9 @@ export default function SessionEntryForm() {
                     <div className="flex flex-wrap items-start justify-between gap-4">
                       <div className="space-y-2">
                         <div className="flex flex-wrap items-center gap-2">
-                          <h3 className="text-lg font-semibold text-neutral-100">{session.sessionId}</h3>
+                          <h3 className="text-lg font-semibold text-neutral-100">
+                            {session.sessionId}
+                          </h3>
                           <span className="rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-medium uppercase tracking-[0.2em] text-emerald-300">
                             Live
                           </span>
@@ -184,15 +193,17 @@ export default function SessionEntryForm() {
                       >
                         Admin Console
                       </Link>
-                      {session.stations.map((station) => (
-                        <Link
-                          key={station.stationId}
-                          href={`/runtime/${encodeSegment(session.sessionId)}/${encodeSegment(station.stationId)}`}
-                          className="rounded-full bg-amber-400 px-4 py-2 text-sm font-medium text-neutral-950 transition hover:bg-amber-300"
-                        >
-                          {station.stationId}
-                        </Link>
-                      ))}
+                      {session.stations
+                        .filter((station) => isPublicStation(station.stationId))
+                        .map((station) => (
+                          <Link
+                            key={station.stationId}
+                            href={`/runtime/${encodeSegment(session.sessionId)}/${encodeSegment(station.stationId)}`}
+                            className="rounded-full bg-amber-400 px-4 py-2 text-sm font-medium text-neutral-950 transition hover:bg-amber-300"
+                          >
+                            {station.stationId}
+                          </Link>
+                        ))}
                     </div>
                   </article>
                 ))

@@ -7,6 +7,7 @@ import { databaseId, disDatabase } from '../src/lib/server/dis/appwrite';
 import {
   loadDisDocuments,
   loadRadio,
+  loadRadioRecipients,
   saveDisDocument,
   sendRadio,
 } from '../src/lib/server/dis/content';
@@ -70,22 +71,20 @@ async function verify() {
       },
     });
   }
-  await mongo
-    .collection('sessions')
-    .updateOne(
-      { _id: sessionId as never },
-      {
-        $set: {
-          interpreter: {
-            kind: 'roblox',
-            universeId: testUniverse,
-            placeId: testPlace,
-            serverId: tag,
-            heartbeat: { lastHeartbeatAt: new Date().toISOString() },
-          },
+  await mongo.collection('sessions').updateOne(
+    { _id: sessionId as never },
+    {
+      $set: {
+        interpreter: {
+          kind: 'roblox',
+          universeId: testUniverse,
+          placeId: testPlace,
+          serverId: tag,
+          heartbeat: { lastHeartbeatAt: new Date().toISOString() },
         },
       },
-    );
+    },
+  );
   const scope = { sessionId, stationId };
   const timetable = {
     trainNumber: `${tag}-1`,
@@ -136,8 +135,9 @@ async function verify() {
     /neexistuje/,
   );
   assert.equal(
-    (await importTimetable({ ...scope, timetableId: first.timetable.$id }, manager)).imported,
-    1,
+    (await listEdd(scope)).length,
+    2,
+    'Station GVD trains appear without an import command',
   );
   assert.equal(
     (await importTimetable({ ...scope, timetableId: first.timetable.$id }, manager)).imported,
@@ -148,10 +148,25 @@ async function verify() {
     recordEddEvent({ ...scope, id: edd.$id, event: 'departure' }, manager),
     /nebol|nezodpovedá|vykonaný/,
   );
-  await recordEddEvent({ ...scope, id: edd.$id, event: 'arrival' }, manager);
+  await recordEddEvent({ ...scope, id: edd.$id, event: 'arrival', time: '23:59' }, manager);
   assert.equal((await db.getDocument(databaseId, 'edd_records', edd.$id)).status, 'arrived');
-  await recordEddEvent({ ...scope, id: edd.$id, event: 'departure' }, manager);
+  assert.equal((await db.getDocument(databaseId, 'edd_records', edd.$id)).actualArrival, '23:59');
+  await recordEddEvent({ ...scope, id: edd.$id, event: 'departure', time: '00:12' }, manager);
   assert.equal((await db.getDocument(databaseId, 'edd_records', edd.$id)).status, 'departed');
+  assert.equal((await db.getDocument(databaseId, 'edd_records', edd.$id)).actualDeparture, '00:12');
+  const reloadedEdd = await listEdd(scope);
+  assert.equal(reloadedEdd.length, 2, 'Automatic GVD loading is idempotent');
+  assert.equal(
+    reloadedEdd.find((record) => record.$id === edd.$id)?.actualDeparture,
+    '00:12',
+    'Reloading GVD preserves actual reports',
+  );
+  const recipients = await loadRadioRecipients(sessionId);
+  assert(recipients.some((recipient) => recipient.value === `Os ${first.timetable.trainNumber}`));
+  assert(recipients.some((recipient) => recipient.value === 'Všetci'));
+  await assert.rejects(
+    recordEddEvent({ ...scope, id: edd.$id, event: 'arrival', time: '25:99' }, manager),
+  );
   const extra = await createEdd(
     {
       ...scope,

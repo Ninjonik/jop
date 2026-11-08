@@ -1,4 +1,5 @@
 'use client';
+import { isPublicStation } from '@/lib/station/visibility';
 
 import { AeroIcon } from '@/app/components/ui/AeroIcon';
 import { disFetch } from '@/lib/dis/api-client';
@@ -236,12 +237,14 @@ export function ShiftPlanView({
                   </tr>
                 </thead>
                 <tbody>
-                  {plan.stations.map((station) => (
-                    <tr key={station.stationId}>
-                      <td>{station.name}</td>
-                      <td>{assignmentSelect('dispatcher', station.stationId)}</td>
-                    </tr>
-                  ))}
+                  {plan.stations
+                    .filter((station) => isPublicStation(station.stationId))
+                    .map((station) => (
+                      <tr key={station.stationId}>
+                        <td>{station.name}</td>
+                        <td>{assignmentSelect('dispatcher', station.stationId)}</td>
+                      </tr>
+                    ))}
                 </tbody>
               </table>
             </div>

@@ -1,5 +1,6 @@
 'use client';
 import { AeroIcon } from '@/app/components/ui/AeroIcon';
+import { isPublicStation } from '@/lib/station/visibility';
 
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -479,11 +480,13 @@ export default function MockControlClient({
             className="rounded-[3px] border border-[var(--aero-panel-border)] bg-[var(--aero-panel-bg)] px-3 py-2 text-sm text-[var(--aero-text)]"
           >
             <option value="">Starting station</option>
-            {stations.map((station) => (
-              <option key={station.stationId} value={station.stationId}>
-                {station.stationId}
-              </option>
-            ))}
+            {stations
+              .filter((station) => isPublicStation(station.stationId))
+              .map((station) => (
+                <option key={station.stationId} value={station.stationId}>
+                  {station.stationId}
+                </option>
+              ))}
           </select>
           <select
             value={trainDraft.pieceId}
@@ -595,38 +598,40 @@ export default function MockControlClient({
           {stations.length === 0 ? (
             <p className="text-sm text-[var(--aero-text-muted)]">No stations in this session.</p>
           ) : (
-            stations.map((station) => (
-              <div
-                key={station.stationId}
-                className="rounded-[3px] border border-[var(--aero-panel-border)] bg-[var(--aero-ribbon-bg)] p-4"
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <div className="font-mono text-sm text-[var(--aero-text)]">
-                      {station.stationId}
+            stations
+              .filter((station) => isPublicStation(station.stationId))
+              .map((station) => (
+                <div
+                  key={station.stationId}
+                  className="rounded-[3px] border border-[var(--aero-panel-border)] bg-[var(--aero-ribbon-bg)] p-4"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <div className="font-mono text-sm text-[var(--aero-text)]">
+                        {station.stationId}
+                      </div>
+                      <div className="text-xs text-[var(--aero-text-muted)]">
+                        {station.layout.width}x{station.layout.height}
+                      </div>
                     </div>
-                    <div className="text-xs text-[var(--aero-text-muted)]">
-                      {station.layout.width}x{station.layout.height}
-                    </div>
+                    <Link
+                      href={session ? `/runtime/${session._id}/${station.stationId}` : '#'}
+                      onClick={
+                        embedded && session
+                          ? (event) => {
+                              event.preventDefault();
+                              onLaunch?.(session._id, station.stationId);
+                            }
+                          : undefined
+                      }
+                      className="rounded-[3px] bg-[var(--btn-active-bottom)] px-3 py-2 text-xs font-medium text-[var(--aero-text)]"
+                    >
+                      <AeroIcon name="train" />
+                      Open Runtime
+                    </Link>
                   </div>
-                  <Link
-                    href={session ? `/runtime/${session._id}/${station.stationId}` : '#'}
-                    onClick={
-                      embedded && session
-                        ? (event) => {
-                            event.preventDefault();
-                            onLaunch?.(session._id, station.stationId);
-                          }
-                        : undefined
-                    }
-                    className="rounded-[3px] bg-[var(--btn-active-bottom)] px-3 py-2 text-xs font-medium text-[var(--aero-text)]"
-                  >
-                    <AeroIcon name="train" />
-                    Open Runtime
-                  </Link>
                 </div>
-              </div>
-            ))
+              ))
           )}
         </div>
       </section>

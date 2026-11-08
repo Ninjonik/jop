@@ -17,6 +17,7 @@ import type {
 import { stationIdSchema } from '@/lib/station/domain';
 import { isLineblockPieceType, type StationLayout } from '@/lib/station/layout';
 
+import { isPublicStation } from '@/lib/station/visibility';
 import StationNetworkCanvas from './StationNetworkCanvas';
 
 function getLineblockPieceIds(station: StationDocument): string[] {
@@ -157,9 +158,12 @@ export default function SessionMapClient() {
 
     const nextSelectedStationId =
       selectedStationId &&
-      stationsPayload.stations.some((station) => station.stationId === selectedStationId)
+      stationsPayload.stations.some(
+        (station) => station.stationId === selectedStationId && isPublicStation(station.stationId),
+      )
         ? selectedStationId
-        : (stationsPayload.stations[0]?.stationId ?? '');
+        : (stationsPayload.stations.find((station) => isPublicStation(station.stationId))
+            ?.stationId ?? '');
     setSelectedStationId(nextSelectedStationId);
 
     setStationOrder((current) => {
@@ -705,19 +709,25 @@ export default function SessionMapClient() {
     openSession(sessionIdDraft.trim());
   }
 
-  const links = Object.values(session?.topology.lineblockLinks ?? {});
-  const endpoints = orderedStations.flatMap((station) =>
-    getLineblockPieceIds(station).map((pieceId) => ({
-      stationId: station.stationId,
-      pieceId,
-      label:
-        station.layout.pieces[pieceId].state.texts.name ||
-        Object.values(station.layout.pieces[pieceId].state.texts).find((text) => text.trim()) ||
-        pieceId,
-    })),
+  const links = Object.values(session?.topology.lineblockLinks ?? {}).filter(
+    (link) => isPublicStation(link.a.stationId) && isPublicStation(link.b.stationId),
   );
-  const visibleStations = orderedStations.filter((station) =>
-    station.stationId.toLocaleLowerCase().includes(stationSearch.toLocaleLowerCase()),
+  const endpoints = orderedStations
+    .filter((station) => isPublicStation(station.stationId))
+    .flatMap((station) =>
+      getLineblockPieceIds(station).map((pieceId) => ({
+        stationId: station.stationId,
+        pieceId,
+        label:
+          station.layout.pieces[pieceId].state.texts.name ||
+          Object.values(station.layout.pieces[pieceId].state.texts).find((text) => text.trim()) ||
+          pieceId,
+      })),
+    );
+  const visibleStations = orderedStations.filter(
+    (station) =>
+      isPublicStation(station.stationId) &&
+      station.stationId.toLocaleLowerCase().includes(stationSearch.toLocaleLowerCase()),
   );
   const selectedDestination = destinations.find(
     (destination) =>
@@ -817,7 +827,7 @@ export default function SessionMapClient() {
         <strong>Správa staníc a tratí</strong>
         <span className="mr-auto text-[var(--aero-text-muted)]">
           {session
-            ? `${stations.length} staníc · ${links.length} prepojení`
+            ? `${stations.filter((station) => isPublicStation(station.stationId)).length} staníc · ${links.length} prepojení`
             : 'Vyberte sieť alebo vytvorte novú sieť'}
         </span>
         {session && (
@@ -1073,7 +1083,7 @@ export default function SessionMapClient() {
                   </div>
                 )}
                 <StationNetworkCanvas
-                  stations={orderedStations}
+                  stations={orderedStations.filter((station) => isPublicStation(station.stationId))}
                   links={links}
                   sessionId={session._id}
                   selectedStationId={selectedStationId}

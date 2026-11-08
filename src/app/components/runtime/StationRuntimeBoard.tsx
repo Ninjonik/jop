@@ -4,6 +4,7 @@ import { AeroIcon } from '@/app/components/ui/AeroIcon';
 import { useEffect, useRef, useState } from 'react';
 
 import TileSvg from '@/app/components/tiles/TileSvg';
+import { boardColors } from '@/app/data/_tiles/shared-styles';
 import { stateGroups, tiles } from '@/app/data/tiles';
 import type { LineblockActionType, StationDocument, SwitchPosition } from '@/lib/station/domain';
 import {
@@ -539,23 +540,16 @@ export default function StationRuntimeBoard({
         ) : null}
       </div>
       <div
-        className="relative shrink-0 bg-neutral-500"
+        className="relative shrink-0"
         style={{
+          // Fractional SVG edges must blend into the tile background, not a debug grid.
+          backgroundColor: boardColors['--bg-color'],
           width: layout.width * tileSize,
           height: layout.height * tileSize,
           marginTop: 'auto',
           marginBottom: 'auto',
         }}
       >
-        <div
-          className="absolute inset-0"
-          style={{
-            backgroundImage:
-              'linear-gradient(to right, rgba(0,0,0,0.2) 1px, transparent 1px), linear-gradient(to bottom, rgba(0,0,0,0.2) 1px, transparent 1px)',
-            backgroundSize: `${tileSize}px ${tileSize}px`,
-          }}
-        />
-
         {renderablePieces.map(({ pieceId, anchorX, anchorY }) => {
           const piece = layout.pieces[pieceId];
           const tile = tiles[piece.type];

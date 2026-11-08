@@ -170,21 +170,21 @@ export default function RuntimeStationClient({
 
   return (
     <div
-      className={`flex flex-col bg-neutral-300 p-4 ${embedded ? 'flex-1 overflow-auto min-h-0' : 'min-h-screen overflow-hidden'}`}
+      className={`flex flex-col ${embedded ? 'flex-1 overflow-hidden min-h-0' : 'min-h-screen overflow-hidden'}`}
     >
-      <div className="mb-2 flex flex-wrap items-center gap-2 text-sm text-black">
-        <div className="border border-neutral-700 bg-white px-2 py-0.5">session: {sessionId}</div>
-        <div className="border border-neutral-700 bg-white px-2 py-0.5">station: {stationId}</div>
-        {error ? (
-          <div className="flex-1 border border-red-700 bg-red-100 px-2 py-0.5 text-red-900">
-            {error}
-          </div>
-        ) : routeStatus ? (
-          <div className="flex-1 border border-amber-700 bg-amber-100 px-2 py-0.5 text-amber-950">
-            {routeStatus}
-          </div>
-        ) : null}
-      </div>
+      {(error || routeStatus) && (
+        <div className="flex flex-wrap items-center gap-2 text-sm text-black">
+          {error ? (
+            <div className="flex-1 border border-red-700 bg-red-100 px-2 py-0.5 text-red-900">
+              {error}
+            </div>
+          ) : routeStatus ? (
+            <div className="flex-1 border border-amber-700 bg-amber-100 px-2 py-0.5 text-amber-950">
+              {routeStatus}
+            </div>
+          ) : null}
+        </div>
+      )}
 
       <StationRuntimeBoard
         station={station}

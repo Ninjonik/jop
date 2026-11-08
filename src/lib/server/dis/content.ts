@@ -1,9 +1,17 @@
 import type { UserProfile } from '@/lib/dis/appwrite-client';
+import type { DriverTrain } from '@/lib/dis/driver-train';
 import type { DisDocument, RadioMessage } from '@/lib/dis/records';
+import { getStationDisplayName } from '@/lib/station/display-name';
+import { isPublicStation } from '@/lib/station/visibility';
 import { ID, Query, type Models } from 'node-appwrite';
 import { z } from 'zod';
-import { databaseId, disDatabase, listDocuments } from './appwrite';
+import { getMongoDb } from '../mongo';
+import { sessionRepository } from '../repositories/session-repository';
+import { stationRepository } from '../repositories/station-repository';
+import { databaseId, disDatabase, DisError, listDocuments } from './appwrite';
 import { requireStation } from './edd';
+import { getDisUniverseId } from './places';
+import { loadTimetables } from './timetables';
 
 export async function loadDisDocuments(canEdit: boolean) {
   return listDocuments<Models.Document & DisDocument>(
@@ -64,4 +72,41 @@ export async function sendRadio(body: unknown, profile: UserProfile) {
       senderRole: profile.role,
     }),
   };
+}
+
+export async function loadRadioRecipients(sessionId: string) {
+  const session = await sessionRepository.findById(sessionId);
+  if (!session || session.status !== 'active')
+    throw new DisError(404, 'Aktívna relácia neexistuje.');
+  const [stations, drivers, timetables] = await Promise.all([
+    stationRepository.listBySessionId(sessionId),
+    (await getMongoDb())
+      .collection<DriverTrain>('session_driver_trains')
+      .find({ sessionId })
+      .toArray(),
+    session.interpreter.kind === 'roblox' && session.interpreter.universeId === getDisUniverseId()
+      ? loadTimetables(session.interpreter.placeId)
+      : Promise.resolve([]),
+  ]);
+  const recipients = [
+    { value: 'Všetci', label: 'Všetci', description: 'Celá relácia' },
+    ...stations
+      .filter((station) => isPublicStation(station.stationId))
+      .map((station) => ({
+        value: getStationDisplayName(station.stationId),
+        label: getStationDisplayName(station.stationId),
+        description: 'Stanica',
+      })),
+    ...timetables.map((train) => ({
+      value: `${train.trainType} ${train.trainNumber}`,
+      label: `${train.trainType} ${train.trainNumber}`,
+      description: 'GVD',
+    })),
+    ...drivers.map((driver) => ({
+      value: `${driver.trainType} ${driver.trainNumber}`,
+      label: `${driver.trainType} ${driver.trainNumber}`,
+      description: driver.userName,
+    })),
+  ];
+  return [...new Map(recipients.map((recipient) => [recipient.value, recipient])).values()];
 }

@@ -5,21 +5,28 @@ import { clearDisToken, disFetch, getDisToken } from '@/lib/dis/api-client';
 import { useDisAuth } from '@/lib/dis/auth-context';
 import {
   chatEndpointKey,
+  globalChatContact,
   mergeChatMessages,
   type ChatClientEvents,
   type ChatContact,
   type ChatMessage,
   type ChatServerEvents,
 } from '@/lib/dis/chat';
+import type { DriverTrain } from '@/lib/dis/driver-train';
+import { getStationDisplayName } from '@/lib/station/display-name';
 import { useEffect, useRef, useState } from 'react';
 import { io, type Socket } from 'socket.io-client';
+
+type DisplayMessage = ChatMessage & { delivery?: 'sending' | 'failed' };
 
 export function SessionChatView({
   sessionId,
   stationId,
+  driverTrain,
 }: {
   sessionId: string;
   stationId: string;
+  driverTrain?: DriverTrain | null;
 }) {
   const { profile, canOperateStation, canDriveTrain } = useDisAuth();
   const [mode, setMode] = useState<'station' | 'driver'>(
@@ -27,15 +34,15 @@ export function SessionChatView({
   );
   const [expanded, setExpanded] = useState(false);
   const [connected, setConnected] = useState(false);
-  const [contacts, setContacts] = useState<ChatContact[]>([]);
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [target, setTarget] = useState('');
+  const [contacts, setContacts] = useState<ChatContact[]>([globalChatContact]);
+  const [messages, setMessages] = useState<DisplayMessage[]>([]);
+  const [target, setTarget] = useState(chatEndpointKey(globalChatContact));
   const [unread, setUnread] = useState<Record<string, number>>({});
   const [text, setText] = useState('');
-  const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const draftId = useRef<string | null>(null);
+  const [selfName, setSelfName] = useState('');
   const seen = useRef(new Set<string>());
+  const confirmed = useRef(new Set<string>());
   const connection = useRef<Socket<ChatServerEvents, ChatClientEvents> | null>(null);
   const view = useRef<HTMLDivElement>(null);
   const follow = useRef(true);
@@ -67,16 +74,27 @@ export function SessionChatView({
       setConnected(true);
       setError('');
       setContacts(snapshot.contacts);
-      for (const message of snapshot.messages) seen.current.add(message._id);
+      setSelfName(snapshot.self?.name || '');
+      for (const message of snapshot.messages) {
+        seen.current.add(message._id);
+        if (message.clientMessageId) confirmed.current.add(message.clientMessageId);
+      }
       setMessages((previous) => mergeChatMessages(previous, snapshot.messages));
     });
     socket.on('chat:message', (message) => {
       if (!active || message.sessionId !== sessionId) return;
       if (seen.current.has(message._id)) return;
       seen.current.add(message._id);
+      if (message.clientMessageId) confirmed.current.add(message.clientMessageId);
       setMessages((previous) => mergeChatMessages(previous, [message]));
-      if (chatEndpointKey(message.recipient) === endpointKey) {
-        const key = chatEndpointKey(message.sender);
+      if (
+        message.senderUserId !== profile.userId &&
+        (chatEndpointKey(message.recipient) === endpointKey || message.recipient.kind === 'session')
+      ) {
+        const key =
+          message.recipient.kind === 'session'
+            ? chatEndpointKey(globalChatContact)
+            : chatEndpointKey(message.sender);
         if (!current.current.expanded || current.current.target !== key)
           setUnread((previous) => ({ ...previous, [key]: (previous[key] || 0) + 1 }));
       }
@@ -117,34 +135,67 @@ export function SessionChatView({
     setTarget(value);
     setUnread((previous) => ({ ...previous, [value]: 0 }));
     follow.current = true;
-    draftId.current = null;
   }
-  async function send(event: React.FormEvent) {
-    event.preventDefault();
-    if (!recipient || !text.trim() || busy) return;
-    setBusy(true);
-    setError('');
-    draftId.current ??= crypto.randomUUID();
+  async function deliver(message: DisplayMessage) {
+    setMessages((previous) =>
+      previous.map((item) => (item._id === message._id ? { ...item, delivery: 'sending' } : item)),
+    );
     try {
       const result = await disFetch<{ message: ChatMessage }>('/api/dis/chat', {
         method: 'POST',
         body: JSON.stringify({
-          sessionId,
-          endpoint: { kind: mode, id: endpointId },
-          recipient: { kind: recipient.kind, id: recipient.id },
-          content: text,
-          messageId: draftId.current,
+          sessionId: message.sessionId,
+          endpoint: { kind: message.sender.kind, id: message.sender.id },
+          recipient: { kind: message.recipient.kind, id: message.recipient.id },
+          content: message.content,
+          messageId: message.clientMessageId,
         }),
       });
       setMessages((previous) => mergeChatMessages(previous, [result.message]));
-      setText('');
-      draftId.current = null;
-      follow.current = true;
     } catch (error) {
-      setError(error instanceof Error ? error.message : 'Správa nebola odoslaná.');
-    } finally {
-      setBusy(false);
+      if (message.clientMessageId && confirmed.current.has(message.clientMessageId)) return;
+      setMessages((previous) =>
+        previous.map((item) => (item._id === message._id ? { ...item, delivery: 'failed' } : item)),
+      );
+      setError(
+        error instanceof Error
+          ? error.message
+          : 'Správa nebola odoslaná. Môžete ju skúsiť odoslať znova.',
+      );
     }
+  }
+  function send(event: React.FormEvent) {
+    event.preventDefault();
+    if (!recipient || !text.trim() || !profile) return;
+    setError('');
+    const clientMessageId = crypto.randomUUID();
+    const message: DisplayMessage = {
+      _id: `pending-${clientMessageId}`,
+      clientMessageId,
+      sessionId,
+      sender: {
+        kind: mode,
+        id: endpointId,
+        name:
+          mode === 'station'
+            ? getStationDisplayName(stationId)
+            : driverTrain
+              ? `${driverTrain.trainType} ${driverTrain.trainNumber}`
+              : driverTrain === null
+                ? profile.name
+                : selfName || profile.name,
+      },
+      recipient,
+      senderUserId: profile.userId,
+      senderName: profile.name,
+      content: text.trim(),
+      createdAt: new Date().toISOString(),
+      delivery: 'sending',
+    };
+    follow.current = true;
+    setMessages((previous) => mergeChatMessages(previous, [message]));
+    setText('');
+    void deliver(message);
   }
 
   return (
@@ -192,14 +243,13 @@ export function SessionChatView({
                   aria-label="Komunikujem ako"
                   className="aero-select"
                   value={mode}
-                  disabled={busy}
                   onChange={(event) => {
                     setMode(event.target.value as 'station' | 'driver');
                     seen.current.clear();
                     setMessages([]);
-                    setContacts([]);
+                    setContacts([globalChatContact]);
                     setUnread({});
-                    chooseTarget('');
+                    chooseTarget(chatEndpointKey(globalChatContact));
                     setConnected(false);
                   }}
                 >
@@ -216,10 +266,15 @@ export function SessionChatView({
                 className="aero-select"
                 aria-label="Príjemca správy"
                 value={target}
-                disabled={busy}
                 onChange={(event) => chooseTarget(event.target.value)}
               >
                 <option value="">Vyberte stanicu alebo rušňovodiča</option>
+                <option value={chatEndpointKey(globalChatContact)}>
+                  Celá relácia
+                  {unread[chatEndpointKey(globalChatContact)]
+                    ? ` (${unread[chatEndpointKey(globalChatContact)]} nových)`
+                    : ''}
+                </option>
                 {(['station', 'driver'] as const).map((kind) => (
                   <optgroup key={kind} label={kind === 'station' ? 'Stanice' : 'Rušňovodiči'}>
                     {contacts
@@ -270,9 +325,29 @@ export function SessionChatView({
                       minute: '2-digit',
                     })}
                   </time>{' '}
-                  <strong>{message.sender.name}</strong>
-                  {message.sender.kind === 'station' && <span> ({message.senderName})</span>}:{' '}
-                  <span className="whitespace-pre-wrap break-words">{message.content}</span>
+                  <strong>
+                    {message.sender.kind === 'station'
+                      ? getStationDisplayName(message.sender.id)
+                      : message.sender.name}
+                  </strong>
+                  {(message.sender.kind === 'station' ||
+                    message.sender.name !== message.senderName) && (
+                    <span> ({message.senderName})</span>
+                  )}
+                  : <span className="whitespace-pre-wrap break-words">{message.content}</span>
+                  {message.delivery === 'sending' && (
+                    <span className="ml-2 text-[var(--aero-text-muted)]">Odosielam…</span>
+                  )}
+                  {message.delivery === 'failed' && (
+                    <button
+                      type="button"
+                      className="aero-btn ml-2"
+                      onClick={() => void deliver(message)}
+                    >
+                      <AeroIcon name="refresh" />
+                      Odoslať znova
+                    </button>
+                  )}
                 </div>
               ))
             )}
@@ -284,19 +359,15 @@ export function SessionChatView({
               placeholder="Napíšte správu…"
               required
               maxLength={1000}
-              disabled={busy || !recipient}
+              disabled={!recipient}
               value={text}
               onChange={(event) => {
                 setText(event.target.value);
-                draftId.current = null;
               }}
             />
-            <button
-              className="aero-btn"
-              disabled={busy || !connected || !recipient || !text.trim()}
-            >
+            <button className="aero-btn" disabled={!recipient || !text.trim() || !endpointId}>
               <AeroIcon name="send" />
-              {busy ? 'Odosielam…' : 'Odoslať'}
+              Odoslať
             </button>
           </form>
         </div>

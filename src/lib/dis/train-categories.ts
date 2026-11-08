@@ -48,6 +48,7 @@ export const trainCategoryGroups = [
       ['Sl', 'Služobný vlak'],
       ['Služ', 'Služobný vlak (staršie označenie)'],
       ['P', 'Pracovný vlak'],
+      ['Pos', 'Posun'],
     ],
   },
 ] as const;

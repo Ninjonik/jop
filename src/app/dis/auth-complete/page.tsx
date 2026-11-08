@@ -1,6 +1,8 @@
 'use client';
 
+import { clearDisToken } from '@/lib/dis/api-client';
 import { account } from '@/lib/dis/appwrite-client';
+import { completeRobloxLogin } from '@/lib/dis/complete-roblox-login';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useRef, useState } from 'react';
 
@@ -18,10 +20,13 @@ function AuthCompleteContent() {
     if (!userId || !secret) return;
     let active = true;
     // React Strict Mode replays effects; consume the one-time login token only once.
-    completing.current ??= account.createSession(userId, secret);
+    completing.current ??= completeRobloxLogin(account, userId, secret);
     completing.current
       .then(() => {
-        if (active) router.replace('/dis');
+        if (active) {
+          clearDisToken();
+          router.replace('/dis');
+        }
       })
       .catch((error: unknown) => {
         if (active)

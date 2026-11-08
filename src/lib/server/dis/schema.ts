@@ -426,6 +426,20 @@ export async function initializeDisAppwrite() {
     await ensureStringAttribute({
       databaseId: DB_ID,
       collectionId: 'timetables_gvd',
+      key: 'nextTrainId',
+      size: 36,
+      required: false,
+    });
+    await ensureStringAttribute({
+      databaseId: DB_ID,
+      collectionId: 'timetables_gvd',
+      key: 'notes',
+      size: 1000,
+      required: false,
+    });
+    await ensureStringAttribute({
+      databaseId: DB_ID,
+      collectionId: 'timetables_gvd',
       key: 'placeId',
       size: 32,
       required: false,

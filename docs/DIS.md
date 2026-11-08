@@ -102,13 +102,17 @@ historical freight codes are also documented in the [ŽSR 2004 annual report](ht
    legacy timetables without a place are not assigned automatically and are not
    listed until explicitly assigned. Check conflicts before using them. Conflicting schedules may
    be saved for further editing; the report remains visible after saving.
-3. In EDD, select a train and import its GVD. Repeating an import does not
-   duplicate entries or overwrite actual times. Additional trains can be entered
-   manually. Record arrival before departure.
+3. EDD automatically shows all GVD stops for the selected station. Repeated
+   loading does not duplicate entries or overwrite actual times. Additional trains
+   can be entered manually. **Zápis príchodu** and **Zápis odchodu** open a time
+   dialog, defaulting to current Bratislava time. Confirm the chosen HH:mm value;
+   arrival must be recorded before departure.
 4. TPV uses the same GVD and actual reports. It does not invent a physical train
    position between reports. Labels and clock times are schematic daily values.
 5. Radio messages belong to the selected session. They are text records inside
-   DIS; signal operations and odhlaska remain on the railway pult.
+   DIS; signal operations and odhlaska remain on the railway pult. Its collapsible
+   panel has recipient autocomplete for stations, GVD trains and active drivers'
+   trains, with free text available when a recipient is not listed.
 6. Managers can save document drafts, publish them, manage shifts/attendance, and
    record personnel assessments. Attachments are stored in Appwrite Storage.
 
@@ -190,6 +194,32 @@ This check uses actual HTTP and WebSocket clients, MongoDB and isolated Appwrite
 profiles. Account-token validation is simulated; persisted profiles, message
 writes, role checks, private delivery, session isolation, retry deduplication and
 offline history are exercised. All test fixtures are removed afterward.
+
+Chat opens on **Celá relácia**, a global channel for the selected session.
+Direct station/driver conversations remain available. Sends appear immediately
+with a sending state; failed sends have an explicit retry action, with the same
+message ID preventing duplicate persisted messages.
+
+Drivers select **Môj vlak** in the session menu. The shared autocomplete offers
+saved GVD numbers and permits custom numbers. Selecting a GVD suggestion binds
+its timetable; typing a custom number does not. Operating category can differ
+from GVD, including **Pos**. Drivers can save destination, length in metres,
+tonnage and wagon count. The dashboard shows stops, arrival/departure, optional
+track and notes in a borderless table, plus the saved next-leg suggestion.
+GVD authoring supports per-stop/train notes and a next train from the same GVD.
+
+The requested Kameňansko sample is **Os 90001 → Os 90002 → Mn 99001 → Mn 99002**,
+08:00–10:05, `kolarovo` ↔ `vesele`. It is clearly marked as fictional test data.
+`scripts/create-sample-gvd.ts --apply` creates it without overwriting trains and
+does nothing if the complete sample already exists. Schema setup adds optional
+GVD `nextTrainId` and `notes` attributes to existing Appwrite installations.
+
+The helper station `inter` is hidden from normal station selection and GVD;
+its direct runtime/editor links still work for debugging.
+
+```sh
+node --env-file=.env.local --import tsx scripts/verify-driver-dashboard.ts
+```
 
 The service integration check uses the configured Appwrite database and MongoDB,
 creates isolated fixtures, checks intermediate and final persisted states, and
