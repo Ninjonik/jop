@@ -6,6 +6,7 @@ import { useTranslation } from '@/lib/i18n/client';
 import { Room, RoomEvent, Track } from 'livekit-client';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Socket } from 'socket.io-client';
+import { playCallCue, startCallRing } from './voice-sounds';
 
 type Call = { id: string; contact: ChatContact; incoming: boolean; phase: 'ringing' | 'connected' };
 type ChatSocket = Socket<ChatServerEvents, ChatClientEvents>;
@@ -28,18 +29,11 @@ export function VoiceCall({
   const room = useRef<Room | null>(null);
   const callRef = useRef<Call | null>(null);
   const audio = useRef<HTMLDivElement>(null);
-  const ring = useRef<HTMLAudioElement | null>(null);
-  const radioTone = useRef<{ context: AudioContext; timer: ReturnType<typeof setInterval> } | null>(
-    null,
-  );
+  const stopRinging = useRef<(() => void) | null>(null);
+  const soundKind = useRef<'telephone' | 'radio'>('telephone');
   const stopSound = useCallback(() => {
-    ring.current?.pause();
-    ring.current = null;
-    if (radioTone.current) {
-      clearInterval(radioTone.current.timer);
-      void radioTone.current.context.close();
-      radioTone.current = null;
-    }
+    stopRinging.current?.();
+    stopRinging.current = null;
   }, []);
   const stop = useCallback(() => {
     stopSound();
@@ -58,36 +52,16 @@ export function VoiceCall({
       callRef.current = active;
       setCall(active);
       setNotice('');
-      if (next.contact.kind === 'driver' || mode === 'driver') {
-        const context = new AudioContext();
-        const beep = () => {
-          const oscillator = context.createOscillator();
-          const gain = context.createGain();
-          oscillator.frequency.value = 880;
-          gain.gain.value = 0.08;
-          oscillator.connect(gain).connect(context.destination);
-          oscillator.start();
-          oscillator.stop(context.currentTime + 0.2);
-        };
-        beep();
-        const timer = setInterval(beep, 1500);
-        radioTone.current = { context, timer };
-        void context
-          .resume()
-          .catch(() => setNotice('Pre zvonenie povoľte prehrávanie zvuku v prehliadači.'));
-      } else {
-        const sound = new Audio('/sounds/telephone-ring.ogg');
-        sound.loop = true;
-        sound.volume = next.incoming ? 0.7 : 0.25;
-        ring.current = sound;
-        void sound
-          .play()
-          .catch(() => setNotice('Pre zvonenie povoľte prehrávanie zvuku v prehliadači.'));
-      }
+      soundKind.current =
+        next.contact.kind === 'driver' || mode === 'driver' ? 'radio' : 'telephone';
+      stopRinging.current = startCallRing(soundKind.current, next.incoming, () =>
+        setNotice('Pre zvonenie povoľte prehrávanie zvuku v prehliadači.'),
+      );
     };
     const onConnected: ChatServerEvents['call:connected'] = (credentials) => {
       if (callRef.current?.id !== credentials.id) return;
       stopSound();
+      playCallCue(soundKind.current, 'pickup');
       const active = { ...callRef.current, phase: 'connected' as const };
       callRef.current = active;
       setCall(active);
@@ -125,6 +99,7 @@ export function VoiceCall({
     const onEnded: ChatServerEvents['call:ended'] = ({ id, reason }) => {
       if (callRef.current?.id !== id) return;
       stop();
+      playCallCue(soundKind.current, 'hangup');
       setNotice(reason);
     };
     const onDisconnect = () => {
@@ -206,6 +181,7 @@ export function VoiceCall({
             onClick={() => {
               socket?.emit('call:end', call.id);
               stop();
+              playCallCue(soundKind.current, 'hangup');
             }}
           >
             <AeroIcon name="close" /> {t('Ukončiť')}
