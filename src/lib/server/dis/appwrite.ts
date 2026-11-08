@@ -1,4 +1,5 @@
 import type { UserProfile, UserRole } from '@/lib/dis/appwrite-client';
+import { hasDisRole } from '@/lib/dis/permissions';
 import {
   Account,
   AppwriteException,
@@ -53,10 +54,7 @@ export async function requireDisProfile(
       throw new DisError(503, 'Profily Appwrite sú momentálne nedostupné.');
     throw new DisError(403, 'Používateľ nemá platný DIS profil.');
   }
-  if (
-    profile.userId !== user.$id ||
-    (roles && profile.role !== 'admin' && !roles.includes(profile.role))
-  )
+  if (profile.userId !== user.$id || (roles && !hasDisRole(profile.role, roles)))
     throw new DisError(403, 'Na túto operáciu nemáte oprávnenie.');
   return profile;
 }

@@ -45,12 +45,16 @@ when the DIS role is unchanged. Name and rank must both match the explicit mappi
 | Trainee Dispatcher (9)                              | dispatcher trainee    |
 | Driver Trainer (28)                                 | driver instructor     |
 | Dispatcher Trainer (30)                             | dispatcher instructor |
+| Head Of Conductors (199)                            | admin                 |
 | Head Of Drivers (201)                               | driver manager        |
 | Head Of Dispatchers (203)                           | dispatcher manager    |
-| Contributor (235)                                  | admin                 |
+| Contributor (235)                                   | admin                 |
 | Board of Executives (254), Executive Director (255) | admin                 |
 
-Passenger, Member, Other Staff, Head Of Conductors, Relations
+Department heads have full administrator rights. Driver and dispatcher heads retain
+their department role labels. Head of Conductors receives the admin role at login.
+
+Passenger, Member, Other Staff, Relations
 Director, Workforce Director, Shift Manager, unused roles, and unknown roles
 do not currently grant DIS access. Assign these only after their responsibilities
 are defined. Existing sessions and temporary password accounts are not revoked

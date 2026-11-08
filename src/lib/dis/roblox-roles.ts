@@ -24,6 +24,10 @@ const groupRoles: Record<string, { rank: number; assignment: DisRoleAssignment }
     rank: 30,
     assignment: { role: 'dispatcher_instructor', trainingStage: 'certified' },
   },
+  'head of conductors': {
+    rank: 199,
+    assignment: { role: 'admin', trainingStage: 'certified' },
+  },
   'head of drivers': {
     rank: 201,
     assignment: { role: 'driver_manager', trainingStage: 'certified' },

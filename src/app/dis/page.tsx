@@ -20,6 +20,7 @@ import { AeroIcon, type AeroIconName } from '@/app/components/ui/AeroIcon';
 import { DisAuthProvider, useDisAuth } from '@/lib/dis/auth-context';
 import type { DriverTrain } from '@/lib/dis/driver-train';
 import type { JopStationSummary } from '@/lib/dis/jop-bridge';
+import { isDisAdministrator } from '@/lib/dis/permissions';
 import { useDisResource } from '@/lib/dis/use-dis-resource';
 import { useRouter } from 'next/navigation';
 import { Suspense, useCallback, useEffect, useState } from 'react';
@@ -240,7 +241,7 @@ function DisPortalShell() {
     { id: 'preparation', title: 'Príprava siete' },
     { id: 'gvd', title: 'Tvorba GVD', visible: canCreateGvd },
     { id: 'mock', title: 'Simulátor', visible: hasSession && canOperateStation },
-    { id: 'recovery', title: 'Obnova', visible: hasSession && profile.role === 'admin' },
+    { id: 'recovery', title: 'Obnova', visible: hasSession && isDisAdministrator(profile.role) },
   ];
   const activeTab = tabs.find((item) => item.id === tab)?.visible === false ? 'sessions' : tab;
   return (
@@ -528,13 +529,15 @@ function DisPortalShell() {
               {activeTab === 'gvd' && canCreateGvd && (
                 <GvdEditorView key={placeId} place={selectedPlace} />
               )}
-              {activeTab === 'recovery' && current.sessionId && profile.role === 'admin' && (
-                <RecoveryView
-                  key={current.sessionId}
-                  sessionId={current.sessionId}
-                  stations={network.stations}
-                />
-              )}
+              {activeTab === 'recovery' &&
+                current.sessionId &&
+                isDisAdministrator(profile.role) && (
+                  <RecoveryView
+                    key={current.sessionId}
+                    sessionId={current.sessionId}
+                    stations={network.stations}
+                  />
+                )}
               {activeTab === 'mock' && current.sessionId && canOperateStation && (
                 <div className="dis-simulator flex-1 overflow-auto p-3">
                   <Suspense fallback={<p> {t('Načítavam simulátor...')} </p>}>

@@ -5,6 +5,7 @@ import { AeroAutocomplete, type AutocompleteOption } from '@/app/components/ui/A
 import { AeroIcon } from '@/app/components/ui/AeroIcon';
 import { disFetch } from '@/lib/dis/api-client';
 import { useDisAuth } from '@/lib/dis/auth-context';
+import { isDisAdministrator } from '@/lib/dis/permissions';
 import type { RadioMessage } from '@/lib/dis/records';
 import { useDisResource } from '@/lib/dis/use-dis-resource';
 import { getStationDisplayName } from '@/lib/station/display-name';
@@ -138,7 +139,7 @@ export function RadioDockView({
                 disabled={busy}
               />
             </label>
-            {['admin', 'dispatcher_manager'].includes(profile?.role || '') && (
+            {isDisAdministrator(profile?.role) && (
               <label>
                 <input
                   type="checkbox"

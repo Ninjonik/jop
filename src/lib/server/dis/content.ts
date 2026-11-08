@@ -1,5 +1,6 @@
 import type { UserProfile } from '@/lib/dis/appwrite-client';
 import type { DriverTrain } from '@/lib/dis/driver-train';
+import { isDisAdministrator } from '@/lib/dis/permissions';
 import type { DisDocument, RadioMessage } from '@/lib/dis/records';
 import { getStationDisplayName } from '@/lib/station/display-name';
 import { isPublicStation } from '@/lib/station/visibility';
@@ -64,8 +65,7 @@ export async function sendRadio(body: unknown, profile: UserProfile) {
   return {
     message: await disDatabase().createDocument(databaseId, 'radio_messages', ID.unique(), {
       ...payload,
-      isUrgentOrder:
-        command.isUrgentOrder && ['admin', 'dispatcher_manager'].includes(profile.role),
+      isUrgentOrder: command.isUrgentOrder && isDisAdministrator(profile.role),
       channel: 'general',
       senderId: profile.userId,
       senderName: profile.name,

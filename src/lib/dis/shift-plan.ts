@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { UserProfile } from './appwrite-client';
+import { isDisAdministrator } from './permissions';
 import type { Timetable } from './timetable';
 import { timetableSchema } from './timetable';
 
@@ -36,7 +37,7 @@ export const shiftPlanSchema = z.object({
 
 export function canAssignShiftRole(profile: UserProfile, role: ShiftAssignment['role']) {
   return (
-    profile.role === 'admin' ||
+    isDisAdministrator(profile.role) ||
     profile.role === role ||
     profile.role === `${role}_manager` ||
     profile.role === `${role}_instructor` ||

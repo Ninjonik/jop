@@ -2,6 +2,7 @@
 
 import { clearDisToken, disFetch } from '@/lib/dis/api-client';
 import { account, type UserProfile, type UserRole } from '@/lib/dis/appwrite-client';
+import { hasDisRole } from '@/lib/dis/permissions';
 import type { Models } from 'appwrite';
 import { useRouter } from 'next/navigation';
 import React, { createContext, useContext, useEffect, useState } from 'react';
@@ -75,9 +76,7 @@ export function DisAuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const hasRole = (roles: UserRole[]) => {
-    if (!profile) return false;
-    if (profile.role === 'admin') return true; // Admin has all rights
-    return roles.includes(profile.role);
+    return hasDisRole(profile?.role, roles);
   };
 
   const canManageStaff = hasRole([

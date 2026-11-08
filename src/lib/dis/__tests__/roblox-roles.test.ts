@@ -28,6 +28,7 @@ test('only explicitly mapped Roblox roles receive the intended DIS role', () => 
     ['Trainee Dispatcher', 9, 'dispatcher_trainee'],
     ['Driver Trainer', 28, 'driver_instructor'],
     ['Dispatcher Trainer', 30, 'dispatcher_instructor'],
+    ['Head Of Conductors', 199, 'admin'],
     ['Head Of Drivers', 201, 'driver_manager'],
     ['Head Of Dispatchers', 203, 'dispatcher_manager'],
     ['Contributor', 235, 'admin'],
@@ -42,6 +43,7 @@ test('only explicitly mapped Roblox roles receive the intended DIS role', () => 
     ['Other Staff', 18],
     ['Driver', 255],
     ['Unknown', 255],
+    ['Head Of Conductors', 198],
     ['Contributor', 234],
     ['Contributor', 250],
   ] as const)

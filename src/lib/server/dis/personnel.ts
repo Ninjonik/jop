@@ -1,10 +1,10 @@
 import type { UserProfile } from '@/lib/dis/appwrite-client';
-import type { PlannedShift } from '@/lib/dis/shift-plan';
+import { canAssignShiftRole, type PlannedShift } from '@/lib/dis/shift-plan';
 import { clockMinutes, clockSchema, formatMinute } from '@/lib/dis/timetable';
 import { ID, Query, type Models } from 'node-appwrite';
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
-import { databaseId, disDatabase, DisError, dispatchers, listDocuments } from './appwrite';
+import { databaseId, disDatabase, DisError, listDocuments } from './appwrite';
 import { readShiftPlan } from './shift-planning';
 
 type StoredShift = Models.Document & Omit<PlannedShift, 'plan'> & { planJson?: string };
@@ -73,11 +73,7 @@ export async function registerShift(body: unknown, profile: UserProfile) {
       assignedLocation: z.string().trim().min(1).max(64),
     })
     .parse(body);
-  const allowedRoles =
-    command.assignedRole === 'dispatcher'
-      ? dispatchers
-      : ['driver_manager', 'driver_instructor', 'driver', 'driver_trainee'];
-  if (profile.role !== 'admin' && !allowedRoles.includes(profile.role))
+  if (!canAssignShiftRole(profile, command.assignedRole))
     throw new DisError(403, 'Na túto pracovnú rolu nemáte oprávnenie.');
   const shift = await disDatabase().getDocument(databaseId, 'shifts', command.shiftId);
   if (shift.status !== 'open') throw new DisError(409, 'Prihlasovanie na zmenu je uzavreté.');
