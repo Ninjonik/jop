@@ -1,4 +1,5 @@
 'use client';
+import { useLocaleTag, useTranslation } from '@/lib/i18n/client';
 
 import { useId, useState } from 'react';
 
@@ -24,14 +25,16 @@ export function AeroAutocomplete({
   disabled?: boolean;
   placement?: 'up' | 'down';
 }) {
+  const t = useTranslation();
+  const localeTag = useLocaleTag();
   const listId = useId();
   const [search, setSearch] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(-1);
   const matches = options.filter((option) =>
     `${option.label} ${option.description || ''}`
-      .toLocaleLowerCase('sk')
-      .includes((search || '').toLocaleLowerCase('sk')),
+      .toLocaleLowerCase(localeTag)
+      .includes((search || '').toLocaleLowerCase(localeTag)),
   );
   function select(option: AutocompleteOption) {
     onSelect(option);
@@ -51,7 +54,7 @@ export function AeroAutocomplete({
         aria-activedescendant={open && matches[active] ? `${listId}-${active}` : undefined}
         autoComplete="off"
         disabled={disabled}
-        value={search ?? value}
+        value={search ?? options.find((option) => option.value === value)?.label ?? value}
         placeholder={placeholder}
         onFocus={() => setOpen(true)}
         onBlur={() => {
@@ -111,7 +114,7 @@ export function AeroAutocomplete({
               )}
             </li>
           ))}
-          {!matches.length && <li role="presentation">Žiadne zodpovedajúce možnosti.</li>}
+          {!matches.length && <li role="presentation">{t('Žiadne zodpovedajúce možnosti.')}</li>}
         </ul>
       )}
     </div>

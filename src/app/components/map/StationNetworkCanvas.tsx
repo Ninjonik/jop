@@ -1,4 +1,6 @@
 'use client';
+import { useTranslation } from '@/lib/i18n/client';
+
 import { AeroIcon } from '@/app/components/ui/AeroIcon';
 
 import type { SessionLineblockLink, StationDocument } from '@/lib/station/domain';
@@ -32,6 +34,7 @@ export default function StationNetworkCanvas({
   onSelect: (id: string) => void;
   onLineblockSelect: (endpoint: Endpoint) => void;
 }) {
+  const t = useTranslation();
   const [zoom, setZoom] = useState(1);
   const viewport = useRef<HTMLDivElement>(null);
   const network = arrangeStationNetwork(
@@ -50,16 +53,16 @@ export default function StationNetworkCanvas({
   return (
     <section className="min-w-0 flex flex-col">
       <div className="flex flex-wrap items-center gap-2 border-b border-[var(--aero-panel-border)] p-2">
-        <strong className="mr-auto">Prehľad siete</strong>
+        <strong className="mr-auto">{t('Prehľad siete')}</strong>
         <button
           className="aero-btn"
           disabled={zoom <= 0.4}
           onClick={() => setZoom((value) => Math.max(0.4, value - 0.2))}
-          aria-label="Oddialiť"
+          aria-label={t('Oddialiť')}
         >
           <AeroIcon name="zoomOut" />−
         </button>
-        <button className="aero-btn" onClick={() => setZoom(1)} aria-label="Obnoviť veľkosť">
+        <button className="aero-btn" onClick={() => setZoom(1)} aria-label={t('Obnoviť veľkosť')}>
           <AeroIcon name="zoomReset" />
           {Math.round(zoom * 100)} %
         </button>
@@ -67,27 +70,28 @@ export default function StationNetworkCanvas({
           className="aero-btn"
           disabled={zoom >= 1.6}
           onClick={() => setZoom((value) => Math.min(1.6, value + 0.2))}
-          aria-label="Priblížiť"
+          aria-label={t('Priblížiť')}
         >
           <AeroIcon name="zoomIn" />+
         </button>
         <button className="aero-btn" disabled={!selectedStationId} onClick={focusSelected}>
-          <AeroIcon name="search" />
-          Nájsť vybranú stanicu
+          <AeroIcon name="search" /> {t('Nájsť vybranú stanicu')}{' '}
         </button>
       </div>
       <p className="border-b border-[var(--aero-panel-border)] px-3 py-2 text-[var(--aero-text-muted)]">
-        Posúvajte prehľad do strán aj nadol. Kliknite na traťový súhlas v jednej stanici a potom v
-        druhej, aby ste ich prepojili.
+        {' '}
+        {t(
+          'Posúvajte prehľad do strán aj nadol. Kliknite na traťový súhlas v jednej stanici a potom v druhej, aby ste ich prepojili.',
+        )}{' '}
       </p>
       <div
         ref={viewport}
         tabIndex={0}
-        aria-label="Posúvateľná sieť staníc"
+        aria-label={t('Posúvateľná sieť staníc')}
         className="h-[65vh] min-h-96 overflow-auto bg-[var(--grid-row-alt)]"
       >
         {!stations.length ? (
-          <p className="p-6">Pridajte prvú stanicu pomocou formulára vľavo.</p>
+          <p className="p-6">{t('Pridajte prvú stanicu pomocou formulára vľavo.')}</p>
         ) : (
           <div style={{ width: network.width * zoom, height: network.height * zoom }}>
             <div
@@ -100,7 +104,7 @@ export default function StationNetworkCanvas({
                   className="absolute left-6 font-semibold"
                   style={{ top: section.y }}
                 >
-                  {section.label === 'waiting' ? 'Čakajú na pripojenie' : 'Prepojené stanice'}
+                  {section.label === 'waiting' ? t('Čakajú na pripojenie') : t('Prepojené stanice')}
                 </h3>
               ))}
               <svg
@@ -171,8 +175,7 @@ export default function StationNetworkCanvas({
                         className="aero-btn"
                         href={`/editor?sessionId=${encodeURIComponent(sessionId)}&stationId=${encodeURIComponent(station.stationId)}`}
                       >
-                        <AeroIcon name="edit" />
-                        Upraviť koľajisko
+                        <AeroIcon name="edit" /> {t('Upraviť koľajisko')}{' '}
                       </Link>
                     </div>
                     <StationTopologyBoard
@@ -184,8 +187,8 @@ export default function StationNetworkCanvas({
                     />
                     <p className="px-3 py-2 text-[var(--aero-text-muted)]">
                       {neighbors.length
-                        ? `Prepojené s: ${neighbors.join(', ')}`
-                        : 'Zatiaľ nepripojená. Vyberte traťový súhlas na prepojenie.'}
+                        ? t('Prepojené s: {0}', neighbors.join(', '))
+                        : t('Zatiaľ nepripojená. Vyberte traťový súhlas na prepojenie.')}
                     </p>
                   </article>
                 );

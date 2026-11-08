@@ -12,6 +12,7 @@
     "dis:setup": "node --env-file=.env.local --import tsx scripts/init-appwrite.ts",
     "dis:secure": "node --env-file=.env.local --import tsx scripts/secure-dis-appwrite.ts",
     "test:dis": "node --import tsx --test src/lib/dis/__tests__/*.test.ts",
+    "test:i18n": "node scripts/check-i18n.mjs && node --import tsx --test src/lib/i18n/translate.test.ts",
     "test:dis:services": "node --env-file=.env.local --import tsx scripts/verify-dis-services.ts",
     "test:dis:http": "node --env-file=.env.local --import tsx scripts/verify-dis.ts"
   },

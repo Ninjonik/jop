@@ -1,12 +1,13 @@
 'use client';
+import { useTranslation } from '@/lib/i18n/client';
 
-import React, { useState } from 'react';
 import type {
   StateGroupRegistry,
   TextConfig,
   TileCatalog,
   TraversableStateKey,
 } from '@/app/components/tiles/tile-catalog';
+import { useState } from 'react';
 
 import TileCatalogTileCard from './TileCatalogTileCard';
 
@@ -21,6 +22,7 @@ export default function TileCatalogViewerClient({
   stateGroups,
   tileSize = 75,
 }: ClientProps) {
+  const t = useTranslation();
   const [groupSelections, setGroupSelections] = useState<
     Record<string, Record<string, { state: string; variant: string }>>
   >({});
@@ -36,7 +38,7 @@ export default function TileCatalogViewerClient({
 
   const handleInitializeSelections = (
     tileKey: string,
-    selections: Record<string, { state: string; variant: string }>
+    selections: Record<string, { state: string; variant: string }>,
   ) => {
     setGroupSelections((prev) => {
       if (prev[tileKey] && Object.keys(prev[tileKey]).length > 0) {
@@ -50,11 +52,7 @@ export default function TileCatalogViewerClient({
     });
   };
 
-  const handleGroupStateChange = (
-    tileKey: string,
-    groupKey: string,
-    state: string
-  ) => {
+  const handleGroupStateChange = (tileKey: string, groupKey: string, state: string) => {
     setGroupSelections((prev) => {
       const tileSelections = prev[tileKey] || {};
       const current = tileSelections[groupKey] || { state: '', variant: '' };
@@ -75,11 +73,7 @@ export default function TileCatalogViewerClient({
     });
   };
 
-  const handleGroupVariantChange = (
-    tileKey: string,
-    groupKey: string,
-    variant: string
-  ) => {
+  const handleGroupVariantChange = (tileKey: string, groupKey: string, variant: string) => {
     setGroupSelections((prev) => {
       const tileSelections = prev[tileKey] || {};
       const current = tileSelections[groupKey] || { state: '', variant: '' };
@@ -108,7 +102,7 @@ export default function TileCatalogViewerClient({
     tileKey: string,
     textKey: string,
     field: keyof TextConfig,
-    value: string
+    value: string,
   ) => {
     setTextOverrides((prev) => ({
       ...prev,
@@ -125,7 +119,7 @@ export default function TileCatalogViewerClient({
   if (!tiles || Object.keys(tiles).length === 0) {
     return (
       <div className="flex flex-col items-center justify-center p-12 text-slate-400">
-        <p className="text-lg">No tiles found in catalog.</p>
+        <p className="text-lg">{t('No tiles found in catalog.')}</p>
       </div>
     );
   }
@@ -174,10 +168,10 @@ export default function TileCatalogViewerClient({
               <line x1="2" y1="2" x2="22" y2="22" />
             </svg>
           )}
-          {showBounds ? 'Bounds: ON' : 'Bounds: OFF'}
+          {showBounds ? t('Bounds: ON') : t('Bounds: OFF')}
         </button>
         <div className="text-sm text-slate-400">
-          Toggle visual overlays for occupied spaces and geometry
+          {t('Toggle visual overlays for occupied spaces and geometry')}
         </div>
       </div>
 
@@ -200,7 +194,7 @@ export default function TileCatalogViewerClient({
               onTraversableChange={handleTraversableChange}
               onTextOverride={handleTextOverride}
             />
-          ) : null
+          ) : null,
         )}
       </div>
     </div>

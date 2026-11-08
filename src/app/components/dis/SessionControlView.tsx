@@ -1,4 +1,6 @@
 'use client';
+import { useTranslation } from '@/lib/i18n/client';
+
 import { AeroIcon } from '@/app/components/ui/AeroIcon';
 
 import type { LiveRobloxSessionSummary } from '@/lib/station/domain';
@@ -13,6 +15,7 @@ export function SessionControlView({
   placeId: string;
   canLaunchSimulator?: boolean;
 }) {
+  const t = useTranslation();
   const [liveSessions, setLiveSessions] = useState<LiveRobloxSessionSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -51,11 +54,13 @@ export function SessionControlView({
       <div className="h-8 bg-[var(--aero-ribbon-bg)] border-b border-[var(--aero-ribbon-border)] px-3 flex items-center justify-between text-xs">
         <div className="flex items-center space-x-2">
           <span className="font-semibold text-[var(--aero-text)]">
-            Správa Prevádzkových Session (JOP & Roblox Bridge)
+            {' '}
+            {t('Správa Prevádzkových Session (JOP & Roblox Bridge)')}{' '}
           </span>
           <span className="text-[var(--aero-text-muted)]">|</span>
           <span className="text-[11px] text-[var(--aero-text-muted)]">
-            Aktívne simulácie a prepojenia staníc riadené priamo z DIS rozhrania.
+            {' '}
+            {t('Aktívne simulácie a prepojenia staníc riadené priamo z DIS rozhrania.')}{' '}
           </span>
         </div>
 
@@ -64,7 +69,7 @@ export function SessionControlView({
           className="aero-btn text-[11px] font-semibold text-blue-700 flex items-center space-x-1"
         >
           <AeroIcon name="refresh" />
-          <span>Obnoviť session</span>
+          <span>{t('Obnoviť session')}</span>
         </button>
       </div>
 
@@ -72,23 +77,28 @@ export function SessionControlView({
         {/* Live Roblox Sessions Box */}
         <div className="border border-[var(--aero-panel-border)] rounded-[3px] bg-white shadow-xs overflow-hidden">
           <div className="h-7 bg-gradient-to-b from-[#f7f9fc] to-[#e2e8f0] border-b border-[#cbd5e1] px-3 flex items-center justify-between font-semibold text-xs text-[var(--aero-text)]">
-            <span>Živé Roblox Sessiony (Heartbeat)</span>
+            <span>{t('Živé Roblox Sessiony (Heartbeat)')}</span>
             <span className="text-[11px] font-normal text-[var(--aero-text-muted)]">
-              Automaticky detegované cez WebSocket / MessagingService
+              {' '}
+              {t('Automaticky detegované cez WebSocket / MessagingService')}{' '}
             </span>
           </div>
 
           <div className="p-3">
             {loading && liveSessions.length === 0 ? (
-              <div className="text-slate-500 py-3 text-center">Načítavam aktívne sessiony...</div>
+              <div className="text-slate-500 py-3 text-center">
+                {t('Načítavam aktívne sessiony...')}
+              </div>
             ) : error ? (
               <div className="text-red-600 p-2 bg-red-50 rounded border border-red-200">
-                {error}
+                {t(error)}
               </div>
             ) : liveSessions.length === 0 ? (
               <div className="p-4 bg-slate-50 border border-slate-200 rounded text-center text-slate-500 text-xs">
-                Momentálne nie je aktívny žiadny Roblox server. Môžete spustiť lokálnu / mock
-                session nižšie.
+                {' '}
+                {t(
+                  'Momentálne nie je aktívny žiadny Roblox server. Môžete spustiť lokálnu / mock session nižšie.',
+                )}{' '}
               </div>
             ) : (
               <div className="space-y-2">
@@ -100,11 +110,14 @@ export function SessionControlView({
                     <div>
                       <div className="font-bold text-slate-800 text-xs flex items-center space-x-1.5">
                         <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                        <span>Session ID: {s.sessionId}</span>
+                        <span>
+                          {t('Session ID:')} {s.sessionId}
+                        </span>
                       </div>
                       <div className="text-[11px] text-slate-500 mt-0.5">
-                        Posledný signál: {new Date(s.lastHeartbeatAt).toLocaleTimeString()} •
-                        Stanice v sieti: {s.stations?.length || 0}
+                        {' '}
+                        {t('Posledný signál:')} {new Date(s.lastHeartbeatAt).toLocaleTimeString()}{' '}
+                        {t('• Stanice v sieti:')} {s.stations?.length || 0}
                       </div>
                     </div>
 
@@ -119,7 +132,9 @@ export function SessionControlView({
                             className="aero-btn font-semibold text-emerald-800 bg-emerald-50 border-emerald-600 hover:bg-emerald-100 flex items-center space-x-1"
                           >
                             <AeroIcon name="play" />
-                            <span>Otvoriť stanicu: {st.stationId}</span>
+                            <span>
+                              {t('Otvoriť stanicu:')} {st.stationId}
+                            </span>
                           </button>
                         ))}
                     </div>
@@ -137,11 +152,11 @@ export function SessionControlView({
               disabled={!onLaunchRuntime}
               onClick={() => onLaunchRuntime?.('mock', '')}
             >
-              <AeroIcon name="play" />
-              Otvoriť simulátor vlakov
+              <AeroIcon name="play" /> {t('Otvoriť simulátor vlakov')}{' '}
             </button>
             <span className="text-[var(--aero-text-muted)]">
-              Vyskúšajte pohyb vlakov vo vybranej relácii.
+              {' '}
+              {t('Vyskúšajte pohyb vlakov vo vybranej relácii.')}{' '}
             </span>
           </div>
         )}

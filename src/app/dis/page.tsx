@@ -1,4 +1,6 @@
 'use client';
+import { LanguageSelector, useLocaleTag, useTranslation } from '@/lib/i18n/client';
+
 import { DocumentCenterView } from '@/app/components/dis/DocumentCenterView';
 import { DriverDashboardView } from '@/app/components/dis/DriverDashboardView';
 import { EddTableView } from '@/app/components/dis/EddTableView';
@@ -63,6 +65,8 @@ type Place = {
 };
 type Places = { defaultPlaceId: string; placesComplete: boolean; places: Place[] };
 function DisPortalShell() {
+  const t = useTranslation();
+  const localeTag = useLocaleTag();
   const {
     user,
     profile,
@@ -135,7 +139,7 @@ function DisPortalShell() {
   const scopeKey = `${current.sessionId}/${current.stationId}`;
   const sessions = network.sessions.filter((session) => {
     const date = session.createdAt ? new Date(session.createdAt) : null;
-    const dateLabel = date && !Number.isNaN(date.getTime()) ? date.toLocaleString('sk-SK') : '';
+    const dateLabel = date && !Number.isNaN(date.getTime()) ? date.toLocaleString(localeTag) : '';
     return `${session.sessionId} ${dateLabel} ${session.createdAt || ''}`
       .toLocaleLowerCase()
       .includes(sessionSearch.toLocaleLowerCase());
@@ -144,9 +148,9 @@ function DisPortalShell() {
     if (!loading && !user) router.replace('/dis/login');
   }, [loading, user, router]);
   useEffect(() => {
-    const timer = setInterval(() => setClock(new Date().toLocaleTimeString('sk-SK')), 1000);
+    const timer = setInterval(() => setClock(new Date().toLocaleTimeString(localeTag)), 1000);
     return () => clearInterval(timer);
-  }, []);
+  }, [localeTag]);
   function openTab(next: Tab) {
     setTool(null);
     setTab(next);
@@ -211,11 +215,13 @@ function DisPortalShell() {
     setScope({ sessionId: target, stationId });
     openTab('runtime');
   }
-  if (loading || !user) return <div className="p-6">Overujem prihlásenie...</div>;
+  if (loading || !user) return <div className="p-6">{t('Overujem prihlásenie...')}</div>;
   if (!profile)
     return (
       <div className="p-6">
-        Profil nie je dostupný. Kontaktujte správcu. <button onClick={logout}>Odhlásiť</button>
+        {' '}
+        {t('Profil nie je dostupný. Kontaktujte správcu.')}{' '}
+        <button onClick={logout}>{t('Odhlásiť')}</button>
       </div>
     );
   const tabs: { id: Tab; title: string; visible?: boolean }[] = [
@@ -238,14 +244,14 @@ function DisPortalShell() {
       <div className="aero-title-bar">
         <div className="window-title">
           <AeroIcon name="train" size={24} />
-          <span>ZSSK DIS — Dopravný informačný systém</span>
+          <span>{t('ZSSK DIS — Dopravný informačný systém')}</span>
         </div>
         <span>
           {profile.name} ({profile.callsign})
         </span>
       </div>
-      <nav className="menubar flex-wrap" aria-label="Moduly DIS">
-        <span className="menu-group-label">Relácia</span>
+      <nav className="menubar flex-wrap" aria-label={t('Moduly DIS')}>
+        <span className="menu-group-label">{t('Relácia')}</span>
         {tabs
           .filter((item) => item.visible !== false)
           .filter((item) =>
@@ -258,10 +264,10 @@ function DisPortalShell() {
               disabled={!selectedPlace}
               onClick={() => openTab(item.id)}
             >
-              <AeroIcon name={tabIcons[item.id]} /> {item.title}
+              <AeroIcon name={tabIcons[item.id]} /> {t(item.title)}
             </button>
           ))}
-        <span className="menu-group-label">Všeobecné</span>
+        <span className="menu-group-label">{t('Všeobecné')}</span>
         {tabs
           .filter(
             (item) =>
@@ -275,10 +281,11 @@ function DisPortalShell() {
               disabled={item.id !== 'preparation' && !selectedPlace}
               onClick={() => openTab(item.id)}
             >
-              <AeroIcon name={tabIcons[item.id]} /> {item.title}
+              <AeroIcon name={tabIcons[item.id]} /> {t(item.title)}
             </button>
           ))}
         <div className="ml-auto flex gap-2">
+          <LanguageSelector />
           <button
             className="aero-btn"
             onClick={() => {
@@ -287,20 +294,20 @@ function DisPortalShell() {
             }}
           >
             <AeroIcon name={dark ? 'sun' : 'moon'} />
-            {dark ? 'Svetlý motív' : 'Tmavý motív'}
+            {dark ? t('Svetlý motív') : t('Tmavý motív')}
           </button>
           <button className="aero-btn" onClick={logout}>
-            <AeroIcon name="logout" />
-            Odhlásiť
+            <AeroIcon name="logout" /> {t('Odhlásiť')}{' '}
           </button>
         </div>
       </nav>
       {activeTab !== 'preparation' && !tool && (
         <div className="ribbon-bar flex-wrap">
           <label>
-            Sieť{' '}
+            {' '}
+            {t('Sieť')}{' '}
             <select
-              aria-label="Sieť"
+              aria-label={t('Sieť')}
               className="aero-select max-w-80"
               value={placeId}
               disabled={placesLoading && !places.places.length}
@@ -312,7 +319,7 @@ function DisPortalShell() {
                 setSessionSearch('');
               }}
             >
-              <option value="">Vybrať sieť</option>
+              <option value="">{t('Vybrať sieť')}</option>
               {places.places.map((place) => (
                 <option key={place.placeId} value={place.placeId}>
                   {place.name}
@@ -323,9 +330,10 @@ function DisPortalShell() {
           {selectedPlace && (
             <>
               <label>
-                Relácia{' '}
+                {' '}
+                {t('Relácia')}{' '}
                 <select
-                  aria-label="Aktívna relácia"
+                  aria-label={t('Aktívna relácia')}
                   className="aero-select max-w-80"
                   disabled={!selectedPlace}
                   value={current.sessionId}
@@ -339,13 +347,13 @@ function DisPortalShell() {
                     });
                   }}
                 >
-                  <option value="">Vybrať reláciu</option>
+                  <option value="">{t('Vybrať reláciu')}</option>
                   {sessions.map((session) => (
                     <option key={session.sessionId} value={session.sessionId}>
                       {session.isLive ? '● ' : ''}
                       {session.createdAt
-                        ? new Date(session.createdAt).toLocaleString('sk-SK')
-                        : 'Dátum neznámy'}{' '}
+                        ? new Date(session.createdAt).toLocaleString(localeTag)
+                        : t('Dátum neznámy')}{' '}
                       — {session.sessionId}
                     </option>
                   ))}
@@ -360,23 +368,24 @@ function DisPortalShell() {
                   if (showMore) setScope(null);
                 }}
               >
-                {showMore ? 'Len živé' : 'Zobraziť ďalšie'}
+                {showMore ? t('Len živé') : t('Zobraziť ďalšie')}
               </button>
               {showMore && (
                 <input
                   className="aero-input"
                   disabled={!selectedPlace}
-                  aria-label="Hľadať reláciu podľa dátumu alebo ID"
-                  placeholder="Hľadať dátum alebo ID"
+                  aria-label={t('Hľadať reláciu podľa dátumu alebo ID')}
+                  placeholder={t('Hľadať dátum alebo ID')}
                   value={sessionSearch}
                   onChange={(event) => setSessionSearch(event.target.value)}
                 />
               )}
               {hasSession && sessionStations.length > 0 && (
                 <label>
-                  Stanica{' '}
+                  {' '}
+                  {t('Stanica')}{' '}
                   <select
-                    aria-label="Aktívna stanica"
+                    aria-label={t('Aktívna stanica')}
                     className="aero-select"
                     disabled={!selectedPlace || !current.sessionId}
                     value={current.stationId}
@@ -384,7 +393,7 @@ function DisPortalShell() {
                       setScope({ sessionId: current.sessionId, stationId: event.target.value })
                     }
                   >
-                    <option value="">Vybrať stanicu</option>
+                    <option value="">{t('Vybrať stanicu')}</option>
                     {sessionStations.map((station) => (
                       <option key={station.stationId} value={station.stationId}>
                         {station.name}
@@ -397,19 +406,21 @@ function DisPortalShell() {
           )}
         </div>
       )}
-      {activeTab !== 'preparation' && placesError && (
+      {activeTab !== 'preparation' && t(placesError) && (
         <p role="alert" className="p-2 text-red-700">
-          Siete sa nepodarilo načítať: {placesError}
+          {' '}
+          {t('Siete sa nepodarilo načítať:')} {t(placesError)}
         </p>
       )}
       {activeTab !== 'preparation' && !places.placesComplete && (
         <p role="status" className="p-2">
-          Roblox nie je dostupný; zobrazené sú uložené siete.
+          {' '}
+          {t('Roblox nie je dostupný; zobrazené sú uložené siete.')}{' '}
         </p>
       )}
-      {activeTab !== 'preparation' && networkError && (
+      {activeTab !== 'preparation' && t(networkError) && (
         <p role="alert" className="p-2 text-red-700">
-          {networkError}
+          {t(networkError)}
         </p>
       )}
       <div className="workspace min-h-0">
@@ -421,10 +432,12 @@ function DisPortalShell() {
               onClick={() => setStationsCollapsed((collapsed) => !collapsed)}
               aria-expanded={!stationsCollapsed}
               aria-controls="session-station-selector"
-              aria-label={stationsCollapsed ? 'Rozbaliť výber stanice' : 'Zbaliť výber stanice'}
-              title={stationsCollapsed ? 'Rozbaliť výber stanice' : 'Zbaliť výber stanice'}
+              aria-label={
+                stationsCollapsed ? t('Rozbaliť výber stanice') : t('Zbaliť výber stanice')
+              }
+              title={stationsCollapsed ? t('Rozbaliť výber stanice') : t('Zbaliť výber stanice')}
             >
-              {!stationsCollapsed && <span>Stanice vybranej relácie</span>}
+              {!stationsCollapsed && <span>{t('Stanice vybranej relácie')}</span>}
               <AeroIcon name={stationsCollapsed ? 'expand' : 'collapse'} />
             </button>
             <div id="session-station-selector" className="tree-content" hidden={stationsCollapsed}>
@@ -437,7 +450,7 @@ function DisPortalShell() {
                   {station.name}
                 </button>
               ))}
-              {!network.stations.length && <p className="p-2">Žiadne aktívne stanice.</p>}
+              {!network.stations.length && <p className="p-2">{t('Žiadne aktívne stanice.')}</p>}
             </div>
           </aside>
         )}
@@ -447,7 +460,7 @@ function DisPortalShell() {
           ) : activeTab === 'preparation' ? (
             <NetworkPreparationView onOpenTool={(target) => launch(target, '')} />
           ) : !selectedPlace ? (
-            <p className="p-4">Najprv vyberte sieť.</p>
+            <p className="p-4">{t('Najprv vyberte sieť.')}</p>
           ) : (
             <>
               {activeTab === 'sessions' && (
@@ -476,14 +489,16 @@ function DisPortalShell() {
               )}
               {!current.sessionId &&
                 ['runtime', 'edd', 'tpv', 'mock', 'recovery'].includes(activeTab) && (
-                  <p className="p-4">Najprv vyberte reláciu pre vybranú sieť.</p>
+                  <p className="p-4">{t('Najprv vyberte reláciu pre vybranú sieť.')}</p>
                 )}
               {activeTab === 'runtime' &&
                 current.sessionId &&
                 (current.sessionId && current.stationId && canOperateStation ? (
                   <RuntimeStationClient key={scopeKey} {...current} embedded />
                 ) : (
-                  <p className="p-4">Vyberte stanicu. Staničný pult je určený pre výpravcov.</p>
+                  <p className="p-4">
+                    {t('Vyberte stanicu. Staničný pult je určený pre výpravcov.')}
+                  </p>
                 ))}
               {activeTab === 'edd' && current.sessionId && (
                 <div className="flex flex-1 flex-col overflow-hidden">
@@ -518,7 +533,7 @@ function DisPortalShell() {
               )}
               {activeTab === 'mock' && current.sessionId && canOperateStation && (
                 <div className="dis-simulator flex-1 overflow-auto p-3">
-                  <Suspense fallback={<p>Načítavam simulátor...</p>}>
+                  <Suspense fallback={<p> {t('Načítavam simulátor...')} </p>}>
                     <MockControlClient
                       key={current.sessionId}
                       onSessionChange={(sessionId) =>
@@ -556,16 +571,19 @@ function DisPortalShell() {
           href="https://www.fatcow.com/free-icons"
           target="_blank"
           rel="noopener noreferrer"
-          title="Farm-Fresh icons © FatCow Web Hosting · CC BY 3.0"
+          title={t('Farm-Fresh icons © FatCow Web Hosting · CC BY 3.0')}
         >
-          Ikony: FatCow
+          {' '}
+          {t('Ikony: FatCow')}{' '}
         </a>
-        <span className="status-item">{profile.role}</span>
+        <span className="status-item">{t(profile.role)}</span>
         {hasStation && (
-          <span className="status-item">Stanica: {current.stationId || 'nevybraná'}</span>
+          <span className="status-item">
+            {t('Stanica:')} {current.stationId || t('nevybraná')}
+          </span>
         )}
         <span className="status-item">
-          {networkError ? 'Chyba načítania siete' : `Stanice: ${network.stations.length}`}
+          {networkError ? t('Chyba načítania siete') : t('Stanice: {0}', network.stations.length)}
         </span>
         <span className="status-clock">{clock}</span>
       </div>

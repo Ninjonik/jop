@@ -1,4 +1,6 @@
 'use client';
+import { useLocaleTag, useTranslation } from '@/lib/i18n/client';
+
 import { isPublicStation } from '@/lib/station/visibility';
 
 import Link from 'next/link';
@@ -10,19 +12,21 @@ function encodeSegment(value: string) {
   return encodeURIComponent(value.trim());
 }
 
-function formatHeartbeat(timestamp: string) {
+function formatHeartbeat(timestamp: string, localeTag: string) {
   const date = new Date(timestamp);
   if (Number.isNaN(date.getTime())) {
     return timestamp;
   }
 
-  return new Intl.DateTimeFormat(undefined, {
+  return new Intl.DateTimeFormat(localeTag, {
     dateStyle: 'medium',
     timeStyle: 'medium',
   }).format(date);
 }
 
 export default function SessionEntryForm() {
+  const t = useTranslation();
+  const localeTag = useLocaleTag();
   const [sessionId, setSessionId] = useState('');
   const [stationId, setStationId] = useState('');
   const [liveSessions, setLiveSessions] = useState<LiveRobloxSessionSummary[]>([]);
@@ -80,10 +84,12 @@ export default function SessionEntryForm() {
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
               <p className="text-sm uppercase tracking-[0.3em] text-amber-400">
-                Railway Control Panel
+                {' '}
+                {t('Railway Control Panel')}{' '}
               </p>
               <h1 className="text-4xl font-semibold tracking-tight">
-                Open a runtime station session
+                {' '}
+                {t('Open a runtime station session')}{' '}
               </h1>
             </div>
             <Link
@@ -91,23 +97,29 @@ export default function SessionEntryForm() {
               className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white shadow-lg transition hover:bg-blue-500"
             >
               <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse"></span>
-              <span>Vstúpiť do DIS & Intranetu (ZSSK)</span>
+              <span>{t('Vstúpiť do DIS & Intranetu (ZSSK)')}</span>
               <span>&rarr;</span>
             </Link>
           </div>
           <p className="max-w-3xl text-sm text-neutral-400">
-            Roblox sessions now publish liveness to the backend. Pick a live session and station
-            below, or fall back to manual entry when you need a direct runtime URL.
+            {' '}
+            {t(
+              'Roblox sessions now publish liveness to the backend. Pick a live session and station below, or fall back to manual entry when you need a direct runtime URL.',
+            )}{' '}
           </p>
         </header>
 
         <section className="rounded-3xl border border-neutral-800 bg-neutral-900/80 p-6">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <h2 className="text-xl font-semibold text-neutral-100">Live Roblox Sessions</h2>
+              <h2 className="text-xl font-semibold text-neutral-100">
+                {t('Live Roblox Sessions')}
+              </h2>
               <p className="text-sm text-neutral-400">
-                Sessions disappear automatically when the bridge misses heartbeats for more than one
-                minute.
+                {' '}
+                {t(
+                  'Sessions disappear automatically when the bridge misses heartbeats for more than one minute.',
+                )}{' '}
               </p>
             </div>
             <button
@@ -138,26 +150,29 @@ export default function SessionEntryForm() {
               }}
               className="rounded-full border border-neutral-700 px-4 py-2 text-sm font-medium text-neutral-200 transition hover:border-neutral-500 hover:bg-neutral-800"
             >
-              Refresh
+              {' '}
+              {t('Refresh')}{' '}
             </button>
           </div>
 
           <div className="mt-6 space-y-4">
             {loading ? (
               <div className="rounded-2xl border border-neutral-800 bg-neutral-950/70 p-4 text-sm text-neutral-400">
-                Loading live sessions...
+                {' '}
+                {t('Loading live sessions...')}{' '}
               </div>
             ) : null}
 
             {!loading && error ? (
               <div className="rounded-2xl border border-red-900/60 bg-red-950/40 p-4 text-sm text-red-200">
-                {error}
+                {t(error)}
               </div>
             ) : null}
 
             {!loading && !error && liveSessions.length === 0 ? (
               <div className="rounded-2xl border border-neutral-800 bg-neutral-950/70 p-4 text-sm text-neutral-400">
-                No live Roblox sessions are currently reporting heartbeats.
+                {' '}
+                {t('No live Roblox sessions are currently reporting heartbeats.')}{' '}
               </div>
             ) : null}
 
@@ -174,14 +189,18 @@ export default function SessionEntryForm() {
                             {session.sessionId}
                           </h3>
                           <span className="rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-medium uppercase tracking-[0.2em] text-emerald-300">
-                            Live
+                            {' '}
+                            {t('Live')}{' '}
                           </span>
                         </div>
                         <p className="text-sm text-neutral-400">
-                          PlaceId {session.placeId} • Server {session.serverId}
+                          {' '}
+                          {t('PlaceId')} {session.placeId} {t('• Server')} {session.serverId}
                         </p>
                         <p className="text-xs text-neutral-500">
-                          Last heartbeat {formatHeartbeat(session.lastHeartbeatAt)}
+                          {' '}
+                          {t('Last heartbeat')}{' '}
+                          {formatHeartbeat(session.lastHeartbeatAt, localeTag)}
                         </p>
                       </div>
                     </div>
@@ -191,7 +210,8 @@ export default function SessionEntryForm() {
                         href={`/admin/${encodeSegment(session.sessionId)}`}
                         className="rounded-full border border-red-700/70 px-4 py-2 text-sm font-medium text-red-200 transition hover:bg-red-950/50"
                       >
-                        Admin Console
+                        {' '}
+                        {t('Admin Console')}{' '}
                       </Link>
                       {session.stations
                         .filter((station) => isPublicStation(station.stationId))
@@ -213,7 +233,7 @@ export default function SessionEntryForm() {
 
         <section className="grid gap-6 rounded-3xl border border-neutral-800 bg-neutral-900/80 p-6 md:grid-cols-2">
           <label className="flex flex-col gap-2 text-sm">
-            <span className="text-neutral-300">Session ID</span>
+            <span className="text-neutral-300">{t('Session ID')}</span>
             <input
               value={sessionId}
               onChange={(event) => setSessionId(event.target.value)}
@@ -223,7 +243,7 @@ export default function SessionEntryForm() {
           </label>
 
           <label className="flex flex-col gap-2 text-sm">
-            <span className="text-neutral-300">Station ID</span>
+            <span className="text-neutral-300">{t('Station ID')}</span>
             <input
               value={stationId}
               onChange={(event) => setStationId(event.target.value)}
@@ -242,31 +262,36 @@ export default function SessionEntryForm() {
                   : 'cursor-not-allowed bg-neutral-800 text-neutral-500'
               }`}
             >
-              Open Runtime
+              {' '}
+              {t('Open Runtime')}{' '}
             </Link>
             <Link
               href="/editor"
               className="rounded-full border border-neutral-700 px-5 py-3 text-sm font-medium text-neutral-200 transition hover:border-neutral-500 hover:bg-neutral-800"
             >
-              Open Editor
+              {' '}
+              {t('Open Editor')}{' '}
             </Link>
             <Link
               href="/map"
               className="rounded-full border border-neutral-700 px-5 py-3 text-sm font-medium text-neutral-200 transition hover:border-neutral-500 hover:bg-neutral-800"
             >
-              Open Map
+              {' '}
+              {t('Open Map')}{' '}
             </Link>
             <Link
               href="/mock"
               className="rounded-full border border-neutral-700 px-5 py-3 text-sm font-medium text-neutral-200 transition hover:border-neutral-500 hover:bg-neutral-800"
             >
-              Open Mock Mode
+              {' '}
+              {t('Open Mock Mode')}{' '}
             </Link>
             <Link
               href="/test/bounds"
               className="rounded-full border border-neutral-700 px-5 py-3 text-sm font-medium text-neutral-200 transition hover:border-neutral-500 hover:bg-neutral-800"
             >
-              Tile Inspector
+              {' '}
+              {t('Tile Inspector')}{' '}
             </Link>
           </div>
         </section>

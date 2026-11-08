@@ -1,4 +1,6 @@
 'use client';
+import { useLocaleTag, useTranslation } from '@/lib/i18n/client';
+
 import { AeroIcon } from '@/app/components/ui/AeroIcon';
 
 import { disFetch } from '@/lib/dis/api-client';
@@ -90,6 +92,8 @@ export function MarkdownEditor({
   disabled: boolean;
   onUploadingChange: (busy: boolean) => void;
 }) {
+  const t = useTranslation();
+  const localeTag = useLocaleTag();
   const textarea = useRef<HTMLTextAreaElement>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const uploadLock = useRef(false);
@@ -107,7 +111,7 @@ export function MarkdownEditor({
       const lineEnd = value.indexOf('\n', end);
       end = lineEnd < 0 ? value.length : lineEnd;
     }
-    const text = value.slice(start, end) || sample;
+    const text = value.slice(start, end) || t(sample);
     const replacement = linePrefix
       ? text
           .split('\n')
@@ -163,7 +167,7 @@ export function MarkdownEditor({
   return (
     <section
       className="flex min-h-80 flex-1 flex-col border border-[var(--aero-panel-border)]"
-      aria-label="Editor dokumentu"
+      aria-label={t('Editor dokumentu')}
       onDragOver={(event) => {
         if (event.dataTransfer.types.includes('Files')) {
           event.preventDefault();
@@ -189,14 +193,14 @@ export function MarkdownEditor({
             key={tool.label}
             type="button"
             className="aero-btn"
-            title={tool.label}
-            aria-label={tool.label}
+            title={t(tool.label)}
+            aria-label={t(tool.label)}
             disabled={busy}
             onMouseDown={(event) => event.preventDefault()}
             onClick={() => insert(tool.before, tool.after, tool.sample)}
           >
             <AeroIcon name={tool.icon} />
-            {!['B', 'I', 'H', '</>'].includes(tool.text) && tool.text}
+            {!['B', 'I', 'H', '</>'].includes(tool.text) && t(tool.text)}
           </button>
         ))}
         <button
@@ -205,13 +209,12 @@ export function MarkdownEditor({
           disabled={busy}
           onClick={() => fileInput.current?.click()}
         >
-          <AeroIcon name="attach" />
-          Pridať obrázok alebo súbor…
+          <AeroIcon name="attach" /> {t('Pridať obrázok alebo súbor…')}{' '}
         </button>
       </div>
       <div
         className="flex flex-wrap gap-1 border-b border-[var(--aero-panel-border)] bg-[var(--aero-menubar-bg)] p-2"
-        aria-label="Zobrazenie editora"
+        aria-label={t('Zobrazenie editora')}
       >
         {(
           [
@@ -228,42 +231,44 @@ export function MarkdownEditor({
             onClick={() => setMode(id)}
           >
             <AeroIcon name={id === 'write' ? 'edit' : id === 'split' ? 'split' : 'preview'} />
-            {title}
+            {t(title)}
           </button>
         ))}
         <span className="ml-auto self-center text-[var(--aero-text-muted)]">
-          {value.length.toLocaleString('sk-SK')} / 50 000
+          {value.length.toLocaleString(localeTag)} / 50 000
         </span>
       </div>
       {error && (
         <p role="alert" className="border-b border-red-200 bg-red-50 p-2 text-red-700">
-          {error}
+          {t(error)}
         </p>
       )}
-      {uploading && (
+      {t(uploading) && (
         <p role="status" className="p-2">
-          {uploading}
+          {t(uploading)}
         </p>
       )}
       {dragging && (
         <div className="border-2 border-dashed border-[var(--btn-hover-border)] bg-[var(--grid-row-selected-top)] p-4 text-center">
-          Pustite súbory sem
+          {' '}
+          {t('Pustite súbory sem')}{' '}
         </div>
       )}
       <div className={`grid min-h-80 flex-1 ${mode === 'split' ? 'lg:grid-cols-2' : ''}`}>
         {mode !== 'preview' && (
           <label className="flex min-w-0 flex-col">
             <span className="border-b border-[var(--grid-row-border)] px-3 py-1 text-[var(--aero-text-muted)]">
-              Text dokumentu (Markdown)
+              {' '}
+              {t('Text dokumentu (Markdown)')}{' '}
             </span>
             <textarea
               ref={textarea}
-              aria-label="Obsah dokumentu v Markdown"
+              aria-label={t('Obsah dokumentu v Markdown')}
               className="min-h-80 w-full flex-1 resize-y bg-[var(--aero-panel-bg)] p-3 font-mono text-sm leading-6 text-[var(--aero-text)] outline-none focus:ring-1 focus:ring-inset focus:ring-[var(--btn-hover-border)]"
               maxLength={50000}
               value={value}
               disabled={busy}
-              placeholder="Napíšte text dokumentu. Formátovanie pridáte tlačidlami vyššie…"
+              placeholder={t('Napíšte text dokumentu. Formátovanie pridáte tlačidlami vyššie…')}
               onChange={(event) => onChange(event.target.value)}
               onPaste={(event) => {
                 const files = Array.from(event.clipboardData.files);
@@ -289,21 +294,26 @@ export function MarkdownEditor({
         {mode !== 'write' && (
           <div className="min-w-0 border-t border-[var(--aero-panel-border)] lg:border-t-0 lg:border-l">
             <div className="border-b border-[var(--grid-row-border)] px-3 py-1 text-[var(--aero-text-muted)]">
-              Takto bude dokument vyzerať
+              {' '}
+              {t('Takto bude dokument vyzerať')}{' '}
             </div>
             <div className="max-h-[65vh] overflow-auto p-4">
               {value ? (
                 <DocumentMarkdown content={value} />
               ) : (
-                <p className="text-[var(--aero-text-muted)]">Náhľad sa zobrazí počas písania.</p>
+                <p className="text-[var(--aero-text-muted)]">
+                  {t('Náhľad sa zobrazí počas písania.')}
+                </p>
               )}
             </div>
           </div>
         )}
       </div>
       <p className="border-t border-[var(--aero-panel-border)] bg-[var(--status-bg)] px-3 py-2 text-[var(--aero-text-muted)]">
-        Súbory môžete aj pretiahnuť sem alebo vložiť obrázok zo schránky. Obrázky, PDF, Office, TXT,
-        Markdown, CSV a ZIP · najviac 10 MB na súbor.
+        {' '}
+        {t(
+          'Súbory môžete aj pretiahnuť sem alebo vložiť obrázok zo schránky. Obrázky, PDF, Office, TXT, Markdown, CSV a ZIP · najviac 10 MB na súbor.',
+        )}{' '}
       </p>
       <input
         ref={fileInput}

@@ -1,4 +1,6 @@
 'use client';
+import { useTranslation } from '@/lib/i18n/client';
+
 import { AeroIcon } from '@/app/components/ui/AeroIcon';
 
 import { useEffect, useRef, useState } from 'react';
@@ -102,6 +104,7 @@ export default function StationRuntimeBoard({
   onErrorChange,
   onLineblockSnapshots,
 }: StationRuntimeBoardProps) {
+  const t = useTranslation();
   const renderablePieces = getRenderablePieces(station.layout);
   const layout = station.layout;
   const boardViewportRef = useRef<HTMLDivElement>(null);
@@ -370,7 +373,7 @@ export default function StationRuntimeBoard({
     );
     if (pendingCancellation) {
       const confirmed = window.confirm(
-        'Cancel this route immediately? This bypasses the normal route-cancellation delay.',
+        t('Cancel this route immediately? This bypasses the normal route-cancellation delay.'),
       );
       if (confirmed) {
         void submitRouteInteract(pieceId, 'right', control, true);
@@ -515,14 +518,13 @@ export default function StationRuntimeBoard({
           onClick={() => (fitWidth ? disableFitWidth() : setFitWidth(true))}
           className="rounded border border-neutral-500 px-2 py-1 text-xs font-medium text-neutral-900 hover:bg-neutral-100"
         >
-          <AeroIcon name="zoomReset" />
-          Fit width
+          <AeroIcon name="zoomReset" /> {t('Fit width')}{' '}
         </button>
         {!fitWidth ? (
           <>
             <button
               type="button"
-              aria-label="Zoom out"
+              aria-label={t('Zoom out')}
               onClick={() => changeManualZoom(1 / 1.2)}
               className="grid size-7 place-items-center rounded border border-neutral-500 text-neutral-900 hover:bg-neutral-100"
             >
@@ -530,7 +532,7 @@ export default function StationRuntimeBoard({
             </button>
             <button
               type="button"
-              aria-label="Zoom in"
+              aria-label={t('Zoom in')}
               onClick={() => changeManualZoom(1.2)}
               className="grid size-7 place-items-center rounded border border-neutral-500 text-neutral-900 hover:bg-neutral-100"
             >
@@ -605,7 +607,7 @@ export default function StationRuntimeBoard({
                   {!isAhLineblockPieceType(piece.type) ? (
                     <button
                       type="button"
-                      aria-label={`Mark train arrived on ${pieceId}`}
+                      aria-label={t('Mark train arrived on {0}', pieceId)}
                       disabled={isPiecePending}
                       onClick={() => void submitLineblockAction(pieceId, 'lineblock:mark-arrived')}
                       className="pointer-events-auto absolute bottom-0 rounded-sm border border-transparent bg-transparent disabled:cursor-wait"
@@ -618,7 +620,7 @@ export default function StationRuntimeBoard({
                   ) : (
                     <button
                       type="button"
-                      aria-label={`Request or accept AH consent on ${pieceId}`}
+                      aria-label={t('Request or accept AH consent on {0}', pieceId)}
                       disabled={isPiecePending}
                       onClick={() => void submitLineblockAction(pieceId, 'ah:request-consent')}
                       onContextMenu={(event) => {
@@ -644,7 +646,7 @@ export default function StationRuntimeBoard({
                   {!isAhLineblockPieceType(piece.type) ? (
                     <button
                       type="button"
-                      aria-label={`Grant or revoke lineblock consent on ${pieceId}`}
+                      aria-label={t('Grant or revoke lineblock consent on {0}', pieceId)}
                       disabled={isPiecePending}
                       onClick={() => void submitLineblockAction(pieceId, 'lineblock:grant-consent')}
                       onContextMenu={(event) => {
@@ -665,7 +667,7 @@ export default function StationRuntimeBoard({
               {piece.type === 'switchButton' ? (
                 <button
                   type="button"
-                  aria-label={`Operate switch button ${pieceId}`}
+                  aria-label={t('Operate switch button {0}', pieceId)}
                   disabled={isPiecePending}
                   onClick={() => operateSwitchButton(pieceId, 'left')}
                   onContextMenu={(event) => {
@@ -679,7 +681,7 @@ export default function StationRuntimeBoard({
               {piece.type === 'signButtonSealedCounter' ? (
                 <button
                   type="button"
-                  aria-label={`Operate PN counter ${pieceId}`}
+                  aria-label={t('Operate PN counter {0}', pieceId)}
                   disabled={isPiecePending}
                   onMouseDown={(event) => {
                     if (event.button !== 1) {
@@ -695,7 +697,7 @@ export default function StationRuntimeBoard({
               {piece.type === 'signButton' && piece.state.texts.text === 'kont. pol. výh.' ? (
                 <button
                   type="button"
-                  aria-label={`Hold switch inspection button ${pieceId}`}
+                  aria-label={t('Hold switch inspection button {0}', pieceId)}
                   disabled={isPiecePending}
                   onMouseDown={(event) => {
                     if (event.button !== 0) {
@@ -717,7 +719,7 @@ export default function StationRuntimeBoard({
               {piece.type === 'signButton' && piece.state.texts.text === 'kont. KÚ' ? (
                 <button
                   type="button"
-                  aria-label={`Hold occupation inspection button ${pieceId}`}
+                  aria-label={t('Hold occupation inspection button {0}', pieceId)}
                   disabled={isPiecePending}
                   onMouseDown={(event) => {
                     if (event.button !== 0) {
@@ -739,7 +741,7 @@ export default function StationRuntimeBoard({
               {piece.type === 'signButton' && piece.state.texts.text === 'ruš. voľ. VC' ? (
                 <button
                   type="button"
-                  aria-label={`Clear selected route with ${pieceId}`}
+                  aria-label={t('Clear selected route with {0}', pieceId)}
                   disabled={isPiecePending || !station.runtime.routeSelection}
                   onClick={() => void clearSelectedRoute()}
                   className="pointer-events-auto absolute inset-0 rounded-sm border border-transparent bg-transparent disabled:cursor-wait"
@@ -749,7 +751,7 @@ export default function StationRuntimeBoard({
               {piece.type === 'premainSignal' || piece.type === 'premainSignalNoOcp' ? (
                 <button
                   type="button"
-                  aria-label={`Interact with normal route endpoint ${pieceId}`}
+                  aria-label={t('Interact with normal route endpoint {0}', pieceId)}
                   disabled={isPiecePending}
                   onClick={() => void submitRouteInteract(pieceId, 'left', 'normal')}
                   onContextMenu={(event) => {
@@ -764,7 +766,7 @@ export default function StationRuntimeBoard({
                 <>
                   <button
                     type="button"
-                    aria-label={`Interact with normal route endpoint ${pieceId}`}
+                    aria-label={t('Interact with normal route endpoint {0}', pieceId)}
                     disabled={isPiecePending}
                     onClick={() => {
                       if (station.runtime.privolavaciaSelection && departureSignalPieceId) {
@@ -786,7 +788,7 @@ export default function StationRuntimeBoard({
                   />
                   <button
                     type="button"
-                    aria-label={`Interact with shunting route endpoint ${pieceId}`}
+                    aria-label={t('Interact with shunting route endpoint {0}', pieceId)}
                     disabled={isPiecePending}
                     onClick={() => void submitRouteInteract(pieceId, 'left', 'shunt')}
                     onContextMenu={(event) => {
@@ -802,7 +804,7 @@ export default function StationRuntimeBoard({
               {piece.type === 'shuntButton' || piece.type === 'shuntButtonNoOcp' ? (
                 <button
                   type="button"
-                  aria-label={`Interact with route endpoint ${pieceId}`}
+                  aria-label={t('Interact with route endpoint {0}', pieceId)}
                   disabled={isPiecePending}
                   onClick={() =>
                     void submitRouteInteract(
@@ -825,7 +827,7 @@ export default function StationRuntimeBoard({
               {piece.type === 'shuntSignalButtonBuffer' ? (
                 <button
                   type="button"
-                  aria-label={`Interact with buffer shunting route endpoint ${pieceId}`}
+                  aria-label={t('Interact with buffer shunting route endpoint {0}', pieceId)}
                   disabled={isPiecePending}
                   onClick={() => void submitRouteInteract(pieceId, 'left', 'shunt')}
                   onContextMenu={(event) => {

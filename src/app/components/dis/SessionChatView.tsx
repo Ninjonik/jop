@@ -1,4 +1,5 @@
 'use client';
+import { useLocaleTag, useTranslation } from '@/lib/i18n/client';
 
 import { AeroIcon } from '@/app/components/ui/AeroIcon';
 import { clearDisToken, disFetch, getDisToken } from '@/lib/dis/api-client';
@@ -28,6 +29,8 @@ export function SessionChatView({
   stationId: string;
   driverTrain?: DriverTrain | null;
 }) {
+  const t = useTranslation();
+  const localeTag = useLocaleTag();
   const { profile, canOperateStation, canDriveTrain } = useDisAuth();
   const [mode, setMode] = useState<'station' | 'driver'>(
     canOperateStation && stationId ? 'station' : 'driver',
@@ -199,7 +202,7 @@ export function SessionChatView({
   }
 
   return (
-    <section className="session-chat" aria-label="Komunikácia medzi stanicami a rušňovodičmi">
+    <section className="session-chat" aria-label={t('Komunikácia medzi stanicami a rušňovodičmi')}>
       <div className="authoring-caption">
         <button
           className="aero-btn"
@@ -210,13 +213,15 @@ export function SessionChatView({
             if (!expanded) setUnread((previous) => ({ ...previous, [target]: 0 }));
           }}
         >
-          <AeroIcon name="quote" />
-          Komunikácia{totalUnread > 0 ? ` (${totalUnread} nových)` : ''}
+          <AeroIcon name="quote" /> {t('Komunikácia')}
+          {totalUnread > 0 ? t(' ({0} nových)', totalUnread) : ''}
           <AeroIcon name={expanded ? 'collapse' : 'expand'} />
         </button>
-        <span role="status">{connected ? 'Pripojené naživo' : 'Pripájam…'}</span>
+        <span role="status">{connected ? t('Pripojené naživo') : t('Pripájam…')}</span>
         <span>
-          {mode === 'station' ? stationId || 'Vyberte stanicu' : `Rušňovodič: ${profile?.name}`}
+          {mode === 'station'
+            ? stationId || t('Vyberte stanicu')
+            : t('Rušňovodič: {0}', profile?.name)}
         </span>
       </div>
       {expanded && (
@@ -232,15 +237,15 @@ export function SessionChatView({
                   connection.current?.disconnect().connect();
                 }}
               >
-                <AeroIcon name="refresh" />
-                Znova pripojiť
+                <AeroIcon name="refresh" /> {t('Znova pripojiť')}{' '}
               </button>
             )}
             {canOperateStation && canDriveTrain && (
               <label>
-                Komunikujem ako{' '}
+                {' '}
+                {t('Komunikujem ako')}{' '}
                 <select
-                  aria-label="Komunikujem ako"
+                  aria-label={t('Komunikujem ako')}
                   className="aero-select"
                   value={mode}
                   onChange={(event) => {
@@ -254,29 +259,34 @@ export function SessionChatView({
                   }}
                 >
                   <option value="station" disabled={!stationId}>
-                    Stanica {stationId}
+                    {' '}
+                    {t('Stanica')} {stationId}
                   </option>
-                  <option value="driver">Rušňovodič {profile?.name}</option>
+                  <option value="driver">
+                    {t('Rušňovodič')} {profile?.name}
+                  </option>
                 </select>
               </label>
             )}
             <label>
-              Príjemca{' '}
+              {' '}
+              {t('Príjemca')}{' '}
               <select
                 className="aero-select"
-                aria-label="Príjemca správy"
+                aria-label={t('Príjemca správy')}
                 value={target}
                 onChange={(event) => chooseTarget(event.target.value)}
               >
-                <option value="">Vyberte stanicu alebo rušňovodiča</option>
+                <option value="">{t('Vyberte stanicu alebo rušňovodiča')}</option>
                 <option value={chatEndpointKey(globalChatContact)}>
-                  Celá relácia
+                  {' '}
+                  {t('Celá relácia')}{' '}
                   {unread[chatEndpointKey(globalChatContact)]
-                    ? ` (${unread[chatEndpointKey(globalChatContact)]} nových)`
+                    ? t(' ({0} nových)', unread[chatEndpointKey(globalChatContact)])
                     : ''}
                 </option>
                 {(['station', 'driver'] as const).map((kind) => (
-                  <optgroup key={kind} label={kind === 'station' ? 'Stanice' : 'Rušňovodiči'}>
+                  <optgroup key={kind} label={kind === 'station' ? t('Stanice') : t('Rušňovodiči')}>
                     {contacts
                       .filter((contact) => contact.kind === kind)
                       .map((contact) => {
@@ -284,7 +294,7 @@ export function SessionChatView({
                         return (
                           <option key={key} value={key}>
                             {contact.name}
-                            {unread[key] ? ` (${unread[key]} nových)` : ''}
+                            {unread[key] ? t(' ({0} nových)', unread[key]) : ''}
                           </option>
                         );
                       })}
@@ -295,16 +305,16 @@ export function SessionChatView({
           </div>
           {error && (
             <p role="alert" className="text-red-700">
-              {error}
+              {t(error)}
             </p>
           )}
-          {!endpointId && <p>Pre staničnú komunikáciu najprv vyberte stanicu.</p>}
+          {!endpointId && <p>{t('Pre staničnú komunikáciu najprv vyberte stanicu.')}</p>}
           <div
             className="session-chat-log"
             ref={view}
             role="log"
             aria-live="polite"
-            aria-label="Správy vo vybranom rozhovore"
+            aria-label={t('Správy vo vybranom rozhovore')}
             onScroll={() => {
               if (view.current)
                 follow.current =
@@ -313,14 +323,17 @@ export function SessionChatView({
             }}
           >
             {!recipient ? (
-              <p>Vyberte príjemcu. Správy sú oddelené podľa relácie a rozhovoru.</p>
+              <p>{t('Vyberte príjemcu. Správy sú oddelené podľa relácie a rozhovoru.')}</p>
             ) : !conversation.length ? (
-              <p>Zatiaľ žiadne správy. Napíšte prvú správu pre {recipient.name}.</p>
+              <p>
+                {t('Zatiaľ žiadne správy. Napíšte prvú správu pre')}{' '}
+                {recipient.kind === 'session' ? t('Celá relácia') : recipient.name}.
+              </p>
             ) : (
               conversation.map((message) => (
                 <div key={message._id} className="session-chat-message">
                   <time dateTime={message.createdAt}>
-                    {new Date(message.createdAt).toLocaleTimeString('sk-SK', {
+                    {new Date(message.createdAt).toLocaleTimeString(localeTag, {
                       hour: '2-digit',
                       minute: '2-digit',
                     })}
@@ -336,7 +349,7 @@ export function SessionChatView({
                   )}
                   : <span className="whitespace-pre-wrap break-words">{message.content}</span>
                   {message.delivery === 'sending' && (
-                    <span className="ml-2 text-[var(--aero-text-muted)]">Odosielam…</span>
+                    <span className="ml-2 text-[var(--aero-text-muted)]">{t('Odosielam…')}</span>
                   )}
                   {message.delivery === 'failed' && (
                     <button
@@ -344,8 +357,7 @@ export function SessionChatView({
                       className="aero-btn ml-2"
                       onClick={() => void deliver(message)}
                     >
-                      <AeroIcon name="refresh" />
-                      Odoslať znova
+                      <AeroIcon name="refresh" /> {t('Odoslať znova')}{' '}
                     </button>
                   )}
                 </div>
@@ -355,8 +367,8 @@ export function SessionChatView({
           <form className="flex gap-2" onSubmit={send}>
             <input
               className="aero-input min-w-0 flex-1"
-              aria-label="Text správy"
-              placeholder="Napíšte správu…"
+              aria-label={t('Text správy')}
+              placeholder={t('Napíšte správu…')}
               required
               maxLength={1000}
               disabled={!recipient}
@@ -366,8 +378,7 @@ export function SessionChatView({
               }}
             />
             <button className="aero-btn" disabled={!recipient || !text.trim() || !endpointId}>
-              <AeroIcon name="send" />
-              Odoslať
+              <AeroIcon name="send" /> {t('Odoslať')}{' '}
             </button>
           </form>
         </div>

@@ -1,4 +1,6 @@
 'use client';
+import { useTranslation } from '@/lib/i18n/client';
+
 import { AeroIcon } from '@/app/components/ui/AeroIcon';
 import { isPublicStation } from '@/lib/station/visibility';
 
@@ -45,6 +47,7 @@ export default function MockControlClient({
   onLaunch?: (target: string, stationId: string) => void;
   onSessionChange?: (sessionId: string) => void;
 } = {}) {
+  const t = useTranslation();
   const router = useRouter();
   const searchParams = useSearchParams();
   const [embeddedSessionId, setEmbeddedSessionId] = useState(initialSessionId);
@@ -332,7 +335,8 @@ export default function MockControlClient({
     return (
       <section className="rounded-[3px] border border-[var(--aero-panel-border)] bg-[var(--aero-panel-bg)] p-4">
         <div className="text-sm text-[var(--aero-text-muted)]">
-          Open a prepared session for simulation, or import a saved session schema.
+          {' '}
+          {t('Open a prepared session for simulation, or import a saved session schema.')}{' '}
         </div>
         <div className="mt-4 grid gap-3 md:grid-cols-[minmax(0,240px)_auto]">
           <input
@@ -347,8 +351,7 @@ export default function MockControlClient({
             onClick={handleOpenExistingSession}
             className="rounded-[3px] border border-[var(--aero-panel-border)] px-4 py-2 text-sm font-medium text-[var(--aero-text)] transition hover:border-[var(--btn-hover-border)] hover:text-[var(--aero-text)] disabled:cursor-not-allowed disabled:opacity-50"
           >
-            <AeroIcon name="open" />
-            Open Session
+            <AeroIcon name="open" /> {t('Open Session')}{' '}
           </button>
         </div>
         <div className="mt-3 flex flex-wrap gap-3">
@@ -364,8 +367,7 @@ export default function MockControlClient({
             }
             className="rounded-[3px] bg-[var(--btn-active-bottom)] px-4 py-2 text-sm font-medium text-[var(--aero-text)]"
           >
-            <AeroIcon name="network" />
-            Open Map Editor
+            <AeroIcon name="network" /> {t('Open Map Editor')}{' '}
           </Link>
           <button
             type="button"
@@ -373,11 +375,10 @@ export default function MockControlClient({
             onClick={() => sessionSchemaInputRef.current?.click()}
             className="rounded-[3px] border border-[var(--aero-panel-border)] px-4 py-2 text-sm font-medium text-[var(--aero-text)] transition hover:border-[var(--btn-hover-border)] hover:text-[var(--aero-text)] disabled:cursor-not-allowed disabled:opacity-50"
           >
-            <AeroIcon name="upload" />
-            Import Session Schema
+            <AeroIcon name="upload" /> {t('Import Session Schema')}{' '}
           </button>
         </div>
-        {error ? <div className="mt-3 text-sm text-red-700">{error}</div> : null}
+        {error ? <div className="mt-3 text-sm text-red-700">{t(error)}</div> : null}
         <input
           ref={sessionSchemaInputRef}
           type="file"
@@ -394,7 +395,7 @@ export default function MockControlClient({
       <section className="rounded-[3px] border border-[var(--aero-panel-border)] bg-[var(--aero-panel-bg)] p-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="text-sm text-[var(--aero-text-muted)]">
-            {session ? `Mock session ${session._id} active.` : 'Loading mock session...'}
+            {session ? t('Mock session {0} active.', session._id) : t('Loading mock session...')}
           </div>
           {session ? (
             <div className="flex flex-wrap gap-3">
@@ -410,8 +411,7 @@ export default function MockControlClient({
                 }
                 className="rounded-[3px] border border-[var(--aero-panel-border)] px-4 py-2 text-sm font-medium text-[var(--aero-text)] transition hover:border-[var(--btn-hover-border)] hover:text-[var(--aero-text)]"
               >
-                <AeroIcon name="network" />
-                Open Map Editor
+                <AeroIcon name="network" /> {t('Open Map Editor')}{' '}
               </Link>
               <Link
                 href="/editor"
@@ -425,18 +425,18 @@ export default function MockControlClient({
                 }
                 className="rounded-[3px] border border-[var(--aero-panel-border)] px-4 py-2 text-sm font-medium text-[var(--aero-text)] transition hover:border-[var(--btn-hover-border)] hover:text-[var(--aero-text)]"
               >
-                <AeroIcon name="edit" />
-                Open Station Editor
+                <AeroIcon name="edit" /> {t('Open Station Editor')}{' '}
               </Link>
             </div>
           ) : null}
         </div>
-        {error ? <div className="mt-3 text-sm text-red-700">{error}</div> : null}
+        {error ? <div className="mt-3 text-sm text-red-700">{t(error)}</div> : null}
       </section>
 
       <section className="rounded-[3px] border border-[var(--aero-panel-border)] bg-[var(--aero-panel-bg)] p-4">
         <h2 className="text-sm font-semibold uppercase tracking-[0.2em] text-[var(--aero-text-muted)]">
-          Mock Trains
+          {' '}
+          {t('Mock Trains')}{' '}
         </h2>
         <div className="mt-4 grid gap-3 lg:grid-cols-6">
           <input
@@ -445,7 +445,7 @@ export default function MockControlClient({
               setTrainDraft((current) => ({ ...current, category: event.target.value }))
             }
             className="rounded-[3px] border border-[var(--aero-panel-border)] bg-[var(--aero-panel-bg)] px-3 py-2 text-sm text-[var(--aero-text)]"
-            placeholder="Category (Os, R)"
+            placeholder={t('Category (Os, R)')}
           />
           <input
             value={trainDraft.number}
@@ -453,7 +453,7 @@ export default function MockControlClient({
               setTrainDraft((current) => ({ ...current, number: event.target.value }))
             }
             className="rounded-[3px] border border-[var(--aero-panel-border)] bg-[var(--aero-panel-bg)] px-3 py-2 text-sm text-[var(--aero-text)]"
-            placeholder="Number"
+            placeholder={t('Number')}
           />
           <input
             type="number"
@@ -464,7 +464,7 @@ export default function MockControlClient({
               setTrainDraft((current) => ({ ...current, length: event.target.value }))
             }
             className="rounded-[3px] border border-[var(--aero-panel-border)] bg-[var(--aero-panel-bg)] px-3 py-2 text-sm text-[var(--aero-text)]"
-            aria-label="Train length in occupation sensors"
+            aria-label={t('Train length in occupation sensors')}
           />
           <select
             value={trainDraft.stationId}
@@ -479,7 +479,7 @@ export default function MockControlClient({
             }}
             className="rounded-[3px] border border-[var(--aero-panel-border)] bg-[var(--aero-panel-bg)] px-3 py-2 text-sm text-[var(--aero-text)]"
           >
-            <option value="">Starting station</option>
+            <option value="">{t('Starting station')}</option>
             {stations
               .filter((station) => isPublicStation(station.stationId))
               .map((station) => (
@@ -495,7 +495,7 @@ export default function MockControlClient({
             }
             className="rounded-[3px] border border-[var(--aero-panel-border)] bg-[var(--aero-panel-bg)] px-3 py-2 text-sm text-[var(--aero-text)]"
           >
-            <option value="">Front sensor</option>
+            <option value="">{t('Front sensor')}</option>
             {trainStation
               ? getOccupationSensorPieceIds(trainStation).map((pieceId) => (
                   <option key={pieceId} value={pieceId}>
@@ -514,8 +514,8 @@ export default function MockControlClient({
             }
             className="rounded-[3px] border border-[var(--aero-panel-border)] bg-[var(--aero-panel-bg)] px-3 py-2 text-sm text-[var(--aero-text)]"
           >
-            <option value="left-to-right">Left to right</option>
-            <option value="right-to-left">Right to left</option>
+            <option value="left-to-right">{t('Left to right')}</option>
+            <option value="right-to-left">{t('Right to left')}</option>
           </select>
         </div>
         <button
@@ -524,13 +524,14 @@ export default function MockControlClient({
           onClick={() => void createTrain()}
           className="mt-3 rounded-[3px] bg-[var(--btn-active-bottom)] px-4 py-2 text-sm font-medium text-[var(--aero-text)] disabled:opacity-50"
         >
-          <AeroIcon name="add" />
-          Create And Spawn Train
+          <AeroIcon name="add" /> {t('Create And Spawn Train')}{' '}
         </button>
 
         <div className="mt-5 grid gap-3 lg:grid-cols-2">
           {Object.values(session?.runtime.trains ?? {}).length === 0 ? (
-            <p className="text-sm text-[var(--aero-text-muted)]">No mock trains in this session.</p>
+            <p className="text-sm text-[var(--aero-text-muted)]">
+              {t('No mock trains in this session.')}
+            </p>
           ) : (
             Object.values(session?.runtime.trains ?? {}).map((train) => (
               <div
@@ -543,14 +544,16 @@ export default function MockControlClient({
                       {train.category} {train.number}
                     </div>
                     <div className="mt-1 text-xs text-[var(--aero-text-muted)]">
-                      length {train.length} / {train.direction} / {train.status}
+                      {' '}
+                      {t('length')} {train.length} / {t(train.direction)} / {t(train.status)}
                     </div>
                     <div className="mt-1 font-mono text-xs text-[var(--aero-text-muted)]">
                       {train.location.stationId}:{train.location.pieceId}
                     </div>
                     {train.movement ? (
                       <div className="mt-1 text-xs text-[var(--aero-caption-text)]">
-                        step {train.movement.nextStepIndex + 1}/{train.movement.steps.length}
+                        {' '}
+                        {t('step')} {train.movement.nextStepIndex + 1}/{train.movement.steps.length}
                       </div>
                     ) : null}
                   </div>
@@ -561,8 +564,7 @@ export default function MockControlClient({
                       onClick={() => void moveTrain(train.id)}
                       className="rounded-[3px] bg-[var(--btn-active-bottom)] px-3 py-2 text-xs font-medium text-[var(--aero-text)] disabled:opacity-50"
                     >
-                      <AeroIcon name="play" />
-                      Move To Next Signal
+                      <AeroIcon name="play" /> {t('Move To Next Signal')}{' '}
                     </button>
                     <button
                       type="button"
@@ -570,8 +572,7 @@ export default function MockControlClient({
                       onClick={() => void reverseTrain(train.id)}
                       className="rounded-[3px] border border-[var(--aero-panel-border)] px-3 py-2 text-xs text-[var(--aero-text)] disabled:opacity-50"
                     >
-                      <AeroIcon name="undo" />
-                      Reverse Direction
+                      <AeroIcon name="undo" /> {t('Reverse Direction')}{' '}
                     </button>
                     <button
                       type="button"
@@ -579,8 +580,7 @@ export default function MockControlClient({
                       onClick={() => void removeTrain(train.id)}
                       className="rounded-[3px] border border-red-900 px-3 py-2 text-xs text-red-700 disabled:opacity-50"
                     >
-                      <AeroIcon name="delete" />
-                      Remove
+                      <AeroIcon name="delete" /> {t('Remove')}{' '}
                     </button>
                   </div>
                 </div>
@@ -592,11 +592,14 @@ export default function MockControlClient({
 
       <section className="rounded-[3px] border border-[var(--aero-panel-border)] bg-[var(--aero-panel-bg)] p-4">
         <h2 className="text-sm font-semibold uppercase tracking-[0.2em] text-[var(--aero-text-muted)]">
-          Stations In Session
+          {' '}
+          {t('Stations In Session')}{' '}
         </h2>
         <div className="mt-4 grid gap-3 lg:grid-cols-2">
           {stations.length === 0 ? (
-            <p className="text-sm text-[var(--aero-text-muted)]">No stations in this session.</p>
+            <p className="text-sm text-[var(--aero-text-muted)]">
+              {t('No stations in this session.')}
+            </p>
           ) : (
             stations
               .filter((station) => isPublicStation(station.stationId))
@@ -626,8 +629,7 @@ export default function MockControlClient({
                       }
                       className="rounded-[3px] bg-[var(--btn-active-bottom)] px-3 py-2 text-xs font-medium text-[var(--aero-text)]"
                     >
-                      <AeroIcon name="train" />
-                      Open Runtime
+                      <AeroIcon name="train" /> {t('Open Runtime')}{' '}
                     </Link>
                   </div>
                 </div>
@@ -638,11 +640,12 @@ export default function MockControlClient({
 
       <section className="rounded-[3px] border border-[var(--aero-panel-border)] bg-[var(--aero-panel-bg)] p-4">
         <h2 className="text-sm font-semibold uppercase tracking-[0.2em] text-[var(--aero-text-muted)]">
-          Outbound Mock Adapter Calls
+          {' '}
+          {t('Outbound Mock Adapter Calls')}{' '}
         </h2>
         <div className="mt-4 space-y-3">
           {outboundCalls.length === 0 ? (
-            <p className="text-sm text-[var(--aero-text-muted)]">No outbound calls yet.</p>
+            <p className="text-sm text-[var(--aero-text-muted)]">{t('No outbound calls yet.')}</p>
           ) : (
             outboundCalls.map((call, index) => (
               <div

@@ -1,4 +1,5 @@
 'use client';
+import { useTranslation } from '@/lib/i18n/client';
 
 import { AeroIcon } from '@/app/components/ui/AeroIcon';
 import { useId, useState, type ReactNode } from 'react';
@@ -10,6 +11,7 @@ export default function AuthoringTools({
   title: string;
   children: ReactNode;
 }) {
+  const t = useTranslation();
   const [expanded, setExpanded] = useState(true);
   const contentId = useId();
 
@@ -24,11 +26,11 @@ export default function AuthoringTools({
       >
         <span className="inline-flex items-center gap-2">
           <AeroIcon name="tools" />
-          {title}
+          {t(title)}
         </span>
         <span className="inline-flex items-center gap-1">
           <AeroIcon name={expanded ? 'collapse' : 'expand'} />
-          {expanded ? 'Zbaliť' : 'Rozbaliť'}
+          {expanded ? t('Zbaliť') : t('Rozbaliť')}
         </span>
       </button>
       <div id={contentId} hidden={!expanded} className="max-h-[55vh] overflow-auto">

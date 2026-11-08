@@ -1,4 +1,6 @@
 'use client';
+import { useLocaleTag, useTranslation } from '@/lib/i18n/client';
+
 import { AeroIcon } from '@/app/components/ui/AeroIcon';
 
 import Link from 'next/link';
@@ -28,6 +30,8 @@ function getLineblockPieceIds(station: StationDocument): string[] {
 }
 
 export default function SessionMapClient() {
+  const t = useTranslation();
+  const localeTag = useLocaleTag();
   const router = useRouter();
   const searchParams = useSearchParams();
   const sessionIdFromUrl = searchParams.get('sessionId')?.trim() ?? '';
@@ -402,7 +406,9 @@ export default function SessionMapClient() {
   async function removeLineblockLink(link: SessionLineblockLink) {
     if (
       !session?._id ||
-      !window.confirm(`Odstrániť prepojenie medzi ${link.a.stationId} a ${link.b.stationId}?`)
+      !window.confirm(
+        t('Odstrániť prepojenie medzi {0} a {1}?', link.a.stationId, link.b.stationId),
+      )
     ) {
       return;
     }
@@ -429,7 +435,7 @@ export default function SessionMapClient() {
 
   async function renameStation(stationId: string) {
     if (!session?._id) return;
-    const nextStationId = window.prompt('Nový názov stanice', stationId)?.trim();
+    const nextStationId = window.prompt(t('Nový názov stanice'), stationId)?.trim();
     if (!nextStationId || nextStationId === stationId) return;
     if (!stationIdSchema.safeParse(nextStationId).success) {
       setError(
@@ -468,7 +474,7 @@ export default function SessionMapClient() {
   async function removeStation(stationId: string) {
     if (
       !session?._id ||
-      !window.confirm(`Odstrániť stanicu ${stationId} aj všetky jej prepojenia?`)
+      !window.confirm(t('Odstrániť stanicu {0} aj všetky jej prepojenia?', stationId))
     ) {
       return;
     }
@@ -735,10 +741,11 @@ export default function SessionMapClient() {
   );
   const templateFields = (
     <label className="grid max-w-lg gap-1">
-      Uložiť pre
+      {' '}
+      {t('Uložiť pre')}{' '}
       <select
         className="aero-select w-full"
-        aria-label="Uložiť pre"
+        aria-label={t('Uložiť pre')}
         value={selectedDestination ? JSON.stringify([universeIdDraft, placeIdDraft]) : ''}
         onChange={(event) => {
           const destination = destinations.find(
@@ -750,7 +757,7 @@ export default function SessionMapClient() {
           }
         }}
       >
-        <option value="">Vyberte zo zoznamu</option>
+        <option value="">{t('Vyberte zo zoznamu')}</option>
         {destinations.map((destination) => (
           <option
             key={JSON.stringify([destination.universeId, destination.placeId])}
@@ -762,29 +769,32 @@ export default function SessionMapClient() {
       </select>
       {!namesComplete && (
         <span role="status" className="text-[var(--aero-text-muted)]">
-          Niektoré názvy sa nepodarilo načítať z Roblox. Skúste stránku obnoviť.
+          {' '}
+          {t('Niektoré názvy sa nepodarilo načítať z Roblox. Skúste stránku obnoviť.')}{' '}
         </span>
       )}
     </label>
   );
   const savedTemplatePicker = (
     <div className="border border-[var(--aero-panel-border)]">
-      <div className="manager-heading">Uložené siete</div>
+      <div className="manager-heading">{t('Uložené siete')}</div>
       {savedPlaceTemplatesLoading ? (
         <p className="p-4" role="status">
-          Načítavam siete…
+          {' '}
+          {t('Načítavam siete…')}{' '}
         </p>
       ) : savedPlaceTemplates.length === 0 ? (
         <p className="p-4 text-[var(--aero-text-muted)]">
-          Zatiaľ nemáte uloženú sieť. Začnite vytvorením novej siete.
+          {' '}
+          {t('Zatiaľ nemáte uloženú sieť. Začnite vytvorením novej siete.')}{' '}
         </p>
       ) : (
         <div className="overflow-auto">
           <table className="w-full text-left manager-table">
             <thead>
               <tr>
-                <th>Názov</th>
-                <th>Posledná zmena</th>
+                <th>{t('Názov')}</th>
+                <th>{t('Posledná zmena')}</th>
                 <th />
               </tr>
             </thead>
@@ -799,18 +809,17 @@ export default function SessionMapClient() {
                             destination.universeId === template.universeId &&
                             destination.placeId === template.placeId,
                         )?.name ||
-                        'Názov sa nepodarilo načítať'}
+                        t('Názov sa nepodarilo načítať')}
                     </strong>
                   </td>
-                  <td>{new Date(template.updatedAt).toLocaleString('sk-SK')}</td>
+                  <td>{new Date(template.updatedAt).toLocaleString(localeTag)}</td>
                   <td>
                     <button
                       className="aero-btn"
                       disabled={isBusy}
                       onClick={() => void loadPlaceTemplate(template)}
                     >
-                      <AeroIcon name="open" />
-                      Otvoriť sieť
+                      <AeroIcon name="open" /> {t('Otvoriť sieť')}{' '}
                     </button>
                   </td>
                 </tr>
@@ -824,11 +833,15 @@ export default function SessionMapClient() {
   return (
     <div className="station-manager flex min-h-0 flex-1 flex-col text-xs">
       <div className="flex flex-wrap items-center gap-2 border-b border-[var(--aero-ribbon-border)] bg-[var(--aero-ribbon-bg)] px-3 py-2">
-        <strong>Správa staníc a tratí</strong>
+        <strong>{t('Správa staníc a tratí')}</strong>
         <span className="mr-auto text-[var(--aero-text-muted)]">
           {session
-            ? `${stations.filter((station) => isPublicStation(station.stationId)).length} staníc · ${links.length} prepojení`
-            : 'Vyberte sieť alebo vytvorte novú sieť'}
+            ? t(
+                '{0} staníc · {1} prepojení',
+                stations.filter((station) => isPublicStation(station.stationId)).length,
+                links.length,
+              )
+            : t('Vyberte sieť alebo vytvorte novú sieť')}
         </span>
         {session && (
           <>
@@ -841,24 +854,23 @@ export default function SessionMapClient() {
                 )
               }
             >
-              <AeroIcon name="refresh" />
-              Obnoviť
+              <AeroIcon name="refresh" /> {t('Obnoviť')}{' '}
             </button>
             <button className="aero-btn" onClick={() => setTab('save')}>
-              <AeroIcon name="save" />
-              Uložiť sieť…
+              <AeroIcon name="save" /> {t('Uložiť sieť…')}{' '}
             </button>
           </>
         )}
       </div>
       {error && (
         <div role="alert" className="m-3 border border-red-300 bg-red-50 p-2 text-red-800">
-          {error}
+          {t(error)}
         </div>
       )}
       {isBusy && (
         <div role="status" className="border-b border-[var(--aero-panel-border)] px-3 py-1">
-          Spracúvam požiadavku…
+          {' '}
+          {t('Spracúvam požiadavku…')}{' '}
         </div>
       )}
       {notice && (
@@ -866,38 +878,42 @@ export default function SessionMapClient() {
           role="status"
           className="flex items-center justify-between border-b border-[var(--aero-panel-border)] px-3 py-2"
         >
-          {notice}
+          {t(notice)}
           <button className="aero-btn" onClick={() => setNotice('')}>
-            <AeroIcon name="close" />
-            Zavrieť
+            <AeroIcon name="close" /> {t('Zavrieť')}{' '}
           </button>
         </div>
       )}
       {!sessionIdFromUrl ? (
         <div className="space-y-4 p-4">
           <div>
-            <h2 className="mb-1 font-semibold">Ktorú sieť chcete upraviť?</h2>
+            <h2 className="mb-1 font-semibold">{t('Ktorú sieť chcete upraviť?')}</h2>
             <p className="text-[var(--aero-text-muted)]">
-              Otvorte uloženú sieť. Potom môžete pridávať stanice, upravovať koľajiská a prepájať
-              susedné stanice.
+              {' '}
+              {t(
+                'Otvorte uloženú sieť. Potom môžete pridávať stanice, upravovať koľajiská a prepájať susedné stanice.',
+              )}{' '}
             </p>
           </div>
           {savedTemplatePicker}
           <div className="flex flex-wrap items-center gap-3">
             <button className="aero-btn" disabled={isBusy} onClick={() => void createMockSession()}>
-              <AeroIcon name="add" />
-              Vytvoriť novú sieť
+              <AeroIcon name="add" /> {t('Vytvoriť novú sieť')}{' '}
             </button>
             <span className="text-[var(--aero-text-muted)]">
-              Začnete s prázdnym zoznamom staníc.
+              {' '}
+              {t('Začnete s prázdnym zoznamom staníc.')}{' '}
             </span>
           </div>
           <details className="border border-[var(--aero-panel-border)] p-3">
-            <summary className="cursor-pointer font-semibold">Ďalšie možnosti otvorenia</summary>
+            <summary className="cursor-pointer font-semibold">
+              {t('Ďalšie možnosti otvorenia')}
+            </summary>
             <div className="mt-3 space-y-4">
               <div className="flex flex-wrap items-end gap-2">
                 <label className="grid gap-1">
-                  ID existujúcej siete
+                  {' '}
+                  {t('ID existujúcej siete')}{' '}
                   <input
                     className="aero-input"
                     value={sessionIdDraft}
@@ -909,8 +925,7 @@ export default function SessionMapClient() {
                   disabled={isBusy || !sessionIdDraft.trim()}
                   onClick={handleOpenExistingSession}
                 >
-                  <AeroIcon name="open" />
-                  Otvoriť sieť
+                  <AeroIcon name="open" /> {t('Otvoriť sieť')}{' '}
                 </button>
               </div>
               <button
@@ -918,8 +933,7 @@ export default function SessionMapClient() {
                 disabled={isBusy}
                 onClick={() => sessionSchemaInputRef.current?.click()}
               >
-                <AeroIcon name="open" />
-                Načítať sieť zo súboru…
+                <AeroIcon name="open" /> {t('Načítať sieť zo súboru…')}{' '}
               </button>
               <div className="space-y-2">
                 {templateFields}
@@ -928,8 +942,7 @@ export default function SessionMapClient() {
                   disabled={isBusy || !universeIdDraft || !placeIdDraft}
                   onClick={() => void loadPlaceTemplate()}
                 >
-                  <AeroIcon name="open" />
-                  Otvoriť vybranú sieť
+                  <AeroIcon name="open" /> {t('Otvoriť vybranú sieť')}{' '}
                 </button>
               </div>
             </div>
@@ -937,12 +950,12 @@ export default function SessionMapClient() {
         </div>
       ) : !session ? (
         <p className="p-4" role="status">
-          {error ? 'Sieť sa nepodarilo otvoriť.' : 'Načítavam sieť…'}
+          {error ? t('Sieť sa nepodarilo otvoriť.') : t('Načítavam sieť…')}
         </p>
       ) : (
         <>
           <nav
-            aria-label="Časti správcu"
+            aria-label={t('Časti správcu')}
             className="flex flex-wrap gap-1 border-b border-[var(--aero-panel-border)] bg-[var(--aero-menubar-bg)] px-3 py-2"
           >
             {(
@@ -959,16 +972,17 @@ export default function SessionMapClient() {
                 onClick={() => setTab(id)}
               >
                 <AeroIcon name={id === 'stations' ? 'train' : id === 'links' ? 'link' : 'save'} />{' '}
-                {label}
+                {t(label)}
               </button>
             ))}
           </nav>
           {tab === 'stations' && (
             <div className="grid min-h-0 flex-1 md:grid-cols-[250px_minmax(0,1fr)]">
               <aside className="border-b border-[var(--aero-panel-border)] bg-[var(--grid-row-alt)] md:border-r md:border-b-0">
-                <div className="manager-heading">Stanice v sieti</div>
+                <div className="manager-heading">{t('Stanice v sieti')}</div>
                 <label className="m-2 grid gap-1">
-                  Vyhľadať stanicu
+                  {' '}
+                  {t('Vyhľadať stanicu')}{' '}
                   <input
                     className="aero-input w-full"
                     value={stationSearch}
@@ -985,15 +999,15 @@ export default function SessionMapClient() {
                     >
                       <strong className="block">{station.stationId}</strong>
                       <span className="text-[var(--aero-text-muted)]">
-                        {getLineblockPieceIds(station).length} traťových súhlasov
+                        {getLineblockPieceIds(station).length} {t('traťových súhlasov')}{' '}
                       </span>
                     </button>
                   ))}
                   {!visibleStations.length && (
                     <p className="p-3 text-[var(--aero-text-muted)]">
                       {stations.length
-                        ? 'Žiadna stanica nezodpovedá hľadaniu.'
-                        : 'Sieť je prázdna. Pridajte prvú stanicu nižšie.'}
+                        ? t('Žiadna stanica nezodpovedá hľadaniu.')
+                        : t('Sieť je prázdna. Pridajte prvú stanicu nižšie.')}
                     </p>
                   )}
                 </div>
@@ -1005,21 +1019,21 @@ export default function SessionMapClient() {
                   }}
                 >
                   <label className="grid gap-1 font-semibold">
-                    Nová stanica
+                    {' '}
+                    {t('Nová stanica')}{' '}
                     <input
                       className="aero-input w-full font-normal"
                       required
                       maxLength={64}
                       aria-describedby="station-name-help"
                       value={stationIdDraft}
-                      placeholder="Napr. Bratislava-hlavna"
+                      placeholder={t('Napr. Bratislava-hlavna')}
                       onChange={(event) => setStationIdDraft(event.target.value)}
                     />
                   </label>
                   <div className="flex flex-wrap gap-2">
                     <button className="aero-btn" disabled={isBusy || !stationIdDraft.trim()}>
-                      <AeroIcon name="add" />
-                      Pridať stanicu
+                      <AeroIcon name="add" /> {t('Pridať stanicu')}{' '}
                     </button>
                     <button
                       type="button"
@@ -1027,13 +1041,14 @@ export default function SessionMapClient() {
                       disabled={isBusy || !stationIdDraft.trim()}
                       onClick={() => stationLayoutInputRef.current?.click()}
                     >
-                      <AeroIcon name="open" />
-                      Zo súboru…
+                      <AeroIcon name="open" /> {t('Zo súboru…')}{' '}
                     </button>
                   </div>
                   <p id="station-name-help" className="text-[var(--aero-text-muted)]">
-                    Názov bez medzier a diakritiky, napr. Bratislava-hlavna. Pridajte prázdne
-                    koľajisko alebo načítajte plán zo súboru.
+                    {' '}
+                    {t(
+                      'Názov bez medzier a diakritiky, napr. Bratislava-hlavna. Pridajte prázdne koľajisko alebo načítajte plán zo súboru.',
+                    )}{' '}
                   </p>
                 </form>
               </aside>
@@ -1045,24 +1060,21 @@ export default function SessionMapClient() {
                       className="aero-btn"
                       href={`/runtime/${encodeURIComponent(session._id)}/${encodeURIComponent(selectedStation.stationId)}`}
                     >
-                      <AeroIcon name="train" />
-                      Staničný pult
+                      <AeroIcon name="train" /> {t('Staničný pult')}{' '}
                     </Link>
                     <button
                       className="aero-btn"
                       disabled={isBusy}
                       onClick={() => void renameStation(selectedStation.stationId)}
                     >
-                      <AeroIcon name="edit" />
-                      Premenovať…
+                      <AeroIcon name="edit" /> {t('Premenovať…')}{' '}
                     </button>
                     <button
                       className="aero-btn"
                       disabled={isBusy}
                       onClick={() => void removeStation(selectedStation.stationId)}
                     >
-                      <AeroIcon name="delete" />
-                      Odstrániť…
+                      <AeroIcon name="delete" /> {t('Odstrániť…')}{' '}
                     </button>
                   </div>
                 )}
@@ -1071,14 +1083,14 @@ export default function SessionMapClient() {
                     role="status"
                     className="border-b border-[var(--grid-row-selected-border)] bg-[var(--grid-row-selected-top)] p-2"
                   >
-                    Vybraný traťový súhlas: {pendingLineblockEndpoint.stationId}. Teraz kliknite na
-                    súhlas v susednej stanici.
+                    {' '}
+                    {t('Vybraný traťový súhlas:')} {pendingLineblockEndpoint.stationId}
+                    {t('. Teraz kliknite na súhlas v susednej stanici.')}{' '}
                     <button
                       className="aero-btn ml-2"
                       onClick={() => setPendingLineblockEndpoint(null)}
                     >
-                      <AeroIcon name="close" />
-                      Zrušiť výber
+                      <AeroIcon name="close" /> {t('Zrušiť výber')}{' '}
                     </button>
                   </div>
                 )}
@@ -1098,10 +1110,12 @@ export default function SessionMapClient() {
           {tab === 'links' && (
             <section className="space-y-4 p-3">
               <div>
-                <h2 className="font-semibold">Prepojenia susedných staníc</h2>
+                <h2 className="font-semibold">{t('Prepojenia susedných staníc')}</h2>
                 <p className="mt-1 text-[var(--aero-text-muted)]">
-                  Vyberte traťový súhlas na oboch koncoch trate. Stanice musia mať tieto prvky
-                  vložené v koľajisku.
+                  {' '}
+                  {t(
+                    'Vyberte traťový súhlas na oboch koncoch trate. Stanice musia mať tieto prvky vložené v koľajisku.',
+                  )}{' '}
                 </p>
               </div>
               <form
@@ -1119,10 +1133,11 @@ export default function SessionMapClient() {
                     void createInterStationLineblockLink(a, b);
                 }}
               >
-                <h3 className="font-semibold">Nové prepojenie</h3>
+                <h3 className="font-semibold">{t('Nové prepojenie')}</h3>
                 <div className="flex flex-wrap gap-3">
                   <label className="grid gap-1">
-                    Prvá stanica a traťový súhlas
+                    {' '}
+                    {t('Prvá stanica a traťový súhlas')}{' '}
                     <select
                       className="aero-select max-w-full"
                       value={linkFrom}
@@ -1132,7 +1147,7 @@ export default function SessionMapClient() {
                       }}
                       required
                     >
-                      <option value="">Vyberte prvý koniec trate</option>
+                      <option value="">{t('Vyberte prvý koniec trate')}</option>
                       {endpoints.map((endpoint) => (
                         <option
                           key={JSON.stringify([endpoint.stationId, endpoint.pieceId])}
@@ -1144,7 +1159,8 @@ export default function SessionMapClient() {
                     </select>
                   </label>
                   <label className="grid gap-1">
-                    Druhá stanica a traťový súhlas
+                    {' '}
+                    {t('Druhá stanica a traťový súhlas')}{' '}
                     <select
                       className="aero-select max-w-full"
                       value={linkTo}
@@ -1152,7 +1168,7 @@ export default function SessionMapClient() {
                       required
                       disabled={!linkFrom}
                     >
-                      <option value="">Vyberte druhý koniec trate</option>
+                      <option value="">{t('Vyberte druhý koniec trate')}</option>
                       {endpoints
                         .filter(
                           (endpoint) =>
@@ -1169,7 +1185,8 @@ export default function SessionMapClient() {
                     </select>
                   </label>
                   <label className="grid gap-1">
-                    Počiatočný smer
+                    {' '}
+                    {t('Počiatočný smer')}{' '}
                     <select
                       className="aero-select"
                       value={lineblockDefaultFlow}
@@ -1179,27 +1196,26 @@ export default function SessionMapClient() {
                         )
                       }
                     >
-                      <option value="neutral">Neutrálny</option>
-                      <option value="a-receiving">Prijíma prvá stanica</option>
-                      <option value="b-receiving">Prijíma druhá stanica</option>
+                      <option value="neutral">{t('Neutrálny')}</option>
+                      <option value="a-receiving">{t('Prijíma prvá stanica')}</option>
+                      <option value="b-receiving">{t('Prijíma druhá stanica')}</option>
                     </select>
                   </label>
                 </div>
                 <button className="aero-btn" disabled={isBusy || !linkFrom || !linkTo}>
-                  <AeroIcon name="link" />
-                  Prepojiť stanice
+                  <AeroIcon name="link" /> {t('Prepojiť stanice')}{' '}
                 </button>
                 {endpoints.length === 0 && (
-                  <p>Najprv pridajte traťové súhlasy v editore koľajiska.</p>
+                  <p>{t('Najprv pridajte traťové súhlasy v editore koľajiska.')}</p>
                 )}
               </form>
               <div className="overflow-auto border border-[var(--aero-panel-border)]">
                 <table className="manager-table w-full text-left">
                   <thead>
                     <tr>
-                      <th>Prvá stanica</th>
-                      <th>Druhá stanica</th>
-                      <th>Počiatočný smer</th>
+                      <th>{t('Prvá stanica')}</th>
+                      <th>{t('Druhá stanica')}</th>
+                      <th>{t('Počiatočný smer')}</th>
                       <th />
                     </tr>
                   </thead>
@@ -1233,7 +1249,11 @@ export default function SessionMapClient() {
                         <td>
                           <select
                             className="aero-select"
-                            aria-label={`Počiatočný smer: ${link.a.stationId} – ${link.b.stationId}`}
+                            aria-label={t(
+                              'Počiatočný smer: {0} – {1}',
+                              link.a.stationId,
+                              link.b.stationId,
+                            )}
                             disabled={isBusy}
                             value={link.defaultFlow}
                             onChange={(event) =>
@@ -1243,9 +1263,13 @@ export default function SessionMapClient() {
                               )
                             }
                           >
-                            <option value="neutral">Neutrálny</option>
-                            <option value="a-receiving">Prijíma {link.a.stationId}</option>
-                            <option value="b-receiving">Prijíma {link.b.stationId}</option>
+                            <option value="neutral">{t('Neutrálny')}</option>
+                            <option value="a-receiving">
+                              {t('Prijíma')} {link.a.stationId}
+                            </option>
+                            <option value="b-receiving">
+                              {t('Prijíma')} {link.b.stationId}
+                            </option>
                           </select>
                         </td>
                         <td>
@@ -1254,33 +1278,36 @@ export default function SessionMapClient() {
                             disabled={isBusy}
                             onClick={() => void removeLineblockLink(link)}
                           >
-                            <AeroIcon name="delete" />
-                            Odstrániť…
+                            <AeroIcon name="delete" /> {t('Odstrániť…')}{' '}
                           </button>
                         </td>
                       </tr>
                     ))}
                     {!links.length && (
                       <tr>
-                        <td colSpan={4}>Zatiaľ nie sú prepojené žiadne stanice.</td>
+                        <td colSpan={4}>{t('Zatiaľ nie sú prepojené žiadne stanice.')}</td>
                       </tr>
                     )}
                   </tbody>
                 </table>
               </div>
               <p className="text-[var(--aero-text-muted)]">
-                Počiatočný smer sa použije pri spustení siete. Každé prepojenie má vlastné
-                nastavenie.
+                {' '}
+                {t(
+                  'Počiatočný smer sa použije pri spustení siete. Každé prepojenie má vlastné nastavenie.',
+                )}{' '}
               </p>
             </section>
           )}
           {tab === 'save' && (
             <section className="space-y-4 p-3">
               <div className="space-y-3 border border-[var(--aero-panel-border)] p-3">
-                <h2 className="font-semibold">Uložiť sieť</h2>
+                <h2 className="font-semibold">{t('Uložiť sieť')}</h2>
                 <p>
-                  Uložia sa všetky stanice, ich koľajiská a prepojenia pre vybranú sieť.
-                  Predchádzajúca uložená sieť sa nahradí.
+                  {' '}
+                  {t(
+                    'Uložia sa všetky stanice, ich koľajiská a prepojenia pre vybranú sieť. Predchádzajúca uložená sieť sa nahradí.',
+                  )}{' '}
                 </p>
                 {templateFields}
                 <button
@@ -1288,19 +1315,22 @@ export default function SessionMapClient() {
                   disabled={isBusy || !universeIdDraft || !placeIdDraft}
                   onClick={() => void savePlaceTemplate()}
                 >
-                  <AeroIcon name="save" />
-                  Uložiť sieť
+                  <AeroIcon name="save" /> {t('Uložiť sieť')}{' '}
                 </button>
                 {savedPlaceTemplate && (
                   <p className="text-[var(--aero-text-muted)]">
-                    {selectedDestination?.name || 'Sieť'} · verzia {savedPlaceTemplate.revision}
+                    {selectedDestination?.name || t('Sieť')} {t('· verzia')}{' '}
+                    {savedPlaceTemplate.revision}
                   </p>
                 )}
               </div>
               <div className="space-y-3 border border-[var(--aero-panel-border)] p-3">
-                <h2 className="font-semibold">Záloha siete a skúšobná prevádzka</h2>
+                <h2 className="font-semibold">{t('Záloha siete a skúšobná prevádzka')}</h2>
                 <p>
-                  Stiahnite celú sieť do súboru alebo otvorte simulátor na overenie jej fungovania.
+                  {' '}
+                  {t(
+                    'Stiahnite celú sieť do súboru alebo otvorte simulátor na overenie jej fungovania.',
+                  )}{' '}
                 </p>
                 <div className="flex flex-wrap gap-2">
                   <button
@@ -1308,20 +1338,18 @@ export default function SessionMapClient() {
                     disabled={isBusy}
                     onClick={() => void exportSessionSchema()}
                   >
-                    <AeroIcon name="download" />
-                    Stiahnuť zálohu siete
+                    <AeroIcon name="download" /> {t('Stiahnuť zálohu siete')}{' '}
                   </button>
                   <Link
                     className="aero-btn"
                     href={`/mock?sessionId=${encodeURIComponent(session._id)}`}
                   >
-                    <AeroIcon name="play" />
-                    Otvoriť simulátor
+                    <AeroIcon name="play" /> {t('Otvoriť simulátor')}{' '}
                   </Link>
                 </div>
               </div>
               <details className="border border-[var(--aero-panel-border)] p-3">
-                <summary className="cursor-pointer">Otvoriť inú sieť</summary>
+                <summary className="cursor-pointer">{t('Otvoriť inú sieť')}</summary>
                 <div className="mt-3">{savedTemplatePicker}</div>
               </details>
             </section>
@@ -1344,9 +1372,9 @@ export default function SessionMapClient() {
       />
       <footer className="mt-auto border-t border-[var(--status-border)] bg-[var(--status-bg)] px-3 py-1 text-[11px] text-[var(--aero-text-muted)]">
         {session
-          ? 'Zmeny siete sa ukladajú priebežne. Pre použitie v Roblox uložte aj sieť.'
-          : 'Správa sietí'}
-        {isBusy ? ' · Pracujem…' : ''}
+          ? t('Zmeny siete sa ukladajú priebežne. Pre použitie v Roblox uložte aj sieť.')
+          : t('Správa sietí')}
+        {isBusy ? t(' · Pracujem…') : ''}
       </footer>
     </div>
   );

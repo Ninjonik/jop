@@ -1,4 +1,6 @@
 'use client';
+import { useTranslation } from '@/lib/i18n/client';
+
 import AuthoringTools from '@/app/components/authoring/AuthoringTools';
 import { AeroIcon } from '@/app/components/ui/AeroIcon';
 
@@ -59,6 +61,7 @@ interface Props {
 }
 
 export default function StationEditorClient({ tiles, stateGroups }: Props) {
+  const t = useTranslation();
   const searchParams = useSearchParams();
   const sessionId = searchParams.get('sessionId')?.trim() ?? '';
   const stationId = searchParams.get('stationId')?.trim() ?? '';
@@ -484,7 +487,7 @@ export default function StationEditorClient({ tiles, stateGroups }: Props) {
     }
 
     const currentValue = piece.state.texts[textKey] ?? '';
-    const nextValue = window.prompt(`Set ${textKey}`, currentValue);
+    const nextValue = window.prompt(t('Set {0}', textKey), currentValue);
 
     if (nextValue === null) {
       clearContextMenu();
@@ -525,7 +528,7 @@ export default function StationEditorClient({ tiles, stateGroups }: Props) {
         );
       }
       setStationLoadError(null);
-      window.alert(`Saved ${body.station.stationId}.`);
+      window.alert(t('Saved {0}.', body.station.stationId));
     } catch (error) {
       setStationLoadError(error instanceof Error ? error.message : 'Could not save station.');
     } finally {
@@ -548,29 +551,30 @@ export default function StationEditorClient({ tiles, stateGroups }: Props) {
     ];
     const next: NonNullable<typeof piece.levelCrossingTimings> = {};
     for (const [key, label] of fields) {
-      const value = window.prompt(label, current[key]?.toString() ?? '');
+      const value = window.prompt(t(label), current[key]?.toString() ?? '');
       if (value === null) return;
       const parsed = value.trim() === '' ? undefined : Number(value);
       if (parsed !== undefined && (!Number.isFinite(parsed) || parsed < 0)) {
-        window.alert('Timings must be zero or more seconds, or blank for the default.');
+        window.alert(t('Timings must be zero or more seconds, or blank for the default.'));
         return;
       }
       if (parsed !== undefined) next[key] = parsed;
     }
     const bellValue = window.prompt(
-      'Keep bell sounding after barriers finish lowering? (yes/no; blank = no)',
-      current.bellContinuesAfterLowering ? 'yes' : '',
+      t('Keep bell sounding after barriers finish lowering? (yes/no; blank = no)'),
+      current.bellContinuesAfterLowering ? t('yes') : '',
     );
     if (bellValue === null) return;
     const normalizedBellValue = bellValue.trim().toLowerCase();
-    if (normalizedBellValue === 'yes' || normalizedBellValue === 'true') {
+    if (['yes', 'true', 'áno', 'ano'].includes(normalizedBellValue)) {
       next.bellContinuesAfterLowering = true;
     } else if (
       normalizedBellValue !== '' &&
       normalizedBellValue !== 'no' &&
+      normalizedBellValue !== 'nie' &&
       normalizedBellValue !== 'false'
     ) {
-      window.alert('Bell option must be yes, no, or blank.');
+      window.alert(t('Bell option must be yes, no, or blank.'));
       return;
     }
     updateContextPiece((currentPiece) => ({
@@ -584,13 +588,13 @@ export default function StationEditorClient({ tiles, stateGroups }: Props) {
     const piece = editorState.pieces[contextMenu.pieceId];
     if (!piece || !isSwitchPieceType(piece.type)) return;
     const answer = window.prompt(
-      'Diverging speed (40, 60, 80, or 100 km/h; blank means the compatible default 40)',
+      t('Diverging speed (40, 60, 80, or 100 km/h; blank means the compatible default 40)'),
       String(piece.switchSpeed ?? 40),
     );
     if (answer === null) return;
     const speed = Number(answer.trim());
     if (speed !== 40 && speed !== 60 && speed !== 80 && speed !== 100) {
-      window.alert('Use 40, 60, 80, or 100.');
+      window.alert(t('Use 40, 60, 80, or 100.'));
       return;
     }
     setEditorState((current) => ({
@@ -919,25 +923,30 @@ export default function StationEditorClient({ tiles, stateGroups }: Props) {
     >
       <header className="authoring-caption">
         <AeroIcon name="edit" size={24} />
-        <strong className="mr-auto">Editor koľajiska{stationId ? ` — ${stationId}` : ''}</strong>
+        <strong className="mr-auto">
+          {t('Editor koľajiska')}
+          {stationId ? ` — ${stationId}` : ''}
+        </strong>
         <Link
           href={sessionId ? `/map?sessionId=${encodeURIComponent(sessionId)}` : '/map'}
           className="aero-btn"
         >
-          Späť na sieť staníc
+          {' '}
+          {t('Späť na sieť staníc')}{' '}
         </Link>
       </header>
       {isStationLoading && (
         <p role="status" className="px-3 py-1 text-xs">
-          Načítavam koľajisko…
+          {' '}
+          {t('Načítavam koľajisko…')}{' '}
         </p>
       )}
-      {stationLoadError && (
+      {t(stationLoadError) && (
         <p role="alert" className="px-3 py-1 text-xs text-red-700">
-          {stationLoadError}
+          {t(stationLoadError)}
         </p>
       )}
-      <AuthoringTools title="Nástroje a prvky koľajiska">
+      <AuthoringTools title={t('Nástroje a prvky koľajiska')}>
         <EditorControls
           width={draftWidth}
           height={draftHeight}
@@ -957,10 +966,11 @@ export default function StationEditorClient({ tiles, stateGroups }: Props) {
           onImport={() => fileInputRef.current?.click()}
           onExport={handleExport}
           onSave={sessionId && stationId && !isStationLoading ? handleSaveStation : undefined}
-          saveLabel={isSaving ? 'Ukladám…' : 'Uložiť koľajisko'}
+          saveLabel={isSaving ? t('Ukladám…') : t('Uložiť koľajisko')}
         />
         <div className="authoring-section-title">
-          Prvky koľajiska · vyberte prvok a kliknite do plánu
+          {' '}
+          {t('Prvky koľajiska · vyberte prvok a kliknite do plánu')}{' '}
         </div>
         <PlacementToolbar
           tileKeys={toolbarTileKeys}

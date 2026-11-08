@@ -1,4 +1,6 @@
 'use client';
+import { useLocaleTag, useTranslation } from '@/lib/i18n/client';
+
 import { AeroIcon } from '@/app/components/ui/AeroIcon';
 import { disFetch } from '@/lib/dis/api-client';
 import { useDisAuth } from '@/lib/dis/auth-context';
@@ -9,6 +11,8 @@ import { DocumentMarkdown } from './DocumentMarkdown';
 import { MarkdownEditor } from './MarkdownEditor';
 
 export function DocumentCenterView() {
+  const t = useTranslation();
+  const localeTag = useLocaleTag();
   const { canManageStaff } = useDisAuth();
   const {
     value,
@@ -51,10 +55,9 @@ export function DocumentCenterView() {
   return (
     <div className="flex flex-1 flex-col overflow-hidden bg-[var(--aero-panel-bg)] text-xs text-[var(--aero-text)]">
       <div className="flex flex-wrap items-center gap-2 border-b border-[var(--aero-ribbon-border)] bg-[var(--aero-ribbon-bg)] p-2">
-        <strong>Dokumentačné centrum a SPP</strong>
+        <strong>{t('Dokumentačné centrum a SPP')}</strong>
         <button className="aero-btn" onClick={refresh}>
-          <AeroIcon name="refresh" />
-          Obnoviť
+          <AeroIcon name="refresh" /> {t('Obnoviť')}{' '}
         </button>
         {canManageStaff && (
           <button
@@ -64,22 +67,21 @@ export function DocumentCenterView() {
               setDraft({ title: '', category: 'spp', contentMarkdown: '', isPublished: false })
             }
           >
-            <AeroIcon name="newDocument" />
-            Nový dokument
+            <AeroIcon name="newDocument" /> {t('Nový dokument')}{' '}
           </button>
         )}
       </div>
       {(error || loadError) && (
         <p role="alert" className="p-2 text-red-700">
-          {error || loadError}
+          {t(error) || t(loadError)}
         </p>
       )}
       <div className="flex flex-1 overflow-hidden">
         <aside className="w-44 shrink-0 overflow-auto border-r border-[var(--aero-panel-border)] bg-[var(--grid-row-alt)] p-2 md:w-64">
           {loading ? (
-            <p>Načítavam dokumenty...</p>
+            <p>{t('Načítavam dokumenty...')}</p>
           ) : value.documents.length === 0 ? (
-            <p>Žiadne publikované dokumenty.</p>
+            <p>{t('Žiadne publikované dokumenty.')}</p>
           ) : (
             value.documents.map((document) => (
               <button
@@ -89,7 +91,7 @@ export function DocumentCenterView() {
                 onClick={() => setSelectedId(document.$id)}
               >
                 {document.title}
-                {!document.isPublished && <span> (Koncept)</span>}
+                {!document.isPublished && <span> {t('(Koncept)')}</span>}
               </button>
             ))
           )}
@@ -98,10 +100,11 @@ export function DocumentCenterView() {
           {draft ? (
             <form onSubmit={save} className="flex flex-1 flex-col gap-3">
               <label className="grid gap-1">
-                Názov dokumentu
+                {' '}
+                {t('Názov dokumentu')}{' '}
                 <input
-                  aria-label="Názov dokumentu"
-                  placeholder="Názov dokumentu"
+                  aria-label={t('Názov dokumentu')}
+                  placeholder={t('Názov dokumentu')}
                   className="aero-input"
                   disabled={busy || uploading}
                   required
@@ -111,9 +114,10 @@ export function DocumentCenterView() {
                 />
               </label>
               <label className="grid gap-1">
-                Kategória
+                {' '}
+                {t('Kategória')}{' '}
                 <input
-                  aria-label="Kategória dokumentu"
+                  aria-label={t('Kategória dokumentu')}
                   className="aero-input"
                   disabled={busy || uploading}
                   required
@@ -137,12 +141,12 @@ export function DocumentCenterView() {
                   checked={!!draft.isPublished}
                   onChange={(event) => setDraft({ ...draft, isPublished: event.target.checked })}
                 />{' '}
-                Publikovať
+                {t('Publikovať')}{' '}
               </label>
               <div className="flex gap-2">
                 <button className="aero-btn" disabled={busy || uploading}>
                   <AeroIcon name="save" />
-                  {busy ? 'Ukladám...' : 'Uložiť dokument'}
+                  {busy ? t('Ukladám...') : t('Uložiť dokument')}
                 </button>
                 <button
                   type="button"
@@ -150,8 +154,7 @@ export function DocumentCenterView() {
                   disabled={busy || uploading}
                   onClick={() => setDraft(null)}
                 >
-                  <AeroIcon name="close" />
-                  Zrušiť
+                  <AeroIcon name="close" /> {t('Zrušiť')}{' '}
                 </button>
               </div>
             </form>
@@ -161,21 +164,20 @@ export function DocumentCenterView() {
                 <h2 className="font-bold text-sm">{active.title}</h2>
                 {canManageStaff && (
                   <button className="aero-btn" onClick={() => setDraft({ ...active })}>
-                    <AeroIcon name="edit" />
-                    Upraviť
+                    <AeroIcon name="edit" /> {t('Upraviť')}{' '}
                   </button>
                 )}
               </div>
               <p className="text-slate-500">
                 {active.category} • {active.authorName} •{' '}
-                {new Date(active.$updatedAt).toLocaleDateString('sk-SK')}
+                {new Date(active.$updatedAt).toLocaleDateString(localeTag)}
               </p>
               <div className="mt-4">
                 <DocumentMarkdown content={active.contentMarkdown} />
               </div>
             </>
           ) : (
-            <p>Vyberte alebo vytvorte dokument.</p>
+            <p>{t('Vyberte alebo vytvorte dokument.')}</p>
           )}
         </div>
       </div>

@@ -1,4 +1,6 @@
 'use client';
+import { useTranslation } from '@/lib/i18n/client';
+
 import { AeroIcon } from '@/app/components/ui/AeroIcon';
 import { useEffect, useRef } from 'react';
 
@@ -13,6 +15,7 @@ export function JopEmbeddedView({
   onClose: () => void;
   onNavigate: (url: string) => void;
 }) {
+  const t = useTranslation();
   const frame = useRef<HTMLIFrameElement>(null);
   const detach = useRef<(() => void) | undefined>(undefined);
   useEffect(() => {
@@ -57,15 +60,13 @@ export function JopEmbeddedView({
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
       <div className="flex items-center justify-between border-b bg-[var(--aero-ribbon-bg)] p-2">
-        <strong>{title}</strong>
+        <strong>{t(title)}</strong>
         <div className="flex gap-2">
           <a href={url} target="_blank" rel="noopener noreferrer" className="aero-btn">
-            <AeroIcon name="launch" />
-            Samostatné okno
+            <AeroIcon name="launch" /> {t('Samostatné okno')}{' '}
           </a>
           <button onClick={onClose} className="aero-btn">
-            <AeroIcon name="close" />
-            Zavrieť nástroj
+            <AeroIcon name="close" /> {t('Zavrieť nástroj')}{' '}
           </button>
         </div>
       </div>
@@ -74,7 +75,7 @@ export function JopEmbeddedView({
         src={url}
         onLoad={connectNavigation}
         className="w-full flex-1 border-none"
-        title={title}
+        title={t(title)}
       />
     </div>
   );

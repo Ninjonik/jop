@@ -1,4 +1,6 @@
 'use client';
+import { useTranslation } from '@/lib/i18n/client';
+
 import { isPublicStation } from '@/lib/station/visibility';
 
 import { AeroIcon } from '@/app/components/ui/AeroIcon';
@@ -20,6 +22,7 @@ export function ShiftPlanView({
   canManage: boolean;
   onPlan: (plan: ShiftPlan) => void;
 }) {
+  const t = useTranslation();
   const [editing, setEditing] = useState(false);
   const [placeId, setPlaceId] = useState(shift.plan?.placeId || '');
   const [selected, setSelected] = useState<string[]>(
@@ -70,16 +73,18 @@ export function ShiftPlanView({
     return (
       <select
         className="aero-select"
-        aria-label={`${role === 'dispatcher' ? 'Výpravca' : 'Rušňovodič'} – ${role === 'dispatcher' ? targetId : plan?.trains.find((train) => train.$id === targetId)?.trainNumber}`}
+        aria-label={`${role === 'dispatcher' ? t('Výpravca') : t('Rušňovodič')} – ${role === 'dispatcher' ? targetId : plan?.trains.find((train) => train.$id === targetId)?.trainNumber}`}
         disabled={busy || staff.loading || !!staff.error}
         value={assignment?.userId || ''}
         onChange={(event) =>
           void save({ command: 'assign', role, targetId, userId: event.target.value })
         }
       >
-        <option value="">Neobsadené</option>
+        <option value="">{t('Neobsadené')}</option>
         {assignment && !candidates.some((person) => person.userId === assignment.userId) && (
-          <option value={assignment.userId}>{assignment.userName} (nedostupný)</option>
+          <option value={assignment.userId}>
+            {assignment.userName} {t('(nedostupný)')}
+          </option>
         )}
         {candidates.map((person) => (
           <option key={person.userId} value={person.userId}>
@@ -94,11 +99,12 @@ export function ShiftPlanView({
     <section className="flex flex-col gap-2 border border-[var(--aero-panel-border)] p-3">
       <div className="flex flex-wrap items-center gap-2">
         <strong>
-          <AeroIcon name="table" /> Grafikon a obsadenie zmeny
+          <AeroIcon name="table" /> {t('Grafikon a obsadenie zmeny')}{' '}
         </strong>
         {plan && (
           <span>
-            {plan.placeName} · {plan.trains.length} vlakov · {plan.stations.length} staníc
+            {plan.placeName} · {plan.trains.length} {t('vlakov ·')} {plan.stations.length}{' '}
+            {t('staníc')}{' '}
           </span>
         )}
         {editable && shift.status !== 'active' && !editing && (
@@ -111,16 +117,16 @@ export function ShiftPlanView({
             }}
           >
             <AeroIcon name="edit" />
-            {plan ? 'Zmeniť grafikon' : 'Vybrať grafikon'}
+            {plan ? t('Zmeniť grafikon') : t('Vybrať grafikon')}
           </button>
         )}
       </div>
       {(error || places.error || staff.error || timetables.error) && (
         <p role="alert" className="text-red-700">
-          {error || places.error || staff.error || timetables.error}
+          {t(error || places.error || staff.error || timetables.error)}
         </p>
       )}
-      {message && <p role="status">{message}</p>}
+      {message && <p role="status">{t(message)}</p>}
       {editing && (
         <form
           className="flex flex-col gap-2"
@@ -130,7 +136,8 @@ export function ShiftPlanView({
           }}
         >
           <label className="flex flex-wrap items-center gap-2">
-            Sieť staníc
+            {' '}
+            {t('Sieť staníc')}{' '}
             <select
               className="aero-select"
               required
@@ -141,7 +148,7 @@ export function ShiftPlanView({
                 setSelected([]);
               }}
             >
-              <option value="">Vyberte sieť</option>
+              <option value="">{t('Vyberte sieť')}</option>
               {places.value.places
                 .filter((place) => place.hasTemplate)
                 .map((place) => (
@@ -151,17 +158,19 @@ export function ShiftPlanView({
                 ))}
             </select>
           </label>
-          <p>Vyberte vlaky z uloženého GVD. Ich cestovné poriadky sa skopírujú do tejto zmeny.</p>
+          <p>
+            {t('Vyberte vlaky z uloženého GVD. Ich cestovné poriadky sa skopírujú do tejto zmeny.')}
+          </p>
           {placeId && (
             <fieldset
               disabled={busy || timetables.loading || !!timetables.error}
               className="max-h-52 overflow-auto border border-[var(--aero-panel-border)] p-2"
             >
-              <legend>Vlaky v zmene</legend>
+              <legend>{t('Vlaky v zmene')}</legend>
               {timetables.loading ? (
-                <p>Načítavam grafikon…</p>
+                <p>{t('Načítavam grafikon…')}</p>
               ) : timetables.value.timetables.length === 0 ? (
-                <p>Pre túto sieť nie sú uložené vlaky. Pridajte ich v tvorbe GVD.</p>
+                <p>{t('Pre túto sieť nie sú uložené vlaky. Pridajte ich v tvorbe GVD.')}</p>
               ) : (
                 timetables.value.timetables.map((train) => (
                   <label key={train.$id} className="flex items-center gap-2 py-1">
@@ -186,8 +195,10 @@ export function ShiftPlanView({
           )}
           {plan && (
             <p>
-              Priradenia pre zostávajúce stanice a vlaky sa zachovajú. Priradenia vyradených
-              položiek sa odstránia.
+              {' '}
+              {t(
+                'Priradenia pre zostávajúce stanice a vlaky sa zachovajú. Priradenia vyradených položiek sa odstránia.',
+              )}{' '}
             </p>
           )}
           <div className="flex gap-2">
@@ -197,8 +208,7 @@ export function ShiftPlanView({
                 busy || !placeId || !selected.length || !!timetables.error || timetables.loading
               }
             >
-              <AeroIcon name="save" />
-              Uložiť grafikon
+              <AeroIcon name="save" /> {t('Uložiť grafikon')}{' '}
             </button>
             <button
               type="button"
@@ -206,34 +216,37 @@ export function ShiftPlanView({
               disabled={busy}
               onClick={() => setEditing(false)}
             >
-              <AeroIcon name="close" />
-              Zavrieť
+              <AeroIcon name="close" /> {t('Zavrieť')}{' '}
             </button>
           </div>
         </form>
       )}
       {!plan ? (
         <p>
-          Grafikon zatiaľ nie je vybraný. Po jeho uložení sa tu zobrazia stanice, vlaky a pridelení
-          zamestnanci.
+          {' '}
+          {t(
+            'Grafikon zatiaľ nie je vybraný. Po jeho uložení sa tu zobrazia stanice, vlaky a pridelení zamestnanci.',
+          )}{' '}
         </p>
       ) : (
         <>
           <p>
-            Obsadené stanice: {plan.assignments.filter((item) => item.role === 'dispatcher').length}
-            /{plan.stations.length} · Obsadené vlaky:{' '}
+            {' '}
+            {t('Obsadené stanice:')}{' '}
+            {plan.assignments.filter((item) => item.role === 'dispatcher').length}/
+            {plan.stations.length} {t('· Obsadené vlaky:')}{' '}
             {plan.assignments.filter((item) => item.role === 'driver').length}/{plan.trains.length}
           </p>
           <div className="grid gap-3 lg:grid-cols-2">
             <div className="overflow-auto">
               <table className="aero-grid w-full text-left">
                 <caption className="text-left font-semibold">
-                  <AeroIcon name="network" /> Stanice a výpravcovia
+                  <AeroIcon name="network" /> {t('Stanice a výpravcovia')}{' '}
                 </caption>
                 <thead>
                   <tr>
-                    <th>Stanica</th>
-                    <th>Výpravca</th>
+                    <th>{t('Stanica')}</th>
+                    <th>{t('Výpravca')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -251,12 +264,12 @@ export function ShiftPlanView({
             <div className="overflow-auto">
               <table className="aero-grid w-full text-left">
                 <caption className="text-left font-semibold">
-                  <AeroIcon name="train" /> Vlaky a rušňovodiči
+                  <AeroIcon name="train" /> {t('Vlaky a rušňovodiči')}{' '}
                 </caption>
                 <thead>
                   <tr>
-                    <th>Vlak a trasa</th>
-                    <th>Rušňovodič</th>
+                    <th>{t('Vlak a trasa')}</th>
+                    <th>{t('Rušňovodič')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -273,7 +286,7 @@ export function ShiftPlanView({
                           <ol>
                             {train.stops.map((stop, index) => (
                               <li key={index}>
-                                {stop.station} · {stop.arrival}–{stop.departure} · koľaj{' '}
+                                {stop.station} · {stop.arrival}–{stop.departure} {t('· koľaj')}{' '}
                                 {stop.track}
                               </li>
                             ))}
@@ -289,8 +302,10 @@ export function ShiftPlanView({
           </div>
           {editable && (
             <p>
-              Výpravca môže obsluhovať jednu stanicu. Rušňovodičovi možno prideliť viac vlakov;
-              skontrolujte, či sa ich jazdy neprekrývajú.
+              {' '}
+              {t(
+                'Výpravca môže obsluhovať jednu stanicu. Rušňovodičovi možno prideliť viac vlakov; skontrolujte, či sa ich jazdy neprekrývajú.',
+              )}{' '}
             </p>
           )}
         </>

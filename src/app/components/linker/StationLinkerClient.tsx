@@ -1,4 +1,6 @@
 'use client';
+import { useTranslation } from '@/lib/i18n/client';
+
 import AuthoringTools from '@/app/components/authoring/AuthoringTools';
 import { AeroIcon } from '@/app/components/ui/AeroIcon';
 
@@ -25,6 +27,7 @@ interface Props {
 }
 
 export default function StationLinkerClient({ tiles, stateGroups }: Props) {
+  const t = useTranslation();
   const [stationId, setStationId] = useState('');
   const [layout, setLayout] = useState<EditorState | null>(null);
   const [selectedPieceIds, setSelectedPieceIds] = useState<string[]>([]);
@@ -118,12 +121,12 @@ export default function StationLinkerClient({ tiles, stateGroups }: Props) {
         setCopiedPieceIds((current) => Array.from(new Set([...current, ...pieceIds])));
         setSelectedPieceIds([]);
         setLastCopiedCount(pieceIds.length);
-        setCopyStatus(`Copied ${pieceIds.length} tile link${pieceIds.length === 1 ? '' : 's'}.`);
+        setCopyStatus(t('Copied element links: {0}.', pieceIds.length));
       } catch {
         setCopyStatus('Prepojenie sa nepodarilo skopírovať do schránky.');
       }
     },
-    [buildPayload, stationId],
+    [buildPayload, stationId, t],
   );
 
   useEffect(() => {
@@ -263,41 +266,42 @@ export default function StationLinkerClient({ tiles, stateGroups }: Props) {
     <main className="aero-tool railway-authoring flex h-screen flex-col overflow-hidden bg-[var(--aero-panel-bg)] text-[var(--aero-text)]">
       <header className="authoring-caption">
         <AeroIcon name="link" size={24} />
-        <strong className="mr-auto">Prepojenie koľajiska s Roblox</strong>
+        <strong className="mr-auto">{t('Prepojenie koľajiska s Roblox')}</strong>
         <Link href="/map" className="aero-btn">
-          <AeroIcon name="back" />
-          Späť na sieť staníc
+          <AeroIcon name="back" /> {t('Späť na sieť staníc')}{' '}
         </Link>
       </header>
-      <AuthoringTools title="Nástroje prepojenia">
+      <AuthoringTools title={t('Nástroje prepojenia')}>
         <div className="flex shrink-0 flex-wrap items-end gap-3 border-b border-[var(--aero-ribbon-border)] bg-[var(--aero-ribbon-bg)] p-3 text-xs">
           <div className="flex min-w-52 flex-col gap-1">
             <label htmlFor="station-id" className="text-xs font-semibold">
-              Stanica
+              {' '}
+              {t('Stanica')}{' '}
             </label>
             <input
               id="station-id"
               type="text"
               value={stationId}
               onChange={(event) => setStationId(event.target.value)}
-              placeholder="Názov stanice"
+              placeholder={t('Názov stanice')}
               className="aero-input"
             />
           </div>
 
           <button type="button" onClick={() => fileInputRef.current?.click()} className="aero-btn">
-            <AeroIcon name="open" />
-            Otvoriť plán zo súboru…
+            <AeroIcon name="open" /> {t('Otvoriť plán zo súboru…')}{' '}
           </button>
 
           <div className="text-xs text-[var(--aero-text)]">
-            Vybrané: {selectedCount} · Skopírované: {copiedCount}
+            {' '}
+            {t('Vybrané:')} {selectedCount} {t('· Skopírované:')} {copiedCount}
           </div>
 
           <div className="w-full text-xs text-[var(--aero-text-muted)]">
-            Kliknutím skopírujete prepojenie. Podržte Ctrl na výber viacerých prvkov; šípkami doľava
-            a doprava vyberte priechod. Uvoľnením Ctrl skopírujete skupinu. Pravým tlačidlom zrušíte
-            označenie skopírovaných prvkov.
+            {' '}
+            {t(
+              'Kliknutím skopírujete prepojenie. Podržte Ctrl na výber viacerých prvkov; šípkami doľava a doprava vyberte priechod. Uvoľnením Ctrl skopírujete skupinu. Pravým tlačidlom zrušíte označenie skopírovaných prvkov.',
+            )}{' '}
           </div>
         </div>
       </AuthoringTools>
@@ -306,7 +310,7 @@ export default function StationLinkerClient({ tiles, stateGroups }: Props) {
           role="status"
           className="border-b border-[var(--status-border)] bg-[var(--status-bg)] px-3 py-2 text-xs"
         >
-          {copyStatus}
+          {t(copyStatus)}
         </div>
       ) : null}
 
@@ -332,12 +336,13 @@ export default function StationLinkerClient({ tiles, stateGroups }: Props) {
 
             {selectedPieceIds.length > 0 ? (
               <div className="pointer-events-none absolute left-1/2 top-4 z-10 -translate-x-1/2 rounded border border-neutral-800/70 bg-neutral-950/80 px-4 py-2 text-center text-sm text-white">
-                <div>Priechod</div>
+                <div>{t('Priechod')}</div>
                 <div className="font-mono text-base">
-                  {selectedTraversalState === 'none' ? 'none' : selectedTraversalState}
+                  {selectedTraversalState === 'none' ? t('none') : t(selectedTraversalState)}
                 </div>
                 <div className="mt-1 text-xs text-neutral-300">
-                  Naposledy skopírované: {lastCopiedCount}
+                  {' '}
+                  {t('Naposledy skopírované:')} {lastCopiedCount}
                 </div>
               </div>
             ) : null}
@@ -407,7 +412,10 @@ export default function StationLinkerClient({ tiles, stateGroups }: Props) {
           </div>
         ) : (
           <div className="m-auto text-sm text-neutral-800">
-            Otvorte plán stanice zo súboru. Potom vyberajte prvky, ktoré chcete prepojiť s Roblox.
+            {' '}
+            {t(
+              'Otvorte plán stanice zo súboru. Potom vyberajte prvky, ktoré chcete prepojiť s Roblox.',
+            )}{' '}
           </div>
         )}
       </div>

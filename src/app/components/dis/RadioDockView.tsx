@@ -1,4 +1,6 @@
 'use client';
+import { useLocaleTag, useTranslation } from '@/lib/i18n/client';
+
 import { AeroAutocomplete, type AutocompleteOption } from '@/app/components/ui/AeroAutocomplete';
 import { AeroIcon } from '@/app/components/ui/AeroIcon';
 import { disFetch } from '@/lib/dis/api-client';
@@ -17,6 +19,8 @@ export function RadioDockView({
   stationId: string;
   defaultTarget?: string;
 }) {
+  const t = useTranslation();
+  const localeTag = useLocaleTag();
   const { profile } = useDisAuth();
   const {
     value,
@@ -74,38 +78,46 @@ export function RadioDockView({
         >
           <AeroIcon name="documents" />
           <strong>
-            Rádiový denník — {stationId ? getStationDisplayName(stationId) : 'Vyberte stanicu'}
+            {' '}
+            {t('Rádiový denník —')}{' '}
+            {stationId ? getStationDisplayName(stationId) : t('Vyberte stanicu')}
           </strong>
           <AeroIcon name={expanded ? 'collapse' : 'expand'} />
         </button>
-        <span className="text-[var(--aero-text-muted)]">Hlásenia a rozkazy</span>
+        <span className="text-[var(--aero-text-muted)]">{t('Hlásenia a rozkazy')}</span>
       </div>
       {expanded && (
         <>
           {(error || loadError) && (
             <p role="alert" className="p-2 text-red-700">
-              {error || loadError}
+              {t(error) || t(loadError)}
             </p>
           )}
           <div className="radio-messages" aria-live="polite">
-            {value.messages.length === 0 && <p>Žiadne uložené hlásenia v relácii.</p>}
+            {value.messages.length === 0 && <p>{t('Žiadne uložené hlásenia v relácii.')}</p>}
             {value.messages.map((message) => (
               <div key={message.$id} className={`msg-line ${message.isUrgentOrder ? 'alert' : ''}`}>
                 <span className="msg-time">
-                  [{new Date(message.$createdAt).toLocaleTimeString('sk-SK')}]{' '}
+                  [{new Date(message.$createdAt).toLocaleTimeString(localeTag)}]{' '}
                 </span>
-                <strong>{message.senderName}</strong> → {message.targetRecipient}: {message.content}
+                <strong>{message.senderName}</strong> →{' '}
+                {message.targetRecipient === 'Všetci' ? t('Všetci') : message.targetRecipient}:{' '}
+                {message.content}
               </div>
             ))}
           </div>
           <form onSubmit={send} className="radio-input-strip">
             <label className="radio-recipient">
-              Príjemca
+              {' '}
+              {t('Príjemca')}{' '}
               <AeroAutocomplete
-                label="Príjemca hlásenia"
-                placeholder="Stanica alebo vlak…"
+                label={t('Príjemca hlásenia')}
+                placeholder={t('Stanica alebo vlak…')}
                 value={target}
-                options={directory.recipients}
+                options={directory.recipients.map((recipient) => ({
+                  ...recipient,
+                  label: recipient.value === 'Všetci' ? t('Všetci') : recipient.label,
+                }))}
                 placement="up"
                 disabled={busy}
                 onInput={(value) => setTarget(value.slice(0, 64))}
@@ -113,10 +125,11 @@ export function RadioDockView({
               />
             </label>
             <label className="radio-text">
-              Hlásenie
+              {' '}
+              {t('Hlásenie')}{' '}
               <input
-                aria-label="Hlásenie"
-                placeholder="Text hlásenia..."
+                aria-label={t('Hlásenie')}
+                placeholder={t('Text hlásenia...')}
                 className="aero-input flex-1"
                 required
                 maxLength={1000}
@@ -132,7 +145,7 @@ export function RadioDockView({
                   checked={urgent}
                   onChange={(event) => setUrgent(event.target.checked)}
                 />{' '}
-                Rozkaz
+                {t('Rozkaz')}{' '}
               </label>
             )}
             <button
@@ -140,12 +153,13 @@ export function RadioDockView({
               disabled={busy || !sessionId || !stationId || !target.trim() || !text.trim()}
             >
               <AeroIcon name="send" />
-              {busy ? 'Odosielam...' : 'Odoslať'}
+              {busy ? t('Odosielam...') : t('Odoslať')}
             </button>
           </form>
           {directoryError && (
             <p role="status" className="px-3 pb-2 text-[var(--aero-text-muted)]">
-              Návrhy príjemcov sa nepodarilo načítať. Meno môžete zadať ručne.
+              {' '}
+              {t('Návrhy príjemcov sa nepodarilo načítať. Meno môžete zadať ručne.')}{' '}
             </p>
           )}
         </>

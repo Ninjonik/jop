@@ -1,4 +1,5 @@
 'use client';
+import { useTranslation } from '@/lib/i18n/client';
 
 import { AeroAutocomplete } from '@/app/components/ui/AeroAutocomplete';
 import { AeroIcon } from '@/app/components/ui/AeroIcon';
@@ -29,6 +30,7 @@ export function DriverDashboardView({
   sessionId: string;
   onTrainChange?: (train: DriverTrain | null) => void;
 }) {
+  const t = useTranslation();
   const { canDriveTrain } = useDisAuth();
   const {
     value,
@@ -105,7 +107,7 @@ export function DriverDashboardView({
     <div className="flex flex-1 flex-col gap-3 overflow-auto bg-[var(--aero-panel-bg)] p-3 text-xs">
       <div className="authoring-caption">
         <AeroIcon name="train" />
-        <strong>Rušňovodič – môj vlak</strong>
+        <strong>{t('Rušňovodič – môj vlak')}</strong>
         {canDriveTrain && !draft && (
           <button
             className="aero-btn"
@@ -113,30 +115,30 @@ export function DriverDashboardView({
             onClick={() => setDraft(train || emptyTrain(sessionId))}
           >
             <AeroIcon name="edit" />
-            {train ? 'Zmeniť vlak alebo údaje' : 'Vybrať vlak'}
+            {train ? t('Zmeniť vlak alebo údaje') : t('Vybrať vlak')}
           </button>
         )}
         {train && !draft && (
           <button className="aero-btn" disabled={busy} onClick={() => void finish()}>
-            <AeroIcon name="confirm" />
-            Ukončiť jazdu
+            <AeroIcon name="confirm" /> {t('Ukončiť jazdu')}{' '}
           </button>
         )}
       </div>
       {(error || loadError) && (
         <p role="alert" className="text-red-700">
-          {error || loadError}
+          {t(error) || t(loadError)}
         </p>
       )}
-      {loading && <p>Načítavam GVD…</p>}
+      {loading && <p>{t('Načítavam GVD…')}</p>}
       {draft && (
         <form onSubmit={save}>
           <fieldset disabled={busy} className="flex flex-wrap items-end gap-3">
             <label>
-              Číslo vlaku{' '}
+              {' '}
+              {t('Číslo vlaku')}{' '}
               <AeroAutocomplete
-                label="Číslo vlaku"
-                placeholder="Číslo z GVD alebo vlastné…"
+                label={t('Číslo vlaku')}
+                placeholder={t('Číslo z GVD alebo vlastné…')}
                 value={draft.trainNumber}
                 options={value.timetables.map((item) => ({
                   value: item.$id,
@@ -153,7 +155,8 @@ export function DriverDashboardView({
               />
             </label>
             <label>
-              Kategória{' '}
+              {' '}
+              {t('Kategória')}{' '}
               <select
                 className="aero-select"
                 value={draft.trainType}
@@ -168,9 +171,10 @@ export function DriverDashboardView({
               </select>
             </label>
             <label>
-              Cieľová stanica{' '}
+              {' '}
+              {t('Cieľová stanica')}{' '}
               <AeroAutocomplete
-                label="Cieľová stanica"
+                label={t('Cieľová stanica')}
                 value={draft.endStation}
                 options={value.stations.map((station) => ({
                   value: station.stationId,
@@ -188,7 +192,7 @@ export function DriverDashboardView({
               ] as const
             ).map(([field, label, max]) => (
               <label key={field}>
-                {label}{' '}
+                {t(label)}{' '}
                 <input
                   className="aero-input w-24"
                   type="number"
@@ -206,19 +210,17 @@ export function DriverDashboardView({
               </label>
             ))}
             <button className="aero-btn" disabled={!draft.trainNumber.trim()}>
-              <AeroIcon name="save" />
-              Prevziať vlak
+              <AeroIcon name="save" /> {t('Prevziať vlak')}{' '}
             </button>
             <button type="button" className="aero-btn" onClick={() => setDraft(null)}>
-              <AeroIcon name="close" />
-              Zrušiť
+              <AeroIcon name="close" /> {t('Zrušiť')}{' '}
             </button>
           </fieldset>
           <p className="mt-2 text-[var(--aero-text-muted)]">
             {draft.timetableId
-              ? 'Vybraný vlak z GVD – cestovný poriadok sa zobrazí po prevzatí.'
-              : 'Vlastné číslo – cestovný poriadok sa automaticky nenačíta.'}{' '}
-            Kategóriu možno zmeniť aj na Pos bez zmeny čísla vlaku.
+              ? t('Vybraný vlak z GVD – cestovný poriadok sa zobrazí po prevzatí.')
+              : t('Vlastné číslo – cestovný poriadok sa automaticky nenačíta.')}{' '}
+            {t('Kategóriu možno zmeniť aj na Pos bez zmeny čísla vlaku.')}{' '}
           </p>
         </form>
       )}
@@ -229,24 +231,27 @@ export function DriverDashboardView({
               {train.trainType} {train.trainNumber}
             </strong>
             <span className="ml-3">
-              Cieľ: {train.endStation || 'neuvedený'} · Dĺžka: {train.length ?? '—'} m · Hmotnosť:{' '}
-              {train.tonnage ?? '—'} t · Vozne: {train.wagons ?? '—'}
+              {' '}
+              {t('Cieľ:')} {train.endStation || t('neuvedený')} {t('· Dĺžka:')}{' '}
+              {train.length ?? '—'} {t('m · Hmotnosť:')} {train.tonnage ?? '—'} {t('t · Vozne:')}{' '}
+              {train.wagons ?? '—'}
             </span>
           </div>
           {timetable ? (
             <section>
               <strong>
-                Cestovný poriadok · {timetable.trainType} {timetable.trainNumber}
+                {' '}
+                {t('Cestovný poriadok ·')} {timetable.trainType} {timetable.trainNumber}
               </strong>
               {timetable.notes && <p>{timetable.notes}</p>}
               <table className="driver-timetable mt-2 w-full text-left">
                 <thead>
                   <tr>
-                    <th>Stanica</th>
-                    <th>Príchod</th>
-                    <th>Odchod</th>
-                    <th>Koľaj</th>
-                    <th>Poznámky</th>
+                    <th>{t('Stanica')}</th>
+                    <th>{t('Príchod')}</th>
+                    <th>{t('Odchod')}</th>
+                    <th>{t('Koľaj')}</th>
+                    <th>{t('Poznámky')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -266,16 +271,16 @@ export function DriverDashboardView({
               {next && (
                 <div className="mt-3 flex flex-wrap items-center gap-2">
                   <span>
-                    Nadväzujúci vlak:{' '}
+                    {' '}
+                    {t('Nadväzujúci vlak:')}{' '}
                     <strong>
                       {next.trainType} {next.trainNumber}
                     </strong>{' '}
-                    · {next.stops[0].station} – {next.stops.at(-1)?.station} · odchod{' '}
+                    · {next.stops[0].station} – {next.stops.at(-1)?.station} {t('· odchod')}{' '}
                     {next.stops[0].departure}
                   </span>
                   <button className="aero-btn" disabled={busy} onClick={() => selectPreset(next)}>
-                    <AeroIcon name="right" />
-                    Pripraviť ďalší vlak
+                    <AeroIcon name="right" /> {t('Pripraviť ďalší vlak')}{' '}
                   </button>
                 </div>
               )}
@@ -283,26 +288,31 @@ export function DriverDashboardView({
           ) : (
             <p>
               {train.timetableId
-                ? 'Priradený grafikon už nie je dostupný.'
-                : 'Vlak má vlastné číslo bez automatického cestovného poriadku.'}
+                ? t('Priradený grafikon už nie je dostupný.')
+                : t('Vlak má vlastné číslo bez automatického cestovného poriadku.')}
             </p>
           )}
         </>
       ) : (
-        !loading && <p>Zatiaľ nevediete žiadny vlak. Vyberte číslo z GVD alebo zadajte vlastné.</p>
+        !loading && (
+          <p>{t('Zatiaľ nevediete žiadny vlak. Vyberte číslo z GVD alebo zadajte vlastné.')}</p>
+        )
       )}
       {value.drivers.length > 0 && (
         <details>
-          <summary>Vlaky v relácii ({value.drivers.length})</summary>
+          <summary>
+            {t('Vlaky v relácii (')}
+            {value.drivers.length})
+          </summary>
           <table className="driver-timetable w-full text-left">
             <thead>
               <tr>
-                <th>Vlak</th>
-                <th>Rušňovodič</th>
-                <th>Cieľ</th>
-                <th>Dĺžka</th>
-                <th>Hmotnosť</th>
-                <th>Vozne</th>
+                <th>{t('Vlak')}</th>
+                <th>{t('Rušňovodič')}</th>
+                <th>{t('Cieľ')}</th>
+                <th>{t('Dĺžka')}</th>
+                <th>{t('Hmotnosť')}</th>
+                <th>{t('Vozne')}</th>
               </tr>
             </thead>
             <tbody>

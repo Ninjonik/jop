@@ -1,4 +1,6 @@
 'use client';
+import { useTranslation } from '@/lib/i18n/client';
+
 import { AeroIcon } from '@/app/components/ui/AeroIcon';
 
 import { disFetch } from '@/lib/dis/api-client';
@@ -19,6 +21,7 @@ type Booking = {
 };
 
 export function ShiftManagementView() {
+  const t = useTranslation();
   const { profile, canManageStaff, canDriveTrain, canOperateStation } = useDisAuth();
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
@@ -168,7 +171,7 @@ export function ShiftManagementView() {
 
   return (
     <div className="flex flex-1 flex-col overflow-auto bg-white p-3 text-xs gap-3">
-      <strong>Plánovač a registrácia šicht — 2,5 hodiny</strong>
+      <strong>{t('Plánovač a registrácia šicht — 2,5 hodiny')}</strong>
       {currentShift && canManageStaff && (
         <div className="flex gap-2">
           {currentShift.status === 'open' && (
@@ -177,8 +180,7 @@ export function ShiftManagementView() {
               disabled={busy}
               onClick={() => manage('status', currentShift.$id, 'active')}
             >
-              <AeroIcon name="play" />
-              Začať zmenu
+              <AeroIcon name="play" /> {t('Začať zmenu')}{' '}
             </button>
           )}
           {currentShift.status === 'active' && (
@@ -187,8 +189,7 @@ export function ShiftManagementView() {
               disabled={busy}
               onClick={() => manage('status', currentShift.$id, 'completed')}
             >
-              <AeroIcon name="confirm" />
-              Ukončiť zmenu
+              <AeroIcon name="confirm" /> {t('Ukončiť zmenu')}{' '}
             </button>
           )}
           {['open', 'active'].includes(currentShift.status) && (
@@ -197,22 +198,21 @@ export function ShiftManagementView() {
               disabled={busy}
               onClick={() => manage('status', currentShift.$id, 'cancelled')}
             >
-              <AeroIcon name="close" />
-              Zrušiť zmenu
+              <AeroIcon name="close" /> {t('Zrušiť zmenu')}{' '}
             </button>
           )}
         </div>
       )}
       {error && (
         <p role="alert" className="text-red-700">
-          {error}
+          {t(error)}
         </p>
       )}
       {canManageStaff && (
         <form onSubmit={createShift} className="flex flex-wrap gap-2 items-center">
           <input
-            aria-label="Názov zmeny"
-            placeholder="Názov zmeny"
+            aria-label={t('Názov zmeny')}
+            placeholder={t('Názov zmeny')}
             className="aero-input"
             required
             maxLength={128}
@@ -220,7 +220,7 @@ export function ShiftManagementView() {
             onChange={(event) => setTitle(event.target.value)}
           />
           <input
-            aria-label="Dátum zmeny"
+            aria-label={t('Dátum zmeny')}
             className="aero-input"
             type="date"
             required
@@ -228,7 +228,7 @@ export function ShiftManagementView() {
             onChange={(event) => setDate(event.target.value)}
           />
           <input
-            aria-label="Začiatok zmeny"
+            aria-label={t('Začiatok zmeny')}
             className="aero-input"
             type="time"
             required
@@ -236,26 +236,25 @@ export function ShiftManagementView() {
             onChange={(event) => setStartTime(event.target.value)}
           />
           <button className="aero-btn" disabled={busy || !title.trim()}>
-            <AeroIcon name="calendar" />
-            Vytvoriť zmenu
+            <AeroIcon name="calendar" /> {t('Vytvoriť zmenu')}{' '}
           </button>
         </form>
       )}
       {loading ? (
-        <p>Načítavam...</p>
+        <p>{t('Načítavam...')}</p>
       ) : shifts.length === 0 ? (
-        <p>Žiadne plánované zmeny.</p>
+        <p>{t('Žiadne plánované zmeny.')}</p>
       ) : (
         <>
           <select
-            aria-label="Vybrať zmenu"
+            aria-label={t('Vybrať zmenu')}
             className="aero-select"
             value={selectedShiftId}
             onChange={(event) => setSelectedShiftId(event.target.value)}
           >
             {shifts.map((shift) => (
               <option key={shift.$id} value={shift.$id}>
-                {shift.date} {shift.startTime}–{shift.endTime} — {shift.title} ({shift.status})
+                {shift.date} {shift.startTime}–{shift.endTime} — {shift.title} ({t(shift.status)})
               </option>
             ))}
           </select>
@@ -278,21 +277,23 @@ export function ShiftManagementView() {
             (canDriveTrain || canOperateStation) && (
               <form onSubmit={register} className="flex gap-2">
                 <select
-                  aria-label="Pracovná rola"
+                  aria-label={t('Pracovná rola')}
                   className="aero-select"
                   value={role}
                   onChange={(event) => setRole(event.target.value)}
                 >
                   <option value="dispatcher" disabled={!canOperateStation}>
-                    Výpravca
+                    {' '}
+                    {t('Výpravca')}{' '}
                   </option>
                   <option value="driver" disabled={!canDriveTrain}>
-                    Rušňovodič
+                    {' '}
+                    {t('Rušňovodič')}{' '}
                   </option>
                 </select>
                 <input
-                  aria-label="Stanica alebo turnus"
-                  placeholder="Stanica / turnus"
+                  aria-label={t('Stanica alebo turnus')}
+                  placeholder={t('Stanica / turnus')}
                   required
                   maxLength={64}
                   className="aero-input"
@@ -300,42 +301,45 @@ export function ShiftManagementView() {
                   onChange={(event) => setLocation(event.target.value)}
                 />
                 <button className="aero-btn" disabled={busy}>
-                  <AeroIcon name="addUser" />
-                  Zapísať sa na zmenu
+                  <AeroIcon name="addUser" /> {t('Zapísať sa na zmenu')}{' '}
                 </button>
               </form>
             )}
-          {alreadyRegistered && <p className="text-emerald-700">Na túto zmenu ste prihlásený.</p>}
+          {alreadyRegistered && (
+            <p className="text-emerald-700">{t('Na túto zmenu ste prihlásený.')}</p>
+          )}
           <table className="aero-grid w-full text-left">
             <thead>
               <tr>
-                <th>Zamestnanec</th>
-                <th>Rola</th>
-                <th>Stanica / turnus</th>
-                <th>Dochádzka</th>
+                <th>{t('Zamestnanec')}</th>
+                <th>{t('Rola')}</th>
+                <th>{t('Stanica / turnus')}</th>
+                <th>{t('Dochádzka')}</th>
               </tr>
             </thead>
             <tbody>
               {currentBookings.map((booking) => (
                 <tr key={booking.$id}>
                   <td>{booking.userName}</td>
-                  <td>{booking.assignedRole}</td>
+                  <td>{t(booking.assignedRole)}</td>
                   <td>{booking.assignedLocation}</td>
                   <td>
                     {canManageStaff ? (
                       <select
-                        aria-label={`Dochádzka ${booking.userName}`}
+                        aria-label={t('Dochádzka {0}', booking.userName)}
                         className="aero-select"
                         disabled={busy}
                         value={booking.attendance}
                         onChange={(event) => manage('attendance', booking.$id, event.target.value)}
                       >
                         {['registered', 'present', 'strike', 'excused'].map((attendance) => (
-                          <option key={attendance}>{attendance}</option>
+                          <option key={attendance} value={attendance}>
+                            {t(attendance)}
+                          </option>
                         ))}
                       </select>
                     ) : (
-                      booking.attendance
+                      t(booking.attendance)
                     )}
                   </td>
                 </tr>

@@ -1,4 +1,6 @@
 'use client';
+import { useTranslation } from '@/lib/i18n/client';
+
 import { AeroIcon } from '@/app/components/ui/AeroIcon';
 import type { EddRecord } from '@/lib/dis/records';
 import {
@@ -23,6 +25,7 @@ export function TpvFullView({
   stationId: string;
   placeId: string;
 }) {
+  const t = useTranslation();
   const { value, error, loading } = useDisResource<{ timetables: Timetable[] }>(
     `/api/dis/timetables?placeId=${encodeURIComponent(placeId)}`,
     { timetables: [] },
@@ -103,43 +106,43 @@ export function TpvFullView({
   return (
     <div className="flex flex-1 flex-col overflow-hidden bg-white text-xs">
       <div className="flex gap-2 p-2 border-b items-center">
-        <strong>TPV — grafikony a hlásené časy EDD</strong>
+        <strong>{t('TPV — grafikony a hlásené časy EDD')}</strong>
         <button
           className="aero-btn"
           onClick={() => setZoom((previous) => Math.min(4, previous + 0.5))}
         >
-          <AeroIcon name="zoomIn" />
-          Priblížiť
+          <AeroIcon name="zoomIn" /> {t('Priblížiť')}{' '}
         </button>
         <button
           className="aero-btn"
           onClick={() => setZoom((previous) => Math.max(1, previous - 0.5))}
         >
-          <AeroIcon name="zoomOut" />
-          Oddialiť
+          <AeroIcon name="zoomOut" /> {t('Oddialiť')}{' '}
         </button>
-        <span>{stationId || 'Celá sieť'}</span>
+        <span>{stationId || t('Celá sieť')}</span>
       </div>
       {(error || journalError) && (
         <p role="alert" className="p-2 text-red-700">
-          {error || journalError}
+          {t(error || journalError)}
         </p>
       )}
       <p className="p-2 text-slate-600">
-        Čiary: plán GVD. Body: skutočné hlásenia vybranej stanice. Zvislá zelená čiara: aktuálny
-        čas. Rozostupy staníc sú schematické.
+        {' '}
+        {t(
+          'Čiary: plán GVD. Body: skutočné hlásenia vybranej stanice. Zvislá zelená čiara: aktuálny čas. Rozostupy staníc sú schematické.',
+        )}{' '}
       </p>
       <div className="flex-1 overflow-auto p-2">
         {loading ? (
-          <p>Načítavam grafikony...</p>
+          <p>{t('Načítavam grafikony...')}</p>
         ) : schedules.length === 0 ? (
-          <p>Pre vybranú stanicu nie sú uložené grafikony. Vytvorte ich v Tvorbe GVD.</p>
+          <p>{t('Pre vybranú stanicu nie sú uložené grafikony. Vytvorte ich v Tvorbe GVD.')}</p>
         ) : (
           <svg
             width={width}
             height={height}
             role="img"
-            aria-label="Časový graf vlakov podľa GVD a EDD"
+            aria-label={t('Časový graf vlakov podľa GVD a EDD')}
           >
             {Array.from(
               { length: Math.ceil((maximum - minimum) / 30) + 1 },
@@ -203,7 +206,7 @@ export function TpvFullView({
                       fill={colors[index % colors.length]}
                     >
                       <title>
-                        {point.trainNumber} {point.time} — hlásenie EDD
+                        {point.trainNumber} {point.time} {t('— hlásenie EDD')}{' '}
                       </title>
                     </circle>
                   ))}

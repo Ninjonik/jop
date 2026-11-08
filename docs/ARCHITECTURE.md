@@ -37,6 +37,15 @@ Important rule:
 - Runtime mode is backend-owned.
 - Mock mode is session simulation and topology setup.
 
+### Interface languages
+
+- `src/lib/i18n/messages.json` contains Slovak and English application copy, including railway terminology and known operating errors.
+- `src/lib/i18n/translate.ts` is the pure translation boundary. Template parameters preserve station names, numbers and other supplied values. Existing server error messages and retained notices are translated when displayed.
+- `src/lib/i18n/client.tsx` owns the browser language preference (`dis-language` in local storage). `useLocale()` subscribes UI components without remounting them, preserving unsaved layouts and chat drafts. Storage events synchronise other tabs and embedded tools. Slovak is the default and server-rendered language.
+- The selector sits beside the DIS theme control and is also available before sign-in. Dates and numbers follow the selected locale; canonical railway times remain in the existing Bratislava timezone.
+- Translate presentation labels only. Persisted roles, category codes, commands, station identifiers, user documents, notes, messages and tile artwork remain unchanged. Every translated select option must have an explicit canonical `value`.
+- Run `npm run test:i18n` to check static UI copy, catalogue completeness, placeholders, railway terms and error interpolation.
+
 ## 2. Source Of Truth
 
 There are two different state ownership models in this repo.

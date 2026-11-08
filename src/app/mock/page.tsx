@@ -1,3 +1,4 @@
+import {LocalizedText} from '@/lib/i18n/client';
 import Link from 'next/link';
 import { Suspense } from 'react';
 
@@ -9,21 +10,27 @@ export default function MockPage() {
       <div className="mx-auto flex max-w-5xl flex-col gap-6">
         <header className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <p className="text-xs text-[var(--aero-text-muted)]">Mock Roblox</p>
-            <h1 className="text-lg font-semibold">Simulátor relácie</h1>
+            <p className="text-xs text-[var(--aero-text-muted)]">
+              <LocalizedText text="Mock Roblox" />
+            </p>
+            <h1 className="text-lg font-semibold">
+              <LocalizedText text="Simulátor relácie" />
+            </h1>
           </div>
           <div className="flex flex-wrap gap-3">
             <Link
               href="/"
               className="text-sm text-[var(--aero-text-muted)] underline-offset-4 hover:underline"
             >
-              Back to entry
+              {' '}
+              <LocalizedText text="Back to entry" />{' '}
             </Link>
             <Link
               href="/map"
               className="text-sm text-[var(--aero-text-muted)] underline-offset-4 hover:underline"
             >
-              Open map editor
+              {' '}
+              <LocalizedText text="Open map editor" />{' '}
             </Link>
           </div>
         </header>
@@ -31,7 +38,8 @@ export default function MockPage() {
         <Suspense
           fallback={
             <div className="rounded-[3px] border border-[var(--aero-panel-border)] bg-[var(--aero-panel-bg)] p-4 text-sm text-[var(--aero-text-muted)]">
-              Loading mock session…
+              {' '}
+              <LocalizedText text="Loading mock session…" />{' '}
             </div>
           }
         >

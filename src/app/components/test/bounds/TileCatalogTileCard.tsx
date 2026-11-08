@@ -1,8 +1,7 @@
 'use client';
+import { useTranslation } from '@/lib/i18n/client';
 
-import React, { useEffect } from 'react';
 import TileSvg from '@/app/components/tiles/TileSvg';
-import { getDefaultGroupSelection } from '@/app/components/tiles/tile-rendering';
 import type {
   StateGroupRegistry,
   TextConfig,
@@ -10,6 +9,8 @@ import type {
   TraversableRouteMap,
   TraversableStateKey,
 } from '@/app/components/tiles/tile-catalog';
+import { getDefaultGroupSelection } from '@/app/components/tiles/tile-rendering';
+import { useEffect } from 'react';
 
 interface TileCatalogTileCardProps {
   tileKey: string;
@@ -22,7 +23,7 @@ interface TileCatalogTileCardProps {
   textOverrides: Record<string, Partial<TextConfig>>;
   onInitializeSelections: (
     tileKey: string,
-    selections: Record<string, { state: string; variant: string }>
+    selections: Record<string, { state: string; variant: string }>,
   ) => void;
   onGroupStateChange: (tileKey: string, groupKey: string, state: string) => void;
   onGroupVariantChange: (tileKey: string, groupKey: string, variant: string) => void;
@@ -31,14 +32,14 @@ interface TileCatalogTileCardProps {
     tileKey: string,
     textKey: string,
     field: keyof TextConfig,
-    value: string
+    value: string,
   ) => void;
 }
 
 function getClosestEdgePoint(
   coordStr: string,
   space: { x: number; y: number },
-  tileSize: number
+  tileSize: number,
 ): { x: number; y: number } {
   const [tx, ty] = coordStr.split(',').map(Number);
 
@@ -67,7 +68,7 @@ function getGroupVariantOptions(
   tile: TileData,
   groupKey: string,
   stateName: string,
-  stateGroups: StateGroupRegistry
+  stateGroups: StateGroupRegistry,
 ): string[] {
   if (!tile.groups || !tile.groups[groupKey]) return [];
 
@@ -94,6 +95,7 @@ export default function TileCatalogTileCard({
   onTraversableChange,
   onTextOverride,
 }: TileCatalogTileCardProps) {
+  const t = useTranslation();
   useEffect(() => {
     if (Object.keys(groupSelections).length > 0 || !tile.groups) {
       return;
@@ -135,12 +137,9 @@ export default function TileCatalogTileCard({
   return (
     <div className="flex flex-col rounded-xl border border-slate-700 bg-slate-800 p-4 shadow-lg">
       <div className="mb-3 flex items-center justify-between border-b border-slate-700 pb-2">
-        <span className="font-mono text-sm font-semibold text-lime-300 capitalize">
-          {tileKey}
-        </span>
+        <span className="font-mono text-sm font-semibold text-lime-300 capitalize">{tileKey}</span>
         <span className="rounded bg-slate-700 px-2 py-0.5 font-mono text-xs text-slate-300">
-          {tile.space.x}×{tile.space.y} Tile
-          {tile.space.x * tile.space.y > 1 ? 's' : ''}
+          {tile.space.x}×{tile.space.y} {t('cells')}
         </span>
       </div>
 
@@ -163,10 +162,13 @@ export default function TileCatalogTileCard({
             tile={tile}
             stateGroups={stateGroups}
             selections={groupSelections}
-            textValues={Object.keys(texts).reduce((acc, textKey) => {
-              acc[textKey] = textOverrides[textKey]?.text ?? texts[textKey].text;
-              return acc;
-            }, {} as Record<string, string>)}
+            textValues={Object.keys(texts).reduce(
+              (acc, textKey) => {
+                acc[textKey] = textOverrides[textKey]?.text ?? texts[textKey].text;
+                return acc;
+              },
+              {} as Record<string, string>,
+            )}
             className="pointer-events-none absolute inset-0 h-full w-full object-contain opacity-80"
           />
 
@@ -258,7 +260,7 @@ export default function TileCatalogTileCard({
           return (
             <div key={groupKey} className="mt-3 border-t border-slate-700/60 pt-3">
               <label className="mb-1 block text-xs font-medium text-slate-400">
-                {group.label}:
+                {t(group.label)}:
               </label>
               <div className="flex flex-wrap gap-2">
                 <select
@@ -267,7 +269,7 @@ export default function TileCatalogTileCard({
                   className="rounded border border-slate-600 bg-slate-700 px-2 py-1 text-xs text-slate-100 focus:border-lime-500 focus:outline-none"
                 >
                   {availableStates.map((stateName) => (
-                    <option key={stateName} value={stateName}>
+                    <option key={t(stateName)} value={stateName}>
                       {stateName}
                     </option>
                   ))}
@@ -279,7 +281,7 @@ export default function TileCatalogTileCard({
                     className="rounded border border-slate-600 bg-slate-700 px-2 py-1 text-xs text-slate-100 focus:border-lime-500 focus:outline-none"
                   >
                     {variants.map((variantName) => (
-                      <option key={variantName} value={variantName}>
+                      <option key={t(variantName)} value={variantName}>
                         {variantName}
                       </option>
                     ))}
@@ -293,7 +295,7 @@ export default function TileCatalogTileCard({
       {hasTraversable && (
         <div className="mt-3 border-t border-slate-700/60 pt-3">
           <label className="mb-1 block text-xs font-medium text-slate-400">
-            Traversable State:
+            {t('Traversable State:')}
           </label>
           <div className="flex flex-wrap gap-1">
             {traversableStates.map((stateKey) => (
@@ -306,7 +308,7 @@ export default function TileCatalogTileCard({
                     : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
                 }`}
               >
-                State {stateKey}
+                {t('State')} {stateKey}
               </button>
             ))}
           </div>
@@ -315,9 +317,7 @@ export default function TileCatalogTileCard({
 
       {hasTexts && (
         <div className="mt-3 flex max-h-40 flex-col gap-3 overflow-y-auto border-t border-slate-700/60 pt-3">
-          <label className="block text-xs font-medium text-slate-400">
-            Text Elements:
-          </label>
+          <label className="block text-xs font-medium text-slate-400">{t('Text Elements:')}</label>
           {Object.entries(texts).map(([textKey, defaultConfig]) => {
             const currentConfig = {
               ...defaultConfig,
@@ -325,10 +325,7 @@ export default function TileCatalogTileCard({
             };
 
             return (
-              <div
-                key={textKey}
-                className="rounded border border-slate-700/40 bg-slate-900/50 p-2"
-              >
+              <div key={textKey} className="rounded border border-slate-700/40 bg-slate-900/50 p-2">
                 <div className="mb-2 font-mono text-[10px] uppercase tracking-wider text-lime-400/70">
                   {textKey}
                 </div>
@@ -338,7 +335,7 @@ export default function TileCatalogTileCard({
                     value={currentConfig.text}
                     onChange={(e) => onTextOverride(tileKey, textKey, 'text', e.target.value)}
                     className="rounded border border-slate-600 bg-slate-800 px-2 py-1 text-xs text-slate-100 focus:border-lime-500 focus:outline-none"
-                    placeholder="Text content"
+                    placeholder={t('Text content')}
                   />
                   <div className="grid grid-cols-2 gap-2">
                     <input
@@ -346,14 +343,14 @@ export default function TileCatalogTileCard({
                       value={currentConfig.fill}
                       onChange={(e) => onTextOverride(tileKey, textKey, 'fill', e.target.value)}
                       className="rounded border border-slate-600 bg-slate-800 px-2 py-1 text-xs text-slate-100 focus:border-lime-500 focus:outline-none"
-                      placeholder="Color"
+                      placeholder={t('Color')}
                     />
                     <input
                       type="text"
                       value={currentConfig.size}
                       onChange={(e) => onTextOverride(tileKey, textKey, 'size', e.target.value)}
                       className="rounded border border-slate-600 bg-slate-800 px-2 py-1 text-xs text-slate-100 focus:border-lime-500 focus:outline-none"
-                      placeholder="Size"
+                      placeholder={t('Size')}
                     />
                   </div>
                 </div>

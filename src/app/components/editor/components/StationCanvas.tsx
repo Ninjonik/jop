@@ -1,4 +1,5 @@
 'use client';
+import { useTranslation } from '@/lib/i18n/client';
 
 import TileSvg from '@/app/components/tiles/TileSvg';
 import type {
@@ -44,6 +45,7 @@ function TraversablePathOverlay({
   rotation: 0 | 180;
   mirrored: boolean;
 }) {
+  const t = useTranslation();
   if (!tile.traversable) {
     return null;
   }
@@ -56,7 +58,7 @@ function TraversablePathOverlay({
 
   return (
     <svg
-      aria-label={`Traversable paths for ${pieceId}`}
+      aria-label={t('Traversable paths for {0}', pieceId)}
       className="pointer-events-none absolute inset-0"
       width={width}
       height={height}

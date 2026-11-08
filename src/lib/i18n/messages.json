@@ -1,0 +1,2275 @@
+{
+  "{0}?\nRozsah: {1}.\n{2}": ["{0}?\nRozsah: {1}.\n{2}", "{0}?\nScope: {1}.\n{2}"],
+  "{0}\n\nScope: {1}.": ["{0}\n\nRozsah: {1}.", "{0}\n\nScope: {1}."],
+  "station {0}": ["stanica {0}", "station {0}"],
+  "Saved {0}.": ["Stanica {0} bola uložená.", "Station {0} saved."],
+  "Clear occupation sensors": ["Uvoľniť koľajové obvody", "Clear track circuits"],
+  "Forces every Roblox-reported occupation sensor to clear. Use when a detector is stuck occupied.": [
+    "Uvoľní všetky snímače obsadenia hlásené z Roblox. Použite pri nesprávnom trvalom obsadení.",
+    "Clears every occupation report received from Roblox. Use when a detector remains occupied incorrectly."
+  ],
+  "Clear all reported occupation sensors?": [
+    "Uvoľniť všetky hlásené obsadenia?",
+    "Clear all reported track occupations?"
+  ],
+  "Remove all built routes": ["Zrušiť všetky cesty", "Cancel all routes"],
+  "Immediately drops route reservations and cancels in-progress route building or cancellation.": [
+    "Okamžite uvoľní rezervácie a zruší stavanie aj rušenie ciest.",
+    "Immediately releases route reservations and cancels routes being set or released."
+  ],
+  "Remove every active and pending route in this session?": [
+    "Zrušiť všetky postavené a rozpracované cesty v relácii?",
+    "Cancel every active and pending route in this session?"
+  ],
+  "Full recovery reset": ["Úplný reset prevádzky", "Reset all operating state"],
+  "Clears sensors, routes, delayed actions, simulated trains, lineblock transit, PN state, and switch alignment.": [
+    "Vymaže obsadenie, cesty, časované úkony, simulované vlaky, jazdy medzi stanicami, stav PN a polohy výhybiek.",
+    "Clears occupations, routes, timed operations, simulated trains, block-section movements, call-on state and point positions."
+  ],
+  "Run the full recovery reset? This clears all operational state for this session.": [
+    "Vymazať všetky prevádzkové stavy tejto relácie?",
+    "Reset all operating state in this session?"
+  ],
+  "Could not load the session state.": [
+    "Prevádzkový stav relácie sa nepodarilo načítať.",
+    "Could not load the session state."
+  ],
+  "Could not load session.": ["Reláciu sa nepodarilo načítať.", "Could not load session."],
+  "the whole session": ["celá relácia", "the whole session"],
+  "Recovery action failed.": ["Obnova prevádzky zlyhala.", "Recovery action failed."],
+  "{0} completed for {1} station(s).": [
+    "Úkon {0} bol dokončený. Počet staníc: {1}.",
+    "{0} completed for {1} station(s)."
+  ],
+  "Back to sessions": ["Späť na relácie", "Back to sessions"],
+  "Stuck sensors": ["Trvalo obsadené snímače", "Stuck occupation detectors"],
+  "Built routes": ["Postavené cesty", "Routes set"],
+  "Delayed actions": ["Časované úkony", "Timed operations"],
+  "Refresh": ["Obnoviť", "Refresh"],
+  "Open runtime": ["Otvoriť staničný pult", "Open signalling panel"],
+  "Zbaliť": ["Zbaliť", "Collapse"],
+  "Rozbaliť": ["Rozbaliť", "Expand"],
+  "ZSSK DIS — Prihlásenie do informačného systému": [
+    "ZSSK DIS — Prihlásenie do informačného systému",
+    "ZSSK DIS — Sign in"
+  ],
+  "Roblox účtom": ["Roblox účtom", "Roblox account"],
+  "Prihlásiť sa cez Roblox účet": ["Prihlásiť sa cez Roblox účet", "Sign in with Roblox"],
+  "Zabezpečené pripojenie (OAuth 2.0)": [
+    "Zabezpečené pripojenie (OAuth 2.0)",
+    "Secure connection (OAuth 2.0)"
+  ],
+  "Prihlasovanie nie je nakonfigurované. Správca musí doplniť ROBLOX_CLIENT_ID a ROBLOX_CLIENT_SECRET.": [
+    "Prihlasovanie nie je nakonfigurované. Správca musí doplniť ROBLOX_CLIENT_ID a ROBLOX_CLIENT_SECRET.",
+    "Sign-in is not configured. Ask the administrator to set ROBLOX_CLIENT_ID and ROBLOX_CLIENT_SECRET."
+  ],
+  "Overenie Roblox skupiny je momentálne nedostupné. Skúste to neskôr.": [
+    "Overenie Roblox skupiny je momentálne nedostupné. Skúste to neskôr.",
+    "Roblox group verification is unavailable. Please try again later."
+  ],
+  "Pre prístup musíte byť členom určenej Roblox skupiny.": [
+    "Pre prístup musíte byť členom určenej Roblox skupiny.",
+    "You must belong to the authorised Roblox group to access DIS."
+  ],
+  "Vaša rola v Roblox skupine nemá prístup do DIS.": [
+    "Vaša rola v Roblox skupine nemá prístup do DIS.",
+    "Your Roblox group role does not have access to DIS."
+  ],
+  "Prihlasovacia služba je momentálne nedostupná. Skúste to neskôr.": [
+    "Prihlasovacia služba je momentálne nedostupná. Skúste to neskôr.",
+    "The sign-in service is unavailable. Please try again later."
+  ],
+  "Prihlásenie sa nepodarilo. Skúste to znova.": [
+    "Prihlásenie sa nepodarilo. Skúste to znova.",
+    "Sign-in failed. Please try again."
+  ],
+  "Preview too large": ["Súbor je príliš veľký na náhľad", "Preview too large"],
+  "Missing document part": ["Chýba časť dokumentu", "Missing document part"],
+  "Invalid XML": ["Neplatný súbor XML", "Invalid XML"],
+  "Zobrazený je začiatok súboru. Celý obsah nájdete v stiahnutom súbore.": [
+    "Zobrazený je začiatok súboru. Celý obsah nájdete v stiahnutom súbore.",
+    "Only the beginning of this file is shown. Download the file to view its full contents."
+  ],
+  "Textový náhľad tohto súboru nie je dostupný. Súbor si môžete stiahnuť.": [
+    "Textový náhľad tohto súboru nie je dostupný. Súbor si môžete stiahnuť.",
+    "A text preview is unavailable. You can download the file."
+  ],
+  "Textový náhľad · pôvodné rozloženie, obrázky a animácie zobrazíte po otvorení stiahnutého súboru.": [
+    "Textový náhľad · pôvodné rozloženie, obrázky a animácie zobrazíte po otvorení stiahnutého súboru.",
+    "Text preview · download and open the file to see its original layout, images and animations."
+  ],
+  "Prílohu sa nepodarilo načítať.": [
+    "Prílohu sa nepodarilo načítať.",
+    "Could not load the attachment."
+  ],
+  "Zväčšiť obrázok": ["Zväčšiť obrázok", "Enlarge image"],
+  "Načítavam obrázok…": ["Načítavam obrázok…", "Loading image…"],
+  "Zobraziť prílohu": ["Zobraziť prílohu", "View attachment"],
+  "Zavrieť": ["Zavrieť", "Close"],
+  "Načítavam prílohu…": ["Načítavam prílohu…", "Loading attachment…"],
+  "Táto snímka neobsahuje text.": ["Táto snímka neobsahuje text.", "This slide contains no text."],
+  "Pre tento formát nie je náhľad v prehliadači dostupný. Stiahnite súbor a otvorte ho vo svojej aplikácii.": [
+    "Pre tento formát nie je náhľad v prehliadači dostupný. Stiahnite súbor a otvorte ho vo svojej aplikácii.",
+    "Your browser cannot preview this format. Download the file and open it in a suitable application."
+  ],
+  "Dokument sa nepodarilo uložiť.": [
+    "Dokument sa nepodarilo uložiť.",
+    "Could not save the document."
+  ],
+  "Dokumentačné centrum a SPP": [
+    "Dokumentačné centrum a SPP",
+    "Documents and operating instructions"
+  ],
+  "Načítavam dokumenty...": ["Načítavam dokumenty...", "Loading documents…"],
+  "Žiadne publikované dokumenty.": ["Žiadne publikované dokumenty.", "No published documents."],
+  "(Koncept)": ["(Koncept)", "(Draft)"],
+  "Názov dokumentu": ["Názov dokumentu", "Document title"],
+  "Kategória dokumentu": ["Kategória dokumentu", "Document category"],
+  "Publikovať": ["Publikovať", "Publish"],
+  "Ukladám...": ["Ukladám...", "Saving…"],
+  "Uložiť dokument": ["Uložiť dokument", "Save document"],
+  "Zrušiť": ["Zrušiť", "Cancel"],
+  "Vyberte alebo vytvorte dokument.": [
+    "Vyberte alebo vytvorte dokument.",
+    "Select or create a document."
+  ],
+  "Obrázok": ["Obrázok", "Image"],
+  "Externý obrázok": ["Externý obrázok", "External image"],
+  "Vlak sa nepodarilo uložiť.": ["Vlak sa nepodarilo uložiť.", "Could not save the train details."],
+  "Jazdu sa nepodarilo ukončiť.": [
+    "Jazdu sa nepodarilo ukončiť.",
+    "Could not finish this working."
+  ],
+  "Rušňovodič – môj vlak": ["Rušňovodič – môj vlak", "Driver — my train"],
+  "Zmeniť vlak alebo údaje": ["Zmeniť vlak alebo údaje", "Change train or details"],
+  "Vybrať vlak": ["Vybrať vlak", "Select train"],
+  "Načítavam GVD…": ["Načítavam GVD…", "Loading timetable…"],
+  "Číslo vlaku": ["Číslo vlaku", "Train number"],
+  "Číslo z GVD alebo vlastné…": ["Číslo z GVD alebo vlastné…", "Timetabled or custom number…"],
+  "Kategória": ["Kategória", "Category"],
+  "Cieľová stanica": ["Cieľová stanica", "Destination"],
+  "Dĺžka (m)": ["Dĺžka (m)", "Length (m)"],
+  "Hmotnosť (t)": ["Hmotnosť (t)", "Weight (t)"],
+  "Počet vozňov": ["Počet vozňov", "Wagons"],
+  "Vybraný vlak z GVD – cestovný poriadok sa zobrazí po prevzatí.": [
+    "Vybraný vlak z GVD – cestovný poriadok sa zobrazí po prevzatí.",
+    "Timetabled train — its schedule will appear when you take charge."
+  ],
+  "Vlastné číslo – cestovný poriadok sa automaticky nenačíta.": [
+    "Vlastné číslo – cestovný poriadok sa automaticky nenačíta.",
+    "Custom number — no timetable will be loaded automatically."
+  ],
+  "neuvedený": ["neuvedený", "not specified"],
+  "Cestovný poriadok ·": ["Cestovný poriadok ·", "Timetable ·"],
+  "Stanica": ["Stanica", "Station"],
+  "Príchod": ["Príchod", "Arrival"],
+  "Odchod": ["Odchod", "Departure"],
+  "Koľaj": ["Koľaj", "Track"],
+  "Poznámky": ["Poznámky", "Notes"],
+  "Nadväzujúci vlak:": ["Nadväzujúci vlak:", "Next working:"],
+  "· odchod": ["· odchod", "· departs"],
+  "Priradený grafikon už nie je dostupný.": [
+    "Priradený grafikon už nie je dostupný.",
+    "The assigned timetable is no longer available."
+  ],
+  "Vlak má vlastné číslo bez automatického cestovného poriadku.": [
+    "Vlak má vlastné číslo bez automatického cestovného poriadku.",
+    "This train has a custom number and no automatic timetable."
+  ],
+  "Zatiaľ nevediete žiadny vlak. Vyberte číslo z GVD alebo zadajte vlastné.": [
+    "Zatiaľ nevediete žiadny vlak. Vyberte číslo z GVD alebo zadajte vlastné.",
+    "You are not driving a train. Select a timetabled train or enter a custom number."
+  ],
+  "Vlaky v relácii (": ["Vlaky v relácii (", "Trains in session ("],
+  "Vlak": ["Vlak", "Train"],
+  "Rušňovodič": ["Rušňovodič", "Driver"],
+  "Cieľ": ["Cieľ", "Destination"],
+  "Dĺžka": ["Dĺžka", "Length"],
+  "Hmotnosť": ["Hmotnosť", "Weight"],
+  "Vozne": ["Vozne", "Wagons"],
+  "Plánovaný": ["Plánovaný", "Scheduled"],
+  "Očakávaný": ["Očakávaný", "Expected"],
+  "Na koľaji": ["Na koľaji", "At station"],
+  "Odišiel": ["Odišiel", "Departed"],
+  "Prešiel": ["Prešiel", "Passed"],
+  "Zrušený": ["Zrušený", "Cancelled"],
+  "Úkon zlyhal.": ["Úkon zlyhal.", "The operation failed."],
+  "Elektronický dopravný denník —": [
+    "Elektronický dopravný denník —",
+    "Electronic train register —"
+  ],
+  "Iba očakávané": ["Iba očakávané", "Expected trains only"],
+  "Číslo mimoriadneho vlaku": ["Číslo mimoriadneho vlaku", "Special train number"],
+  "Číslo vlaku…": ["Číslo vlaku…", "Train number…"],
+  "Plánovaný príchod": ["Plánovaný príchod", "Scheduled arrival"],
+  "Plánovaný odchod": ["Plánovaný odchod", "Scheduled departure"],
+  "Načítavam denník...": ["Načítavam denník...", "Loading train register…"],
+  "V GVD nie sú vlaky pre túto stanicu. Môžete pridať mimoriadny vlak.": [
+    "V GVD nie sú vlaky pre túto stanicu. Môžete pridať mimoriadny vlak.",
+    "No timetabled trains call at this station. You can add a special train."
+  ],
+  "Relácia": ["Relácia", "Session"],
+  "Plán. príchod": ["Plán. príchod", "Sched. arrival"],
+  "Skut. príchod": ["Skut. príchod", "Actual arrival"],
+  "Plán. odchod": ["Plán. odchod", "Sched. departure"],
+  "Meškanie": ["Meškanie", "Delay"],
+  "Úkony": ["Úkony", "Actions"],
+  "Zápis príchodu": ["Zápis príchodu", "Record arrival"],
+  "Zápis odchodu": ["Zápis odchodu", "Record departure"],
+  "Stanica:": ["Stanica:", "Station:"],
+  "Skutočný príchod": ["Skutočný príchod", "Actual arrival"],
+  "Skutočný odchod": ["Skutočný odchod", "Actual departure"],
+  "Čas zápisu": ["Čas zápisu", "Time of movement"],
+  "Aktuálny čas": ["Aktuálny čas", "Current time"],
+  "Ukladám…": ["Ukladám…", "Saving…"],
+  "Zapísať": ["Zapísať", "Record"],
+  "Vyberte platné stanice z konfigurácie zvoleného miesta.": [
+    "Vyberte platné stanice z konfigurácie zvoleného miesta.",
+    "Select valid stations from the selected network."
+  ],
+  "Grafikon bol uložený.": ["Grafikon bol uložený.", "Timetable saved."],
+  "Grafikon sa nepodarilo spracovať.": [
+    "Grafikon sa nepodarilo spracovať.",
+    "Could not process the timetable."
+  ],
+  "Tvorba GVD a kontrola kolízií": [
+    "Tvorba GVD a kontrola kolízií",
+    "Timetable planning and conflict checks"
+  ],
+  "Uložený grafikon": ["Uložený grafikon", "Saved timetable"],
+  "Nový grafikon": ["Nový grafikon", "New timetable"],
+  "Spracúvam...": ["Spracúvam...", "Processing…"],
+  "Uložiť vlak do GVD": ["Uložiť vlak do GVD", "Save train to timetable"],
+  "Pre zvolené miesto nie sú uložené žiadne stanice.": [
+    "Pre zvolené miesto nie sú uložené žiadne stanice.",
+    "No stations are saved for this network."
+  ],
+  "Vyberte stanicu podľa názvu. Časy po polnoci pokračujú nasledujúcim dňom.": [
+    "Vyberte stanicu podľa názvu. Časy po polnoci pokračujú nasledujúcim dňom.",
+    "Select stations by name. Times after midnight continue on the following day."
+  ],
+  "Rýchlosť (km/h)": ["Rýchlosť (km/h)", "Speed (km/h)"],
+  "Nadväzujúci vlak": ["Nadväzujúci vlak", "Next working"],
+  "Bez nadväzujúceho vlaku": ["Bez nadväzujúceho vlaku", "No next working"],
+  "Odstrániť": ["Odstrániť", "Remove"],
+  "Kolízie na staničných koľajach: {0}": [
+    "Kolízie na staničných koľajach: {0}",
+    "Station track conflicts: {0}"
+  ],
+  "Bez časového prekrytia na rovnakej staničnej koľaji.": [
+    "Bez časového prekrytia na rovnakej staničnej koľaji.",
+    "No overlapping occupations on the same station track."
+  ],
+  "Vyhľadať stanicu…": ["Vyhľadať stanicu…", "Search stations…"],
+  "Samostatné okno": ["Samostatné okno", "Open in separate window"],
+  "Zavrieť nástroj": ["Zavrieť nástroj", "Close tool"],
+  "Tučné (Ctrl+B)": ["Tučné (Ctrl+B)", "Bold (Ctrl+B)"],
+  "tučný text": ["tučný text", "bold text"],
+  "Kurzíva (Ctrl+I)": ["Kurzíva (Ctrl+I)", "Italic (Ctrl+I)"],
+  "text kurzívou": ["text kurzívou", "italic text"],
+  "názov odkazu": ["názov odkazu", "link text"],
+  "Odrážky": ["Odrážky", "Bullet list"],
+  "Položka\nPoložka": ["Položka\nPoložka", "Item\nItem"],
+  "Číslovaný zoznam": ["Číslovaný zoznam", "Numbered list"],
+  "Kontrolný zoznam": ["Kontrolný zoznam", "Checklist"],
+  "☑ Úlohy": ["☑ Úlohy", "☑ Tasks"],
+  "Úloha": ["Úloha", "Task"],
+  "Citácia": ["Citácia", "Quote"],
+  "❝ Citácia": ["❝ Citácia", "❝ Quote"],
+  "Citovaný text": ["Citovaný text", "Quoted text"],
+  "Kód": ["Kód", "Code"],
+  "kód": ["kód", "code"],
+  "Tabuľka": ["Tabuľka", "Table"],
+  "Dokument môže obsahovať najviac 50 000 znakov.": [
+    "Dokument môže obsahovať najviac 50 000 znakov.",
+    "Documents may contain up to 50,000 characters."
+  ],
+  "Súbor „{0}“ nie je podporovaný, je prázdny alebo prekračuje 10 MB.": [
+    "Súbor „{0}“ nie je podporovaný, je prázdny alebo prekračuje 10 MB.",
+    "File “{0}” is unsupported, empty or larger than 10 MB."
+  ],
+  "Nahrávam {0}/{1}: {2}": ["Nahrávam {0}/{1}: {2}", "Uploading {0}/{1}: {2}"],
+  "Súbor sa nepodarilo nahrať.": ["Súbor sa nepodarilo nahrať.", "Could not upload the file."],
+  "Editor dokumentu": ["Editor dokumentu", "Document editor"],
+  "Pridať obrázok alebo súbor…": ["Pridať obrázok alebo súbor…", "Add image or file…"],
+  "Zobrazenie editora": ["Zobrazenie editora", "Editor view"],
+  "Písanie": ["Písanie", "Write"],
+  "Písanie a náhľad": ["Písanie a náhľad", "Write and preview"],
+  "Náhľad": ["Náhľad", "Preview"],
+  "Obsah dokumentu v Markdown": ["Obsah dokumentu v Markdown", "Document content in Markdown"],
+  "Napíšte text dokumentu. Formátovanie pridáte tlačidlami vyššie…": [
+    "Napíšte text dokumentu. Formátovanie pridáte tlačidlami vyššie…",
+    "Write your document here. Use the toolbar above to format it…"
+  ],
+  "Príprava siete a koľajísk": [
+    "Príprava siete a koľajísk",
+    "Network and track layout preparation"
+  ],
+  "Všetci": ["Všetci", "Everyone"],
+  "Správa nebola odoslaná.": ["Správa nebola odoslaná.", "The message was not sent."],
+  "Rádiový denník —": ["Rádiový denník —", "Radio log —"],
+  "Vyberte stanicu": ["Vyberte stanicu", "Select station"],
+  "Žiadne uložené hlásenia v relácii.": [
+    "Žiadne uložené hlásenia v relácii.",
+    "No reports recorded in this session."
+  ],
+  "Príjemca hlásenia": ["Príjemca hlásenia", "Report recipient"],
+  "Stanica alebo vlak…": ["Stanica alebo vlak…", "Station or train…"],
+  "Hlásenie": ["Hlásenie", "Report"],
+  "Text hlásenia...": ["Text hlásenia...", "Report text…"],
+  "Rozkaz": ["Rozkaz", "Written order"],
+  "Odoslať": ["Odoslať", "Send"],
+  "Vyčistiť snímače obsadenia": ["Vyčistiť snímače obsadenia", "Clear occupation detectors"],
+  "Vymaže hlásené obsadenie snímačov.": [
+    "Vymaže hlásené obsadenie snímačov.",
+    "Clears reported track occupations."
+  ],
+  "Zrušiť vlakové cesty": ["Zrušiť vlakové cesty", "Cancel train routes"],
+  "Odstráni postavené a rozpracované cesty.": [
+    "Odstráni postavené a rozpracované cesty.",
+    "Removes routes already set and those being set."
+  ],
+  "Úplný reset prevádzky": ["Úplný reset prevádzky", "Reset all operating state"],
+  "Vymaže prevádzkové stavy vrátane vlakov, snímačov, ciest a polôh výhybiek.": [
+    "Vymaže prevádzkové stavy vrátane vlakov, snímačov, ciest a polôh výhybiek.",
+    "Clears operating state, including trains, occupations, routes and point positions."
+  ],
+  "celá relácia": ["celá relácia", "whole session"],
+  "Operácia dokončená. Aktualizované stanice: {0}.": [
+    "Operácia dokončená. Aktualizované stanice: {0}.",
+    "Operation completed. Stations updated: {0}."
+  ],
+  "Operácia zlyhala.": ["Operácia zlyhala.", "The operation failed."],
+  "Ak je prevádzkový stav poškodený, vyberte rozsah a vykonajte príslušnú obnovu.": [
+    "Ak je prevádzkový stav poškodený, vyberte rozsah a vykonajte príslušnú obnovu.",
+    "If operating state is incorrect, select the affected area and the appropriate recovery action."
+  ],
+  "Rozsah:": ["Rozsah:", "Scope:"],
+  "Celá relácia": ["Celá relácia", "Whole session"],
+  "Najprv vyberte reláciu.": ["Najprv vyberte reláciu.", "Select a session first."],
+  "Správa nebola odoslaná. Môžete ju skúsiť odoslať znova.": [
+    "Správa nebola odoslaná. Môžete ju skúsiť odoslať znova.",
+    "The message was not sent. You can try again."
+  ],
+  "Komunikácia medzi stanicami a rušňovodičmi": [
+    "Komunikácia medzi stanicami a rušňovodičmi",
+    "Station and driver communication"
+  ],
+  " ({0} nových)": [" ({0} nových)", " ({0} new)"],
+  "Pripojené naživo": ["Pripojené naživo", "Connected"],
+  "Pripájam…": ["Pripájam…", "Connecting…"],
+  "Rušňovodič: {0}": ["Rušňovodič: {0}", "Driver: {0}"],
+  "Znova pripojiť": ["Znova pripojiť", "Reconnect"],
+  "Komunikujem ako": ["Komunikujem ako", "Speaking as"],
+  "Príjemca": ["Príjemca", "Recipient"],
+  "Príjemca správy": ["Príjemca správy", "Message recipient"],
+  "Vyberte stanicu alebo rušňovodiča": [
+    "Vyberte stanicu alebo rušňovodiča",
+    "Select station or driver"
+  ],
+  "Rušňovodiči": ["Rušňovodiči", "Drivers"],
+  "Pre staničnú komunikáciu najprv vyberte stanicu.": [
+    "Pre staničnú komunikáciu najprv vyberte stanicu.",
+    "Select a station before using station communication."
+  ],
+  "Správy vo vybranom rozhovore": ["Správy vo vybranom rozhovore", "Messages in this conversation"],
+  "Vyberte príjemcu. Správy sú oddelené podľa relácie a rozhovoru.": [
+    "Vyberte príjemcu. Správy sú oddelené podľa relácie a rozhovoru.",
+    "Select a recipient. Conversations are separate for each session."
+  ],
+  "Zatiaľ žiadne správy. Napíšte prvú správu pre": [
+    "Zatiaľ žiadne správy. Napíšte prvú správu pre",
+    "No messages yet. Send the first message to"
+  ],
+  "Odoslať znova": ["Odoslať znova", "Retry"],
+  "Text správy": ["Text správy", "Message text"],
+  "Napíšte správu…": ["Napíšte správu…", "Write a message…"],
+  "Nepodarilo sa načítať session": ["Reláciu sa nepodarilo načítať", "Could not load the session"],
+  "Obnoviť session": ["Obnoviť relácie", "Refresh sessions"],
+  "Živé Roblox Sessiony (Heartbeat)": ["Aktívne relácie Roblox", "Live Roblox sessions"],
+  "Session ID:": ["ID relácie:", "Session ID:"],
+  "Otvoriť stanicu:": ["Otvoriť stanicu:", "Open station:"],
+  "Otvoriť simulátor vlakov": ["Otvoriť simulátor vlakov", "Open train simulator"],
+  "Zmeny sa nepodarilo načítať.": ["Zmeny sa nepodarilo načítať.", "Could not load shifts."],
+  "Registrácie sa nepodarilo načítať.": [
+    "Registrácie sa nepodarilo načítať.",
+    "Could not load registrations."
+  ],
+  "Zmenu sa nepodarilo uložiť.": ["Zmenu sa nepodarilo uložiť.", "Could not save the shift."],
+  "Zmenu sa nepodarilo vytvoriť.": ["Zmenu sa nepodarilo vytvoriť.", "Could not create the shift."],
+  "Registrácia sa nepodarila.": [
+    "Registrácia sa nepodarila.",
+    "Could not register for this shift."
+  ],
+  "Plánovač a registrácia šicht — 2,5 hodiny": [
+    "Plánovanie a prihlasovanie na zmeny — 2,5 hodiny",
+    "Shift planning and registration — 2½ hours"
+  ],
+  "Začať zmenu": ["Začať zmenu", "Start shift"],
+  "Ukončiť zmenu": ["Ukončiť zmenu", "End shift"],
+  "Zrušiť zmenu": ["Zrušiť zmenu", "Cancel shift"],
+  "Názov zmeny": ["Názov zmeny", "Shift name"],
+  "Dátum zmeny": ["Dátum zmeny", "Shift date"],
+  "Začiatok zmeny": ["Začiatok zmeny", "Shift start"],
+  "Načítavam...": ["Načítavam...", "Loading…"],
+  "Žiadne plánované zmeny.": ["Žiadne plánované zmeny.", "No shifts planned."],
+  "Vybrať zmenu": ["Vybrať zmenu", "Select shift"],
+  "Pracovná rola": ["Pracovná rola", "Duty"],
+  "Výpravca": ["Výpravca", "Signaller"],
+  "Stanica alebo turnus": ["Stanica alebo turnus", "Station or roster"],
+  "Zamestnanec": ["Zamestnanec", "Staff member"],
+  "Rola": ["Rola", "Role"],
+  "Stanica / turnus": ["Stanica / turnus", "Station / roster"],
+  "Dochádzka": ["Dochádzka", "Attendance"],
+  "Dochádzka {0}": ["Dochádzka {0}", "Attendance for {0}"],
+  "Plán zmeny bol uložený.": ["Plán zmeny bol uložený.", "Shift plan saved."],
+  "Plán sa nepodarilo uložiť.": ["Plán sa nepodarilo uložiť.", "Could not save the shift plan."],
+  "Neobsadené": ["Neobsadené", "Unassigned"],
+  "(nedostupný)": ["(nedostupný)", "(unavailable)"],
+  "Grafikon a obsadenie zmeny": [
+    "Grafikon a obsadenie zmeny",
+    "Shift timetable and staff allocation"
+  ],
+  "vlakov ·": ["vlakov ·", "trains ·"],
+  "staníc": ["staníc", "stations"],
+  "Zmeniť grafikon": ["Zmeniť grafikon", "Change timetable"],
+  "Vybrať grafikon": ["Vybrať grafikon", "Select timetable"],
+  "Vyberte sieť": ["Vyberte sieť", "Select network"],
+  "Vyberte vlaky z uloženého GVD. Ich cestovné poriadky sa skopírujú do tejto zmeny.": [
+    "Vyberte vlaky z uloženého GVD. Ich cestovné poriadky sa skopírujú do tejto zmeny.",
+    "Select trains from a saved timetable. Their schedules will be copied into this shift."
+  ],
+  "Vlaky v zmene": ["Vlaky v zmene", "Trains in shift"],
+  "Načítavam grafikon…": ["Načítavam grafikon…", "Loading timetable…"],
+  "Pre túto sieť nie sú uložené vlaky. Pridajte ich v tvorbe GVD.": [
+    "Pre túto sieť nie sú uložené vlaky. Pridajte ich v tvorbe GVD.",
+    "No trains are saved for this network. Add them in timetable planning."
+  ],
+  "Priradenia pre zostávajúce stanice a vlaky sa zachovajú. Priradenia vyradených položiek sa odstránia.": [
+    "Priradenia pre zostávajúce stanice a vlaky sa zachovajú. Priradenia vyradených položiek sa odstránia.",
+    "Assignments for retained stations and trains will be kept. Assignments for removed items will be deleted."
+  ],
+  "Uložiť grafikon": ["Uložiť grafikon", "Save timetable"],
+  "Grafikon zatiaľ nie je vybraný. Po jeho uložení sa tu zobrazia stanice, vlaky a pridelení zamestnanci.": [
+    "Grafikon zatiaľ nie je vybraný. Po jeho uložení sa tu zobrazia stanice, vlaky a pridelení zamestnanci.",
+    "No timetable selected. Once saved, the stations, trains and staff assignments will appear here."
+  ],
+  "Obsadené stanice:": ["Obsadené stanice:", "Staffed stations:"],
+  "· Obsadené vlaky:": ["· Obsadené vlaky:", "· Staffed trains:"],
+  "Vlak a trasa": ["Vlak a trasa", "Train and route"],
+  "· koľaj": ["· koľaj", "· track"],
+  "Výpravca môže obsluhovať jednu stanicu. Rušňovodičovi možno prideliť viac vlakov; skontrolujte, či sa ich jazdy neprekrývajú.": [
+    "Výpravca môže obsluhovať jednu stanicu. Rušňovodičovi možno prideliť viac vlakov; skontrolujte, či sa ich jazdy neprekrývajú.",
+    "Each signaller may operate one station. A driver can be assigned several trains; check that their workings do not overlap."
+  ],
+  "Chyba pri načítaní personálu: ": ["Chyba pri načítaní personálu: ", "Could not load staff: "],
+  "Neznáma chyba": ["Neznáma chyba", "Unknown error"],
+  "Hodnotenie a sankcie pre {0} boli uložené.": [
+    "Hodnotenie a sankcie pre {0} boli uložené.",
+    "Assessment and disciplinary points for {0} saved."
+  ],
+  "Profil sa nepodarilo uložiť.": ["Profil sa nepodarilo uložiť.", "Could not save the profile."],
+  "Administrátor": ["Administrátor", "Administrator"],
+  "Vedúci výpravca": ["Vedúci výpravca", "Signalling supervisor"],
+  "Vedúci rušňovodič": ["Vedúci rušňovodič", "Driver supervisor"],
+  "Inštruktor výpravca": ["Inštruktor výpravca", "Signalling instructor"],
+  "Inštruktor rušňovodič": ["Inštruktor rušňovodič", "Driver instructor"],
+  "Výpravca ZSSK": ["Výpravca ZSSK", "ZSSK signaller"],
+  "Rušňovodič ZSSK": ["Rušňovodič ZSSK", "ZSSK driver"],
+  "Výpravca v zácviku": ["Výpravca v zácviku", "Trainee signaller"],
+  "Kadet rušňovodič": ["Kadet rušňovodič", "Trainee driver"],
+  "Zamestnanci": ["Zamestnanci", "Staff"],
+  "Kadetný program & Zácvik": ["Kadetný program & Zácvik", "Trainees and instruction"],
+  "Evidencia sankcií (Strikes)": ["Evidencia sankcií (Strikes)", "Disciplinary record"],
+  "Obnoviť": ["Obnoviť", "Refresh"],
+  "Vyberte zamestnanca": ["Vyberte zamestnanca", "Select staff member"],
+  "sankcií": ["sankcií", "disciplinary points"],
+  "Hodnotenie a sankcie —": ["Hodnotenie a sankcie —", "Assessment and disciplinary record —"],
+  "Zavrieť hodnotenie": ["Zavrieť hodnotenie", "Close assessment"],
+  "Základná príprava": ["Základná príprava", "Initial training"],
+  "Teoretická príprava": ["Teoretická príprava", "Theory training"],
+  "Služba pod dohľadom": ["Služba pod dohľadom", "Supervised duty"],
+  "Skúška": ["Skúška", "Assessment"],
+  "Autorizovaný (plný výkon)": ["Autorizovaný (plný výkon)", "Qualified (full duties)"],
+  "Správa sankcií": ["Správa sankcií", "Manage disciplinary points"],
+  "− Odobrať sankciu": ["− Odobrať sankciu", "− Remove point"],
+  "+ Pridať sankciu": ["+ Pridať sankciu", "+ Add point"],
+  "Uložiť hodnotenie a sankcie": [
+    "Uložiť hodnotenie a sankcie",
+    "Save assessment and disciplinary points"
+  ],
+  "Žiadny zamestnanec nemá aktívne sankcie.": [
+    "Žiadny zamestnanec nemá aktívne sankcie.",
+    "No staff have active disciplinary points."
+  ],
+  "Žiadni aktívni kadeti alebo stážisti.": [
+    "Žiadni aktívni kadeti alebo stážisti.",
+    "No active trainees."
+  ],
+  "Žiadny personál zatiaľ. Prihláste sa cez Roblox OAuth.": [
+    "Žiadny personál zatiaľ. Prihláste sa cez Roblox OAuth.",
+    "No staff yet. Sign in with Roblox."
+  ],
+  "Spravovať sankcie": ["Spravovať sankcie", "Manage disciplinary points"],
+  "TPV — grafikony a hlásené časy EDD": [
+    "TPV — grafikony a hlásené časy EDD",
+    "Train graph — timetable and recorded movements"
+  ],
+  "Celá sieť": ["Celá sieť", "Whole network"],
+  "Načítavam grafikony...": ["Načítavam grafikony...", "Loading timetables…"],
+  "Pre vybranú stanicu nie sú uložené grafikony. Vytvorte ich v Tvorbe GVD.": [
+    "Pre vybranú stanicu nie sú uložené grafikony. Vytvorte ich v Tvorbe GVD.",
+    "No timetable is saved for this station. Create one in timetable planning."
+  ],
+  "Časový graf vlakov podľa GVD a EDD": [
+    "Časový graf vlakov podľa GVD a EDD",
+    "Time–distance train graph"
+  ],
+  "— hlásenie EDD": ["— hlásenie EDD", "— recorded movement"],
+  "Otvoriť zo súboru…": ["Otvoriť zo súboru…", "Open file…"],
+  "Stiahnuť plán": ["Stiahnuť plán", "Download layout"],
+  "Uložiť koľajisko": ["Uložiť koľajisko", "Save track layout"],
+  "Rozmer koľajiska": ["Rozmer koľajiska", "Layout dimensions"],
+  "Vymaže aktuálne koľajisko a vytvorí nové": [
+    "Vymaže aktuálne koľajisko a vytvorí nové",
+    "Replaces the current track layout with an empty layout"
+  ],
+  "Vytvoriť prázdne koľajisko": ["Vytvoriť prázdne koľajisko", "Create empty layout"],
+  "doľava": ["doľava", "left"],
+  "Rozšíriť {0}": ["Rozšíriť {0}", "Extend {0}"],
+  "Nájsť prvok": ["Nájsť prvok", "Find element"],
+  "Zvýrazniť prepojenia": ["Zvýrazniť prepojenia", "Highlight links"],
+  "Otočiť": ["Otočiť", "Rotate"],
+  "Zrkadliť": ["Zrkadliť", "Mirror"],
+  "Upraviť {0}": ["Upraviť {0}", "Edit {0}"],
+  "Upraviť časy priecestia": ["Upraviť časy priecestia", "Edit level crossing timings"],
+  "Upraviť rýchlosť do odbočky": ["Upraviť rýchlosť do odbočky", "Edit diverging speed"],
+  "Odpojiť: {0}": ["Odpojiť: {0}", "Disconnect: {0}"],
+  "Zrušiť výber": ["Zrušiť výber", "Clear selection"],
+  "Prepojiť s: {0}": ["Prepojiť s: {0}", "Connect to: {0}"],
+  "Vybrať na prepojenie": ["Vybrať na prepojenie", "Select for connection"],
+  "Traversable paths for {0}": ["Priechodné cesty prvku {0}", "Traversable paths for {0}"],
+  "Could not load station.": ["Stanicu sa nepodarilo načítať.", "Could not load station."],
+  "JOPPieceLinks must be a JSON array.": [
+    "JOPPieceLinks musí byť pole JSON.",
+    "JOPPieceLinks must be a JSON array."
+  ],
+  "Invalid JOPPieceLinks JSON.": ["Neplatný JSON v JOPPieceLinks.", "Invalid JOPPieceLinks JSON."],
+  "Could not save station.": ["Stanicu sa nepodarilo uložiť.", "Could not save station."],
+  "Warning before barriers lower (seconds; blank = 8)": [
+    "Čas výstrahy pred sklopením závor (sekundy; prázdne = 8)",
+    "Warning time before barriers lower (seconds; blank = 8)"
+  ],
+  "Barrier lowering duration (seconds; blank = 7)": [
+    "Čas sklápania závor (sekundy; prázdne = 7)",
+    "Barrier lowering time (seconds; blank = 7)"
+  ],
+  "Barrier raising duration (seconds; blank = 7)": [
+    "Čas zdvíhania závor (sekundy; prázdne = 7)",
+    "Barrier raising time (seconds; blank = 7)"
+  ],
+  "White return delay (seconds; blank = immediate)": [
+    "Oneskorenie návratu bieleho svetla (sekundy; prázdne = ihneď)",
+    "Delay before white light returns (seconds; blank = immediate)"
+  ],
+  "Timings must be zero or more seconds, or blank for the default.": [
+    "Zadajte nezáporný počet sekúnd alebo ponechajte prázdne pre predvolenú hodnotu.",
+    "Enter zero or more seconds, or leave blank for the default."
+  ],
+  "Keep bell sounding after barriers finish lowering? (yes/no; blank = no)": [
+    "Ponechať zvonček zapnutý po sklopení závor? (áno/nie; prázdne = nie)",
+    "Keep the bell sounding after barriers have lowered? (yes/no; blank = no)"
+  ],
+  "Bell option must be yes, no, or blank.": [
+    "Zadajte áno, nie alebo ponechajte prázdne.",
+    "Enter yes, no, or leave blank."
+  ],
+  "Diverging speed (40, 60, 80, or 100 km/h; blank means the compatible default 40)": [
+    "Rýchlosť do odbočky (40, 60, 80 alebo 100 km/h; prázdne = predvolených 40)",
+    "Diverging speed (40, 60, 80 or 100 km/h; blank = default 40)"
+  ],
+  "Späť na sieť staníc": ["Späť na sieť staníc", "Back to network"],
+  "Nástroje a prvky koľajiska": ["Nástroje a prvky koľajiska", "Layout tools and elements"],
+  "Request failed with status {0}.": [
+    "Požiadavka zlyhala so stavom {0}.",
+    "Request failed with status {0}."
+  ],
+  "Failed to load live sessions.": [
+    "Aktívne relácie sa nepodarilo načítať.",
+    "Failed to load live sessions."
+  ],
+  "Vstúpiť do DIS & Intranetu (ZSSK)": [
+    "Vstúpiť do DIS & Intranetu (ZSSK)",
+    "Enter DIS and intranet (ZSSK)"
+  ],
+  "Admin Console": ["Správa prevádzky", "Admin console"],
+  "Open Runtime": ["Otvoriť staničný pult", "Open signalling panel"],
+  "Open Editor": ["Otvoriť editor koľajiska", "Open layout editor"],
+  "Open Map": ["Otvoriť sieť staníc", "Open network map"],
+  "Open Mock Mode": ["Otvoriť simulátor", "Open simulator"],
+  "Tile Inspector": ["Prehliadač prvkov", "Tile inspector"],
+  "Privacy Policy": ["Ochrana osobných údajov", "Privacy policy"],
+  "Najprv zadajte stanicu.": ["Najprv zadajte stanicu.", "Enter a station first."],
+  "Prepojenie sa nepodarilo skopírovať do schránky.": [
+    "Prepojenie sa nepodarilo skopírovať do schránky.",
+    "Could not copy the link to the clipboard."
+  ],
+  "Nástroje prepojenia": ["Nástroje prepojenia", "Linking tools"],
+  "Názov stanice": ["Názov stanice", "Station name"],
+  "Otvoriť plán zo súboru…": ["Otvoriť plán zo súboru…", "Open layout file…"],
+  "Priechod": ["Priechod", "Traversal"],
+  "Nepodarilo sa načítať uložené siete.": [
+    "Nepodarilo sa načítať uložené siete.",
+    "Could not load saved networks."
+  ],
+  "Nepodarilo sa načítať sieť.": ["Nepodarilo sa načítať sieť.", "Could not load the network."],
+  "Nepodarilo sa načítať stanice.": ["Nepodarilo sa načítať stanice.", "Could not load stations."],
+  "Nepodarilo sa otvoriť sieť.": ["Nepodarilo sa otvoriť sieť.", "Could not open the network."],
+  "Nepodarilo sa vytvoriť sieť.": ["Nepodarilo sa vytvoriť sieť.", "Could not create the network."],
+  "Názov môže mať najviac 64 znakov. Použite písmená bez diakritiky, číslice, pomlčky alebo podčiarkovníky.": [
+    "Názov môže mať najviac 64 znakov. Použite písmená bez diakritiky, číslice, pomlčky alebo podčiarkovníky.",
+    "Names can have up to 64 characters. Use letters without accents, digits, hyphens or underscores."
+  ],
+  "Nepodarilo sa pridať stanicu.": ["Nepodarilo sa pridať stanicu.", "Could not add the station."],
+  "Stanica {0} bola pridaná. Koľajisko môžete upraviť v editore.": [
+    "Stanica {0} bola pridaná. Koľajisko môžete upraviť v editore.",
+    "Station {0} added. You can edit its track layout in the editor."
+  ],
+  "Súbor stanice sa nepodarilo načítať. Vyberte plán exportovaný z editora.": [
+    "Súbor stanice sa nepodarilo načítať. Vyberte plán exportovaný z editora.",
+    "Could not load the station file. Select a layout exported from the editor."
+  ],
+  "Stanice sa nepodarilo prepojiť.": [
+    "Stanice sa nepodarilo prepojiť.",
+    "Could not connect the stations."
+  ],
+  "Stanice {0} a {1} boli prepojené.": [
+    "Stanice {0} a {1} boli prepojené.",
+    "Stations {0} and {1} connected."
+  ],
+  "Nepodarilo sa zmeniť počiatočný smer trate.": [
+    "Nepodarilo sa zmeniť počiatočný smer trate.",
+    "Could not change the initial block direction."
+  ],
+  "Odstrániť prepojenie medzi {0} a {1}?": [
+    "Odstrániť prepojenie medzi {0} a {1}?",
+    "Remove the connection between {0} and {1}?"
+  ],
+  "Nepodarilo sa odstrániť prepojenie.": [
+    "Nepodarilo sa odstrániť prepojenie.",
+    "Could not remove the connection."
+  ],
+  "Nový názov stanice": ["Nový názov stanice", "New station name"],
+  "Použite názov bez medzier a diakritiky, najviac 64 znakov. Slová môžete oddeliť pomlčkou.": [
+    "Použite názov bez medzier a diakritiky, najviac 64 znakov. Slová môžete oddeliť pomlčkou.",
+    "Use a name without spaces or accents, up to 64 characters. Separate words with hyphens."
+  ],
+  "Stanicu sa nepodarilo premenovať.": [
+    "Stanicu sa nepodarilo premenovať.",
+    "Could not rename the station."
+  ],
+  "Odstrániť stanicu {0} aj všetky jej prepojenia?": [
+    "Odstrániť stanicu {0} aj všetky jej prepojenia?",
+    "Remove station {0} and all its connections?"
+  ],
+  "Stanicu sa nepodarilo odstrániť.": [
+    "Stanicu sa nepodarilo odstrániť.",
+    "Could not remove the station."
+  ],
+  "Vyberte traťový súhlas v inej stanici.": [
+    "Vyberte traťový súhlas v inej stanici.",
+    "Select a block instrument at another station."
+  ],
+  "Zálohu siete sa nepodarilo stiahnuť.": [
+    "Zálohu siete sa nepodarilo stiahnuť.",
+    "Could not download the network backup."
+  ],
+  "Sieť sa nepodarilo uložiť.": ["Sieť sa nepodarilo uložiť.", "Could not save the network."],
+  "Sieť bola uložená.": ["Sieť bola uložená.", "Network saved."],
+  "Sieť sa nepodarilo načítať.": ["Sieť sa nepodarilo načítať.", "Could not load the network."],
+  "Konfiguráciu sa nepodarilo otvoriť na úpravu.": [
+    "Konfiguráciu sa nepodarilo otvoriť na úpravu.",
+    "Could not open the configuration for editing."
+  ],
+  "Súbor siete sa nepodarilo načítať. Vyberte zálohu exportovanú zo správcu.": [
+    "Súbor siete sa nepodarilo načítať. Vyberte zálohu exportovanú zo správcu.",
+    "Could not load the network file. Select a backup exported from network management."
+  ],
+  "Uložiť pre": ["Uložiť pre", "Save for"],
+  "Vyberte zo zoznamu": ["Vyberte zo zoznamu", "Select from list"],
+  "Názov": ["Názov", "Name"],
+  "Posledná zmena": ["Posledná zmena", "Last modified"],
+  "Názov sa nepodarilo načítať": ["Názov sa nepodarilo načítať", "Could not load the name"],
+  "Otvoriť sieť": ["Otvoriť sieť", "Open network"],
+  "Správa staníc a tratí": ["Správa staníc a tratí", "Stations and lines"],
+  "{0} staníc · {1} prepojení": ["{0} staníc · {1} prepojení", "{0} stations · {1} connections"],
+  "Vyberte sieť alebo vytvorte novú sieť": [
+    "Vyberte sieť alebo vytvorte novú sieť",
+    "Select or create a network"
+  ],
+  "Obnovenie sa nepodarilo.": ["Obnovenie sa nepodarilo.", "Refresh failed."],
+  "Načítať sieť zo súboru…": ["Načítať sieť zo súboru…", "Load network file…"],
+  "Otvoriť vybranú sieť": ["Otvoriť vybranú sieť", "Open selected network"],
+  "Sieť sa nepodarilo otvoriť.": ["Sieť sa nepodarilo otvoriť.", "Could not open the network."],
+  "Načítavam sieť…": ["Načítavam sieť…", "Loading network…"],
+  "Časti správcu": ["Časti správcu", "Network management sections"],
+  "Prepojenia staníc": ["Prepojenia staníc", "Station connections"],
+  "Uloženie a súbory": ["Uloženie a súbory", "Saving and files"],
+  "Žiadna stanica nezodpovedá hľadaniu.": [
+    "Žiadna stanica nezodpovedá hľadaniu.",
+    "No stations match your search."
+  ],
+  "Sieť je prázdna. Pridajte prvú stanicu nižšie.": [
+    "Sieť je prázdna. Pridajte prvú stanicu nižšie.",
+    "The network is empty. Add the first station below."
+  ],
+  "Zo súboru…": ["Zo súboru…", "From file…"],
+  "Názov bez medzier a diakritiky, napr. Bratislava-hlavna. Pridajte prázdne koľajisko alebo načítajte plán zo súboru.": [
+    "Názov bez medzier a diakritiky, napr. Bratislava-hlavna. Pridajte prázdne koľajisko alebo načítajte plán zo súboru.",
+    "Name without spaces or accents, e.g. Bratislava-hlavna. Add an empty layout or load a layout file."
+  ],
+  "Staničný pult": ["Staničný pult", "Signalling panel"],
+  "Premenovať…": ["Premenovať…", "Rename…"],
+  "Odstrániť…": ["Odstrániť…", "Remove…"],
+  "Vybraný traťový súhlas:": ["Vybraný traťový súhlas:", "Selected block instrument:"],
+  ". Teraz kliknite na súhlas v susednej stanici.": [
+    ". Teraz kliknite na súhlas v susednej stanici.",
+    ". Now select the block instrument at the neighbouring station."
+  ],
+  "Vyberte prvý koniec trate": ["Vyberte prvý koniec trate", "Select the first end of the line"],
+  "Vyberte druhý koniec trate": ["Vyberte druhý koniec trate", "Select the other end of the line"],
+  "Neutrálny": ["Neutrálny", "Neutral"],
+  "Prijíma prvá stanica": ["Prijíma prvá stanica", "First station receives"],
+  "Prijíma druhá stanica": ["Prijíma druhá stanica", "Second station receives"],
+  "Najprv pridajte traťové súhlasy v editore koľajiska.": [
+    "Najprv pridajte traťové súhlasy v editore koľajiska.",
+    "Add block instruments in the track layout editor first."
+  ],
+  "Prvá stanica": ["Prvá stanica", "First station"],
+  "Druhá stanica": ["Druhá stanica", "Second station"],
+  "Počiatočný smer": ["Počiatočný smer", "Initial direction"],
+  "Počiatočný smer: {0} – {1}": ["Počiatočný smer: {0} – {1}", "Initial direction: {0} – {1}"],
+  "Prijíma": ["Prijíma", "Receiving"],
+  "Zatiaľ nie sú prepojené žiadne stanice.": [
+    "Zatiaľ nie sú prepojené žiadne stanice.",
+    "No stations connected yet."
+  ],
+  "Uložia sa všetky stanice, ich koľajiská a prepojenia pre vybranú sieť. Predchádzajúca uložená sieť sa nahradí.": [
+    "Uložia sa všetky stanice, ich koľajiská a prepojenia pre vybranú sieť. Predchádzajúca uložená sieť sa nahradí.",
+    "All stations, track layouts and connections will be saved for this network, replacing the previous saved network."
+  ],
+  "Uložiť sieť": ["Uložiť sieť", "Save network"],
+  "Sieť": ["Sieť", "Network"],
+  "Stiahnite celú sieť do súboru alebo otvorte simulátor na overenie jej fungovania.": [
+    "Stiahnite celú sieť do súboru alebo otvorte simulátor na overenie jej fungovania.",
+    "Download a network backup or open the simulator to test it."
+  ],
+  "Stiahnuť zálohu siete": ["Stiahnuť zálohu siete", "Download network backup"],
+  "Otvoriť simulátor": ["Otvoriť simulátor", "Open simulator"],
+  "Zmeny siete sa ukladajú priebežne. Pre použitie v Roblox uložte aj sieť.": [
+    "Zmeny siete sa ukladajú priebežne. Pre použitie v Roblox uložte aj sieť.",
+    "Network changes are saved as you work. Also save the network for use in Roblox."
+  ],
+  "Správa sietí": ["Správa sietí", "Network management"],
+  "Oddialiť": ["Oddialiť", "Zoom out"],
+  "Obnoviť veľkosť": ["Obnoviť veľkosť", "Reset zoom"],
+  "Priblížiť": ["Priblížiť", "Zoom in"],
+  "Posúvateľná sieť staníc": ["Posúvateľná sieť staníc", "Scrollable station network"],
+  "Čakajú na pripojenie": ["Čakajú na pripojenie", "Awaiting connection"],
+  "Prepojené stanice": ["Prepojené stanice", "Connected stations"],
+  "Upraviť koľajisko": ["Upraviť koľajisko", "Edit track layout"],
+  "Prepojené s: {0}": ["Prepojené s: {0}", "Connected to: {0}"],
+  "Zatiaľ nepripojená. Vyberte traťový súhlas na prepojenie.": [
+    "Zatiaľ nepripojená. Vyberte traťový súhlas na prepojenie.",
+    "Not connected yet. Select a block instrument to connect this station."
+  ],
+  "Vybrať traťový súhlas {0} v stanici {1}": [
+    "Vybrať traťový súhlas {0} v stanici {1}",
+    "Select block instrument {0} at {1}"
+  ],
+  "Vyberte traťový súhlas a potom súhlas v susednej stanici": [
+    "Vyberte traťový súhlas a potom súhlas v susednej stanici",
+    "Select a block instrument, then one at the neighbouring station"
+  ],
+  "Failed to load session.": ["Reláciu sa nepodarilo načítať.", "Failed to load session."],
+  "Failed to load session stations.": [
+    "Stanice relácie sa nepodarilo načítať.",
+    "Failed to load session stations."
+  ],
+  "Failed to load mock session.": [
+    "Reláciu simulátora sa nepodarilo načítať.",
+    "Failed to load simulator session."
+  ],
+  "Failed to create train.": ["Vlak sa nepodarilo vytvoriť.", "Failed to create train."],
+  "Failed to move train.": ["Vlak sa nepodarilo posunúť.", "Failed to move train."],
+  "Failed to reverse train.": ["Smer vlaku sa nepodarilo zmeniť.", "Failed to reverse train."],
+  "Failed to remove train.": ["Vlak sa nepodarilo odstrániť.", "Failed to remove train."],
+  "Failed to import session schema.": [
+    "Konfiguráciu relácie sa nepodarilo importovať.",
+    "Failed to import session configuration."
+  ],
+  "Open Session": ["Otvoriť reláciu", "Open session"],
+  "Open Map Editor": ["Otvoriť editor siete", "Open network editor"],
+  "Import Session Schema": ["Importovať konfiguráciu relácie", "Import session configuration"],
+  "Mock session {0} active.": [
+    "Relácia simulátora {0} je aktívna.",
+    "Simulator session {0} active."
+  ],
+  "Loading mock session...": ["Načítavam reláciu simulátora…", "Loading simulator session…"],
+  "Open Station Editor": ["Otvoriť editor koľajiska", "Open layout editor"],
+  "Train length in occupation sensors": [
+    "Dĺžka vlaku v snímačoch obsadenia",
+    "Train length in occupation detectors"
+  ],
+  "Starting station": ["Východisková stanica", "Starting station"],
+  "Front sensor": ["Čelný snímač obsadenia", "Leading occupation detector"],
+  "Left to right": ["Zľava doprava", "Left to right"],
+  "Right to left": ["Sprava doľava", "Right to left"],
+  "Create And Spawn Train": ["Vytvoriť a umiestniť vlak", "Create and position train"],
+  "Move To Next Signal": ["Posunúť k ďalšiemu návestidlu", "Move to next signal"],
+  "Reverse Direction": ["Zmeniť smer jazdy", "Reverse direction"],
+  "Remove": ["Odstrániť", "Remove"],
+  "{0} {1} route: source selected, choose the destination.": [
+    "{0} cesty ({1}): začiatok je vybraný, vyberte koniec cesty.",
+    "{0} {1} route: origin selected, choose the destination."
+  ],
+  "Failed to load station.": ["Stanicu sa nepodarilo načítať.", "Failed to load station."],
+  "Realtime subscription disconnected.": [
+    "Spojenie naživo bolo prerušené.",
+    "Live connection lost."
+  ],
+  "Realtime subscription disconnected. Reconnecting...": [
+    "Spojenie naživo bolo prerušené. Pripájam znova…",
+    "Live connection lost. Reconnecting…"
+  ],
+  "Failed to submit lineblock action.": [
+    "Obsluha traťového súhlasu zlyhala.",
+    "Failed to operate block instrument."
+  ],
+  "Failed to submit route interaction.": [
+    "Postavenie alebo zrušenie cesty zlyhalo.",
+    "Failed to set or release the route."
+  ],
+  "Failed to operate switch.": ["Obsluha výhybky zlyhala.", "Failed to operate points."],
+  "Failed to operate PN.": [
+    "Obsluha privolávacej návesti zlyhala.",
+    "Failed to operate call-on signal."
+  ],
+  "Cancel this route immediately? This bypasses the normal route-cancellation delay.": [
+    "Zrušiť cestu okamžite bez obvyklého časového oneskorenia?",
+    "Release this route immediately, bypassing the normal release delay?"
+  ],
+  "kont. KÚ": ["kont. KÚ", "track circuit check"],
+  "kont. pol. výh.": ["kont. pol. výh.", "point detection check"],
+  "Fit width": ["Prispôsobiť šírke", "Fit to width"],
+  "Zoom out": ["Oddialiť", "Zoom out"],
+  "Zoom in": ["Priblížiť", "Zoom in"],
+  "Mark train arrived on {0}": [
+    "Potvrdiť príchod celého vlaku: {0}",
+    "Record train complete at {0}"
+  ],
+  "Request or accept AH consent on {0}": [
+    "Vyžiadať alebo udeliť traťový súhlas AH: {0}",
+    "Request or accept automatic block consent at {0}"
+  ],
+  "Grant or revoke lineblock consent on {0}": [
+    "Udeliť alebo odvolať traťový súhlas: {0}",
+    "Grant or revoke block consent at {0}"
+  ],
+  "Operate switch button {0}": ["Obslúžiť výhybkové tlačidlo {0}", "Operate points control {0}"],
+  "Operate PN counter {0}": [
+    "Obslúžiť počítadlo privolávacej návesti {0}",
+    "Operate call-on counter {0}"
+  ],
+  "Hold switch inspection button {0}": [
+    "Podržať tlačidlo kontroly polohy výhybiek {0}",
+    "Hold point detection check {0}"
+  ],
+  "Hold occupation inspection button {0}": [
+    "Podržať tlačidlo kontroly koľajových úsekov {0}",
+    "Hold track occupation check {0}"
+  ],
+  "ruš. voľ. VC": ["ruš. voľ. VC", "route release"],
+  "Clear selected route with {0}": [
+    "Zrušiť vybranú cestu prvkom {0}",
+    "Release selected route using {0}"
+  ],
+  "Interact with normal route endpoint {0}": [
+    "Vybrať koniec vlakovej cesty {0}",
+    "Select train route endpoint {0}"
+  ],
+  "Interact with shunting route endpoint {0}": [
+    "Vybrať koniec posunovej cesty {0}",
+    "Select shunt route endpoint {0}"
+  ],
+  "Interact with route endpoint {0}": ["Vybrať koniec cesty {0}", "Select route endpoint {0}"],
+  "Interact with buffer shunting route endpoint {0}": [
+    "Vybrať koniec posunovej cesty pri zarážadle {0}",
+    "Select buffer stop shunt route endpoint {0}"
+  ],
+  "Žiadne zodpovedajúce možnosti.": ["Žiadne zodpovedajúce možnosti.", "No matching options."],
+  "Chýbajúce autentifikačné parametre.": [
+    "Chýbajúce autentifikačné parametre.",
+    "Missing authentication details."
+  ],
+  "Vytváram reláciu ZSSK DIS...": ["Vytváram reláciu ZSSK DIS...", "Creating your DIS session…"],
+  "Nepodarilo sa vytvoriť reláciu.": [
+    "Nepodarilo sa vytvoriť reláciu.",
+    "Could not create your session."
+  ],
+  "ZSSK DIS — Autentifikácia": ["ZSSK DIS — Autentifikácia", "ZSSK DIS — Authentication"],
+  "Návrat na prihlásenie": ["Návrat na prihlásenie", "Back to sign in"],
+  "ZSSK DIS — Dopravný Informačný Systém": [
+    "ZSSK DIS — Dopravný Informačný Systém",
+    "ZSSK DIS — Railway information system"
+  ],
+  "Interný informačný systém ZSSK pre výpravcov a rušňovodičov": [
+    "Interný informačný systém ZSSK pre výpravcov a rušňovodičov",
+    "Internal ZSSK information system for signallers and drivers"
+  ],
+  "Editor staníc": ["Editor staníc", "Station editor"],
+  "Správca staníc a topológie": ["Správca staníc a topológie", "Station and topology management"],
+  "Prepojovač staníc": ["Prepojovač staníc", "Station linker"],
+  "Odhlásiť": ["Odhlásiť", "Sign out"],
+  "Relácie": ["Relácie", "Sessions"],
+  "Môj vlak": ["Môj vlak", "My train"],
+  "Dopravný denník": ["Dopravný denník", "Train register"],
+  "Šichty": ["Zmeny", "Shifts"],
+  "Personál": ["Personál", "Staff"],
+  "Príprava siete": ["Príprava siete", "Network preparation"],
+  "Tvorba GVD": ["Tvorba GVD", "Timetable planning"],
+  "Simulátor": ["Simulátor", "Simulator"],
+  "ZSSK DIS — Dopravný informačný systém": [
+    "ZSSK DIS — Dopravný informačný systém",
+    "ZSSK DIS — Railway information system"
+  ],
+  "Moduly DIS": ["Moduly DIS", "DIS modules"],
+  "Svetlý motív": ["Svetlý motív", "Light theme"],
+  "Tmavý motív": ["Tmavý motív", "Dark theme"],
+  "Vybrať sieť": ["Vybrať sieť", "Select network"],
+  "Aktívna relácia": ["Aktívna relácia", "Active session"],
+  "Vybrať reláciu": ["Vybrať reláciu", "Select session"],
+  "Dátum neznámy": ["Dátum neznámy", "Date unknown"],
+  "Len živé": ["Len živé", "Live only"],
+  "Zobraziť ďalšie": ["Zobraziť ďalšie", "Show more"],
+  "Hľadať reláciu podľa dátumu alebo ID": [
+    "Hľadať reláciu podľa dátumu alebo ID",
+    "Search sessions by date or ID"
+  ],
+  "Hľadať dátum alebo ID": ["Hľadať dátum alebo ID", "Search date or ID"],
+  "Aktívna stanica": ["Aktívna stanica", "Active station"],
+  "Vybrať stanicu": ["Vybrať stanicu", "Select station"],
+  "Rozbaliť výber stanice": ["Rozbaliť výber stanice", "Expand station selector"],
+  "Zbaliť výber stanice": ["Zbaliť výber stanice", "Collapse station selector"],
+  "Stanice vybranej relácie": ["Stanice vybranej relácie", "Stations in selected session"],
+  "Načítavam simulátor...": ["Načítavam simulátor...", "Loading simulator…"],
+  "Farm-Fresh icons © FatCow Web Hosting · CC BY 3.0": [
+    "Farm-Fresh icons © FatCow Web Hosting · CC BY 3.0",
+    "Farm-Fresh icons © FatCow Web Hosting · CC BY 3.0"
+  ],
+  "nevybraná": ["nevybraná", "not selected"],
+  "Chyba načítania siete": ["Chyba načítania siete", "Could not load network"],
+  "JOP runtime and editor": [
+    "Staničný pult a editor koľajiska JOP",
+    "JOP signalling panel and layout editor"
+  ],
+  "Back to entry": ["Späť na úvod", "Back to entry"],
+  "Open map editor": ["Otvoriť editor siete", "Open network editor"],
+  "Privacy Policy | JOP": ["Ochrana osobných údajov — JOP", "Privacy policy — JOP"],
+  "This policy describes how JOP handles information when you use the service, including signing in with Roblox.": [
+    "Tieto zásady opisujú, ako JOP spracúva údaje pri používaní služby vrátane prihlásenia cez Roblox.",
+    "This policy describes how JOP handles information when you use the service, including signing in with Roblox."
+  ],
+  "Information we use": ["Spracúvané údaje", "Information we use"],
+  "When you sign in with Roblox, JOP receives your Roblox user ID, username and display name. It also checks your membership, role and rank in the configured Roblox group. JOP stores a profile containing this information and your assigned service role. Information you enter or create while using the service may also be stored.": [
+    "Pri prihlásení cez Roblox získa JOP vaše Roblox ID, používateľské a zobrazované meno. Overí aj členstvo, rolu a hodnosť v určenej Roblox skupine. Tieto údaje a pridelená prevádzková rola sa uložia do profilu. Uložené môžu byť aj údaje, ktoré pri používaní služby zadáte alebo vytvoríte.",
+    "When you sign in with Roblox, JOP receives your Roblox user ID, username and display name. It also checks your membership, role and rank in the configured Roblox group. JOP stores a profile containing this information and your assigned service role. Information you enter or create while using the service may also be stored."
+  ],
+  "How information is used": ["Použitie údajov", "How information is used"],
+  "We use this information to sign you in, determine access, operate the service and maintain user profiles. Roblox processes your sign-in under its own privacy policy. JOP uses Appwrite to store account and profile information.": [
+    "Údaje používame na prihlásenie, určenie prístupu, prevádzku služby a správu profilov. Roblox spracúva prihlásenie podľa vlastných zásad ochrany osobných údajov. JOP ukladá účty a profily v Appwrite.",
+    "We use this information to sign you in, determine access, operate the service and maintain user profiles. Roblox processes your sign-in under its own privacy policy. JOP uses Appwrite to store account and profile information."
+  ],
+  "Cookies and sessions": ["Súbory cookie a prihlásenie", "Cookies and sessions"],
+  "JOP uses a temporary cookie to protect the Roblox sign-in process and session information to keep you signed in.": [
+    "JOP používa dočasný súbor cookie na ochranu prihlásenia cez Roblox a údaje relácie na zachovanie prihlásenia.",
+    "JOP uses a temporary cookie to protect the Roblox sign-in process and session information to keep you signed in."
+  ],
+  "Retention and requests": ["Uchovávanie údajov a žiadosti", "Retention and requests"],
+  "Information is retained as needed to operate and administer the service. To ask about your information or request its correction or deletion, contact the JOP service administrator.": [
+    "Údaje sa uchovávajú počas obdobia potrebného na prevádzku a správu služby. S otázkami o údajoch alebo žiadosťou o opravu či vymazanie sa obráťte na správcu služby JOP.",
+    "Information is retained as needed to operate and administer the service. To ask about your information or request its correction or deletion, contact the JOP service administrator."
+  ],
+  "Changes": ["Zmeny", "Changes"],
+  "This policy may be updated as the service changes. The current version will be available on this page.": [
+    "Tieto zásady sa môžu meniť spolu so službou. Aktuálne znenie bude dostupné na tejto stránke.",
+    "This policy may be updated as the service changes. The current version will be available on this page."
+  ],
+  "Terms of Service | JOP": ["Podmienky používania — JOP", "Terms of service — JOP"],
+  "Terms of Service": ["Podmienky používania", "Terms of service"],
+  "By using JOP, you agree to these terms. If you do not agree, please do not use the service.": [
+    "Používaním JOP súhlasíte s týmito podmienkami. Ak s nimi nesúhlasíte, službu nepoužívajte.",
+    "By using JOP, you agree to these terms. If you do not agree, please do not use the service."
+  ],
+  "Using JOP": ["Používanie JOP", "Using JOP"],
+  "Use the service responsibly and only with an account you are authorized to use. Do not disrupt the service, access data without permission, or misuse other users’ information. You must also follow Roblox’s applicable terms when using Roblox sign-in.": [
+    "Službu používajte zodpovedne a iba s účtom, ktorý ste oprávnený používať. Nenarušujte jej prevádzku, nepristupujte k údajom bez oprávnenia a nezneužívajte údaje ostatných. Pri prihlásení cez Roblox dodržiavajte aj príslušné podmienky Roblox.",
+    "Use the service responsibly and only with an account you are authorized to use. Do not disrupt the service, access data without permission, or misuse other users’ information. You must also follow Roblox’s applicable terms when using Roblox sign-in."
+  ],
+  "Access": ["Prístup", "Access"],
+  "Some features require a Roblox account and membership in an authorized group. Access may be restricted or removed if these requirements are not met or the service is misused.": [
+    "Niektoré funkcie vyžadujú účet Roblox a členstvo v oprávnenej skupine. Pri nesplnení podmienok alebo zneužití služby môže byť prístup obmedzený alebo odobratý.",
+    "Some features require a Roblox account and membership in an authorized group. Access may be restricted or removed if these requirements are not met or the service is misused."
+  ],
+  "Availability": ["Dostupnosť", "Availability"],
+  "JOP is provided as available, without guarantees of uninterrupted operation or fitness for a particular purpose. Features may change or become unavailable.": [
+    "JOP sa poskytuje podľa aktuálnej dostupnosti bez záruky nepretržitej prevádzky alebo vhodnosti na konkrétny účel. Funkcie sa môžu zmeniť alebo prestať byť dostupné.",
+    "JOP is provided as available, without guarantees of uninterrupted operation or fitness for a particular purpose. Features may change or become unavailable."
+  ],
+  "Privacy and changes": ["Ochrana údajov a zmeny", "Privacy and changes"],
+  "Our": ["Naše", "Our"],
+  "explains how information is used. These terms may be updated; continued use after an update means you accept the updated terms.": [
+    "vysvetľujú použitie údajov. Podmienky sa môžu meniť; ďalším používaním po zmene prijímate nové znenie.",
+    "explains how information is used. These terms may be updated; continued use after an update means you accept the updated terms."
+  ],
+  "Administrator recovery console": ["Obnova prevádzkového stavu", "Operating state recovery"],
+  "Session": ["Relácia", "Session"],
+  "Use these controls to recover a live Roblox operation without editing raw state. Changes are saved first, then sent to the Roblox bridge.": [
+    "Obnovte živú reláciu Roblox bez ručnej úpravy údajov. Zmeny sa uložia pred odoslaním do Roblox.",
+    "Recover a live Roblox session without editing raw state. Changes are saved before being sent to Roblox."
+  ],
+  "Stations": ["Stanice", "Stations"],
+  "Open a station to verify the recovered state.": [
+    "Otvorte staničný pult a skontrolujte obnovený stav.",
+    "Open a signalling panel to check the recovered state."
+  ],
+  "routes ·": ["ciest ·", "routes ·"],
+  "delayed actions": ["časovaných úkonov", "timed operations"],
+  "No stations found for this session.": [
+    "V relácii nie sú žiadne stanice.",
+    "No stations found in this session."
+  ],
+  "Dopravný informačný systém & Intranet dispečera": [
+    "Dopravný informačný systém & Intranet dispečera",
+    "Railway information system and signallers’ intranet"
+  ],
+  "Pre prístup k staničnému dopravnému denníku (EDD), traťovej polohe vlakov (TPV), zmenám a predpisom sa prihláste vaším": [
+    "Pre prístup k staničnému dopravnému denníku (EDD), traťovej polohe vlakov (TPV), zmenám a predpisom sa prihláste vaším",
+    "To access the train register, train graph, shifts and operating instructions, sign in with your"
+  ],
+  "Systém automaticky overí vašu hodnosť a rolu v oficiálnej Roblox skupine a podľa nej pridelí prevádzkové oprávnenia.": [
+    "Systém automaticky overí vašu hodnosť a rolu v oficiálnej Roblox skupine a podľa nej pridelí prevádzkové oprávnenia.",
+    "The system checks your role in the official Roblox group and assigns the corresponding operating permissions."
+  ],
+  "Chyba prihlásenia:": ["Chyba prihlásenia:", "Sign-in error:"],
+  "Stiahnuť": ["Stiahnuť", "Download"],
+  "Stiahnuť súbor": ["Stiahnuť súbor", "Download file"],
+  "Ak prehliadač náhľad PDF nepodporuje, použite tlačidlo „Stiahnuť súbor“.": [
+    "Ak prehliadač náhľad PDF nepodporuje, použite tlačidlo „Stiahnuť súbor“.",
+    "If your browser cannot preview PDF files, use “Download file”."
+  ],
+  "Snímka": ["Snímka", "Slide"],
+  "Nový dokument": ["Nový dokument", "New document"],
+  "Upraviť": ["Upraviť", "Edit"],
+  "Ukončiť jazdu": ["Ukončiť jazdu", "Finish working"],
+  "Prevziať vlak": ["Prevziať vlak", "Take charge of train"],
+  "Kategóriu možno zmeniť aj na Pos bez zmeny čísla vlaku.": [
+    "Kategóriu možno zmeniť aj na Pos bez zmeny čísla vlaku.",
+    "You can switch to Pos (shunting) without changing the train number."
+  ],
+  "Cieľ:": ["Cieľ:", "Destination:"],
+  "· Dĺžka:": ["· Dĺžka:", "· Length:"],
+  "m · Hmotnosť:": ["m · Hmotnosť:", "m · Weight:"],
+  "t · Vozne:": ["t · Vozne:", "t · Wagons:"],
+  "Pripraviť ďalší vlak": ["Pripraviť ďalší vlak", "Prepare next working"],
+  "Vyberte reláciu a stanicu v hornej lište.": [
+    "Vyberte reláciu a stanicu v hornej lište.",
+    "Select a session and station in the top bar."
+  ],
+  "Tlač denníka": ["Tlač denníka", "Print train register"],
+  "Mimoriadny vlak": ["Mimoriadny vlak", "Special train"],
+  "Vlaky z GVD sa načítavajú automaticky.": [
+    "Vlaky z GVD sa načítavajú automaticky.",
+    "Timetabled trains appear automatically."
+  ],
+  "Pridať vlak": ["Pridať vlak", "Add train"],
+  "Stav": ["Stav", "Status"],
+  "Odhlášku a návestidlá ovládajte na staničnom pulte. Zápis v EDD nemení zabezpečovacie zariadenie.": [
+    "Odhlášku a návestidlá ovládajte na staničnom pulte. Zápis v EDD nemení zabezpečovacie zariadenie.",
+    "Send train-out-of-section reports and operate signals on the signalling panel. Entries in the train register do not operate the interlocking."
+  ],
+  "Prepočítať kolízie": ["Prepočítať kolízie", "Check conflicts"],
+  "Poznámky k vlaku": ["Poznámky k vlaku", "Train notes"],
+  "Pridať zastavenie": ["Pridať zastavenie", "Add timing point"],
+  "Kontrola porovnáva uložené denné grafikony. Pri prejazde počíta s obsadením aspoň 1 minútu. Počet traťových koľají, bezpečné medzidobia, dĺžky nástupíšť a vzdialenosti nie sú v modeli uvedené; kontrola nenahrádza zabezpečovacie zariadenie.": [
+    "Kontrola porovnáva uložené denné grafikony. Pri prejazde počíta s obsadením aspoň 1 minútu. Počet traťových koľají, bezpečné medzidobia, dĺžky nástupíšť a vzdialenosti nie sú v modeli uvedené; kontrola nenahrádza zabezpečovacie zariadenie.",
+    "Checks compare saved daily timetables. Passing trains occupy a track for at least one minute. Line capacity, safe headways, platform lengths and distances are not modelled; this check does not replace the interlocking."
+  ],
+  "Nadpis": ["Nadpis", "Heading"],
+  "Odkaz": ["Odkaz", "Link"],
+  "Files": ["Súbory", "Files"],
+  "Pustite súbory sem": ["Pustite súbory sem", "Drop files here"],
+  "Text dokumentu (Markdown)": ["Text dokumentu (Markdown)", "Document text (Markdown)"],
+  "Takto bude dokument vyzerať": ["Takto bude dokument vyzerať", "Document preview"],
+  "Náhľad sa zobrazí počas písania.": [
+    "Náhľad sa zobrazí počas písania.",
+    "The preview appears as you type."
+  ],
+  "Súbory môžete aj pretiahnuť sem alebo vložiť obrázok zo schránky. Obrázky, PDF, Office, TXT, Markdown, CSV a ZIP · najviac 10 MB na súbor.": [
+    "Súbory môžete aj pretiahnuť sem alebo vložiť obrázok zo schránky. Obrázky, PDF, Office, TXT, Markdown, CSV a ZIP · najviac 10 MB na súbor.",
+    "You can also drop files here or paste an image. Images, PDF, Office, TXT, Markdown, CSV and ZIP · up to 10 MB per file."
+  ],
+  "Vytvárajte a upravujte uložené siete a koľajiská. Príprava nevyžaduje spustenú ani vybranú reláciu.": [
+    "Vytvárajte a upravujte uložené siete a koľajiská. Príprava nevyžaduje spustenú ani vybranú reláciu.",
+    "Create and edit saved networks and track layouts. No running or selected session is required."
+  ],
+  "Správca staníc": ["Správca staníc", "Station management"],
+  "Otvorte uloženú sieť alebo vytvorte novú. Pridávajte stanice a prepájajte ich.": [
+    "Otvorte uloženú sieť alebo vytvorte novú. Pridávajte stanice a prepájajte ich.",
+    "Open or create a network. Add stations and connect them."
+  ],
+  "Vytvorte nové koľajisko alebo otvorte plán zo súboru. Uloženú stanicu môžete upraviť zo správcu staníc.": [
+    "Vytvorte nové koľajisko alebo otvorte plán zo súboru. Uloženú stanicu môžete upraviť zo správcu staníc.",
+    "Create a track layout or open a layout file. Edit saved stations from station management."
+  ],
+  "Prepojenie s Roblox (Linker)": ["Prepojenie s Roblox (Linker)", "Roblox linking tool"],
+  "Priraďte prvky koľajiska k objektom v Roblox.": [
+    "Priraďte prvky koľajiska k objektom v Roblox.",
+    "Link track layout elements to objects in Roblox."
+  ],
+  "Hlásenia a rozkazy": ["Hlásenia a rozkazy", "Reports and written orders"],
+  "Návrhy príjemcov sa nepodarilo načítať. Meno môžete zadať ručne.": [
+    "Návrhy príjemcov sa nepodarilo načítať. Meno môžete zadať ručne.",
+    "Could not load recipient suggestions. You can enter a name manually."
+  ],
+  "Obnova prevádzkového stavu": ["Obnova prevádzkového stavu", "Operating state recovery"],
+  "Komunikácia": ["Komunikácia", "Communication"],
+  "Stanice": ["Stanice", "Stations"],
+  "Odosielam…": ["Odosielam…", "Sending…"],
+  "Správa Prevádzkových Session (JOP & Roblox Bridge)": [
+    "Správa prevádzkových relácií",
+    "Operating sessions"
+  ],
+  "Aktívne simulácie a prepojenia staníc riadené priamo z DIS rozhrania.": [
+    "Aktívne simulácie a prepojenia staníc riadené priamo z DIS rozhrania.",
+    "Live sessions and station connections managed from DIS."
+  ],
+  "Automaticky detegované cez WebSocket / MessagingService": [
+    "Automaticky detegované cez WebSocket / MessagingService",
+    "Detected automatically through WebSocket / MessagingService"
+  ],
+  "Načítavam aktívne sessiony...": ["Načítavam aktívne relácie…", "Loading active sessions…"],
+  "Momentálne nie je aktívny žiadny Roblox server. Môžete spustiť lokálnu / mock session nižšie.": [
+    "Momentálne nie je aktívny žiadny server Roblox. Nižšie môžete otvoriť reláciu simulátora.",
+    "No Roblox server is active. You can open a simulator session below."
+  ],
+  "Posledný signál:": ["Posledný signál:", "Last contact:"],
+  "• Stanice v sieti:": ["• Stanice v sieti:", "• Stations in network:"],
+  "Vyskúšajte pohyb vlakov vo vybranej relácii.": [
+    "Vyskúšajte pohyb vlakov vo vybranej relácii.",
+    "Test train movements in the selected session."
+  ],
+  "Vytvoriť zmenu": ["Vytvoriť zmenu", "Create shift"],
+  "Zapísať sa na zmenu": ["Zapísať sa na zmenu", "Register for shift"],
+  "Na túto zmenu ste prihlásený.": [
+    "Na túto zmenu ste prihlásený.",
+    "You are registered for this shift."
+  ],
+  "Sieť staníc": ["Sieť staníc", "Station network"],
+  "Stanice a výpravcovia": ["Stanice a výpravcovia", "Stations and signallers"],
+  "Vlaky a rušňovodiči": ["Vlaky a rušňovodiči", "Trains and drivers"],
+  "Personálne oddelenie ZSSK": ["Personálne oddelenie ZSSK", "ZSSK staff office"],
+  "Pridať sankciu zamestnancovi": [
+    "Pridať sankciu zamestnancovi",
+    "Add disciplinary point to staff member"
+  ],
+  "Pridať sankciu…": ["Pridať sankciu…", "Add disciplinary point…"],
+  "Vybrať môžete aj zamestnanca bez sankcií. Zmenu potvrďte v okne hodnotenia.": [
+    "Vybrať môžete aj zamestnanca bez sankcií. Zmenu potvrďte v okne hodnotenia.",
+    "You can select staff with no disciplinary points too. Confirm changes in the assessment dialog."
+  ],
+  "Fáza výcviku": ["Fáza výcviku", "Training stage"],
+  "Sankcie (strikes)": ["Sankcie (strikes)", "Disciplinary points"],
+  "Počet sankcií": ["Počet sankcií", "Number of points"],
+  "Počet môže byť od 0 do 10. Zmeny sa prejavia až po uložení. Dôvod môžete zapísať do poznámok nižšie.": [
+    "Počet môže byť od 0 do 10. Zmeny sa prejavia až po uložení. Dôvod môžete zapísať do poznámok nižšie.",
+    "Enter between 0 and 10 points. Changes take effect when saved. Record the reason in the notes below."
+  ],
+  "Poznámky a dôvod sankcie": [
+    "Poznámky a dôvod sankcie",
+    "Notes and reason for disciplinary action"
+  ],
+  "Načítavam zoznam personálu...": ["Načítavam zoznam personálu...", "Loading staff…"],
+  "Roblox ID": ["Roblox ID", "Roblox ID"],
+  "Meno & Roblox": ["Meno & Roblox", "Name and Roblox"],
+  "Volací znak": ["Volací znak", "Call sign"],
+  "Zaradenie / Rola": ["Zaradenie / Rola", "Grade / role"],
+  "Strikes": ["Sankcie", "Disciplinary points"],
+  "Správa oprávnení": ["Správa oprávnení", "Permissions"],
+  "Roblox:": ["Roblox:", "Roblox:"],
+  "Autorizovaný (Plný výkon)": ["Autorizovaný (Plný výkon)", "Qualified (full duties)"],
+  "Jazda / Služba pod dohľadom": ["Jazda / Služba pod dohľadom", "Supervised driving / duty"],
+  "Teoréticka príprava": ["Teoretická príprava", "Theory training"],
+  "Hodnotenie": ["Hodnotenie", "Assessment"],
+  "Čiary: plán GVD. Body: skutočné hlásenia vybranej stanice. Zvislá zelená čiara: aktuálny čas. Rozostupy staníc sú schematické.": [
+    "Čiary: plán GVD. Body: skutočné hlásenia vybranej stanice. Zvislá zelená čiara: aktuálny čas. Rozostupy staníc sú schematické.",
+    "Lines: scheduled workings. Points: recorded movements at the selected station. Green line: current time. Station spacing is schematic."
+  ],
+  "Zobraziť priechodné cesty": ["Zobraziť priechodné cesty", "Show traversable paths"],
+  "Šírka": ["Šírka", "Width"],
+  "Výška": ["Výška", "Height"],
+  "Rozšíriť:": ["Rozšíriť:", "Extend:"],
+  "Vyhľadanie prvkov a technické prepojenia": [
+    "Vyhľadanie prvkov a technické prepojenia",
+    "Find elements and technical links"
+  ],
+  "Identifikátor prvku": ["Identifikátor prvku", "Element ID"],
+  "Prepojenia z Roblox (JOPPieceLinks)": [
+    "Prepojenia z Roblox (JOPPieceLinks)",
+    "Roblox links (JOPPieceLinks)"
+  ],
+  "Editor koľajiska": ["Editor koľajiska", "Track layout editor"],
+  "Načítavam koľajisko…": ["Načítavam koľajisko…", "Loading track layout…"],
+  "Prvky koľajiska · vyberte prvok a kliknite do plánu": [
+    "Prvky koľajiska · vyberte prvok a kliknite do plánu",
+    "Layout elements · select an element, then click on the plan"
+  ],
+  "Railway Control Panel": ["Staničný pult", "Railway signalling panel"],
+  "Open a runtime station session": [
+    "Otvoriť stanicu v prevádzkovej relácii",
+    "Open a station in a running session"
+  ],
+  "Roblox sessions now publish liveness to the backend. Pick a live session and station below, or fall back to manual entry when you need a direct runtime URL.": [
+    "Vyberte aktívnu reláciu a stanicu alebo zadajte ich identifikátory na priame otvorenie pultu.",
+    "Select a live session and station below, or enter their IDs to open a signalling panel directly."
+  ],
+  "Live Roblox Sessions": ["Aktívne relácie Roblox", "Live Roblox sessions"],
+  "Sessions disappear automatically when the bridge misses heartbeats for more than one minute.": [
+    "Relácie sa skryjú, ak prepojenie neodošle signál dlhšie ako minútu.",
+    "Sessions disappear after the bridge has sent no heartbeat for over a minute."
+  ],
+  "Loading live sessions...": ["Načítavam aktívne relácie…", "Loading live sessions…"],
+  "No live Roblox sessions are currently reporting heartbeats.": [
+    "Žiadny server Roblox sa momentálne nehlási.",
+    "No Roblox servers are reporting heartbeats."
+  ],
+  "Live": ["Aktívna", "Live"],
+  "PlaceId": ["ID miesta", "Location ID"],
+  "• Server": ["• Server", "• Server"],
+  "Last heartbeat": ["Posledný signál", "Last heartbeat"],
+  "Session ID": ["ID relácie", "Session ID"],
+  "Station ID": ["ID stanice", "Station ID"],
+  "Prepojenie koľajiska s Roblox": ["Prepojenie koľajiska s Roblox", "Link track layout to Roblox"],
+  "Vybrané:": ["Vybrané:", "Selected:"],
+  "· Skopírované:": ["· Skopírované:", "· Copied:"],
+  "Kliknutím skopírujete prepojenie. Podržte Ctrl na výber viacerých prvkov; šípkami doľava a doprava vyberte priechod. Uvoľnením Ctrl skopírujete skupinu. Pravým tlačidlom zrušíte označenie skopírovaných prvkov.": [
+    "Kliknutím skopírujete prepojenie. Podržte Ctrl na výber viacerých prvkov; šípkami doľava a doprava vyberte priechod. Uvoľnením Ctrl skopírujete skupinu. Pravým tlačidlom zrušíte označenie skopírovaných prvkov.",
+    "Click to copy a link. Hold Ctrl to select several elements; use the left and right arrow keys to select a traversal. Release Ctrl to copy the group. Right-click to clear copied selections."
+  ],
+  "Naposledy skopírované:": ["Naposledy skopírované:", "Last copied:"],
+  "Otvorte plán stanice zo súboru. Potom vyberajte prvky, ktoré chcete prepojiť s Roblox.": [
+    "Otvorte plán stanice zo súboru. Potom vyberajte prvky, ktoré chcete prepojiť s Roblox.",
+    "Open a station layout file, then select elements to link to Roblox."
+  ],
+  "Niektoré názvy sa nepodarilo načítať z Roblox. Skúste stránku obnoviť.": [
+    "Niektoré názvy sa nepodarilo načítať z Roblox. Skúste stránku obnoviť.",
+    "Some Roblox names could not be loaded. Try refreshing the page."
+  ],
+  "Uložené siete": ["Uložené siete", "Saved networks"],
+  "Načítavam siete…": ["Načítavam siete…", "Loading networks…"],
+  "Zatiaľ nemáte uloženú sieť. Začnite vytvorením novej siete.": [
+    "Zatiaľ nemáte uloženú sieť. Začnite vytvorením novej siete.",
+    "No saved networks yet. Start by creating a network."
+  ],
+  "Uložiť sieť…": ["Uložiť sieť…", "Save network…"],
+  "Spracúvam požiadavku…": ["Spracúvam požiadavku…", "Processing request…"],
+  "Ktorú sieť chcete upraviť?": [
+    "Ktorú sieť chcete upraviť?",
+    "Which network would you like to edit?"
+  ],
+  "Otvorte uloženú sieť. Potom môžete pridávať stanice, upravovať koľajiská a prepájať susedné stanice.": [
+    "Otvorte uloženú sieť. Potom môžete pridávať stanice, upravovať koľajiská a prepájať susedné stanice.",
+    "Open a saved network to add stations, edit track layouts and connect neighbouring stations."
+  ],
+  "Vytvoriť novú sieť": ["Vytvoriť novú sieť", "Create network"],
+  "Začnete s prázdnym zoznamom staníc.": [
+    "Začnete s prázdnym zoznamom staníc.",
+    "Start with an empty station list."
+  ],
+  "Ďalšie možnosti otvorenia": ["Ďalšie možnosti otvorenia", "Other ways to open"],
+  "ID existujúcej siete": ["ID existujúcej siete", "Existing network ID"],
+  "Stanice v sieti": ["Stanice v sieti", "Stations in network"],
+  "Vyhľadať stanicu": ["Vyhľadať stanicu", "Search stations"],
+  "traťových súhlasov": ["traťových súhlasov", "block instruments"],
+  "Nová stanica": ["Nová stanica", "New station"],
+  "Pridať stanicu": ["Pridať stanicu", "Add station"],
+  "Prepojenia susedných staníc": [
+    "Prepojenia susedných staníc",
+    "Connections between neighbouring stations"
+  ],
+  "Vyberte traťový súhlas na oboch koncoch trate. Stanice musia mať tieto prvky vložené v koľajisku.": [
+    "Vyberte traťový súhlas na oboch koncoch trate. Stanice musia mať tieto prvky vložené v koľajisku.",
+    "Select a block instrument at each end of the line. Both stations must have these elements in their track layouts."
+  ],
+  "Nové prepojenie": ["Nové prepojenie", "New connection"],
+  "Prvá stanica a traťový súhlas": [
+    "Prvá stanica a traťový súhlas",
+    "First station and block instrument"
+  ],
+  "Druhá stanica a traťový súhlas": [
+    "Druhá stanica a traťový súhlas",
+    "Second station and block instrument"
+  ],
+  "Prepojiť stanice": ["Prepojiť stanice", "Connect stations"],
+  "Počiatočný smer sa použije pri spustení siete. Každé prepojenie má vlastné nastavenie.": [
+    "Počiatočný smer sa použije pri spustení siete. Každé prepojenie má vlastné nastavenie.",
+    "The initial direction is applied when the network starts. Each connection has its own setting."
+  ],
+  "· verzia": ["· verzia", "· version"],
+  "Záloha siete a skúšobná prevádzka": [
+    "Záloha siete a skúšobná prevádzka",
+    "Network backup and test operation"
+  ],
+  "Otvoriť inú sieť": ["Otvoriť inú sieť", "Open another network"],
+  "Prehľad siete": ["Prehľad siete", "Network overview"],
+  "Nájsť vybranú stanicu": ["Nájsť vybranú stanicu", "Find selected station"],
+  "Posúvajte prehľad do strán aj nadol. Kliknite na traťový súhlas v jednej stanici a potom v druhej, aby ste ich prepojili.": [
+    "Posúvajte prehľad do strán aj nadol. Kliknite na traťový súhlas v jednej stanici a potom v druhej, aby ste ich prepojili.",
+    "Scroll across or down. Select a block instrument at one station, then one at the neighbouring station to connect them."
+  ],
+  "Pridajte prvú stanicu pomocou formulára vľavo.": [
+    "Pridajte prvú stanicu pomocou formulára vľavo.",
+    "Add your first station using the form on the left."
+  ],
+  "Open a prepared session for simulation, or import a saved session schema.": [
+    "Otvorte pripravenú reláciu simulátora alebo importujte uloženú konfiguráciu.",
+    "Open a prepared simulator session or import a saved configuration."
+  ],
+  "Mock Trains": ["Simulované vlaky", "Simulated trains"],
+  "Number": ["Číslo", "Number"],
+  "No mock trains in this session.": [
+    "V relácii nie sú simulované vlaky.",
+    "No simulated trains in this session."
+  ],
+  "length": ["dĺžka", "length"],
+  "step": ["krok", "step"],
+  "Stations In Session": ["Stanice v relácii", "Stations in session"],
+  "No stations in this session.": ["V relácii nie sú stanice.", "No stations in this session."],
+  "Outbound Mock Adapter Calls": ["Odchádzajúce príkazy simulátora", "Outgoing simulator commands"],
+  "No outbound calls yet.": ["Zatiaľ neboli odoslané žiadne príkazy.", "No outgoing commands yet."],
+  "Building": ["Stavanie", "Setting"],
+  "Cancelling": ["Rušenie", "Releasing"],
+  "Loading station snapshot...": ["Načítavam stav stanice…", "Loading station state…"],
+  "Station not found.": ["Stanica nebola nájdená.", "Station not found."],
+  "Overovanie identity v skupine a priraďovanie dispečerských práv...": [
+    "Overovanie identity v skupine a priraďovanie dispečerských práv...",
+    "Checking group membership and assigning operating permissions…"
+  ],
+  "Chyba prihlásenia": ["Chyba prihlásenia", "Sign-in error"],
+  "Pripravujem overenie...": ["Pripravujem overenie...", "Preparing sign-in…"],
+  "Overujem prihlásenie...": ["Overujem prihlásenie...", "Checking sign-in…"],
+  "Profil nie je dostupný. Kontaktujte správcu.": [
+    "Profil nie je dostupný. Kontaktujte správcu.",
+    "Your profile is unavailable. Contact the administrator."
+  ],
+  "Dokumenty": ["Dokumenty", "Documents"],
+  "Obnova": ["Obnova", "Recovery"],
+  "Všeobecné": ["Všeobecné", "General"],
+  "Siete sa nepodarilo načítať:": ["Siete sa nepodarilo načítať:", "Could not load networks:"],
+  "Roblox nie je dostupný; zobrazené sú uložené siete.": [
+    "Roblox nie je dostupný; zobrazené sú uložené siete.",
+    "Roblox is unavailable; saved networks are shown."
+  ],
+  "Žiadne aktívne stanice.": ["Žiadne aktívne stanice.", "No active stations."],
+  "Najprv vyberte sieť.": ["Najprv vyberte sieť.", "Select a network first."],
+  "Najprv vyberte reláciu pre vybranú sieť.": [
+    "Najprv vyberte reláciu pre vybranú sieť.",
+    "Select a session for this network first."
+  ],
+  "Vyberte stanicu. Staničný pult je určený pre výpravcov.": [
+    "Vyberte stanicu. Staničný pult je určený pre výpravcov.",
+    "Select a station. The signalling panel is for signallers."
+  ],
+  "Ikony: FatCow": ["Ikony: FatCow", "Icons: FatCow"],
+  "Načítavam editor…": ["Načítavam editor…", "Loading editor…"],
+  "DIS — Správa staníc": ["DIS — Správa staníc", "DIS — Station management"],
+  "Späť do DIS": ["Späť do DIS", "Back to DIS"],
+  "Načítavam správcu staníc…": ["Načítavam správcu staníc…", "Loading station management…"],
+  "Mock Roblox": ["Simulátor Roblox", "Roblox simulator"],
+  "Simulátor relácie": ["Simulátor relácie", "Session simulator"],
+  "Loading mock session…": ["Načítavam reláciu simulátora…", "Loading simulator session…"],
+  "Runtime Control": ["Staničný pult", "Signalling panel"],
+  "Change station": ["Zmeniť stanicu", "Change station"],
+  "Neplatná príloha.": ["Neplatná príloha.", "Invalid attachment."],
+  "Vyberte platné miesto.": ["Vyberte platné miesto.", "Select a valid location."],
+  "Príloha môže mať najviac 10 MB.": [
+    "Príloha môže mať najviac 10 MB.",
+    "Attachments may be up to 10 MB."
+  ],
+  "Vyberte súbor.": ["Vyberte súbor.", "Select a file."],
+  "Place template not found.": ["Uložená sieť nebola nájdená.", "Network template not found."],
+  "Session ID mismatch.": ["ID relácie sa nezhoduje.", "Session ID mismatch."],
+  "Session not found.": ["Relácia nebola nájdená.", "Session not found."],
+  "Route and payload station identity must match.": [
+    "Stanica v požiadavke sa musí zhodovať s vybranou stanicou.",
+    "The station in the request must match the selected station."
+  ],
+  "PN command and payload station identity must match.": [
+    "Príkaz PN sa musí vzťahovať na vybranú stanicu.",
+    "The call-on command must refer to the selected station."
+  ],
+  "| Stĺpec | Stĺpec |\n| --- | --- |\n| Hodnota | Hodnota |": [
+    "| Stĺpec | Stĺpec |\n| --- | --- |\n| Hodnota | Hodnota |",
+    "| Column | Column |\n| --- | --- |\n| Value | Value |"
+  ],
+  "Unexpected group role resource path.": [
+    "Neočakávaný odkaz na rolu skupiny.",
+    "Unexpected group role reference."
+  ],
+  "Roblox Open Cloud group lookup failed.": [
+    "Overenie skupiny Roblox zlyhalo.",
+    "Roblox group lookup failed."
+  ],
+  "No structured API error returned.": [
+    "Služba nevrátila podrobnosti chyby.",
+    "No detailed error was returned."
+  ],
+  "Čas musí mať formát HH:mm.": ["Čas musí mať formát HH:mm.", "Enter a time in HH:mm format."],
+  "Grafikon musí trvať menej než 24 hodín. Skontrolujte poradie a časy zastavení.": [
+    "Grafikon musí trvať menej než 24 hodín. Skontrolujte poradie a časy zastavení.",
+    "A timetable must cover less than 24 hours. Check the order and times of the timing points."
+  ],
+  "{0} a {1}: súbežné obsadenie koľaje {2} v stanici {3} ({4}–{5} / {6}–{7}).": [
+    "{0} a {1}: súbežné obsadenie koľaje {2} v stanici {3} ({4}–{5} / {6}–{7}).",
+    "{0} and {1}: overlapping occupation of track {2} at {3} ({4}–{5} / {6}–{7})."
+  ],
+  "{0} a {1}: súbežné jazdy v úseku {2} – {3}. Overte traťovú koľaj a medzidobie.": [
+    "{0} a {1}: súbežné jazdy v úseku {2} – {3}. Overte traťovú koľaj a medzidobie.",
+    "{0} and {1}: overlapping workings between {2} and {3}. Check the running line and headway."
+  ],
+  "Osobná doprava": ["Osobná doprava", "Passenger trains"],
+  "Rýchlik": ["Rýchlik", "Express"],
+  "Regionálny rýchlik": ["Regionálny rýchlik", "Regional express"],
+  "Regionálny expres": ["Regionálny expres", "Regional express"],
+  "Zrýchlený vlak": ["Zrýchlený vlak", "Semi-fast train"],
+  "Spešný vlak": ["Spešný vlak", "Semi-fast train"],
+  "Osobný vlak": ["Osobný vlak", "Stopping passenger train"],
+  "railjet (skrátené označenie)": [
+    "railjet (skrátené označenie)",
+    "railjet (abbreviated designation)"
+  ],
+  "Nákladná doprava": ["Nákladná doprava", "Freight trains"],
+  "Expresný nákladný vlak": ["Expresný nákladný vlak", "Express freight"],
+  "Rýchlonákladný vlak": ["Rýchlonákladný vlak", "Fast freight"],
+  "Zrýchlený nákladný vlak": ["Zrýchlený nákladný vlak", "Semi-fast freight"],
+  "Priebežný nákladný vlak": ["Priebežný nákladný vlak", "Through freight"],
+  "Vyrovnávkový nákladný vlak": ["Vyrovnávkový nákladný vlak", "Empty wagon working"],
+  "Manipulačný nákladný vlak": ["Manipulačný nákladný vlak", "Pick-up freight"],
+  "Prestavný nákladný vlak": ["Prestavný nákladný vlak", "Transfer freight"],
+  "Vlečkový vlak": ["Vlečkový vlak", "Private siding working"],
+  "Súpravové, rušňové a služobné vlaky": [
+    "Súpravové, rušňové a služobné vlaky",
+    "Empty stock, light engines and departmental trains"
+  ],
+  "Súpravový vlak": ["Súpravový vlak", "Empty coaching stock"],
+  "Rušňový vlak": ["Rušňový vlak", "Light engine"],
+  "Lokomotívny vlak (staršie označenie)": [
+    "Lokomotívny vlak (staršie označenie)",
+    "Light engine (historic designation)"
+  ],
+  "Služobný vlak": ["Služobný vlak", "Departmental train"],
+  "Služobný vlak (staršie označenie)": [
+    "Služobný vlak (staršie označenie)",
+    "Departmental train (historic designation)"
+  ],
+  "Pracovný vlak": ["Pracovný vlak", "Engineering train"],
+  "Načítanie trvalo príliš dlho. Skúste to znova.": [
+    "Načítanie trvalo príliš dlho. Skúste to znova.",
+    "The request timed out. Please try again."
+  ],
+  "Údaje sa nepodarilo načítať.": [
+    "Údaje sa nepodarilo načítať.",
+    "Could not load the information."
+  ],
+  "Chýba konfigurácia Appwrite API.": [
+    "Chýba konfigurácia Appwrite API.",
+    "Appwrite API configuration is missing."
+  ],
+  "Prihláste sa do DIS.": ["Prihláste sa do DIS.", "Sign in to DIS."],
+  "Overovanie účtov Appwrite je momentálne nedostupné.": [
+    "Overovanie účtov Appwrite je momentálne nedostupné.",
+    "Account verification is temporarily unavailable."
+  ],
+  "Prihlásenie vypršalo. Prihláste sa znova.": [
+    "Prihlásenie vypršalo. Prihláste sa znova.",
+    "Your sign-in has expired. Sign in again."
+  ],
+  "Profily Appwrite sú momentálne nedostupné.": [
+    "Profily Appwrite sú momentálne nedostupné.",
+    "Staff profiles are temporarily unavailable."
+  ],
+  "Používateľ nemá platný DIS profil.": [
+    "Používateľ nemá platný DIS profil.",
+    "The account has no valid DIS profile."
+  ],
+  "Na túto operáciu nemáte oprávnenie.": [
+    "Na túto operáciu nemáte oprávnenie.",
+    "You do not have permission for this operation."
+  ],
+  "Prihláste sa znova do DIS.": ["Prihláste sa znova do DIS.", "Sign in to DIS again."],
+  "Chat sa nepodarilo otvoriť.": ["Chat sa nepodarilo otvoriť.", "Could not open chat."],
+  "Obnovujem živé spojenie. Uložené správy sa načítajú znova.": [
+    "Obnovujem živé spojenie. Uložené správy sa načítajú znova.",
+    "Reconnecting. Saved messages will be loaded again."
+  ],
+  "Aktívna relácia neexistuje.": [
+    "Aktívna relácia neexistuje.",
+    "The active session does not exist."
+  ],
+  "Interná stanica nie je určená na komunikáciu.": [
+    "Interná stanica nie je určená na komunikáciu.",
+    "The internal station cannot be used for communication."
+  ],
+  "Stanica nepatrí do vybranej relácie.": [
+    "Stanica nepatrí do vybranej relácie.",
+    "The station does not belong to this session."
+  ],
+  "Rušňovodič nie je dostupný.": ["Rušňovodič nie je dostupný.", "The driver is unavailable."],
+  "Zoznam rušňovodičov je dočasne nedostupný.": [
+    "Zoznam rušňovodičov je dočasne nedostupný.",
+    "The driver list is temporarily unavailable."
+  ],
+  "Vybraný zamestnanec nie je rušňovodič.": [
+    "Vybraný zamestnanec nie je rušňovodič.",
+    "The selected staff member is not a driver."
+  ],
+  "Môžete otvoriť iba vlastnú komunikáciu rušňovodiča.": [
+    "Môžete otvoriť iba vlastnú komunikáciu rušňovodiča.",
+    "You can only open your own driver communication."
+  ],
+  "Staničná komunikácia je určená výpravcom.": [
+    "Staničná komunikácia je určená výpravcom.",
+    "Station communication is available to signallers."
+  ],
+  "Vyberte iného príjemcu.": ["Vyberte iného príjemcu.", "Select another recipient."],
+  "Rušňovodič môže písať staniciam.": [
+    "Rušňovodič môže písať staniciam.",
+    "Drivers can send messages to stations."
+  ],
+  "Táto správa už bola odoslaná s iným obsahom.": [
+    "Táto správa už bola odoslaná s iným obsahom.",
+    "This message has already been sent with different contents."
+  ],
+  "Tento typ súboru nie je podporovaný. Vyberte obrázok, PDF, dokument Office, text alebo ZIP.": [
+    "Tento typ súboru nie je podporovaný. Vyberte obrázok, PDF, dokument Office, text alebo ZIP.",
+    "Unsupported file type. Select an image, PDF, Office document, text file or ZIP archive."
+  ],
+  "Obsah súboru nezodpovedá jeho prípone alebo je súbor poškodený.": [
+    "Obsah súboru nezodpovedá jeho prípone alebo je súbor poškodený.",
+    "The file contents do not match the extension, or the file is damaged."
+  ],
+  "Relácia nemá priradenú sieť GVD.": [
+    "Relácia nemá priradenú sieť GVD.",
+    "This session has no timetable network assigned."
+  ],
+  "Chýba sieť GVD.": ["Chýba sieť GVD.", "The timetable network is missing."],
+  "Vlak si môže vybrať iba rušňovodič.": [
+    "Vlak si môže vybrať iba rušňovodič.",
+    "Only drivers can select a train."
+  ],
+  "Vyberte platný vlak z GVD alebo zadajte vlastné číslo bez grafikonu.": [
+    "Vyberte platný vlak z GVD alebo zadajte vlastné číslo bez grafikonu.",
+    "Select a valid timetabled train or enter a custom number without a timetable."
+  ],
+  "Interná stanica nemôže byť cieľom vlaku.": [
+    "Interná stanica nemôže byť cieľom vlaku.",
+    "The internal station cannot be a train destination."
+  ],
+  "Aktívna stanica neexistuje.": [
+    "Aktívna stanica neexistuje.",
+    "The active station does not exist."
+  ],
+  "Relácia nemá priradené miesto v tomto universe.": [
+    "Relácia nemá priradené miesto v tomto universe.",
+    "This session has no location assigned in this Roblox universe."
+  ],
+  "Grafikon neexistuje.": ["Grafikon neexistuje.", "The timetable does not exist."],
+  "Grafikon nemá zastavenie s ID vybranej stanice.": [
+    "Grafikon nemá zastavenie s ID vybranej stanice.",
+    "The timetable has no timing point for this station."
+  ],
+  "Záznam nepatrí vybranej stanici.": [
+    "Záznam nepatrí vybranej stanici.",
+    "This entry does not belong to the selected station."
+  ],
+  "Tento úkon už bol vykonaný alebo nezodpovedá stavu vlaku. Obnovte denník.": [
+    "Tento úkon už bol vykonaný alebo nezodpovedá stavu vlaku. Obnovte denník.",
+    "This movement has already been recorded or does not match the train’s state. Refresh the register."
+  ],
+  "Neplatný JSON.": ["Neplatný JSON.", "Invalid JSON."],
+  "Operáciu sa nepodarilo dokončiť. Skúste ju zopakovať.": [
+    "Operáciu sa nepodarilo dokončiť. Skúste ju zopakovať.",
+    "Could not complete the operation. Please try again."
+  ],
+  "Neplatný dátum.": ["Neplatný dátum.", "Invalid date."],
+  "Na túto pracovnú rolu nemáte oprávnenie.": [
+    "Na túto pracovnú rolu nemáte oprávnenie.",
+    "You are not authorised for this duty."
+  ],
+  "Prihlasovanie na zmenu je uzavreté.": [
+    "Prihlasovanie na zmenu je uzavreté.",
+    "Registration for this shift is closed."
+  ],
+  "Neplatná zmena stavu šichty.": ["Neplatná zmena stavu zmeny.", "Invalid shift status change."],
+  "Nedostupný názov": ["Nedostupný názov", "Name unavailable"],
+  "Uložený plán zmeny je poškodený.": [
+    "Uložený plán zmeny je poškodený.",
+    "The saved shift plan is damaged."
+  ],
+  "Ukončenú alebo zrušenú zmenu už nemožno plánovať.": [
+    "Ukončenú alebo zrušenú zmenu už nemožno plánovať.",
+    "You cannot plan a completed or cancelled shift."
+  ],
+  "Plán zmeny je príliš veľký. Vyberte menej vlakov.": [
+    "Plán zmeny je príliš veľký. Vyberte menej vlakov.",
+    "The shift plan is too large. Select fewer trains."
+  ],
+  "Grafikon možno zmeniť iba pred začiatkom zmeny.": [
+    "Grafikon možno zmeniť iba pred začiatkom zmeny.",
+    "The timetable can only be changed before the shift starts."
+  ],
+  "Vyberte pripravenú sieť staníc.": [
+    "Vyberte pripravenú sieť staníc.",
+    "Select a prepared station network."
+  ],
+  "Niektorý vlak už nie je dostupný v zvolenom grafikone.": [
+    "Niektorý vlak už nie je dostupný v zvolenom grafikone.",
+    "A train is no longer available in the selected timetable."
+  ],
+  "Grafikon obsahuje stanice mimo pripravenej siete.": [
+    "Grafikon obsahuje stanice mimo pripravenej siete.",
+    "The timetable includes stations outside the prepared network."
+  ],
+  "Najprv vyberte grafikon zmeny.": [
+    "Najprv vyberte grafikon zmeny.",
+    "Select the shift timetable first."
+  ],
+  "Stanica alebo vlak nepatrí do plánu zmeny.": [
+    "Stanica alebo vlak nepatrí do plánu zmeny.",
+    "The station or train is not included in this shift plan."
+  ],
+  "Zamestnanec nemá oprávnenie na túto pracovnú rolu.": [
+    "Zamestnanec nemá oprávnenie na túto pracovnú rolu.",
+    "This staff member is not authorised for this duty."
+  ],
+  "Výpravca už má v tejto zmene pridelenú inú stanicu.": [
+    "Výpravca už má v tejto zmene pridelenú inú stanicu.",
+    "The signaller is already assigned to another station in this shift."
+  ],
+  "Grafikon {0} má neplatné údaje. Opravte uložený záznam {1}.": [
+    "Grafikon {0} má neplatné údaje. Opravte uložený záznam {1}.",
+    "Timetable {0} contains invalid information. Correct saved entry {1}."
+  ],
+  "Neplatný grafikon.": ["Neplatný grafikon.", "Invalid timetable."],
+  "Grafikon nepatrí vybranému miestu.": [
+    "Grafikon nepatrí vybranému miestu.",
+    "The timetable does not belong to this location."
+  ],
+  "Vlak s týmto číslom už existuje. Upravte jeho grafikon.": [
+    "Vlak s týmto číslom už existuje. Upravte jeho grafikon.",
+    "A train with this number already exists. Edit its timetable."
+  ],
+  "Grafikon prekračuje povolenú veľkosť.": [
+    "Grafikon prekračuje povolenú veľkosť.",
+    "The timetable exceeds the size limit."
+  ],
+  "Miesto nemá uloženú konfiguráciu staníc.": [
+    "Miesto nemá uloženú konfiguráciu staníc.",
+    "This location has no saved station configuration."
+  ],
+  "Grafikon obsahuje stanicu mimo vybraného miesta.": [
+    "Grafikon obsahuje stanicu mimo vybraného miesta.",
+    "The timetable includes a station outside the selected location."
+  ],
+  "Nadväzujúci vlak nemôže byť ten istý vlak.": [
+    "Nadväzujúci vlak nemôže byť ten istý vlak.",
+    "A train cannot be its own next working."
+  ],
+  "Nadväzujúci vlak musí byť uložený v rovnakom GVD.": [
+    "Nadväzujúci vlak musí byť uložený v rovnakom GVD.",
+    "The next working must be saved in the same timetable network."
+  ],
+  "Request validation failed.": [
+    "Požiadavka obsahuje neplatné údaje.",
+    "Request validation failed."
+  ],
+  "Unexpected server error.": ["Neočakávaná chyba servera.", "Unexpected server error."],
+  "Unauthorized Roblox request.": [
+    "Neoprávnená požiadavka Roblox.",
+    "Unauthorised Roblox request."
+  ],
+  "Roblox returned a different group.": [
+    "Roblox vrátil inú skupinu.",
+    "Roblox returned a different group."
+  ],
+  "No group roles match the DIS role mapping.": [
+    "Žiadna rola skupiny nezodpovedá nastaveniu oprávnení DIS.",
+    "No group roles match the DIS role mapping."
+  ],
+  "Roblox repeated a personnel page cursor.": [
+    "Roblox opakovane vrátil tú istú stranu personálu.",
+    "Roblox repeated a staff-list page."
+  ],
+  "Invalid Roblox universe ID.": ["Neplatné ID sveta Roblox.", "Invalid Roblox universe ID."],
+  "Repeated Roblox pagination cursor.": [
+    "Roblox opakovane vrátil tú istú stranu výsledkov.",
+    "Roblox repeated a results page."
+  ],
+  "A Roblox snapshot factory is required for Roblox runtime invalidation.": [
+    "Chýba nastavenie snímok stavu Roblox.",
+    "Roblox snapshot configuration is missing."
+  ],
+  "The requested session is not a Roblox session.": [
+    "Toto nie je relácia Roblox.",
+    "This is not a Roblox session."
+  ],
+  "The route can no longer be cancelled because a train has already entered it.": [
+    "Cestu už nemožno zrušiť, pretože do nej vošiel vlak.",
+    "The route can no longer be released because a train has entered it."
+  ],
+  "The selected PN counter or signal was not found.": [
+    "Vybrané počítadlo PN alebo návestidlo nebolo nájdené.",
+    "The selected call-on counter or signal was not found."
+  ],
+  "The selected signal is not linked to this PN counter.": [
+    "Návestidlo nie je prepojené s týmto počítadlom PN.",
+    "The signal is not linked to this call-on counter."
+  ],
+  "The selected starting segment does not have an occupation sensor.": [
+    "Východiskový úsek nemá snímač obsadenia.",
+    "The starting section has no occupation detector."
+  ],
+  "The crossover is aligned incompatibly with another active route.": [
+    "Poloha koľajovej spojky je nezlučiteľná s inou postavenou cestou.",
+    "The crossover position conflicts with another active route."
+  ],
+  "The connected switch was not found.": [
+    "Pripojená výhybka nebola nájdená.",
+    "The connected points were not found."
+  ],
+  "The switch cannot be operated while its controlled section is reserved or occupied.": [
+    "Výhybku nemožno prestaviť, kým je jej úsek rezervovaný alebo obsadený.",
+    "The points cannot move while their section is reserved or occupied."
+  ],
+  "The pending switch action no longer references a connected switch button.": [
+    "Čakajúci úkon výhybky už nemá pripojené ovládacie tlačidlo.",
+    "The pending points operation no longer has a connected control."
+  ],
+  "A route cannot be cancelled while a train occupies it.": [
+    "Cestu nemožno zrušiť, kým je obsadená vlakom.",
+    "A route cannot be released while occupied by a train."
+  ],
+  "Route action failed.": ["Obsluha cesty zlyhala.", "Route operation failed."],
+  "Imported session could not be loaded.": [
+    "Importovanú reláciu sa nepodarilo načítať.",
+    "Could not load the imported session."
+  ],
+  "Station not found in this place template.": [
+    "Stanica sa nenachádza v tejto uloženej sieti.",
+    "The station is not in this saved network."
+  ],
+  "Session ID is already registered to a different runtime.": [
+    "Toto ID relácie je už zaregistrované v inej prevádzke.",
+    "This session ID is already registered elsewhere."
+  ],
+  "Heartbeat is only accepted for Roblox sessions.": [
+    "Signály pripojenia sú povolené iba pre relácie Roblox.",
+    "Heartbeats are only accepted for Roblox sessions."
+  ],
+  "Session heartbeat came from a different Roblox server.": [
+    "Signál pripojenia prišiel z iného servera Roblox.",
+    "The heartbeat came from a different Roblox server."
+  ],
+  "Occupation events are only accepted for Roblox sessions.": [
+    "Hlásenia obsadenia sú povolené iba pre relácie Roblox.",
+    "Occupation reports are only accepted for Roblox sessions."
+  ],
+  "Switch feedback is only accepted for Roblox sessions.": [
+    "Hlásenia polohy výhybiek sú povolené iba pre relácie Roblox.",
+    "Point detection reports are only accepted for Roblox sessions."
+  ],
+  "Session or starting station was not found.": [
+    "Relácia alebo východisková stanica nebola nájdená.",
+    "The session or starting station was not found."
+  ],
+  "A train with this category and number already exists in the session.": [
+    "Vlak s touto kategóriou a číslom už v relácii existuje.",
+    "A train with this category and number already exists in the session."
+  ],
+  "Train not found.": ["Vlak nebol nájdený.", "Train not found."],
+  "The train is already moving.": ["Vlak je už v pohybe.", "The train is already moving."],
+  "The train current station was not found.": [
+    "Aktuálna stanica vlaku nebola nájdená.",
+    "The train’s current station was not found."
+  ],
+  "No active route continues from the train current position.": [
+    "Z aktuálnej polohy vlaku nie je postavená cesta.",
+    "No route is set from the train’s current position."
+  ],
+  "The departure route is not connected to a lineblock.": [
+    "Odchodová cesta nie je pripojená k traťovému súhlasu.",
+    "The departure route has no block connection."
+  ],
+  "The departure lineblock is not linked to another station.": [
+    "Odchodový traťový súhlas nie je prepojený s inou stanicou.",
+    "The departure block is not linked to another station."
+  ],
+  "The receiving station was not found.": [
+    "Prijímajúca stanica nebola nájdená.",
+    "The receiving station was not found."
+  ],
+  "No matching entrance route is active in the receiving station.": [
+    "V prijímajúcej stanici nie je postavená príslušná vchodová cesta.",
+    "No matching entry route is set at the receiving station."
+  ],
+  "The receiving route does not contain an entrance signal.": [
+    "Vchodová cesta neobsahuje vchodové návestidlo.",
+    "The entry route has no entrance signal."
+  ],
+  "The receiving route path does not include its entrance signal.": [
+    "Priebeh vchodovej cesty nezahŕňa jej vchodové návestidlo.",
+    "The entry route path does not include its entrance signal."
+  ],
+  "The selected route has no remaining movement steps.": [
+    "Na vybranej ceste nezostali žiadne kroky jazdy.",
+    "No movement steps remain on this route."
+  ],
+  "A moving train cannot reverse direction.": [
+    "Vlak v pohybe nemôže zmeniť smer.",
+    "A moving train cannot reverse."
+  ],
+  "A train in lineblock transit cannot reverse direction.": [
+    "Vlak medzi stanicami nemôže zmeniť smer.",
+    "A train between stations cannot reverse."
+  ],
+  "Train has no occupied sensors to reverse from.": [
+    "Vlak nemá obsadené úseky na zmenu smeru.",
+    "The train has no occupied sections from which to reverse."
+  ],
+  "Train has no front sensor after reversal.": [
+    "Vlak po zmene smeru nemá čelný snímač.",
+    "The train has no leading detector after reversing."
+  ],
+  "Lineblock link endpoints must be different.": [
+    "Prepojenie trate musí mať dva rôzne konce.",
+    "A block connection must have two different ends."
+  ],
+  "Both stations must exist in the session.": [
+    "Obe stanice musia existovať v relácii.",
+    "Both stations must exist in the session."
+  ],
+  "Both endpoints of an AH link must use the same AH variant.": [
+    "Oba konce musia používať rovnaký variant AH.",
+    "Both ends must use the same automatic block variant."
+  ],
+  "Each lineblock can only be linked to one other station lineblock.": [
+    "Traťový súhlas môže byť prepojený iba s jednou ďalšou stanicou.",
+    "A block instrument can be connected to only one other station."
+  ],
+  "Lineblock link was not found.": [
+    "Prepojenie traťových súhlasov nebolo nájdené.",
+    "Block connection not found."
+  ],
+  "Cannot change a lineblock default while a train is using it.": [
+    "Počiatočný smer nemožno zmeniť, kým trať používa vlak.",
+    "The initial block direction cannot change while a train is using the section."
+  ],
+  "Both stations for this lineblock link must exist.": [
+    "Obe stanice tohto prepojenia musia existovať.",
+    "Both stations must exist for this block connection."
+  ],
+  "Cannot remove a lineblock link while a train is using it.": [
+    "Prepojenie trate nemožno odstrániť, kým ho používa vlak.",
+    "A block connection cannot be removed while a train is using it."
+  ],
+  "Stations can only be renamed when the session has no trains.": [
+    "Stanice možno premenovať iba v relácii bez vlakov.",
+    "Stations can only be renamed when the session has no trains."
+  ],
+  "Station layouts can only be edited when the session has no trains.": [
+    "Koľajiská možno upraviť iba v relácii bez vlakov.",
+    "Track layouts can only be edited when the session has no trains."
+  ],
+  "Station layouts can only be edited when they have no physical occupations.": [
+    "Koľajisko nemožno upraviť pri skutočnom obsadení.",
+    "Track layouts cannot be edited while physically occupied."
+  ],
+  "Cancel or complete active station actions and routes before editing its layout.": [
+    "Pred úpravou koľajiska dokončite alebo zrušte aktívne úkony a cesty.",
+    "Cancel or complete active operations and routes before editing the layout."
+  ],
+  "Stations can only be removed when the session has no trains.": [
+    "Stanice možno odstrániť iba v relácii bez vlakov.",
+    "Stations can only be removed when the session has no trains."
+  ],
+  "Stations can only be removed when they have no physical occupations.": [
+    "Stanicu nemožno odstrániť pri skutočnom obsadení.",
+    "Stations cannot be removed while physically occupied."
+  ],
+  "AH acknowledgement is automatic after the inbound route completes.": [
+    "Potvrdenie AH sa odošle automaticky po dokončení vchodovej cesty.",
+    "Automatic block acknowledgement is sent when the entry route is complete."
+  ],
+  "This lineblock is not linked to another station lineblock.": [
+    "Tento traťový súhlas nie je prepojený s inou stanicou.",
+    "This block instrument is not connected to another station."
+  ],
+  "Linked remote station was not found.": [
+    "Prepojená stanica nebola nájdená.",
+    "The connected station was not found."
+  ],
+  "Linked remote lineblock was not found.": [
+    "Traťový súhlas susednej stanice nebol nájdený.",
+    "The remote block instrument was not found."
+  ],
+  "AH consent can only be requested from its settled base state.": [
+    "Traťový súhlas AH možno vyžiadať iba z ustáleného základného stavu.",
+    "Automatic block consent can only be requested from its settled base state."
+  ],
+  "Automatic lineblocks must be operated with an AH command.": [
+    "Pre tento traťový súhlas použite príkaz AH.",
+    "Use an automatic block command for this instrument."
+  ],
+  "AH controls are only available on automatic lineblocks.": [
+    "Ovládanie AH je dostupné iba na prvkoch automatického hradla.",
+    "Automatic block controls are only available on automatic block instruments."
+  ],
+  "Odhlaska is only allowed after the complete train has passed the entrance signal.": [
+    "Odhlášku možno odoslať až po prejazde celého vlaku za vchodové návestidlo.",
+    "Train out of section can only be reported after the entire train has passed the entrance signal."
+  ],
+  "The selected switch button is not connected to a switch.": [
+    "Výhybkové tlačidlo nie je pripojené k výhybke.",
+    "This points control is not connected to any points."
+  ],
+  "Only a fixed switch button can be returned to neutral.": [
+    "Do neutrálnej polohy možno uvoľniť iba zaistené výhybkové tlačidlo.",
+    "Only a locked points control can be returned to neutral."
+  ],
+  "Return the switch button to neutral before setting the other position.": [
+    "Pred voľbou opačnej polohy uvoľnite výhybkové tlačidlo do neutrálu.",
+    "Release the points control to neutral before selecting the other position."
+  ],
+  "Selected route endpoint was not found.": [
+    "Vybraný koniec cesty nebol nájdený.",
+    "The selected route endpoint was not found."
+  ],
+  "No pending route cancellation starts from the selected endpoint.": [
+    "Z tohto bodu neprebieha rušenie cesty.",
+    "No route release is pending at this endpoint."
+  ],
+  "Start a normal route from a premain signal or platform departure control.": [
+    "Vlakovú cestu začnite na vchodovom alebo odchodovom ovládacom prvku.",
+    "Start a train route at an entry approach control or platform departure control."
+  ],
+  "Start a shunting route from a shunt control.": [
+    "Posunovú cestu začnite na posunovom ovládacom prvku.",
+    "Start a shunt route at a shunt control."
+  ],
+  "No active route starts from the selected endpoint.": [
+    "Z vybraného bodu nezačína postavená cesta.",
+    "No active route starts here."
+  ],
+  "Finish the current route selection before starting a different action.": [
+    "Pred ďalším úkonom dokončite aktuálny výber cesty.",
+    "Complete the current route selection before starting another operation."
+  ],
+  "Normal routes must run from a premain signal to a platform departure or shunt control, or from a platform departure control to a shunt button.": [
+    "Pre túto vlakovú cestu vyberte platný vchodový, odchodový alebo posunový koniec.",
+    "Select a valid entry, departure or shunt endpoint for this train route."
+  ],
+  "No active route exists for the selected endpoints.": [
+    "Medzi vybranými bodmi nie je postavená cesta.",
+    "No route is set between these endpoints."
+  ],
+  "Selected PN control was not found.": [
+    "Vybraný ovládací prvok PN nebol nájdený.",
+    "The selected call-on control was not found."
+  ],
+  "PN can only be cancelled from the matching route control.": [
+    "Privolávaciu návesť zrušte príslušným ovládacím prvkom cesty.",
+    "Cancel call-on using its matching route control."
+  ],
+  "The selected control does not currently have PN active.": [
+    "Na vybranom prvku nie je aktívna privolávacia návesť.",
+    "Call-on is not active on this control."
+  ],
+  "The selected PN counter is not linked to any entry or departure signal.": [
+    "Počítadlo PN nie je prepojené s vchodovým ani odchodovým návestidlom.",
+    "This call-on counter is not linked to an entry or departure signal."
+  ],
+  "Select a grouped PN counter first, then use the matching route control.": [
+    "Najprv vyberte skupinové počítadlo PN a potom príslušný ovládací prvok cesty.",
+    "Select the grouped call-on counter, then the matching route control."
+  ],
+  "PN can only be activated from the matching route control.": [
+    "Privolávaciu návesť zapnite príslušným ovládacím prvkom cesty.",
+    "Activate call-on using its matching route control."
+  ],
+  "Switch button is not connected to a switch.": [
+    "Výhybkové tlačidlo nie je pripojené k výhybke.",
+    "This points control is not connected to any points."
+  ],
+  "The entrance target may end at a buffer only after passing a departure signal and departure button.": [
+    "Vchodová cesta môže skončiť pri zarážadle iba po prejdení odchodového návestidla a odchodového tlačidla.",
+    "An entry route can end at a buffer stop only after a departure signal and departure control."
+  ],
+  "The entrance target must not pass a shunt control, shunt signal, or switch.": [
+    "Vchodová cesta nesmie prechádzať posunovým ovládačom, posunovým návestidlom ani výhybkou.",
+    "The entry route must not pass a shunt control, shunt signal or points."
+  ],
+  "The entrance target must end at a departure button followed by a departure signal, or at a buffer after passing a departure signal and button.": [
+    "Vchodovú cestu ukončite na odchodovom tlačidle pred odchodovým návestidlom alebo na zarážadle za nimi.",
+    "End the entry route at a departure control followed by a departure signal, or at a buffer stop beyond them."
+  ],
+  "Route endpoints were not found.": [
+    "Koncové body cesty neboli nájdené.",
+    "Route endpoints were not found."
+  ],
+  "The linked lineblock does not currently allow an inbound route from this premain signal.": [
+    "Traťový súhlas momentálne neumožňuje vchodovú cestu z tohto smeru.",
+    "The block instrument does not currently permit an entry route from this approach."
+  ],
+  "Unable to derive route endpoints for the selected pieces.": [
+    "Koncové body cesty pre vybrané prvky sa nepodarilo určiť.",
+    "Could not determine route endpoints for these elements."
+  ],
+  "The entrance target must continue to a departure button immediately followed by a departure signal.": [
+    "Vchodová cesta musí viesť k odchodovému tlačidlu, za ktorým bezprostredne nasleduje odchodové návestidlo.",
+    "The entry route must lead to a departure control immediately followed by a departure signal."
+  ],
+  "The linked lineblock does not currently allow an outbound route in this direction.": [
+    "Traťový súhlas momentálne neumožňuje odchodovú cestu v tomto smere.",
+    "The block instrument does not currently permit a departure in this direction."
+  ],
+  "No valid route could be found for the selected endpoints.": [
+    "Medzi vybranými bodmi nebola nájdená platná cesta.",
+    "No valid route exists between these endpoints."
+  ],
+  "Applying…": ["Vykonávam…", "Applying…"],
+  "Odosielam...": ["Odosielam…", "Sending…"],
+  "Odkaz (Ctrl+K)": ["Odkaz (Ctrl+K)", "Link (Ctrl+K)"],
+  "Stanica {0}": ["Stanica {0}", "Station {0}"],
+  "Stanice: {0}": ["Stanice: {0}", "Stations: {0}"],
+  " · Pracujem…": [" · Pracujem…", " · Working…"],
+  "Set {0}": ["Upraviť {0}", "Edit {0}"],
+  "Use 40, 60, 80, or 100.": ["Zadajte 40, 60, 80 alebo 100.", "Enter 40, 60, 80 or 100."],
+  "nahor": ["nahor", "up"],
+  "doprava": ["doprava", "right"],
+  "nadol": ["nadol", "down"],
+  "none": ["žiadny", "none"],
+  " mirror": [" zrkadlovo", " mirrored"],
+  "Posun": ["Posun", "Shunting"],
+  "Expres": ["Expres", "Express"],
+  "planned": ["Plánovaná", "Planned"],
+  "active": ["Aktívna", "Active"],
+  "completed": ["Ukončená", "Completed"],
+  "cancelled": ["Zrušená", "Cancelled"],
+  "registered": ["Prihlásený", "Registered"],
+  "present": ["Prítomný", "Present"],
+  "absent": ["Neprítomný", "Absent"],
+  "excused": ["Ospravedlnený", "Excused"],
+  "pending": ["Čaká sa", "Pending"],
+  "late": ["Mešká", "Late"],
+  "driver": ["Rušňovodič", "Driver"],
+  "dispatcher": ["Výpravca", "Signaller"],
+  "admin": ["Administrátor", "Administrator"],
+  "dispatcher_manager": ["Vedúci výpravca", "Signalling supervisor"],
+  "driver_manager": ["Vedúci rušňovodič", "Driver supervisor"],
+  "dispatcher_instructor": ["Inštruktor výpravca", "Signalling instructor"],
+  "driver_instructor": ["Inštruktor rušňovodič", "Driver instructor"],
+  "dispatcher_trainee": ["Výpravca v zácviku", "Trainee signaller"],
+  "driver_trainee": ["Rušňovodič v zácviku", "Trainee driver"],
+  "stopped": ["Stojí", "Stopped"],
+  "moving": ["V pohybe", "Moving"],
+  "waiting": ["Čaká", "Waiting"],
+  "finished": ["Dokončené", "Finished"],
+  "failed": ["Zlyhalo", "Failed"],
+  "train": ["vlaková", "train"],
+  "normal": ["vlaková", "train"],
+  "shunt": ["posunová", "shunt"],
+  "shunting": ["posunová", "shunt"],
+  "building": ["stavanie", "setting"],
+  "cancelling": ["rušenie", "releasing"],
+  "core": ["Základná príprava", "Initial training"],
+  "certified": ["Autorizovaný", "Qualified"],
+  "Document category": ["Kategória dokumentu", "Document category"],
+  "Railway terminology": ["Železničná terminológia", "Railway terminology"],
+  "Reconnect": ["Znova pripojiť", "Reconnect"],
+  "Could not sign in. Please try again.": [
+    "Prihlásenie sa nepodarilo. Skúste to znova.",
+    "Could not sign in. Please try again."
+  ],
+  "yes": ["áno", "yes"],
+  "no": ["nie", "no"],
+  "strike": ["Neospravedlnená absencia", "Unauthorised absence"],
+  "Copied element links: {0}.": [
+    "Skopírované prepojenia prvkov: {0}.",
+    "Copied element links: {0}."
+  ],
+  "{0} {1} route...": ["{0} cesty ({1})…", "{0} {1} route…"],
+  "track": ["Koľaj", "Track"],
+  "trackNoOcp": ["Koľaj bez kontroly obsadenia", "Track without occupation detection"],
+  "trackSign": ["Koľaj s označením", "Labelled track"],
+  "trackSignNoOcp": [
+    "Označená koľaj bez kontroly obsadenia",
+    "Labelled track without occupation detection"
+  ],
+  "trackDiagonalLong": ["Dlhá šikmá koľaj", "Long diagonal track"],
+  "trackDiagonalLongNoOcp": [
+    "Dlhá šikmá koľaj bez kontroly obsadenia",
+    "Long diagonal track without occupation detection"
+  ],
+  "trackZigZag": ["Zalomená koľaj", "Cranked track"],
+  "trackZigZagNoOcp": [
+    "Zalomená koľaj bez kontroly obsadenia",
+    "Cranked track without occupation detection"
+  ],
+  "trackCrossing": ["Koľajová križovatka", "Flat crossing"],
+  "trackCrossingNoOcp": [
+    "Koľajová križovatka bez kontroly obsadenia",
+    "Flat crossing without occupation detection"
+  ],
+  "buffer": ["Zarážadlo", "Buffer stop"],
+  "bufferSignal": ["Zarážadlo s návestidlom", "Buffer stop with signal"],
+  "levelCrossing": ["Priecestie", "Level crossing"],
+  "levelCrossingEnd": ["Koniec priecestia", "Level crossing end"],
+  "filler": ["Prázdne pole", "Blank panel"],
+  "dispatchPost": ["Stanovište výpravcu", "Signalling post"],
+  "blockSignal": ["Oddielové návestidlo", "Block signal"],
+  "departureSignal": ["Odchodové návestidlo", "Departure signal"],
+  "departureSignalNoOcp": [
+    "Odchodové návestidlo bez kontroly obsadenia",
+    "Departure signal without occupation detection"
+  ],
+  "entrySignal": ["Vchodové návestidlo", "Entrance signal"],
+  "entrySignalNoOcp": [
+    "Vchodové návestidlo bez kontroly obsadenia",
+    "Entrance signal without occupation detection"
+  ],
+  "premainSignal": ["Predzvesť", "Distant signal"],
+  "premainSignalNoOcp": [
+    "Predzvesť bez kontroly obsadenia",
+    "Distant signal without occupation detection"
+  ],
+  "shuntSignal": ["Zriaďovacie návestidlo", "Shunt signal"],
+  "shuntSignalNoOcp": [
+    "Zriaďovacie návestidlo bez kontroly obsadenia",
+    "Shunt signal without occupation detection"
+  ],
+  "shuntSignalButtonBuffer": ["Posunové tlačidlo pri zarážadle", "Buffer stop shunt control"],
+  "lineblockAhNoSig": ["Automatické hradlo bez návestidla", "Automatic block without signal"],
+  "lineblockAhSig": ["Automatické hradlo s návestidlom", "Automatic block with signal"],
+  "lineblock": ["Traťový súhlas", "Block instrument"],
+  "departureButton": ["Odchodové tlačidlo", "Departure control"],
+  "shuntButton": ["Posunové tlačidlo", "Shunt control"],
+  "shuntButtonNoOcp": [
+    "Posunové tlačidlo bez kontroly obsadenia",
+    "Shunt control without occupation detection"
+  ],
+  "signButtonLight": ["Tlačidlo s kontrolkou", "Illuminated control"],
+  "signButtonSealedCounter": ["Zaplombované tlačidlo s počítadlom", "Sealed control with counter"],
+  "signButton": ["Ovládacie tlačidlo", "Panel control"],
+  "switchButton": ["Výhybkové tlačidlo", "Points control"],
+  "singleSwitch": ["Výhybka", "Points"],
+  "singleSwitchNoOcp": ["Výhybka bez kontroly obsadenia", "Points without occupation detection"],
+  "singleExtendedSwitch": ["Predĺžená výhybka", "Extended points"],
+  "singleExtendedSwitchNoOcp": [
+    "Predĺžená výhybka bez kontroly obsadenia",
+    "Extended points without occupation detection"
+  ],
+  "extendedSwitch": ["Predĺžená koľajová spojka", "Extended crossover"],
+  "extendedSwitchNoOcp": [
+    "Predĺžená koľajová spojka bez kontroly obsadenia",
+    "Extended crossover without occupation detection"
+  ],
+  "crossoverSwitch": ["Koľajová spojka", "Crossover"],
+  "crossoverSwitchNoOcp": [
+    "Koľajová spojka bez kontroly obsadenia",
+    "Crossover without occupation detection"
+  ],
+  "sign": ["Popis", "Label"],
+  "sign1": ["Popis — variant 1", "Label — variant 1"],
+  "sign2": ["Popis — variant 2", "Label — variant 2"],
+  "sign3": ["Popis — variant 3", "Label — variant 3"],
+  "left-to-right": ["Zľava doprava", "Left to right"],
+  "right-to-left": ["Sprava doľava", "Right to left"],
+  "main": ["Priamo", "Normal"],
+  "upper": ["Horná vetva", "Upper branch"],
+  "lower": ["Dolná vetva", "Lower branch"],
+  "danger": ["Stoj", "Danger"],
+  "clear": ["Voľno", "Clear"],
+  "caution": ["Výstraha", "Caution"],
+  "reserved": ["Rezervované", "Reserved"],
+  "occupied": ["Obsadené", "Occupied"],
+  "default": ["Základný stav", "Default"],
+  "Text content": ["Text popisu", "Label text"],
+  "Color": ["Farba", "Colour"],
+  "Size": ["Veľkosť", "Size"],
+  "Category (Os, R)": ["Kategória (Os, R)", "Category (Os, R)"],
+  "Napr. Bratislava-hlavna": ["Napr. Bratislava-hlavna", "e.g. Bratislava-hlavna"],
+  "No tiles found in catalog.": [
+    "V katalógu nie sú žiadne prvky.",
+    "No elements found in the catalogue."
+  ],
+  "Toggle visual overlays for occupied spaces and geometry": [
+    "Zobraziť prekrytia využitých polí a geometrie",
+    "Show overlays for used cells and geometry"
+  ],
+  "Bounds: ON": ["Hranice: zapnuté", "Bounds: on"],
+  "Bounds: OFF": ["Hranice: vypnuté", "Bounds: off"],
+  "Traversable State:": ["Priechodný stav:", "Traversable state:"],
+  "State": ["Stav", "State"],
+  "Text Elements:": ["Textové popisy:", "Text labels:"],
+  "cells": ["polí", "cells"],
+  "Relay Railway Dispatcher — Component Inspector": [
+    "JOP — Prehliadač prvkov",
+    "JOP — Element inspector"
+  ],
+  "Loaded via Next.js Server Component from": [
+    "Načítané serverovým komponentom Next.js zo súboru",
+    "Loaded by a Next.js Server Component from"
+  ],
+  "Signal Aspect": ["Návestný znak", "Signal aspect"],
+  "Button": ["Tlačidlo", "Control"],
+  "Occupation": ["Obsadenie", "Occupation"],
+  "Switch Position": ["Poloha výhybky", "Point position"],
+  "Lineblock State": ["Stav traťového súhlasu", "Block instrument state"],
+  "Seal": ["Plomba", "Seal"],
+  "AH no-signal seal": ["Plomba AH bez návestidla", "Automatic block seal (no signal)"],
+  "AH signal top seal": ["Horná plomba AH", "Automatic block upper seal"],
+  "AH signal S seal": ["Plomba S automatického hradla", "Automatic block S seal"],
+  "AH signal bottom seal": ["Dolná plomba AH", "Automatic block lower seal"],
+  "AH signal Z seal": ["Plomba Z automatického hradla", "Automatic block Z seal"],
+  "arrival": ["Príchod", "Arrival"],
+  "departure": ["Odchod", "Departure"],
+  "notes": ["Poznámky", "Notes"],
+  "draft": ["Návrh", "Draft"],
+  "open": ["Prihlasovanie otvorené", "Registration open"],
+  "Chyba pri načítaní personálu: {0}": [
+    "Chyba pri načítaní personálu: {0}",
+    "Could not load staff: {0}"
+  ],
+  "posunovej": ["posunovej", "shunt"],
+  "vlakovej": ["vlakovej", "train"],
+  "Stavanie {0} cesty: začiatok je vybraný, vyberte koniec.": [
+    "Stavanie {0} cesty: začiatok je vybraný, vyberte koniec.",
+    "Setting {0} route: origin selected, choose the destination."
+  ],
+  "Rušenie {0} cesty: začiatok je vybraný, vyberte koniec.": [
+    "Rušenie {0} cesty: začiatok je vybraný, vyberte koniec.",
+    "Releasing {0} route: origin selected, choose the destination."
+  ],
+  "Stavanie {0} cesty…": ["Stavanie {0} cesty…", "Setting {0} route…"],
+  "Rušenie {0} cesty…": ["Rušenie {0} cesty…", "Releasing {0} route…"]
+}

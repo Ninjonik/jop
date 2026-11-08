@@ -1,4 +1,5 @@
 'use client';
+import { useTranslation } from '@/lib/i18n/client';
 
 import TileSvg from '@/app/components/tiles/TileSvg';
 import { stateGroups, tiles } from '@/app/data/tiles';
@@ -22,6 +23,7 @@ export default function StationTopologyBoard({
   disabled = false,
   overview = false,
 }: Props) {
+  const t = useTranslation();
   const tileSize = overview
     ? Math.min(18, 460 / station.layout.width, 230 / station.layout.height)
     : Math.max(
@@ -80,8 +82,12 @@ export default function StationTopologyBoard({
                 <button
                   type="button"
                   disabled={disabled}
-                  aria-label={`Vybrať traťový súhlas ${pieceId} v stanici ${station.stationId}`}
-                  title="Vyberte traťový súhlas a potom súhlas v susednej stanici"
+                  aria-label={t(
+                    'Vybrať traťový súhlas {0} v stanici {1}',
+                    pieceId,
+                    station.stationId,
+                  )}
+                  title={t('Vyberte traťový súhlas a potom súhlas v susednej stanici')}
                   onClick={() => onLineblockSelect({ stationId: station.stationId, pieceId })}
                   onContextMenu={(event) => {
                     event.preventDefault();

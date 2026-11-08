@@ -1,4 +1,6 @@
 'use client';
+import { useLocaleTag, useTranslation } from '@/lib/i18n/client';
+
 import { AeroIcon } from '@/app/components/ui/AeroIcon';
 
 import { disRequest } from '@/lib/dis/api-client';
@@ -77,6 +79,8 @@ export function DocumentAttachment({
   label: string;
   image?: boolean;
 }) {
+  const t = useTranslation();
+  const localeTag = useLocaleTag();
   const [requested, setRequested] = useState(image);
   const [preview, setPreview] = useState<Preview | null>(null);
   const [error, setError] = useState('');
@@ -148,7 +152,7 @@ export function DocumentAttachment({
             type="button"
             className="document-image-button my-2 block max-w-full cursor-zoom-in"
             onClick={() => setOpen(true)}
-            title="Zväčšiť obrázok"
+            title={t('Zväčšiť obrázok')}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
@@ -159,7 +163,7 @@ export function DocumentAttachment({
             />
           </button>
         ) : (
-          <span>{error || 'Načítavam obrázok…'}</span>
+          <span>{t(error) || t('Načítavam obrázok…')}</span>
         )
       ) : (
         <span className="my-2 flex flex-wrap items-center gap-2 rounded-sm border border-[var(--aero-panel-border)] bg-[var(--grid-row-alt)] p-3">
@@ -169,7 +173,7 @@ export function DocumentAttachment({
             </strong>
             {preview && (
               <span className="text-xs text-[var(--aero-text-muted)]">
-                {(preview.size / 1024).toLocaleString('sk-SK', { maximumFractionDigits: 0 })} KB
+                {(preview.size / 1024).toLocaleString(localeTag, { maximumFractionDigits: 0 })} KB
               </span>
             )}
           </span>
@@ -181,13 +185,11 @@ export function DocumentAttachment({
               setOpen(true);
             }}
           >
-            <AeroIcon name="preview" />
-            Zobraziť prílohu
+            <AeroIcon name="preview" /> {t('Zobraziť prílohu')}{' '}
           </button>
           {preview && (
             <a className="aero-btn" href={preview.url} download={preview.name}>
-              <AeroIcon name="download" />
-              Stiahnuť
+              <AeroIcon name="download" /> {t('Stiahnuť')}{' '}
             </a>
           )}
         </span>
@@ -207,18 +209,16 @@ export function DocumentAttachment({
             <strong className="mr-auto truncate">{preview?.name || label}</strong>
             {preview && (
               <a className="aero-btn" href={preview.url} download={preview.name}>
-                <AeroIcon name="download" />
-                Stiahnuť súbor
+                <AeroIcon name="download" /> {t('Stiahnuť súbor')}{' '}
               </a>
             )}
             <button type="button" className="aero-btn" onClick={() => setOpen(false)}>
-              <AeroIcon name="close" />
-              Zavrieť
+              <AeroIcon name="close" /> {t('Zavrieť')}{' '}
             </button>
           </div>
           {!preview ? (
             <p role={error ? 'alert' : 'status'} className="p-5">
-              {error || 'Načítavam prílohu…'}
+              {t(error) || t('Načítavam prílohu…')}
             </p>
           ) : (
             <div className="max-h-[78vh] overflow-auto p-4">
@@ -233,13 +233,18 @@ export function DocumentAttachment({
                     className="h-[65vh] w-full border-0"
                   />
                   <p className="mt-2 text-xs">
-                    Ak prehliadač náhľad PDF nepodporuje, použite tlačidlo „Stiahnuť súbor“.
+                    {' '}
+                    {t(
+                      'Ak prehliadač náhľad PDF nepodporuje, použite tlačidlo „Stiahnuť súbor“.',
+                    )}{' '}
                   </p>
                 </>
               ) : preview.pages.length ? (
                 <>
-                  {preview.notice && (
-                    <p className="mb-3 text-xs text-[var(--aero-text-muted)]">{preview.notice}</p>
+                  {t(preview.notice) && (
+                    <p className="mb-3 text-xs text-[var(--aero-text-muted)]">
+                      {t(preview.notice)}
+                    </p>
                   )}
                   {preview.pages.map((page, index) => (
                     <section
@@ -247,10 +252,12 @@ export function DocumentAttachment({
                       className="mb-3 border border-[var(--aero-panel-border)] p-4"
                     >
                       {attachmentExtension(preview.name) === 'pptx' && (
-                        <h3 className="mb-3 font-semibold">Snímka {index + 1}</h3>
+                        <h3 className="mb-3 font-semibold">
+                          {t('Snímka')} {index + 1}
+                        </h3>
                       )}
                       <pre className="whitespace-pre-wrap break-words font-sans text-sm leading-6">
-                        {page || 'Táto snímka neobsahuje text.'}
+                        {page || t('Táto snímka neobsahuje text.')}
                       </pre>
                     </section>
                   ))}
@@ -259,8 +266,10 @@ export function DocumentAttachment({
                 <div className="p-6">
                   <strong>{preview.name}</strong>
                   <p className="mt-2">
-                    {preview.notice ||
-                      'Pre tento formát nie je náhľad v prehliadači dostupný. Stiahnite súbor a otvorte ho vo svojej aplikácii.'}
+                    {t(preview.notice) ||
+                      t(
+                        'Pre tento formát nie je náhľad v prehliadači dostupný. Stiahnite súbor a otvorte ho vo svojej aplikácii.',
+                      )}
                   </p>
                 </div>
               )}

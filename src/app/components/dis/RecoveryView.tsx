@@ -1,4 +1,6 @@
 'use client';
+import { useTranslation } from '@/lib/i18n/client';
+
 import { AeroIcon } from '@/app/components/ui/AeroIcon';
 
 import { disFetch } from '@/lib/dis/api-client';
@@ -30,6 +32,7 @@ export function RecoveryView({
   sessionId: string;
   stations: JopStationSummary[];
 }) {
+  const t = useTranslation();
   const [stationId, setStationId] = useState('');
   const [running, setRunning] = useState(false);
   const [message, setMessage] = useState('');
@@ -37,7 +40,12 @@ export function RecoveryView({
     if (
       !sessionId ||
       !window.confirm(
-        `${action.title}?\nRozsah: ${stationId || 'celá relácia'}.\n${action.description}`,
+        t(
+          '{0}?\nRozsah: {1}.\n{2}',
+          t(action.title),
+          stationId || t('celá relácia'),
+          t(action.description),
+        ),
       )
     )
       return;
@@ -60,16 +68,17 @@ export function RecoveryView({
   }
   return (
     <div className="overflow-auto p-4 space-y-4">
-      <h2 className="font-bold text-sm">Obnova prevádzkového stavu</h2>
-      <p>Ak je prevádzkový stav poškodený, vyberte rozsah a vykonajte príslušnú obnovu.</p>
+      <h2 className="font-bold text-sm">{t('Obnova prevádzkového stavu')}</h2>
+      <p>{t('Ak je prevádzkový stav poškodený, vyberte rozsah a vykonajte príslušnú obnovu.')}</p>
       <label>
-        Rozsah:{' '}
+        {' '}
+        {t('Rozsah:')}{' '}
         <select
           className="aero-select"
           value={stationId}
           onChange={(event) => setStationId(event.target.value)}
         >
-          <option value="">Celá relácia</option>
+          <option value="">{t('Celá relácia')}</option>
           {stations
             .filter((station) => station.sessionId === sessionId)
             .map((station) => (
@@ -79,23 +88,23 @@ export function RecoveryView({
             ))}
         </select>
       </label>
-      {!sessionId && <p>Najprv vyberte reláciu.</p>}
-      {message && <p role="status">{message}</p>}
+      {!sessionId && <p>{t('Najprv vyberte reláciu.')}</p>}
+      {message && <p role="status">{t(message)}</p>}
       <div className="grid gap-3 md:grid-cols-3">
         {actions.map((action) => (
           <section
             key={action.id}
             className="border border-[var(--aero-panel-border)] p-3 space-y-2"
           >
-            <strong>{action.title}</strong>
-            <p>{action.description}</p>
+            <strong>{t(action.title)}</strong>
+            <p>{t(action.description)}</p>
             <button
               className="aero-btn"
               disabled={!sessionId || running}
               onClick={() => void run(action)}
             >
               <AeroIcon name="settings" />
-              {action.title}
+              {t(action.title)}
             </button>
           </section>
         ))}

@@ -1,4 +1,6 @@
 'use client';
+import { useTranslation } from '@/lib/i18n/client';
+
 import { isPublicStation } from '@/lib/station/visibility';
 
 import Link from 'next/link';
@@ -43,11 +45,14 @@ const actions: Array<{
 ];
 
 export default function AdminRecoveryClient({ sessionId }: { sessionId: string }) {
+  const t = useTranslation();
   const [session, setSession] = useState<SessionDocument | null>(null);
   const [stations, setStations] = useState<StationDocument[]>([]);
   const [loading, setLoading] = useState(true);
   const [running, setRunning] = useState<string | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
+  const [message, setMessage] = useState<{ actionTitle: string; stationsUpdated: number } | null>(
+    null,
+  );
   const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
@@ -75,8 +80,8 @@ export default function AdminRecoveryClient({ sessionId }: { sessionId: string }
   }, [refresh]);
 
   async function run(action: (typeof actions)[number], stationId?: string) {
-    const scope = stationId ? `station ${stationId}` : 'the whole session';
-    if (!window.confirm(`${action.confirm}\n\nScope: ${scope}.`)) return;
+    const scope = stationId ? t('station {0}', stationId) : t('the whole session');
+    if (!window.confirm(t('{0}\n\nScope: {1}.', t(action.confirm), scope))) return;
     const runningId = `${action.id}:${stationId ?? 'session'}`;
     setRunning(runningId);
     setError(null);
@@ -95,7 +100,7 @@ export default function AdminRecoveryClient({ sessionId }: { sessionId: string }
         error?: { message?: string };
       };
       if (!response.ok) throw new Error(payload.error?.message ?? 'Recovery action failed.');
-      setMessage(`${action.title} completed for ${payload.stationsUpdated ?? 0} station(s).`);
+      setMessage({ actionTitle: action.title, stationsUpdated: payload.stationsUpdated ?? 0 });
       await refresh();
     } catch (runError) {
       setError(runError instanceof Error ? runError.message : 'Recovery action failed.');
@@ -122,30 +127,40 @@ export default function AdminRecoveryClient({ sessionId }: { sessionId: string }
         <header className="flex flex-wrap items-start justify-between gap-4">
           <div className="space-y-2">
             <p className="text-sm uppercase tracking-[0.3em] text-red-300">
-              Administrator recovery console
+              {' '}
+              {t('Administrator recovery console')}{' '}
             </p>
-            <h1 className="text-4xl font-semibold tracking-tight">Session {sessionId}</h1>
+            <h1 className="text-4xl font-semibold tracking-tight">
+              {t('Session')} {sessionId}
+            </h1>
             <p className="max-w-3xl text-sm text-neutral-400">
-              Use these controls to recover a live Roblox operation without editing raw state.
-              Changes are saved first, then sent to the Roblox bridge.
+              {' '}
+              {t(
+                'Use these controls to recover a live Roblox operation without editing raw state. Changes are saved first, then sent to the Roblox bridge.',
+              )}{' '}
             </p>
           </div>
           <Link
             href="/"
             className="rounded-full border border-neutral-700 px-4 py-2 text-sm hover:bg-neutral-800"
           >
-            Back to sessions
+            {' '}
+            {t('Back to sessions')}{' '}
           </Link>
         </header>
 
         {error ? (
           <div className="rounded-2xl border border-red-800 bg-red-950/50 p-4 text-sm text-red-100">
-            {error}
+            {t(error)}
           </div>
         ) : null}
         {message ? (
           <div className="rounded-2xl border border-emerald-800 bg-emerald-950/40 p-4 text-sm text-emerald-100">
-            {message}
+            {t(
+              '{0} completed for {1} station(s).',
+              t(message.actionTitle),
+              message.stationsUpdated,
+            )}
           </div>
         ) : null}
 
@@ -159,7 +174,7 @@ export default function AdminRecoveryClient({ sessionId }: { sessionId: string }
               key={String(label)}
               className="rounded-2xl border border-neutral-800 bg-neutral-900 p-5"
             >
-              <p className="text-sm text-neutral-400">{label}</p>
+              <p className="text-sm text-neutral-400">{t(String(label))}</p>
               <p className="mt-1 text-3xl font-semibold">{value}</p>
             </div>
           ))}
@@ -171,15 +186,17 @@ export default function AdminRecoveryClient({ sessionId }: { sessionId: string }
               key={action.id}
               className="flex flex-col rounded-2xl border border-neutral-800 bg-neutral-900 p-5"
             >
-              <h2 className="text-lg font-semibold">{action.title}</h2>
-              <p className="mt-2 flex-1 text-sm leading-6 text-neutral-400">{action.description}</p>
+              <h2 className="text-lg font-semibold">{t(action.title)}</h2>
+              <p className="mt-2 flex-1 text-sm leading-6 text-neutral-400">
+                {t(action.description)}
+              </p>
               <button
                 type="button"
                 disabled={loading || running !== null}
                 onClick={() => void run(action)}
                 className={`mt-5 rounded-xl border px-4 py-3 text-sm font-semibold transition disabled:cursor-wait disabled:opacity-50 ${action.tone}`}
               >
-                {running === `${action.id}:session` ? 'Applying…' : action.title}
+                {running === `${action.id}:session` ? t('Applying…') : t(action.title)}
               </button>
             </article>
           ))}
@@ -188,16 +205,18 @@ export default function AdminRecoveryClient({ sessionId }: { sessionId: string }
         <section className="rounded-2xl border border-neutral-800 bg-neutral-900 p-5">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <h2 className="text-lg font-semibold">Stations</h2>
+              <h2 className="text-lg font-semibold">{t('Stations')}</h2>
               <p className="text-sm text-neutral-400">
-                Open a station to verify the recovered state.
+                {' '}
+                {t('Open a station to verify the recovered state.')}{' '}
               </p>
             </div>
             <button
               onClick={() => void refresh()}
               className="rounded-full border border-neutral-700 px-4 py-2 text-sm hover:bg-neutral-800"
             >
-              Refresh
+              {' '}
+              {t('Refresh')}{' '}
             </button>
           </div>
           <div className="mt-4 grid gap-3 md:grid-cols-2">
@@ -214,12 +233,13 @@ export default function AdminRecoveryClient({ sessionId }: { sessionId: string }
                       href={`/runtime/${encodeURIComponent(sessionId)}/${encodeURIComponent(station.stationId)}`}
                       className="text-sm text-amber-300 hover:text-amber-200"
                     >
-                      Open runtime
+                      {' '}
+                      {t('Open runtime')}{' '}
                     </Link>
                   </div>
                   <p className="mt-1 text-xs text-neutral-500">
-                    {Object.keys(station.runtime.activeTrainRoutes).length} routes ·{' '}
-                    {Object.keys(station.runtime.pendingActions).length} delayed actions
+                    {Object.keys(station.runtime.activeTrainRoutes).length} {t('routes ·')}{' '}
+                    {Object.keys(station.runtime.pendingActions).length} {t('delayed actions')}{' '}
                   </p>
                   <div className="mt-3 flex flex-wrap gap-2">
                     {actions.map((action) => (
@@ -231,15 +251,15 @@ export default function AdminRecoveryClient({ sessionId }: { sessionId: string }
                         className={`rounded-lg border px-3 py-2 text-xs font-medium transition disabled:cursor-wait disabled:opacity-50 ${action.tone}`}
                       >
                         {running === `${action.id}:${station.stationId}`
-                          ? 'Applying…'
-                          : action.title}
+                          ? t('Applying…')
+                          : t(action.title)}
                       </button>
                     ))}
                   </div>
                 </article>
               ))}
             {!loading && stations.length === 0 ? (
-              <p className="text-sm text-neutral-400">No stations found for this session.</p>
+              <p className="text-sm text-neutral-400">{t('No stations found for this session.')}</p>
             ) : null}
           </div>
         </section>

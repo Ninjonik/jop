@@ -1,4 +1,6 @@
 'use client';
+import { useTranslation } from '@/lib/i18n/client';
+
 import { AeroAutocomplete } from '@/app/components/ui/AeroAutocomplete';
 import { AeroIcon } from '@/app/components/ui/AeroIcon';
 import { disFetch } from '@/lib/dis/api-client';
@@ -21,6 +23,7 @@ export function GvdEditorView({
 }: {
   place: { placeId: string; name: string; stations: { stationId: string; name: string }[] };
 }) {
+  const t = useTranslation();
   const { canCreateGvd } = useDisAuth();
   const {
     value,
@@ -83,9 +86,9 @@ export function GvdEditorView({
   return (
     <div className="flex flex-1 flex-col overflow-auto bg-white p-3 text-xs gap-3">
       <div className="flex gap-2 items-center">
-        <strong>Tvorba GVD a kontrola kolízií</strong>
+        <strong>{t('Tvorba GVD a kontrola kolízií')}</strong>
         <select
-          aria-label="Uložený grafikon"
+          aria-label={t('Uložený grafikon')}
           className="aero-select"
           disabled={busy || loading}
           value={selectedId}
@@ -97,7 +100,7 @@ export function GvdEditorView({
             setMessage('');
           }}
         >
-          <option value="">Nový grafikon</option>
+          <option value="">{t('Nový grafikon')}</option>
           {value.timetables.map((item) => (
             <option key={item.$id} value={item.$id}>
               {item.trainNumber}
@@ -105,34 +108,34 @@ export function GvdEditorView({
           ))}
         </select>
         <button className="aero-btn" disabled={busy} onClick={() => submit(false)}>
-          <AeroIcon name="warning" />
-          Prepočítať kolízie
+          <AeroIcon name="warning" /> {t('Prepočítať kolízie')}{' '}
         </button>
         {canCreateGvd && (
           <button className="aero-btn" disabled={busy} onClick={() => submit(true)}>
             <AeroIcon name="save" />
-            {busy ? 'Spracúvam...' : 'Uložiť vlak do GVD'}
+            {busy ? t('Spracúvam...') : t('Uložiť vlak do GVD')}
           </button>
         )}
       </div>
       {(error || loadError) && (
         <p role="alert" className="text-red-700">
-          {error || loadError}
+          {t(error) || t(loadError)}
         </p>
       )}
       {stations.length === 0 && (
-        <p role="status">Pre zvolené miesto nie sú uložené žiadne stanice.</p>
+        <p role="status">{t('Pre zvolené miesto nie sú uložené žiadne stanice.')}</p>
       )}
       {message && (
         <p role="status" className="text-emerald-700">
-          {message}
+          {t(message)}
         </p>
       )}
-      <p>Vyberte stanicu podľa názvu. Časy po polnoci pokračujú nasledujúcim dňom.</p>
+      <p>{t('Vyberte stanicu podľa názvu. Časy po polnoci pokračujú nasledujúcim dňom.')}</p>
       <fieldset disabled={!canCreateGvd || busy || loading} className="space-y-3">
         <div className="flex flex-wrap gap-3">
           <label>
-            Číslo vlaku{' '}
+            {' '}
+            {t('Číslo vlaku')}{' '}
             <input
               className="aero-input"
               maxLength={32}
@@ -141,7 +144,8 @@ export function GvdEditorView({
             />
           </label>
           <label>
-            Kategória{' '}
+            {' '}
+            {t('Kategória')}{' '}
             <select
               className="aero-select"
               value={draft.trainType}
@@ -153,7 +157,8 @@ export function GvdEditorView({
             </select>
           </label>
           <label>
-            Rýchlosť (km/h){' '}
+            {' '}
+            {t('Rýchlosť (km/h)')}{' '}
             <input
               className="aero-input w-20"
               type="number"
@@ -164,7 +169,8 @@ export function GvdEditorView({
             />
           </label>
           <label>
-            Dĺžka (m){' '}
+            {' '}
+            {t('Dĺžka (m)')}{' '}
             <input
               className="aero-input w-20"
               type="number"
@@ -177,13 +183,14 @@ export function GvdEditorView({
         </div>
         <div className="flex flex-wrap gap-3">
           <label>
-            Nadväzujúci vlak{' '}
+            {' '}
+            {t('Nadväzujúci vlak')}{' '}
             <select
               className="aero-select"
               value={draft.nextTrainId || ''}
               onChange={(event) => change({ nextTrainId: event.target.value })}
             >
-              <option value="">Bez nadväzujúceho vlaku</option>
+              <option value="">{t('Bez nadväzujúceho vlaku')}</option>
               {value.timetables
                 .filter((train) => train.$id !== selectedId)
                 .map((train) => (
@@ -195,7 +202,8 @@ export function GvdEditorView({
             </select>
           </label>
           <label className="flex-1">
-            Poznámky k vlaku{' '}
+            {' '}
+            {t('Poznámky k vlaku')}{' '}
             <input
               className="aero-input w-full"
               maxLength={1000}
@@ -208,7 +216,7 @@ export function GvdEditorView({
           <thead>
             <tr>
               {['Stanica', 'Príchod', 'Odchod', 'Koľaj', 'Poznámky', ''].map((heading, index) => (
-                <th key={index}>{heading}</th>
+                <th key={index}>{t(heading)}</th>
               ))}
             </tr>
           </thead>
@@ -232,7 +240,7 @@ export function GvdEditorView({
                       />
                     ) : (
                       <input
-                        aria-label={`${field} ${index + 1}`}
+                        aria-label={`${t(field)} ${index + 1}`}
                         className="aero-input w-full"
                         type={field === 'arrival' || field === 'departure' ? 'time' : 'text'}
                         value={stop[field] || ''}
@@ -255,8 +263,7 @@ export function GvdEditorView({
                       change({ stops: draft.stops.filter((_, position) => position !== index) })
                     }
                   >
-                    <AeroIcon name="delete" />
-                    Odstrániť
+                    <AeroIcon name="delete" /> {t('Odstrániť')}{' '}
                   </button>
                 </td>
               </tr>
@@ -264,8 +271,7 @@ export function GvdEditorView({
           </tbody>
         </table>
         <button className="aero-btn" onClick={() => change({ stops: [...draft.stops, newStop()] })}>
-          <AeroIcon name="add" />
-          Pridať zastavenie
+          <AeroIcon name="add" /> {t('Pridať zastavenie')}{' '}
         </button>
       </fieldset>
       {report && (
@@ -275,23 +281,24 @@ export function GvdEditorView({
         >
           <strong>
             {report.conflicts.length
-              ? `Kolízie na staničných koľajach: ${report.conflicts.length}`
-              : 'Bez časového prekrytia na rovnakej staničnej koľaji.'}
+              ? t('Kolízie na staničných koľajach: {0}', report.conflicts.length)
+              : t('Bez časového prekrytia na rovnakej staničnej koľaji.')}
           </strong>
           <ul className="list-disc pl-5">
             {report.conflicts.map((conflict, index) => (
-              <li key={index}>{conflict.message}</li>
+              <li key={index}>{t(conflict.message)}</li>
             ))}
             {report.warnings.map((warning, index) => (
-              <li key={`warning-${index}`}>{warning.message}</li>
+              <li key={`warning-${index}`}>{t(warning.message)}</li>
             ))}
           </ul>
         </div>
       )}
       <p className="text-slate-600">
-        Kontrola porovnáva uložené denné grafikony. Pri prejazde počíta s obsadením aspoň 1 minútu.
-        Počet traťových koľají, bezpečné medzidobia, dĺžky nástupíšť a vzdialenosti nie sú v modeli
-        uvedené; kontrola nenahrádza zabezpečovacie zariadenie.
+        {' '}
+        {t(
+          'Kontrola porovnáva uložené denné grafikony. Pri prejazde počíta s obsadením aspoň 1 minútu. Počet traťových koľají, bezpečné medzidobia, dĺžky nástupíšť a vzdialenosti nie sú v modeli uvedené; kontrola nenahrádza zabezpečovacie zariadenie.',
+        )}{' '}
       </p>
     </div>
   );
@@ -308,10 +315,11 @@ function StationPicker({
   index: number;
   onChange: (value: string) => void;
 }) {
+  const t = useTranslation();
   return (
     <AeroAutocomplete
-      label={`Stanica ${index + 1}`}
-      placeholder="Vyhľadať stanicu…"
+      label={t('Stanica {0}', index + 1)}
+      placeholder={t('Vyhľadať stanicu…')}
       value={stations.find((station) => station.stationId === value)?.name || value}
       options={stations.map((station) => ({ value: station.stationId, label: station.name }))}
       onInput={() => onChange('')}

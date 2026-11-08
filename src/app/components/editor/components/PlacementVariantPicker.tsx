@@ -1,4 +1,5 @@
 'use client';
+import { useTranslation } from '@/lib/i18n/client';
 
 import type { PendingPlacementPosition, PlacementVariant } from '../types';
 
@@ -10,6 +11,7 @@ interface Props {
 }
 
 export default function PlacementVariantPicker({ variants, position, tileSize, onPick }: Props) {
+  const t = useTranslation();
   if (variants.length === 0 || !position) {
     return null;
   }
@@ -30,7 +32,7 @@ export default function PlacementVariantPicker({ variants, position, tileSize, o
           className="aero-btn"
         >
           {variant.orientation.rotation === 180 ? '180°' : '0°'}
-          {variant.orientation.mirrored ? ' mirror' : ''}
+          {variant.orientation.mirrored ? t(' mirror') : ''}
         </button>
       ))}
     </div>
