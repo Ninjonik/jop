@@ -1,4 +1,60 @@
 {
+  "Zavolať": ["Zavolať", "Call"],
+  "Hovor prebieha": ["Hovor prebieha", "Call in progress"],
+  "Prichádzajúci hovor": ["Prichádzajúci hovor", "Incoming call"],
+  "Vyzváňa": ["Vyzváňa", "Ringing"],
+  "Prijať": ["Prijať", "Answer"],
+  "Zapnúť mikrofón": ["Zapnúť mikrofón", "Unmute microphone"],
+  "Stlmiť mikrofón": ["Stlmiť mikrofón", "Mute microphone"],
+  "Ukončiť": ["Ukončiť", "End call"],
+  "Pre zvonenie povoľte prehrávanie zvuku v prehliadači.": [
+    "Pre zvonenie povoľte prehrávanie zvuku v prehliadači.",
+    "Allow audio playback in your browser to hear ringing."
+  ],
+  "Hlasové spojenie bolo prerušené.": [
+    "Hlasové spojenie bolo prerušené.",
+    "The voice connection was interrupted."
+  ],
+  "Nepodarilo sa pripojiť hlas alebo mikrofón. Skontrolujte povolenia a skúste znova.": [
+    "Nepodarilo sa pripojiť hlas alebo mikrofón. Skontrolujte povolenia a skúste znova.",
+    "Could not connect voice or microphone. Check permissions and try again."
+  ],
+  "Spojenie bolo prerušené.": ["Spojenie bolo prerušené.", "The connection was interrupted."],
+  "Mikrofón sa nepodarilo zmeniť.": [
+    "Mikrofón sa nepodarilo zmeniť.",
+    "Could not change the microphone."
+  ],
+  "Hovor teraz nie je možné začať.": [
+    "Hovor teraz nie je možné začať.",
+    "The call cannot be started now."
+  ],
+  "Vyberte inú stanicu alebo rušňovodiča.": [
+    "Vyberte inú stanicu alebo rušňovodiča.",
+    "Choose another station or driver."
+  ],
+  "Hlasové spojenie nie je nakonfigurované.": [
+    "Hlasové spojenie nie je nakonfigurované.",
+    "Voice calling is not configured."
+  ],
+  "Účastník nie je dostupný alebo má obsadené.": [
+    "Účastník nie je dostupný alebo má obsadené.",
+    "The participant is unavailable or busy."
+  ],
+  "Účastník neodpovedá.": ["Účastník neodpovedá.", "The participant did not answer."],
+  "Hovor sa nepodarilo začať.": ["Hovor sa nepodarilo začať.", "Could not start the call."],
+  "Hovor bol prijatý na inom zariadení.": [
+    "Hovor bol prijatý na inom zariadení.",
+    "The call was answered on another device."
+  ],
+  "Spojenie sa nepodarilo vytvoriť.": [
+    "Spojenie sa nepodarilo vytvoriť.",
+    "Could not establish the connection."
+  ],
+  "Hovor bol ukončený.": ["Hovor bol ukončený.", "The call ended."],
+  "Komunikácia bola prepnutá.": [
+    "Komunikácia bola prepnutá.",
+    "The communication identity changed."
+  ],
   "Údaje o vlaku": ["Údaje o vlaku", "Train details"],
   "Cestovný poriadok": ["Cestovný poriadok", "Timetable"],
   "{0}?\nRozsah: {1}.\n{2}": ["{0}?\nRozsah: {1}.\n{2}", "{0}?\nScope: {1}.\n{2}"],

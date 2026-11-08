@@ -14,3 +14,7 @@ are also served at `/icons/aero/ATTRIBUTION.txt`.
 
 The app uses this desktop-style artwork to complement its Aero controls.
 These are third-party icons, not Microsoft's Windows system assets.
+
+### Telephone ringing sound
+
+?Model 500 Telephone British ring? by CianMcCann, [Wikimedia Commons](https://commons.wikimedia.org/wiki/File:Model_500_Telephone_British_ring.ogg), licensed under [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/). The original recording is distributed unmodified in `public/sounds/telephone-ring.ogg`.

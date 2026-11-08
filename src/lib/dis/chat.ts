@@ -65,9 +65,16 @@ export function mergeChatMessages<T extends ChatMessage>(current: T[], incoming:
 }
 export interface ChatClientEvents {
   'chat:subscribe': (scope: z.infer<typeof chatScopeSchema>) => void;
+  'call:start': (recipient: ChatEndpoint) => void;
+  'call:accept': (id: string) => void;
+  'call:end': (id: string) => void;
 }
 export interface ChatServerEvents {
   'chat:snapshot': (snapshot: ChatSnapshot) => void;
   'chat:message': (message: ChatMessage) => void;
   'chat:error': (message: string) => void;
+  'call:ringing': (call: { id: string; contact: ChatContact; incoming: boolean }) => void;
+  'call:connected': (call: { id: string; url: string; token: string }) => void;
+  'call:error': (message: string) => void;
+  'call:ended': (call: { id: string; reason: string }) => void;
 }

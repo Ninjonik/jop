@@ -808,3 +808,19 @@ This staffing plan is separate from self-registration preferences and attendance
 in `shift_bookings`; it does not change runtime station ownership or train state.
 
 See `docs/DIS.md` for setup, access policy migration, and verification commands.
+
+
+## 23. Voice calls
+
+The communication dock uses the authenticated `/chat` socket for transient,
+session-scoped one-to-one call signalling. Calls ring connected station or
+driver inboxes, time out after 45 seconds, and end on disconnect. An accepted
+call receives short-lived, room-scoped LiveKit tokens; room names start with
+`_jop_`. The custom server owns call state, so restarting it ends calls. Station
+inboxes may have multiple listeners; the first to answer receives the call.
+Voice is not persisted and does not change railway state. The browser needs
+microphone permission and may require a user interaction before playing audio.
+Station calls use a local telephone bell recording; calls involving drivers use
+a simple radio alert tone. Set `LIVEKIT_URL`, `LIVEKIT_API_KEY` and
+`LIVEKIT_API_SECRET` on the custom server. The browser-facing URL must support
+secure WebSockets when the application uses HTTPS.

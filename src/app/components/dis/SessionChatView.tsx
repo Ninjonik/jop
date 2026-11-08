@@ -17,6 +17,7 @@ import type { DriverTrain } from '@/lib/dis/driver-train';
 import { getStationDisplayName } from '@/lib/station/display-name';
 import { useEffect, useRef, useState } from 'react';
 import { io, type Socket } from 'socket.io-client';
+import { VoiceCall } from './VoiceCall';
 
 type DisplayMessage = ChatMessage & { delivery?: 'sending' | 'failed' };
 
@@ -37,6 +38,9 @@ export function SessionChatView({
   );
   const [expanded, setExpanded] = useState(false);
   const [connected, setConnected] = useState(false);
+  const [voiceSocket, setVoiceSocket] = useState<Socket<ChatServerEvents, ChatClientEvents> | null>(
+    null,
+  );
   const [contacts, setContacts] = useState<ChatContact[]>([globalChatContact]);
   const [messages, setMessages] = useState<DisplayMessage[]>([]);
   const [target, setTarget] = useState(chatEndpointKey(globalChatContact));
@@ -70,6 +74,7 @@ export function SessionChatView({
     });
     connection.current = socket;
     socket.on('connect', () => {
+      setVoiceSocket(socket);
       socket.emit('chat:subscribe', { sessionId, endpoint: { kind: mode, id: endpointId } });
     });
     socket.on('chat:snapshot', (snapshot) => {
@@ -224,6 +229,7 @@ export function SessionChatView({
             : t('Rušňovodič: {0}', profile?.name)}
         </span>
       </div>
+      <VoiceCall socket={voiceSocket} recipient={recipient} connected={connected} mode={mode} />
       {expanded && (
         <div className="flex min-h-0 flex-col gap-2 overflow-auto p-2">
           <div className="flex flex-wrap items-center gap-2">

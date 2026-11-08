@@ -40,7 +40,10 @@ async function driverChatName(sessionId: string, userId: string, fallback: strin
   return train ? `${train.trainType} ${train.trainNumber}` : fallback;
 }
 
-async function resolveContact(sessionId: string, endpoint: ChatRecipient): Promise<ChatContact> {
+export async function resolveContact(
+  sessionId: string,
+  endpoint: ChatRecipient,
+): Promise<ChatContact> {
   if (endpoint.kind === 'session') return globalChatContact;
   if (endpoint.kind === 'station') {
     if (!isPublicStation(endpoint.id))
