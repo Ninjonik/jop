@@ -3,9 +3,10 @@
 import { AeroIcon } from '@/app/components/ui/AeroIcon';
 import { type ChatClientEvents, type ChatContact, type ChatServerEvents } from '@/lib/dis/chat';
 import { useTranslation } from '@/lib/i18n/client';
-import { Room, RoomEvent, Track } from 'livekit-client';
+import { Room, RoomEvent, Track, type RemoteTrack } from 'livekit-client';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Socket } from 'socket.io-client';
+import { attachRadioAudio } from './radio-audio';
 import { playCallCue, startCallRing } from './voice-sounds';
 
 type Call = { id: string; contact: ChatContact; incoming: boolean; phase: 'ringing' | 'connected' };
@@ -29,6 +30,7 @@ export function VoiceCall({
   const room = useRef<Room | null>(null);
   const callRef = useRef<Call | null>(null);
   const audio = useRef<HTMLDivElement>(null);
+  const radioTracks = useRef(new Map<RemoteTrack, () => void>());
   const stopRinging = useRef<(() => void) | null>(null);
   const soundKind = useRef<'telephone' | 'radio'>('telephone');
   const stopSound = useCallback(() => {
@@ -39,6 +41,8 @@ export function VoiceCall({
     stopSound();
     void room.current?.disconnect();
     room.current = null;
+    for (const cleanup of radioTracks.current.values()) cleanup();
+    radioTracks.current.clear();
     if (audio.current) audio.current.replaceChildren();
     callRef.current = null;
     setCall(null);
@@ -70,11 +74,22 @@ export function VoiceCall({
       });
       room.current = voice;
       voice.on(RoomEvent.TrackSubscribed, (track) => {
-        if (track.kind === Track.Kind.Audio) audio.current?.appendChild(track.attach());
+        if (track.kind !== Track.Kind.Audio || !audio.current) return;
+        if (soundKind.current === 'radio') {
+          radioTracks.current.set(track, attachRadioAudio(track, audio.current));
+        } else {
+          audio.current.appendChild(track.attach());
+        }
       });
-      voice.on(RoomEvent.TrackUnsubscribed, (track) =>
-        track.detach().forEach((element) => element.remove()),
-      );
+      voice.on(RoomEvent.TrackUnsubscribed, (track) => {
+        const cleanup = radioTracks.current.get(track);
+        if (cleanup) {
+          cleanup();
+          radioTracks.current.delete(track);
+        } else {
+          track.detach().forEach((element) => element.remove());
+        }
+      });
       voice.on(RoomEvent.Disconnected, () => {
         if (room.current === voice) {
           socket.emit('call:end', credentials.id);
