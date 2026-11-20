@@ -904,8 +904,12 @@ revalidates the current vehicle binding and live session, and invokes the same
 call service as browser controls. The one-second GSM-R GET poll returns zone,
 terminal availability, normal call state and emergency summaries without tokens.
 `physicalVehicleStation` is the shared location authority for driver status,
-local dispatcher routing, emergency audiences and the zone display. Internal
-inter is excluded from local calls/broadcast routing. `radio_station_zones`
+local dispatcher routing, emergency audiences and the zone display. It filters
+inter out before comparing stations; one normal station wins even without
+direction, while overlaps of normal stations use the measured frontmost
+contact. Missing candidate measurements or equally frontmost stations resolve
+to unknown rather than a name-based tie-break. Inter alone has no local
+dispatcher and retains display code 00. Physical inter occupancy remains intact. `radio_station_zones`
 persists station codes by universe/place/station; inter is 00 and unknown is --.
 See `docs/GSM-R.md` for installation and controls.
 

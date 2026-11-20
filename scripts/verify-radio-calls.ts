@@ -112,6 +112,25 @@ async function run() {
           stationId,
         })),
       );
+    const addContact = async (key: string, stationId: string, distanceToFront: number) => {
+      await db.collection<SessionDocument>('sessions').updateOne(
+        { _id: sessionId },
+        {
+          $set: {
+            [`runtime.physicalOccupations.${key}`]: {
+              stationId,
+              pieceId: key,
+              occupied: true,
+              traversalState: 'occupied',
+              eventId: randomUUID(),
+              observedAt: new Date().toISOString(),
+              vehicles: [{ sensorId, distanceToFront }],
+            },
+          },
+        },
+      );
+    };
+    await addContact('internal', 'inter', -1000);
     const zones = await loadRadioZones(universeId, placeId, ['vesele', 'inter', 'kolarovo']);
     assert.equal(zones.get('inter'), '00');
     assert.equal(zones.get('kolarovo'), 'K1');
@@ -170,6 +189,39 @@ async function run() {
     snapshot = await (await GET(request(), context)).json();
     assert.equal(snapshot.vehicles[0].communication.call, null);
     assert.equal(snapshot.vehicles[0].communication.outgoingEmergency.scope, 'station');
+    const otherDispatcher = randomUUID();
+    await radio.claim(otherDispatcher, 'vesele-owner', {
+      sessionId,
+      endpoint: { kind: 'station', id: 'vesele', name: 'Veselé' },
+    });
+    await addContact('b', 'vesele', -20);
+    snapshot = await (await GET(request(), context)).json();
+    assert.equal(snapshot.vehicles[0].communication.zone, 'V1');
+    assert.equal(await driverRadioStation(sessionId, driver), 'vesele');
+    assert.equal(
+      (await store.find(dispatcher))!.emergencies.length,
+      1,
+      'The original emergency audience survives station changes',
+    );
+    assert.equal((await store.find(otherDispatcher))!.emergencies.length, 0);
+    await radio.robloxAction(driver, sessionId, 'emergency-stop');
+    await radio.robloxAction(driver, sessionId, 'call-dispatcher');
+    assert.equal((await store.find(otherDispatcher))!.call?.incoming, true);
+    assert.equal((await store.find(dispatcher))!.call, null);
+    await radio.robloxAction(driver, sessionId, 'hangup');
+    await addContact('a', 'kolarovo', -30);
+    await addContact('b', 'vesele', 20);
+    snapshot = await (await GET(request(), context)).json();
+    assert.equal(snapshot.vehicles[0].communication.zone, 'K1');
+    assert.equal(await driverRadioStation(sessionId, driver), 'kolarovo');
+    await addContact('a', 'kolarovo', 0);
+    await addContact('b', 'vesele', 0);
+    snapshot = await (await GET(request(), context)).json();
+    assert.equal(snapshot.vehicles[0].communication.zone, '--');
+    await assert.rejects(radio.robloxAction(driver, sessionId, 'call-dispatcher'), /Poloha/);
+    await db
+      .collection<SessionDocument>('sessions')
+      .updateOne({ _id: sessionId }, { $unset: { 'runtime.physicalOccupations.b': '' } });
     // Leaving the station changes zone/routing, without removing captured emergency listeners.
     await db
       .collection<SessionDocument>('sessions')

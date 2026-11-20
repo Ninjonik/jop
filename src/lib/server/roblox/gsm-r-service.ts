@@ -4,7 +4,7 @@ import type { DriverTrain } from '@/lib/dis/driver-train';
 import type { GsmRCommunication } from '@/lib/dis/radio';
 import { canAssignShiftRole } from '@/lib/dis/shift-plan';
 import { gsmRCommandSchema, type GsmRBinding } from '@/lib/roblox/gsm-r';
-import { physicalVehicleStation } from '@/lib/station/physical-trains';
+import { physicalVehicleRadioZone } from '@/lib/station/physical-trains';
 import { MongoServerError } from 'mongodb';
 import type { Models } from 'node-appwrite';
 import { DisError, listDocuments } from '../dis/appwrite';
@@ -42,7 +42,6 @@ export async function loadGsmR(sessionId: string) {
   return {
     vehicles: await Promise.all(
       vehicles.map(async (vehicle) => {
-        const stationId = session ? physicalVehicleStation(session, vehicle.sensorId) : null;
         const terminal = vehicle.binding
           ? await radioTerminalRepository.find(vehicle.binding.userId)
           : null;
@@ -52,7 +51,7 @@ export async function loadGsmR(sessionId: string) {
           terminal.endpoint?.kind === 'driver' &&
           (terminal.expiresAt ?? 0) > Date.now();
         const communication: GsmRCommunication = {
-          zone: stationId ? (zones.get(stationId) ?? '--') : '--',
+          zone: session ? physicalVehicleRadioZone(session, vehicle.sensorId, zones) : '--',
           browserConnected: connected,
           call: connected ? terminal!.call : null,
           outgoingEmergency: connected

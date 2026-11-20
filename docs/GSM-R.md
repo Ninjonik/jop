@@ -399,3 +399,20 @@ and only if no terminal owner is known. Concurrent tab attempts still use the
 Mongo lease arbiter. Releasing the icon disables automatic claiming for that
 mounted dock, so heartbeat/contact updates cannot immediately take it back.
 Existing waiting tabs remain available for a manual claim after unlock/expiry.
+
+### Overlapping station zones
+
+Station selection ignores every inter contact before comparing stations. Inter
+alone supplies no station or local dispatcher (the radio keeps the outside-area
+code 00). If normal stations overlap, the section furthest ahead in measured
+travel direction chooses the station; the same result drives the radio zone,
+driver position, local dispatcher shortcut and new station emergency audiences.
+Roblox measures direction from velocity or actual position changes and retains
+it through stops; reversing reverses the comparison. Board X coordinates and
+station names do not establish train direction. Missing measurements for a
+candidate station, or equally frontmost stations, give unknown/-- rather than
+an arbitrary dispatcher. Existing emergency audiences remain frozen.
+
+Internal inter occupancy is still reported for railway logic; ignoring it here
+only changes identification/radio location and prevents it stealing a station's
+train label.

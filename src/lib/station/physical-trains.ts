@@ -1,6 +1,7 @@
 import { tiles } from '@/app/data/tiles';
 import type { GsmRVehicle } from '@/lib/roblox/gsm-r';
 import type { PhysicalOccupation, SessionDocument } from './domain';
+import { isPublicStation } from './visibility';
 
 export type PhysicalTrainLabel = { text: string };
 export type PhysicalTrainLabels = Record<string, PhysicalTrainLabel>;
@@ -41,12 +42,45 @@ export function frontmostContact<T extends PhysicalOccupation & { distanceToFron
   // Never infer train order from board X coordinates or unordered reservations.
   return ordered[0] ?? null;
 }
-/** Current station is knowable even when a stopped train spans several sections. */
+/** Resolve overlapping public stations using measured travel, never internal inter. */
 export function physicalVehicleStation(session: SessionDocument, sensorId: string): string | null {
-  const contacts = physicalVehicleContacts(session, sensorId);
-  const front = frontmostContact(contacts);
+  const contacts = physicalVehicleContacts(session, sensorId).filter((contact) =>
+    isPublicStation(contact.stationId),
+  );
   const stationIds = [...new Set(contacts.map((contact) => contact.stationId))];
-  return front?.stationId ?? (stationIds.length === 1 ? stationIds[0] : null);
+  if (stationIds.length === 1) return stationIds[0];
+  if (!stationIds.length) return null;
+  // Each candidate station needs a measured contact; missing direction cannot
+  // justify selecting another station just because its report arrived first.
+  if (
+    stationIds.some(
+      (id) =>
+        !contacts.some((contact) => contact.stationId === id && contact.distanceToFront !== null),
+    )
+  )
+    return null;
+  const front = frontmostContact(contacts);
+  if (!front || front.distanceToFront === null) return null;
+  const tiedStation = contacts.some(
+    (contact) =>
+      contact.stationId !== front.stationId &&
+      contact.distanceToFront !== null &&
+      Math.abs(contact.distanceToFront - front.distanceToFront!) <= 0.000001,
+  );
+  return tiedStation ? null : front.stationId;
+}
+export function physicalVehicleRadioZone(
+  session: SessionDocument,
+  sensorId: string,
+  zones: ReadonlyMap<string, string>,
+): string {
+  const stationId = physicalVehicleStation(session, sensorId);
+  if (stationId) return zones.get(stationId) ?? '--';
+  const contacts = physicalVehicleContacts(session, sensorId);
+  // 00 is the existing out-of-station display, not an inter dispatcher zone.
+  return contacts.length && contacts.every((contact) => !isPublicStation(contact.stationId))
+    ? '00'
+    : '--';
 }
 export function projectPhysicalTrainLabels(
   session: SessionDocument,
@@ -56,8 +90,10 @@ export function projectPhysicalTrainLabels(
   const labels: Record<string, PhysicalTrainLabels> = {};
   for (const vehicle of vehicles) {
     if (!vehicle.binding) continue;
-    const eligible = physicalVehicleContacts(session, vehicle.sensorId).filter((contact) =>
-      supportsPhysicalTrainLabel(pieceTypes[contact.stationId]?.[contact.pieceId] ?? ''),
+    const eligible = physicalVehicleContacts(session, vehicle.sensorId).filter(
+      (contact) =>
+        isPublicStation(contact.stationId) &&
+        supportsPhysicalTrainLabel(pieceTypes[contact.stationId]?.[contact.pieceId] ?? ''),
     );
     const front = frontmostContact(eligible);
     if (!front) continue;
