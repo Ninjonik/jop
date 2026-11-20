@@ -228,3 +228,7 @@ See [GSM-R setup and controls](../docs/GSM-R.md). Refreshing the bridge installs
 `GsmRController` as another child ModuleScript. Each RadioStation's MainHandler
 uses `roblox/RadioStation/MainHandler.server.lua` as a **server Script**. Both
 cabins must point VehicleSensorLink at the exact same vehicle sensor Instance.
+
+The updater also installs `JopRadioCameraController` as a LocalScript in
+StarterPlayerScripts. Click a radio housing/display to frame the radio on screen;
+Backspace or Escape exits. See the camera section in `docs/GSM-R.md`.

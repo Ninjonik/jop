@@ -3,6 +3,14 @@ import path from 'path';
 
 const BRIDGE_SCRIPTS = [
   {
+    name: 'JopRadioCameraController',
+    className: 'LocalScript',
+    fileName: 'JopRadioCameraController.client.lua',
+    directory: 'StarterPlayer/StarterPlayerScripts',
+    parentService: 'StarterPlayer',
+    parentPath: ['StarterPlayerScripts'],
+  },
+  {
     name: 'GsmRController',
     className: 'ModuleScript',
     fileName: 'GsmRController.lua',

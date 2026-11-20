@@ -173,3 +173,29 @@ entered on the keypad. `driverCallsign` is optional on old persisted bindings.
 Run `node --env-file=.env.local --import tsx scripts/verify-callsigns.ts` to test
 legacy collisions, stable allocation, concurrent callers and capacity limits.
 It uses a separate temporary Mongo collection and fixture Appwrite profiles.
+
+## Radio camera close-up
+
+Click the main radio housing (`Hull`) or display (`Part`) from within 12 studs
+to enter a local camera close-up. Keypad clicks keep their ordinary radio action.
+The full radio nearly fills the screen width with a small edge margin; narrow
+windows fit the height as well so no keys are clipped. Framing follows the
+moving radio and updates when the viewport changes. Its orientation comes from
+`Part.SurfaceGui.Face`, so that face must match the actual display surface.
+
+**Backspace** or **Escape** restores the previous camera and mouse settings.
+Escape may also open Roblox's standard menu; opening that menu always leaves
+the close-up. Gamepad B and a touch “Späť” button also exit. Moving out of range,
+respawning, radio removal, or replacement of CurrentCamera ends the close-up.
+It never changes the character's position or radio registration.
+
+Refresh the existing bridge bundle to install `JopRadioCameraController`, a
+**LocalScript in StarterPlayer/StarterPlayerScripts**, then publish and join a
+fresh server. No radio model or MainHandler edits are needed for the camera.
+For manual installation use
+`roblox/StarterPlayer/StarterPlayerScripts/JopRadioCameraController.client.lua`.
+
+Run `node --import tsx scripts/verify-radio-camera.ts /path/to/luau` for framing,
+window resizing, moving/rotated radios, keypad exclusion and camera/input
+restoration checks. Physical mesh orientation and actual Roblox input behavior
+still need Studio acceptance.

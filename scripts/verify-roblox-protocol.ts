@@ -124,7 +124,13 @@ async function verify() {
   assert.equal(acknowledged.updates.length, 0);
   assert.equal(await db.collection('roblox_runtime_updates').countDocuments({ sessionId }), 0);
   const bundle = await json(await bridgeScripts(request('bridge-scripts')));
-  assert.equal(bundle.scripts.length, 9);
+  assert.equal(bundle.scripts.length, 10);
+  assert(
+    bundle.scripts.some(
+      (script: { name: string; className: string }) =>
+        script.name === 'JopRadioCameraController' && script.className === 'LocalScript',
+    ),
+  );
   assert(
     bundle.scripts.some(
       (script: { name: string; className: string }) =>
