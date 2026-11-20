@@ -1,3 +1,4 @@
+import type { PhysicalTrainLabels } from '@/lib/station/physical-trains';
 import type { Collection } from 'mongodb';
 
 import type { StationDocument } from '@/lib/station/domain';
@@ -41,6 +42,20 @@ export const stationRepository = {
   async listAll() {
     const collection = await getCollection();
     return collection.find({}).sort({ sessionId: 1, stationId: 1 }).toArray();
+  },
+
+  async setPhysicalTrainLabels(station: StationDocument, labels: PhysicalTrainLabels) {
+    if (JSON.stringify(station.runtime.physicalTrainLabels ?? {}) === JSON.stringify(labels))
+      return;
+    await (
+      await getCollection()
+    ).updateOne(
+      { _id: station._id },
+      {
+        $set: { 'runtime.physicalTrainLabels': labels, updatedAt: new Date().toISOString() },
+        $inc: { revision: 1 },
+      },
+    );
   },
 
   async save(station: StationDocument) {

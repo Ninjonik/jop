@@ -26,7 +26,7 @@ export type GsmRBinding = {
   driverId: string;
   driverCallsign?: string;
   userId: string;
-  timetableId: string;
+  timetableId: string | null;
   trainNumber: string;
   trainType: string;
   functionCode: string;

@@ -20,7 +20,14 @@ export type DriverTrain = DriverTrainInput & {
   userName: string;
   updatedAt: string;
 };
+export type DriverRadioStatus = {
+  connected: boolean;
+  trainNumber: string;
+  trainType: string;
+  stationName: string | null;
+};
 export type DriverDashboard = {
+  radio: DriverRadioStatus | null;
   train: DriverTrain | null;
   timetables: Timetable[];
   drivers: DriverTrain[];

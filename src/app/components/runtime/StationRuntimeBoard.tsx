@@ -108,6 +108,7 @@ export default function StationRuntimeBoard({
   const renderablePieces = getRenderablePieces(station.layout);
   const layout = station.layout;
   const boardViewportRef = useRef<HTMLDivElement>(null);
+  const [showTrainLabels, setShowTrainLabels] = useState(true);
   const [fitWidth, setFitWidth] = useState(true);
   const [viewportWidth, setViewportWidth] = useState(0);
   const [manualTileSize, setManualTileSize] = useState(75);
@@ -511,7 +512,7 @@ export default function StationRuntimeBoard({
       className={`relative flex flex-1 items-start overflow-auto bg-neutral-400 ${fitWidth ? 'justify-center' : 'justify-start'}`}
       onContextMenu={(event) => event.preventDefault()}
     >
-      <div className="pointer-events-auto absolute top-2 left-2 z-10 flex gap-1 rounded border border-neutral-700 bg-white/95 p-1 shadow">
+      <div className="pointer-events-auto absolute top-2 left-2 z-10 flex max-w-[calc(100%_-_1rem)] flex-wrap gap-1 rounded border border-neutral-700 bg-white/95 p-1 shadow">
         <button
           type="button"
           aria-pressed={fitWidth}
@@ -519,6 +520,14 @@ export default function StationRuntimeBoard({
           className="rounded border border-neutral-500 px-2 py-1 text-xs font-medium text-neutral-900 hover:bg-neutral-100"
         >
           <AeroIcon name="zoomReset" /> {t('Fit width')}{' '}
+        </button>
+        <button
+          type="button"
+          className="aero-btn"
+          aria-pressed={showTrainLabels}
+          onClick={() => setShowTrainLabels((visible) => !visible)}
+        >
+          <AeroIcon name="train" /> {t('Označenia vlakov')}
         </button>
         {!fitWidth ? (
           <>
@@ -590,6 +599,9 @@ export default function StationRuntimeBoard({
               }}
             >
               <TileSvg
+                occupationLabel={
+                  showTrainLabels ? station.runtime.physicalTrainLabels?.[pieceId]?.text : undefined
+                }
                 tileKey={piece.type}
                 tile={tile}
                 stateGroups={stateGroups}

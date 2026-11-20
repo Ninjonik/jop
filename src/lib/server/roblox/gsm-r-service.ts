@@ -11,6 +11,8 @@ import { loadTimetables } from '../dis/timetables';
 import { getMongoDb } from '../mongo';
 import { gsmRRepository } from '../repositories/gsm-r-repository';
 import { sessionRepository } from '../repositories/session-repository';
+import { serializeSessionMutation } from '../services/station-service';
+import { refreshPhysicalTrainLabels } from './physical-trains';
 
 async function radioSession(sessionId: string) {
   const session = await sessionRepository.findById(sessionId);
@@ -25,6 +27,9 @@ export async function loadGsmR(sessionId: string) {
   return { vehicles: await gsmRRepository.list(sessionId) };
 }
 export async function commandGsmR(sessionId: string, body: unknown) {
+  return serializeSessionMutation(sessionId, () => applyGsmRCommand(sessionId, body));
+}
+async function applyGsmRCommand(sessionId: string, body: unknown) {
   const command = gsmRCommandSchema.parse(body);
   const interpreter = await radioSession(sessionId);
   if (command.type === 'initialize') {
@@ -35,7 +40,10 @@ export async function commandGsmR(sessionId: string, body: unknown) {
     (item) => item.sensorId === command.sensorId,
   );
   if (!vehicle) throw new DisError(404, 'Snímač vozidla nie je inicializovaný.');
-  if (command.type === 'deregister' && !vehicle.binding) return { vehicle };
+  if (command.type === 'deregister' && !vehicle.binding) {
+    await refreshPhysicalTrainLabels(sessionId);
+    return { vehicle };
+  }
   if (vehicle.binding && vehicle.binding.driverId !== command.actorUserId)
     throw new DisError(403, 'Rádiostanicu používa iný rušňovodič.');
   let binding: GsmRBinding | null = null;
@@ -58,21 +66,16 @@ export async function commandGsmR(sessionId: string, body: unknown) {
       .collection<DriverTrain>('session_driver_trains')
       .findOne({ sessionId, userId: profiles[0].userId });
     const timetables = await loadTimetables(interpreter.placeId);
-    const timetable = timetables.find((train) => train.$id === driverTrain?.timetableId);
-    if (
-      !driverTrain ||
-      !timetable ||
-      timetable.trainNumber !== command.trainNumber ||
-      driverTrain.trainNumber !== command.trainNumber
-    )
-      throw new DisError(400, 'V DIS vyberte v časti Môj vlak rovnaký vlak z GVD tejto relácie.');
+    const timetable = timetables.find((train) => train.trainNumber === command.trainNumber);
+    if (!driverTrain || driverTrain.trainNumber !== command.trainNumber)
+      throw new DisError(400, 'V DIS vyberte v časti Môj vlak rovnaké číslo vlaku tejto relácie.');
     binding = {
       driverId: command.actorUserId,
       driverCallsign: command.driverId,
       userId: profiles[0].userId,
-      timetableId: timetable.$id,
-      trainNumber: timetable.trainNumber,
-      trainType: driverTrain.trainType,
+      timetableId: timetable && driverTrain.timetableId === timetable.$id ? timetable.$id : null,
+      trainNumber: command.trainNumber,
+      trainType: timetable?.trainType ?? 'Pos',
       functionCode: command.functionCode,
     };
     if (
@@ -80,8 +83,10 @@ export async function commandGsmR(sessionId: string, body: unknown) {
       Object.entries(binding).every(
         ([key, value]) => vehicle.binding?.[key as keyof GsmRBinding] === value,
       )
-    )
-      return { vehicle }; // Same registration retried after a lost HTTP reply.
+    ) {
+      await refreshPhysicalTrainLabels(sessionId);
+      return { vehicle };
+    } // Same registration retried after a lost HTTP reply.
     if (vehicle.binding)
       throw new DisError(409, 'Pred zmenou čísla alebo funkcie zrušte registráciu.');
   }
@@ -90,6 +95,7 @@ export async function commandGsmR(sessionId: string, body: unknown) {
   try {
     const saved = await gsmRRepository.setBinding(vehicle, binding);
     if (!saved) throw new DisError(409, 'Stav rádia sa zmenil. Zopakujte operáciu.');
+    await refreshPhysicalTrainLabels(sessionId);
     return { vehicle: saved };
   } catch (error) {
     if (error instanceof MongoServerError && error.code === 11000)

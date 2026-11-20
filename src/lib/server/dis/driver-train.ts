@@ -1,11 +1,15 @@
 import type { UserProfile } from '@/lib/dis/appwrite-client';
 import { driverTrainInputSchema, type DriverTrain } from '@/lib/dis/driver-train';
 import { canAssignShiftRole } from '@/lib/dis/shift-plan';
+import { getStationDisplayName } from '@/lib/station/display-name';
+import { frontmostContact, physicalVehicleContacts } from '@/lib/station/physical-trains';
 import { isPublicStation } from '@/lib/station/visibility';
 import { createHash } from 'node:crypto';
 import { getMongoDb } from '../mongo';
+import { gsmRRepository } from '../repositories/gsm-r-repository';
 import { sessionRepository } from '../repositories/session-repository';
 import { stationRepository } from '../repositories/station-repository';
+import { isRobloxSessionLive } from '../services/station-service';
 import { DisError } from './appwrite';
 import { getDisUniverseId } from './places';
 import { loadTimetables } from './timetables';
@@ -32,12 +36,30 @@ const driverKey = (sessionId: string, userId: string) =>
 export async function loadDriverDashboard(sessionId: string, profile: UserProfile) {
   const session = await drivingSession(sessionId);
   if (session.interpreter.kind !== 'roblox') throw new DisError(400, 'Chýba sieť GVD.');
-  const [trains, timetables, stations] = await Promise.all([
+  const [trains, timetables, stations, radios] = await Promise.all([
     (await collection()).find({ sessionId }).toArray(),
     loadTimetables(session.interpreter.placeId),
     stationRepository.listBySessionId(sessionId),
+    gsmRRepository.list(sessionId),
   ]);
+  const radio = radios.find((radio) => radio.binding?.userId === profile.userId);
+  const contacts = radio ? physicalVehicleContacts(session, radio.sensorId) : [];
+  const front = frontmostContact(contacts);
+  const stationIds = [...new Set(contacts.map((contact) => contact.stationId))];
+  const currentStationId = front?.stationId ?? (stationIds.length === 1 ? stationIds[0] : null);
+  const live = isRobloxSessionLive(session);
   return {
+    radio: radio?.binding
+      ? {
+          connected: live,
+          trainNumber: radio.binding.trainNumber,
+          trainType: radio.binding.trainType,
+          stationName:
+            live && currentStationId && isPublicStation(currentStationId)
+              ? getStationDisplayName(currentStationId)
+              : null,
+        }
+      : null,
     train: trains.find((train) => train.userId === profile.userId) || null,
     timetables,
     drivers: trains,

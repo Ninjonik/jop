@@ -323,16 +323,43 @@ local function sampleSectionOccupied(section)
 	return next(touchingParts) ~= nil, touchingParts
 end
 
+-- Keep the last measured direction through stops; a stationary spawn has no
+-- invented direction. This affects identification only, never interlocking.
+local lastTravelDirections = setmetatable({}, { __mode = "k" })
+local lastSensorPositions = setmetatable({}, { __mode = "k" })
 local function reportSectionOccupiedChange(section, report, occupied)
-	if section.occupied == occupied then
-		return
+	local vehicles = {}
+	for sensor in pairs(section.touchCounts or {}) do
+		local sensorId = sensor:GetAttribute("JOPVehicleSensorId")
+		if type(sensorId) ~= "string" then continue end
+		local velocity = sensor.AssemblyLinearVelocity
+		local previousPosition = lastSensorPositions[sensor]
+		if velocity.Magnitude > 0.2 then
+			lastTravelDirections[sensor] = velocity.Unit
+		elseif previousPosition and (sensor.Position - previousPosition).Magnitude > 0.2 then
+			-- Pivot/CFrame-driven trains may move with zero assembly velocity.
+			lastTravelDirections[sensor] = (sensor.Position - previousPosition).Unit
+		end
+		lastSensorPositions[sensor] = sensor.Position
+		local direction = lastTravelDirections[sensor]
+		local distance
+		if direction then
+			for _, block in ipairs(section.parts) do
+				local value = (sensor.Position - block.Position):Dot(direction)
+				distance = distance and math.min(distance, value) or value
+			end
+		end
+		table.insert(vehicles, { sensorId = sensorId, distanceToFront = distance })
 	end
-
-	section.occupied = occupied
-	report({
-		occupied = occupied,
-		traversalState = section.traversalState,
-	})
+	table.sort(vehicles, function(a, b) return a.sensorId < b.sensorId end)
+	local signature = tostring(occupied)
+	for _, vehicle in ipairs(vehicles) do
+		-- Quantize the read model to avoid flooding HTTP for tiny physics jitter.
+		signature ..= ":" .. vehicle.sensorId .. ":" .. (vehicle.distanceToFront and tostring(math.floor(vehicle.distanceToFront * 2)) or "unknown")
+	end
+	if section.occupationSignature == signature then return end
+	section.occupationSignature, section.occupied = signature, occupied
+	report({ occupied = occupied, traversalState = section.traversalState, vehicles = vehicles })
 end
 
 local function refreshSectionFromTouchState(section, report)
@@ -784,6 +811,7 @@ function HardwareDriver.ObserveOccupation(instance, report, capabilities)
 
 	for _, section in ipairs(sections) do
 		section.touchCounts = {}
+		section.occupationSignature = nil
 		section.occupied = false
 		section.clearGeneration = 0
 

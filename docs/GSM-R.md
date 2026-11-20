@@ -1,9 +1,10 @@
 # GSM-R registration in Roblox
 
-This slice links a physical vehicle sensor, every radio in its cabins, a Roblox
-player, their DIS driver selection, and an explicit GVD timetable. It does not
-change occupation reporting, train movement, station labels, radio calls,
-RadioStop, simplex operation, or web voice calls.
+GSM-R links a physical vehicle sensor, every radio in its cabins, a Roblox
+player, and their DIS driver selection. GVD supplies the category when the
+number exists; otherwise the category is Pos. Registration now supplies driver
+connection/position status and dispatcher train labels. It does not change
+train movement, radio calls, RadioStop, simplex operation, or web voice calls.
 
 ## Install in Studio
 
@@ -39,10 +40,12 @@ Check that the existing status label has enough room for error text in Studio.
 ## Operation
 
 Before using the radio, log in to DIS through the linked Roblox account. The
-profile must be eligible as a driver. In **Môj vlak**, select a saved GVD train
-for the same live Roblox session/place. A custom number without a timetable ID
-cannot register. Operating category is taken from that selection, separately
-from the locomotive function code.
+profile must be eligible as a driver. In **Môj vlak**, select a train
+for the same live Roblox session/place. A custom number may register when it matches the selected train. Category is
+looked up by number in that place’s GVD, with Pos when no timetable exists; it
+is independent of the locomotive function code and overrides the dashboard’s
+manually selected category for radio identification. A custom selection is not
+silently attached to a timetable ID by number alone.
 
 - **Power**: switch the shared unit on. A three-second startup screen is a game
   adaptation; the real unit's startup is longer.
@@ -51,9 +54,9 @@ from the locomotive function code.
   The number-entry screen shows `VOLACÍ ZNAK RUŠŇOVODIČA` and a large input value during this step. The server
   matches that callsign to the player’s linked Roblox profile; another person’s
   callsign is rejected.
-- Enter the exact GVD train number, then **StarEnter**. Use **Zero** for 0 and
+- Enter the exact selected train number, then **StarEnter**. Use **Zero** for 0 and
   **Delete** to erase the last digit. Train numbers support one to six digits;
-  leading zeroes are significant and must match the saved GVD.
+  leading zeroes are significant and must match the selected train.
 - Select **F1–F5** (or **1–5**) in the locomotive-selection screen: first locomotive,
   second locomotive, banking locomotive, shunting onto the train, shunting away
   from the train. These map to functional codes **01–05**.
@@ -112,8 +115,9 @@ Roblox uses the physical sensor Instance as its local grouping key and assigns
 one session-local UUID. The read-only `JOPVehicleSensorId` attribute on each
 radio identifies the corresponding backend record. Confirmed bindings project
 onto sensor attributes `JOPGsmRTrainNumber`, `JOPGsmRDriverId`,
-`JOPGsmRTimetableId`, and `JOPGsmRFunctionCode`. These attributes are not yet
-consumed by station control or occupation events. Runtime script hot-reloading
+`JOPGsmRTimetableId`, and `JOPGsmRFunctionCode`. Occupation observers report the stable sensor UUID, and the backend joins it
+to the confirmed registration. Registration attributes themselves do not own
+occupation decisions. Runtime script hot-reloading
 is not a persistence mechanism: restart the Roblox server after script updates.
 
 ## References and deliberate adaptations
@@ -149,8 +153,9 @@ Studio acceptance: test two cabins referencing one sensor, another vehicle,
 a driver with a GVD selection, a second player, incorrect callsign/number, a train
 number containing zero, all five functions, successful deregistration, a
 backend outage during registration, player departure, and vehicle deletion.
-Both cabins must agree at every intermediate step, and an occupied station
-sensor must still render exactly as before, without a new train label.
+Both cabins must agree at every intermediate step. A registered train should
+now show its label on the frontmost eligible occupied straight indicator; the
+occupation colors and interlocking behavior must remain unchanged.
 
 ## Unique personnel callsigns
 
@@ -211,3 +216,50 @@ transparent backgrounds rather than baked-in white selection blocks. Number
 entry has explicit callsign/train-number prompts, a large value with an
 underscore cursor, and confirmation/deletion instructions. Both cabins receive
 the same prompt and input value.
+
+## DIS connection, position and occupation labels
+
+Môj vlak polls the confirmed registration and physical sensor contacts. It shows
+GSM-R connection status, the radio’s category/number, and the current station’s
+human-readable name. A registration on a server with an expired heartbeat is
+shown disconnected. Unknown position is stated explicitly, rather than using
+the selected destination or revealing the internal helper station.
+
+The hardware observer reports every touching vehicle sensor UUID even when
+the section remains occupied as one vehicle replaces another. It measures
+travel direction from assembly velocity, falling back to sensor displacement
+for CFrame-driven trains. The last direction survives stops. The backend
+chooses the frontmost eligible currently occupied standard single-cell
+indicator per registered vehicle; switches and diagonals do not carry labels.
+If a stationary spawn spans multiple indicators with no measured direction,
+no label is guessed until direction becomes known. Multiple registrations on
+one indicator are joined with commas; identical category/number text is
+deduplicated.
+
+`PhysicalOccupation.vehicles` is optional for legacy documents. New contact
+telemetry is persisted in the session before `runtime.physicalTrainLabels` is
+projected into station documents. Mongo change streams publish the resulting
+full station snapshots. Identity-only reports do not replay occupation
+transitions, route progress or lineblock releases. The runtime client only
+displays the saved label and offers **Označenia vlakov** to toggle it locally.
+Text is white, centered on the existing inner occupation rectangle, and uses
+the shared orientation handling. No tile artwork or signaling geometry changes.
+
+Refresh **JopBridge (Main.server.lua)**, **HardwareDriver**, and
+**GsmRController** through the bridge updater, publish, join a fresh server and
+register again. Old bridges still report safe occupied/clear states, but cannot
+identify a train. Dashboard updates use the existing 15-second polling; sensor
+identity reconciliation runs every second.
+
+Verification:
+
+```sh
+node --env-file=.env.local --import tsx scripts/verify-physical-trains.ts
+node --import tsx scripts/verify-physical-sensors.ts /path/to/luau
+```
+
+The HTTP/Mongo test covers leading sections, reversal, standard-tile filtering,
+shared sensors, GVD/Pos category resolution, cross-station position, stale
+heartbeats and deregistration. The Luau test executes the actual hardware
+observer, including late radio initialization and occupants changing while the
+section remains occupied. Both use isolated fixtures and preserve live state.

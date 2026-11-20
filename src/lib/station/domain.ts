@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { PhysicalTrainLabels, PhysicalVehicleContact } from './physical-trains';
 
 import { stateGroups, tiles } from '@/app/data/tiles';
 
@@ -40,6 +41,7 @@ export type SessionDocument = {
 };
 
 export type PhysicalOccupation = {
+  vehicles?: PhysicalVehicleContact[];
   stationId: string;
   pieceId: string;
   traversalState: string | null;
@@ -279,6 +281,7 @@ export type StationDocument = {
     connections: Record<string, string>;
   };
   runtime: {
+    physicalTrainLabels?: PhysicalTrainLabels;
     pendingActions: Record<string, PendingAction>;
     lineblockPremainLinks: Record<string, LineblockPremainLink>;
     premainSignalStates: Record<string, PremainRuntimeState>;
@@ -515,6 +518,16 @@ export const stationLayoutSchema = z.object({
   connections: z.record(z.string(), z.string()),
 });
 
+const physicalVehicleContactsSchema = z
+  .array(
+    z.object({
+      sensorId: z.string().uuid(),
+      distanceToFront: z.number().finite().nullable().default(null),
+    }),
+  )
+  .max(100)
+  .optional();
+
 export const stationDocumentSchema = z.object({
   _id: z.string(),
   sessionId: sessionIdSchema,
@@ -522,6 +535,7 @@ export const stationDocumentSchema = z.object({
   revision: z.number().int().nonnegative(),
   layout: stationLayoutSchema,
   runtime: z.object({
+    physicalTrainLabels: z.record(z.string(), z.object({ text: z.string() })).default({}),
     pendingActions: z.record(z.string(), pendingActionSchema),
     lineblockPremainLinks: z.record(
       z.string(),
@@ -723,6 +737,7 @@ export const sessionDocumentSchema = z.object({
           pieceId: z.string().trim().min(1),
           traversalState: z.string().trim().min(1).nullable(),
           occupied: z.boolean(),
+          vehicles: physicalVehicleContactsSchema,
           eventId: z.string().trim().min(1),
           observedAt: z.string(),
         }),
@@ -827,6 +842,7 @@ export const robloxUpdateCursorSchema = z.object({
 });
 
 export const robloxOccupationEventSchema = z.object({
+  vehicles: physicalVehicleContactsSchema,
   eventId: z.string().trim().min(1).max(128),
   stationId: stationIdSchema,
   pieceId: z.string().trim().min(1).max(128),

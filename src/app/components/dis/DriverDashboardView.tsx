@@ -39,7 +39,7 @@ export function DriverDashboardView({
     refresh,
   } = useDisResource<DriverDashboard>(
     `/api/dis/driver-train?${new URLSearchParams({ sessionId })}`,
-    { train: null, timetables: [], drivers: [], stations: [] },
+    { radio: null, train: null, timetables: [], drivers: [], stations: [] },
   );
   const [saved, setSaved] = useState<DriverTrain | null | undefined>();
   const train = saved === undefined ? value.train : saved;
@@ -129,6 +129,31 @@ export function DriverDashboardView({
           {t(error) || t(loadError)}
         </p>
       )}
+      <div
+        className="flex flex-wrap items-center gap-3 border border-[var(--aero-panel-border)] bg-[var(--grid-row-alt)] p-2 text-[var(--aero-text)]"
+        role="status"
+      >
+        <AeroIcon name="train" />
+        <strong>
+          {loadError
+            ? t('Stav GSM-R nie je dostupný')
+            : loading
+              ? t('Overujem spojenie GSM-R…')
+              : value.radio?.connected
+                ? t('GSM-R pripojené')
+                : t('GSM-R nepripojené')}
+        </strong>
+        {!loadError && value.radio?.connected && (
+          <>
+            <span>
+              {value.radio.trainType} {value.radio.trainNumber}
+            </span>
+            <span>
+              {t('Aktuálna stanica:')} {value.radio.stationName ?? t('Poloha zatiaľ nezistená')}
+            </span>
+          </>
+        )}
+      </div>
       {loading && <p>{t('Načítavam GVD…')}</p>}
       {draft && (
         <form onSubmit={save}>

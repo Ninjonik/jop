@@ -11,6 +11,7 @@ import type {
 import { resolveComponentStyles } from './tile-rendering';
 
 interface TileSvgProps {
+  occupationLabel?: string;
   tileKey: string;
   tile: TileData;
   stateGroups: StateGroupRegistry;
@@ -135,7 +136,35 @@ function renderSvgTextLines(container: HTMLElement) {
   });
 }
 
+function renderOccupationLabel(container: HTMLElement, label: string | undefined) {
+  if (!label) return;
+  const svg = container.querySelector('svg');
+  const sensor = svg?.querySelector<SVGRectElement>(
+    'rect[fill*="--occupation-color"]:not([transform])',
+  );
+  if (!svg || !sensor) return;
+  const bounds = sensor.getBBox();
+  const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+  text.dataset.trainLabel = 'true';
+  text.textContent = label;
+  text.setAttribute('fill', '#ffffff');
+  text.setAttribute('font-family', 'Arial, sans-serif');
+  text.setAttribute('font-size', '7');
+  text.setAttribute('font-weight', '600');
+  text.setAttribute('text-anchor', 'middle');
+  text.setAttribute('dominant-baseline', 'central');
+  text.setAttribute('pointer-events', 'none');
+  text.setAttribute('x', String(bounds.x + bounds.width / 2));
+  text.setAttribute('y', String(bounds.y + bounds.height / 2));
+  if (label.length * 4.5 > bounds.width - 4) {
+    text.setAttribute('textLength', String(bounds.width - 4));
+    text.setAttribute('lengthAdjust', 'spacingAndGlyphs');
+  }
+  svg.append(text);
+}
+
 export default function TileSvg({
+  occupationLabel,
   tileKey,
   tile,
   stateGroups,
@@ -168,7 +197,7 @@ export default function TileSvg({
         ...value
           .split(/\s+/)
           .filter(Boolean)
-          .map((cls) => (cls.startsWith('!') ? cls : `!${cls}`))
+          .map((cls) => (cls.startsWith('!') ? cls : `!${cls}`)),
       );
       return;
     }
@@ -187,18 +216,18 @@ export default function TileSvg({
 
   useLayoutEffect(() => {
     if (tileContentRef.current) {
+      tileContentRef.current
+        .querySelectorAll('[data-train-label]')
+        .forEach((element) => element.remove());
       renderSvgTextLines(tileContentRef.current);
+      renderOccupationLabel(tileContentRef.current, occupationLabel);
     }
   });
 
   return (
     <span ref={tileContentRef} className="contents">
       <TileComponent
-        className={[
-          getOrientationClassName(orientation),
-          className,
-          ...stateClasses,
-        ]
+        className={[getOrientationClassName(orientation), className, ...stateClasses]
           .filter(Boolean)
           .join(' ')}
         style={{
@@ -208,10 +237,13 @@ export default function TileSvg({
           transform: getOrientationTransform(orientation),
           transformOrigin: 'center',
         }}
-        {...Object.keys(texts).reduce((acc, textKey) => {
-          acc[textKey] = normalizeTextValue(textValues?.[textKey] ?? texts[textKey].text);
-          return acc;
-        }, {} as Record<string, string>)}
+        {...Object.keys(texts).reduce(
+          (acc, textKey) => {
+            acc[textKey] = normalizeTextValue(textValues?.[textKey] ?? texts[textKey].text);
+            return acc;
+          },
+          {} as Record<string, string>,
+        )}
         data-tile-key={tileKey}
       />
     </span>

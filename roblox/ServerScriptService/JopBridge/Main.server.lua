@@ -231,6 +231,7 @@ registry = InstanceRegistry.new(
 			pieceId = link.pieceId,
 			traversalState = report.traversalState,
 			occupied = report.occupied,
+			vehicles = report.vehicles,
 			observedAt = DateTime.now():ToIsoDate(),
 		}
 		queueUniqueReport(

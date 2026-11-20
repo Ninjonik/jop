@@ -232,3 +232,8 @@ cabins must point VehicleSensorLink at the exact same vehicle sensor Instance.
 The updater also installs `JopRadioCameraController` as a LocalScript in
 StarterPlayerScripts. Click a radio housing/display to frame the radio on screen;
 Backspace or Escape exits. See the camera section in `docs/GSM-R.md`.
+
+Occupation reports now include stable UUIDs assigned to vehicle sensors by the
+GSM-R controller. Refresh JopBridge, HardwareDriver and GsmRController together
+for DIS train identification. Sensors still report occupied/clear without a
+radio; only registered sensors produce train labels and driver positions.

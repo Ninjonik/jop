@@ -267,6 +267,7 @@ function Controller.Attach(radio)
 		vehicle = { sensor = sensor, sensorId = HttpService:GenerateGUID(false), radios = {},
 			powered = false, screen = "main", entry = "", trainNumber = "", driverId = "",
 			functionCode = "01", message = "", prefix = false, busy = false }
+		sensor:SetAttribute("JOPVehicleSensorId", vehicle.sensorId)
 		vehicles[sensor] = vehicle
 		sensor.Destroying:Connect(function() vehicle.releaseRequested = true end)
 	end

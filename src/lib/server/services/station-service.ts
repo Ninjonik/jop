@@ -1,4 +1,6 @@
+import type { PhysicalVehicleContact } from '@/lib/station/physical-trains';
 import { randomUUID } from 'crypto';
+import { loadPhysicalTrainLabels, refreshPhysicalTrainLabels } from '../roblox/physical-trains';
 
 import { stateGroups, tiles } from '@/app/data/tiles';
 import type {
@@ -217,7 +219,7 @@ function bumpRevision(station: StationDocument) {
 // snapshot over a just-completed inter-station lineblock action.
 const sessionMutationTails = new Map<string, Promise<void>>();
 
-async function serializeSessionMutation<T>(sessionId: string, mutation: () => Promise<T>) {
+export async function serializeSessionMutation<T>(sessionId: string, mutation: () => Promise<T>) {
   const previous = sessionMutationTails.get(sessionId) ?? Promise.resolve();
   let release!: () => void;
   const current = new Promise<void>((resolve) => {
@@ -459,6 +461,8 @@ function getActiveLevelCrossingPieceIds(station: StationDocument, session: Sessi
 }
 
 async function saveStation(station: StationDocument, options?: { skipRuntimeNotify?: boolean }) {
+  const labels = await loadPhysicalTrainLabels(station.sessionId);
+  station.runtime.physicalTrainLabels = labels[station.stationId] ?? {};
   await stationRepository.save(station);
   if (!options?.skipRuntimeNotify) {
     void notifyRuntimeInterpreter(station.sessionId, () =>
@@ -1394,7 +1398,7 @@ function ensureSessionRuntimeState(session: SessionDocument) {
   return session;
 }
 
-function isRobloxSessionLive(session: SessionDocument, now = Date.now()) {
+export function isRobloxSessionLive(session: SessionDocument, now = Date.now()) {
   if (session.interpreter.kind !== 'roblox') {
     return false;
   }
@@ -3877,6 +3881,7 @@ export const stationService = {
       pieceId: string;
       traversalState?: string | null;
       occupied: boolean;
+      vehicles?: PhysicalVehicleContact[];
       observedAt: string;
     },
   ) {
@@ -3931,9 +3936,22 @@ export const stationService = {
         pieceId: input.pieceId,
         traversalState,
         occupied: input.occupied,
+        vehicles: input.occupied ? input.vehicles : [],
         eventId: input.eventId,
         observedAt: input.observedAt,
       };
+      if (current?.occupied === input.occupied) {
+        // Identity/direction telemetry is not a new axle-counter transition.
+        // Persist the read model without replaying route or lineblock events.
+        session.updatedAt = nowIso();
+        await sessionRepository.save(session);
+        await refreshPhysicalTrainLabels(sessionId);
+        return {
+          applied: true,
+          station:
+            (await stationRepository.findBySessionAndStationId(sessionId, stationId)) ?? station,
+        };
+      }
       getActiveLevelCrossingPieceIds(station, session);
       session.updatedAt = nowIso();
 
@@ -3980,6 +3998,7 @@ export const stationService = {
       bumpRevision(station);
       await sessionRepository.save(session);
       await saveStation(station);
+      await refreshPhysicalTrainLabels(sessionId);
       return { applied: true, station };
     });
   },

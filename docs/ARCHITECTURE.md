@@ -858,3 +858,15 @@ session automatically, hides the place/session ribbon and manual refresh, and
 keeps background polling. Historical sessions are excluded from automatic
 selection. Set the flag to false to restore the existing selectors and refresh
 controls without changing the underlying multi-place/session APIs.
+
+GSM-R train identification now extends physical occupation reports with an
+optional list of vehicle sensor UUIDs and measured position along travel.
+Identity-only updates never replay axle-counter transitions or route progress.
+`src/lib/station/physical-trains.ts` owns frontmost-section selection; station
+documents persist `runtime.physicalTrainLabels`, with legacy normalization.
+The station change stream distributes labels in whole snapshots. Runtime
+clients render white centered text only on standard single-cell occupation
+indicators and may hide it locally. Driver dashboards join the same contacts
+to the confirmed radio registration and display the current station. GVD is
+the category authority; numbers absent from GVD receive Pos. Custom selections
+remain without a timetable identity unless one was explicitly selected.
