@@ -120,12 +120,12 @@ local function scenario(options)
   end
   function apiMock:ReportOccupationBatch(_, batch) report(batch) end
   function apiMock:ReportSwitchFeedbackBatch(_, batch) report(batch) end
-  local modules = { Config = config, ApiClient = { new = function() return apiMock end }, HardwareDriver = {},
+  local modules = { GsmRController = { Start = function() end }, Config = config, ApiClient = { new = function() return apiMock end }, HardwareDriver = {},
     InstanceRegistry = { new = function(_, _, occupation, feedback) callbacks.occupation = occupation; callbacks.feedback = feedback; return registry end } }
   local services = { HttpService = { GenerateGUID = function() event += 1; return tostring(event) end },
     MessagingService = { SubscribeAsync = function() error("subscription unavailable") end } }
   load(mainSource, { game = { JobId = "job", PlaceId = 456, GameId = 123, GetService = function(_, name) return services[name] end },
-    script = { Config = "Config", ApiClient = "ApiClient", HardwareDriver = "HardwareDriver", InstanceRegistry = "InstanceRegistry" },
+    script = { GsmRController = "GsmRController", Config = "Config", ApiClient = "ApiClient", HardwareDriver = "HardwareDriver", InstanceRegistry = "InstanceRegistry" },
     require = function(name) return modules[name] end, task = taskMock,
     DateTime = { now = function() return { ToIsoDate = function() return "2026-11-07T00:00:00Z" end } end },
     print = function(message) table.insert(logs, message) end, warn = function(message) table.insert(logs, message) end })

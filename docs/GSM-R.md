@@ -1,0 +1,151 @@
+# GSM-R registration in Roblox
+
+This slice links a physical vehicle sensor, every radio in its cabins, a Roblox
+player, their DIS driver selection, and an explicit GVD timetable. It does not
+change occupation reporting, train movement, station labels, radio calls,
+RadioStop, simplex operation, or web voice calls.
+
+## Install in Studio
+
+1. Deploy the backend and refresh `JopBridge` with the existing command-bar
+   updater in `roblox/README.md`. The protected bridge-scripts API now includes
+   `GsmRController`, a **ModuleScript under JopBridge**. Keep your existing Config.
+2. In each RadioStation, replace `MainHandler` with
+   `roblox/RadioStation/MainHandler.server.lua`. Use a **Script with RunContext =
+   Server**, enabled. Do not use a LocalScript. The bridge also discovers radios
+   centrally; Attach is idempotent, and requiring the same controller module
+   shares the state between all MainHandlers.
+3. Each RadioStation's `VehicleSensorLink` must be an **ObjectValue** whose Value
+   points directly to the vehicle's single **BasePart** sensor. Its name must
+   contain `VehicleSensor`, matching the existing occupation bridge contract.
+   Both cabins must reference the **same Instance**, not two sensor copies with
+   the same name. Separate vehicles reference separate sensors.
+4. Keep `Buttons`, `Part.SurfaceGui`, and the supplied frame/label names intact.
+   `Zero` and `StarEnter` are supported. `Enter` is also accepted as confirmation.
+   The controller creates missing ClickDetectors and uses a 12-stud activation
+   range. It does not use the old `One.SmartTagSettings.RemoteEvent`.
+   Disable any other script that handles these same radio button presses.
+5. Publish and restart the Roblox servers. Existing published servers do not
+   load changes from the repository automatically. Build cloned radios fully
+   before parenting them into Workspace. Initially empty sensor ObjectValues
+   are watched; changing an already attached sensor link disables that radio
+   until repaired/restarted, rather than transferring a registration silently.
+
+`SmallGrayButton` is intentionally unassigned: its physical purpose has not been
+specified. No GUI assets need editing. Existing labels are reused for prompts,
+errors, pending state, train number, function code, and the registration marker.
+Check that the existing status label has enough room for error text in Studio.
+
+## Operation
+
+Before using the radio, log in to DIS through the linked Roblox account. The
+profile must be eligible as a driver. In **Môj vlak**, select a saved GVD train
+for the same live Roblox session/place. A custom number without a timetable ID
+cannot register. Operating category is taken from that selection, separately
+from the locomotive function code.
+
+- **Power**: switch the shared unit on. A three-second startup screen is a game
+  adaptation; the real unit's startup is longer.
+- **F3**: begin registration. Enter your Roblox user ID, then **StarEnter**.
+  The number-entry screen shows `ID RUŠŇ.` during this step. The driver ID must
+  match the player who confirms it; entering another player's ID is rejected.
+- Enter the exact GVD train number, then **StarEnter**. Use **Zero** for 0 and
+  **Delete** to erase the last digit. Train numbers support one to six digits;
+  leading zeroes are significant and must match the saved GVD.
+- Select **F1–F5** (or **1–5**) in the locomotive-selection screen: first locomotive,
+  second locomotive, banking locomotive, shunting onto the train, shunting away
+  from the train. These map to functional codes **01–05**.
+- Press **StarEnter** again on the main screen to send registration to JOP.
+  `R`, `REGISTROVANÝ`, and the registered train appear only after confirmation.
+- **F4**: deregister. Wait for server confirmation before changing identity or
+  powering off. There is no forced takeover of somebody else's registration.
+- **F → F8**: select locomotive function; **F → F9**: reopen identification/number
+  entry. These actions require deregistration if already registered.
+- **End**: leave an entry screen without changing confirmed registration.
+
+The first operator holds the shared keypad while entering data (60 seconds,
+renewed on each accepted press). A registered radio can only be operated by its
+driver. Both cabins show the same drafts, screen, prompts and confirmed values;
+the same player can move between them. Server checks player identity, proximity,
+and button rate. No client-provided RemoteEvent can supply a trusted identity.
+
+A lost HTTP reply triggers reconciliation. Until JOP confirms the outcome,
+registration, deregistration and power-off cannot replace the unknown state.
+The ten-second repair poll retries discovery and reconciles registrations.
+Leaving the server, destroying the sensor, or removing all attached radios
+queues deregistration, retried when JOP becomes reachable. Closing the entire
+Roblox server leaves historical records scoped to its old JobId; these records
+do not reserve numbers in a new server/session.
+
+## Backend contract and ownership
+
+`GET /api/roblox/sessions/[sessionId]/gsm-r` returns `{ vehicles }`.
+`POST` accepts the discriminated commands in `src/lib/roblox/gsm-r.ts`:
+
+- `initialize`: a batch of session-local sensor UUIDs; upserts empty vehicles and
+  never overwrites an existing registration.
+- `register`: sensor UUID, server-observed actor UserId, entered driver ID, train
+  number, function code, and expected revision.
+- `deregister`: sensor UUID, server-observed actor UserId, and expected revision.
+
+All calls require the existing Roblox inbound bearer secret. The Roblox server
+is the trusted identity boundary; it derives actorUserId from ClickDetector's
+Player rather than accepting it from the client. These are server-to-server
+endpoints, not browser/player login endpoints.
+
+Mongo collection `gsm_r_vehicles` is authoritative for confirmed registration.
+Each sensor has one document; radios do not have independent registration
+records. Its nullable binding stores the explicit timetable ID, number,
+operating category, DIS user ID, Roblox driver ID and function code. Unique
+partial indexes prevent concurrent claims of the same train/function or driver
+within a session. Revision compare-and-set prevents stale commands from
+undoing newer state. Retrying the same operation is idempotent.
+
+The binding captures the driver selection at registration time. Editing Môj
+vlak later does not silently retarget an already registered sensor: deregister
+and register the new train explicitly. This does not create a mock runtime train
+or make the web driver selection the owner of physical occupation.
+
+Roblox uses the physical sensor Instance as its local grouping key and assigns
+one session-local UUID. The read-only `JOPVehicleSensorId` attribute on each
+radio identifies the corresponding backend record. Confirmed bindings project
+onto sensor attributes `JOPGsmRTrainNumber`, `JOPGsmRDriverId`,
+`JOPGsmRTimetableId`, and `JOPGsmRFunctionCode`. These attributes are not yet
+consumed by station control or occupation events. Runtime script hot-reloading
+is not a persistence mechanism: restart the Roblox server after script updates.
+
+## References and deliberate adaptations
+
+The [T-CZ VO67 GSM-R manual, Polish chapter C](https://www.zzm-czechowice.pl/wp-content/uploads/2016/01/System-GSM-R.pdf),
+pages C4 and C6, documents train-number/function-code entry, F3 registration,
+F4 deregistration, and the registration indicator. The
+[Czech VO67 guide in ORLEN PRP 69](https://www.orlenunipetroldoprava.cz/CS/o-nas/Documents/PRP%2069_UNIDO_V1Z0_FINAL_II.pdf)
+also covers the device. Consult the original manuals for real railway use.
+
+The Roblox driver-ID screen, DIS/GVD validation, shared mirrored input, short
+startup, final confirmation, and no-takeover policy are application adaptations.
+Only registration is implemented; unavailable functions report that explicitly.
+
+## Verification
+
+```sh
+node --env-file=.env.local --import tsx scripts/verify-gsm-r.ts
+node --import tsx scripts/verify-gsm-r-radio.ts /path/to/luau
+node --import tsx scripts/verify-roblox-bridge.ts /path/to/luau
+```
+
+The first runs real HTTP handlers and Mongo persistence against isolated test
+sessions; external Appwrite reads use fixtures. It checks validation, identity,
+revision protection, retries, duplicate claims, function codes and confirmed
+snapshots, and removes its Mongo fixtures afterward. The second executes the
+actual controller with two cabin models and service doubles, including lost
+replies, synchronization, driver ownership and disconnect cleanup. The third
+regresses the existing bridge. These tests do not verify physical rendering or
+actual ClickDetector placement in Studio.
+
+Studio acceptance: test two cabins referencing one sensor, another vehicle,
+a driver with a GVD selection, a second player, incorrect ID/number, a train
+number containing zero, all five functions, successful deregistration, a
+backend outage during registration, player departure, and vehicle deletion.
+Both cabins must agree at every intermediate step, and an occupied station
+sensor must still render exactly as before, without a new train label.

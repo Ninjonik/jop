@@ -221,3 +221,10 @@ Only `HardwareDriver.lua` remains intentionally provisional. When the final
 Roblox model hierarchy is defined, keep the bridge protocol and these link
 shapes stable, and replace the attribute-based plumbing with concrete model
 wiring.
+
+## GSM-R radios
+
+See [GSM-R setup and controls](../docs/GSM-R.md). Refreshing the bridge installs
+`GsmRController` as another child ModuleScript. Each RadioStation's MainHandler
+uses `roblox/RadioStation/MainHandler.server.lua` as a **server Script**. Both
+cabins must point VehicleSensorLink at the exact same vehicle sensor Instance.

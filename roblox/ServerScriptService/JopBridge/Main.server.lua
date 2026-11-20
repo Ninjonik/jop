@@ -23,6 +23,9 @@ local registry
 local bridgeDisabled = false
 local isRegistered = false
 local currentUpdateCursor = 0
+require(script.GsmRController).Start(api, sessionId, function()
+	return isRegistered and not bridgeDisabled
+end)
 local occupationFlushScheduled = false
 local switchFeedbackFlushScheduled = false
 local occupationFlushInProgress = false

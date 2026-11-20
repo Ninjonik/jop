@@ -3,6 +3,14 @@ import path from 'path';
 
 const BRIDGE_SCRIPTS = [
   {
+    name: 'GsmRController',
+    className: 'ModuleScript',
+    fileName: 'GsmRController.lua',
+    directory: 'ServerScriptService/JopBridge',
+    parentService: 'ServerScriptService',
+    parentPath: ['JopBridge'],
+  },
+  {
     name: 'JopBridge',
     className: 'Script',
     fileName: 'Main.server.lua',

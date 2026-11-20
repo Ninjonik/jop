@@ -830,3 +830,17 @@ and is restored if the processor stops producing sound. Microphone and incoming
 track meters do not publish or play additional audio. Set `LIVEKIT_URL`, `LIVEKIT_API_KEY` and
 `LIVEKIT_API_SECRET` on the custom server. The browser-facing URL must support
 secure WebSockets when the application uses HTTPS.
+
+## 24. Roblox GSM-R registration
+
+`gsm_r_vehicles` stores one revisioned registration per session/physical vehicle
+sensor. `GsmRController` groups all Roblox radios by VehicleSensorLink's exact
+Instance and mirrors their complete input/display state. Only confirmed HTTP
+responses update registration. The GSM-R API validates the server-observed
+Roblox driver against a linked DIS profile and matching selected GVD timetable;
+its binding captures explicit timetable identity and operating category.
+Mongo unique partial indexes arbitrate train/function and driver ownership, and
+compare-and-set revisions protect against stale commands. This registry is
+separate from mock movement and station physical occupation. Its sensor
+attributes are not yet consumed by station display. See `docs/GSM-R.md` for
+installation, controls, lifecycle, adaptations and verification.
