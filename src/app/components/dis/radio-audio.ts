@@ -1,9 +1,26 @@
+import { getBrowserSettings } from '@/lib/dis/browser-settings';
 import type { RemoteTrack } from 'livekit-client';
 
 /** Keep LiveKit playback as a fallback until the radio graph produces audio. */
-export function attachRadioAudio(track: RemoteTrack, container: HTMLElement) {
+export function attachRadioAudio(
+  track: RemoteTrack,
+  container: HTMLElement,
+  options: { radio?: boolean; volume?: () => number } = {},
+) {
   const element = track.attach();
   container.appendChild(element);
+  const updateOutput = () => {
+    const settings = getBrowserSettings();
+    element.volume = settings.volume * (options.volume?.() ?? 1);
+    if ('setSinkId' in element)
+      void element.setSinkId(settings.speaker).catch(() => {
+        container.dispatchEvent(new CustomEvent('audio-device-error', { bubbles: true }));
+      });
+    else if (settings.speaker)
+      container.dispatchEvent(new CustomEvent('audio-device-error', { bubbles: true }));
+  };
+  updateOutput();
+  globalThis.window?.addEventListener('dis-audio-settings', updateOutput);
   let context: AudioContext | undefined;
   let timer: ReturnType<typeof setInterval> | undefined;
   let closed = false;
@@ -11,6 +28,10 @@ export function attachRadioAudio(track: RemoteTrack, container: HTMLElement) {
   let silentSamples = 0;
   try {
     context = new AudioContext();
+    // Route processed audio through the same element so speaker selection applies
+    // equally to filtered playback and its original-track fallback.
+    const destination = context.createMediaStreamDestination();
+    const originalStream = element.srcObject;
     const audioContext = context;
     const source = context.createMediaStreamSource(new MediaStream([track.mediaStreamTrack]));
     const inputMeter = context.createAnalyser();
@@ -47,18 +68,23 @@ export function attachRadioAudio(track: RemoteTrack, container: HTMLElement) {
       .connect(saturation)
       .connect(outputMeter)
       .connect(gain)
-      .connect(context.destination);
+      .connect(destination);
     const inputSamples = new Float32Array(inputMeter.fftSize);
     const outputSamples = new Float32Array(outputMeter.fftSize);
     const hasSignal = (samples: Float32Array) => samples.some((sample) => Math.abs(sample) > 0.002);
     const restoreOriginal = () => {
       gain.gain.value = 0;
+      element.srcObject = originalStream;
       element.muted = false;
       processing = false;
       void element.play().catch(() => {});
     };
     timer = setInterval(() => {
       if (closed) return;
+      if (options.radio === false || !getBrowserSettings().radioSimulation) {
+        if (processing) restoreOriginal();
+        return;
+      }
       if (audioContext.state !== 'running') {
         if (processing) restoreOriginal();
         return;
@@ -68,7 +94,8 @@ export function attachRadioAudio(track: RemoteTrack, container: HTMLElement) {
       const inputActive = hasSignal(inputSamples);
       const outputActive = hasSignal(outputSamples);
       if (!processing && outputActive) {
-        element.muted = true;
+        element.srcObject = destination.stream;
+        void element.play().catch(() => {});
         gain.gain.value = 1;
         processing = true;
         silentSamples = 0;
@@ -86,6 +113,7 @@ export function attachRadioAudio(track: RemoteTrack, container: HTMLElement) {
   }
   return () => {
     closed = true;
+    globalThis.window?.removeEventListener('dis-audio-settings', updateOutput);
     if (timer) clearInterval(timer);
     track.detach(element);
     element.remove();

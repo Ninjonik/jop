@@ -1,4 +1,5 @@
 'use client';
+import { useBrowserSettings } from '@/lib/dis/browser-settings';
 import { useTranslation } from '@/lib/i18n/client';
 
 import { AeroIcon } from '@/app/components/ui/AeroIcon';
@@ -108,7 +109,7 @@ export default function StationRuntimeBoard({
   const renderablePieces = getRenderablePieces(station.layout);
   const layout = station.layout;
   const boardViewportRef = useRef<HTMLDivElement>(null);
-  const [showTrainLabels, setShowTrainLabels] = useState(true);
+  const { trainTooltips } = useBrowserSettings();
   const [fitWidth, setFitWidth] = useState(true);
   const [viewportWidth, setViewportWidth] = useState(0);
   const [manualTileSize, setManualTileSize] = useState(75);
@@ -521,14 +522,6 @@ export default function StationRuntimeBoard({
         >
           <AeroIcon name="zoomReset" /> {t('Fit width')}{' '}
         </button>
-        <button
-          type="button"
-          className="aero-btn"
-          aria-pressed={showTrainLabels}
-          onClick={() => setShowTrainLabels((visible) => !visible)}
-        >
-          <AeroIcon name="train" /> {t('Označenia vlakov')}
-        </button>
         {!fitWidth ? (
           <>
             <button
@@ -591,6 +584,9 @@ export default function StationRuntimeBoard({
             <div
               key={pieceId}
               className="pointer-events-none absolute"
+              title={
+                trainTooltips ? station.runtime.physicalTrainLabels?.[pieceId]?.text : undefined
+              }
               style={{
                 left: anchorX * tileSize,
                 top: anchorY * tileSize,
@@ -599,9 +595,6 @@ export default function StationRuntimeBoard({
               }}
             >
               <TileSvg
-                occupationLabel={
-                  showTrainLabels ? station.runtime.physicalTrainLabels?.[pieceId]?.text : undefined
-                }
                 tileKey={piece.type}
                 tile={tile}
                 stateGroups={stateGroups}
@@ -611,7 +604,7 @@ export default function StationRuntimeBoard({
                   rotation: piece.rotation,
                   mirrored: piece.mirrored,
                 }}
-                className="h-full w-full object-contain"
+                className="pointer-events-auto h-full w-full object-contain"
               />
 
               {isLineblockPieceType(piece.type) ? (

@@ -1,4 +1,5 @@
 'use client';
+import { SettingsView } from '@/app/components/dis/SettingsView';
 import { LanguageSelector, useLocaleTag, useTranslation } from '@/lib/i18n/client';
 
 import { DocumentCenterView } from '@/app/components/dis/DocumentCenterView';
@@ -27,6 +28,7 @@ import { useRouter } from 'next/navigation';
 import { Suspense, useCallback, useEffect, useState } from 'react';
 
 type Tab =
+  | 'settings'
   | 'preparation'
   | 'sessions'
   | 'driver'
@@ -41,6 +43,7 @@ type Tab =
   | 'recovery';
 type Scope = { sessionId: string; stationId: string };
 const tabIcons: Record<Tab, AeroIconName> = {
+  settings: 'settings',
   preparation: 'network',
   sessions: 'launch',
   driver: 'train',
@@ -240,6 +243,7 @@ function DisPortalShell() {
       </div>
     );
   const tabs: { id: Tab; title: string; visible?: boolean }[] = [
+    { id: 'settings', title: 'Nastavenia' },
     { id: 'sessions', title: 'Relácie' },
     { id: 'driver', title: 'Môj vlak', visible: hasSession && canDriveTrain },
     { id: 'runtime', title: 'Staničný pult', visible: hasSession && canOperateStation },
@@ -287,13 +291,13 @@ function DisPortalShell() {
           .filter(
             (item) =>
               item.visible !== false &&
-              ['shifts', 'staff', 'docs', 'gvd', 'preparation'].includes(item.id),
+              ['settings', 'shifts', 'staff', 'docs', 'gvd', 'preparation'].includes(item.id),
           )
           .map((item) => (
             <button
               key={item.id}
               className={`menu-btn ${activeTab === item.id && !tool ? 'font-bold underline' : ''}`}
-              disabled={item.id !== 'preparation' && !selectedPlace}
+              disabled={!['preparation', 'settings'].includes(item.id) && !selectedPlace}
               onClick={() => openTab(item.id)}
             >
               <AeroIcon name={tabIcons[item.id]} /> {t(item.title)}
@@ -316,7 +320,7 @@ function DisPortalShell() {
           </button>
         </div>
       </nav>
-      {!singlePlaceSessionMode && activeTab !== 'preparation' && !tool && (
+      {!singlePlaceSessionMode && !['preparation', 'settings'].includes(activeTab) && !tool && (
         <div className="ribbon-bar flex-wrap">
           <label>
             {' '}
@@ -439,41 +443,50 @@ function DisPortalShell() {
         </p>
       )}
       <div className="workspace min-h-0">
-        {activeTab !== 'preparation' && !tool && hasSession && sessionStations.length > 0 && (
-          <aside className={`sidebar-panel ${stationsCollapsed ? 'is-collapsed' : ''}`}>
-            <button
-              type="button"
-              className="sidebar-header station-selector-toggle"
-              onClick={() => setStationsCollapsed((collapsed) => !collapsed)}
-              aria-expanded={!stationsCollapsed}
-              aria-controls="session-station-selector"
-              aria-label={
-                stationsCollapsed ? t('Rozbaliť výber stanice') : t('Zbaliť výber stanice')
-              }
-              title={stationsCollapsed ? t('Rozbaliť výber stanice') : t('Zbaliť výber stanice')}
-            >
-              {!stationsCollapsed && <span>{t('Stanice vybranej relácie')}</span>}
-              <AeroIcon name={stationsCollapsed ? 'expand' : 'collapse'} />
-            </button>
-            <div id="session-station-selector" className="tree-content" hidden={stationsCollapsed}>
-              {sessionStations.map((station) => (
-                <button
-                  key={station.stationId}
-                  className={`tree-row w-full text-left ${current.stationId === station.stationId ? 'selected' : ''}`}
-                  onClick={() => launch(station.sessionId, station.stationId)}
-                >
-                  {station.name}
-                </button>
-              ))}
-              {!network.stations.length && <p className="p-2">{t('Žiadne aktívne stanice.')}</p>}
-            </div>
-          </aside>
-        )}
+        {!['preparation', 'settings'].includes(activeTab) &&
+          !tool &&
+          hasSession &&
+          sessionStations.length > 0 && (
+            <aside className={`sidebar-panel ${stationsCollapsed ? 'is-collapsed' : ''}`}>
+              <button
+                type="button"
+                className="sidebar-header station-selector-toggle"
+                onClick={() => setStationsCollapsed((collapsed) => !collapsed)}
+                aria-expanded={!stationsCollapsed}
+                aria-controls="session-station-selector"
+                aria-label={
+                  stationsCollapsed ? t('Rozbaliť výber stanice') : t('Zbaliť výber stanice')
+                }
+                title={stationsCollapsed ? t('Rozbaliť výber stanice') : t('Zbaliť výber stanice')}
+              >
+                {!stationsCollapsed && <span>{t('Stanice vybranej relácie')}</span>}
+                <AeroIcon name={stationsCollapsed ? 'expand' : 'collapse'} />
+              </button>
+              <div
+                id="session-station-selector"
+                className="tree-content"
+                hidden={stationsCollapsed}
+              >
+                {sessionStations.map((station) => (
+                  <button
+                    key={station.stationId}
+                    className={`tree-row w-full text-left ${current.stationId === station.stationId ? 'selected' : ''}`}
+                    onClick={() => launch(station.sessionId, station.stationId)}
+                  >
+                    {station.name}
+                  </button>
+                ))}
+                {!network.stations.length && <p className="p-2">{t('Žiadne aktívne stanice.')}</p>}
+              </div>
+            </aside>
+          )}
         <main className="content-panel min-w-0">
           {tool ? (
             <JopEmbeddedView {...tool} onClose={() => setTool(null)} onNavigate={navigateTool} />
           ) : activeTab === 'preparation' ? (
             <NetworkPreparationView onOpenTool={(target) => launch(target, '')} />
+          ) : activeTab === 'settings' ? (
+            <SettingsView />
           ) : !selectedPlace ? (
             <p className="p-4">{t('Najprv vyberte sieť.')}</p>
           ) : (

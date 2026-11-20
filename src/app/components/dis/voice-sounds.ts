@@ -1,3 +1,5 @@
+import { getBrowserSettings } from '@/lib/dis/browser-settings';
+
 type CallSoundKind = 'telephone' | 'radio';
 type Tone = { frequency: number; start: number; duration: number };
 
@@ -52,6 +54,7 @@ function variation<T>(group: string, choices: T[]): T {
 }
 function playTones(context: AudioContext, tones: Tone[], volume: number) {
   const now = context.currentTime;
+  volume *= getBrowserSettings().volume;
   for (const tone of tones) {
     const oscillator = context.createOscillator();
     const gain = context.createGain();
@@ -72,7 +75,8 @@ export function startCallRing(kind: CallSoundKind, incoming: boolean, onBlocked:
   if (kind === 'telephone') {
     const sound = new Audio(variation('telephone-ring', telephoneRings));
     sound.loop = true;
-    sound.volume = incoming ? 0.7 : 0.25;
+    sound.volume = (incoming ? 0.7 : 0.25) * getBrowserSettings().volume;
+    if ('setSinkId' in sound) void sound.setSinkId(getBrowserSettings().speaker).catch(onBlocked);
     void sound.play().catch(onBlocked);
     return () => {
       sound.pause();
@@ -82,6 +86,8 @@ export function startCallRing(kind: CallSoundKind, incoming: boolean, onBlocked:
   let context: AudioContext;
   try {
     context = new AudioContext();
+    const output = context as AudioContext & { setSinkId?: (id: string) => Promise<void> };
+    void output.setSinkId?.(getBrowserSettings().speaker).catch(() => {});
   } catch {
     onBlocked();
     return () => {};
@@ -100,7 +106,8 @@ export function startCallRing(kind: CallSoundKind, incoming: boolean, onBlocked:
 export function playCallCue(kind: CallSoundKind, cue: 'pickup' | 'hangup') {
   if (kind === 'telephone') {
     const sound = new Audio(`/sounds/telephone-${cue}.ogg`);
-    sound.volume = 0.6;
+    sound.volume = 0.6 * getBrowserSettings().volume;
+    if ('setSinkId' in sound) void sound.setSinkId(getBrowserSettings().speaker).catch(() => {});
     // Small pitch variations make repeated handset actions less mechanical.
     sound.playbackRate = variation(`telephone-${cue}`, [0.95, 1, 1.05]);
     void sound.play().catch(() => {});
@@ -109,6 +116,8 @@ export function playCallCue(kind: CallSoundKind, cue: 'pickup' | 'hangup') {
   let context: AudioContext;
   try {
     context = new AudioContext();
+    const output = context as AudioContext & { setSinkId?: (id: string) => Promise<void> };
+    void output.setSinkId?.(getBrowserSettings().speaker).catch(() => {});
   } catch {
     return;
   }

@@ -1,8 +1,10 @@
 import type { UserProfile } from '@/lib/dis/appwrite-client';
 import { callsignNumber } from '@/lib/dis/callsign';
 import type { DriverTrain } from '@/lib/dis/driver-train';
+import type { GsmRCommunication } from '@/lib/dis/radio';
 import { canAssignShiftRole } from '@/lib/dis/shift-plan';
 import { gsmRCommandSchema, type GsmRBinding } from '@/lib/roblox/gsm-r';
+import { physicalVehicleStation } from '@/lib/station/physical-trains';
 import { MongoServerError } from 'mongodb';
 import type { Models } from 'node-appwrite';
 import { DisError, listDocuments } from '../dis/appwrite';
@@ -10,7 +12,10 @@ import { getDisUniverseId } from '../dis/places';
 import { loadTimetables } from '../dis/timetables';
 import { getMongoDb } from '../mongo';
 import { gsmRRepository } from '../repositories/gsm-r-repository';
+import { radioTerminalRepository } from '../repositories/radio-terminal-repository';
+import { loadRadioZones } from '../repositories/radio-zone-repository';
 import { sessionRepository } from '../repositories/session-repository';
+import { stationRepository } from '../repositories/station-repository';
 import { serializeSessionMutation } from '../services/station-service';
 import { refreshPhysicalTrainLabels } from './physical-trains';
 
@@ -23,8 +28,45 @@ async function radioSession(sessionId: string) {
   return session.interpreter;
 }
 export async function loadGsmR(sessionId: string) {
-  await radioSession(sessionId);
-  return { vehicles: await gsmRRepository.list(sessionId) };
+  const interpreter = await radioSession(sessionId);
+  const [vehicles, session, stations] = await Promise.all([
+    gsmRRepository.list(sessionId),
+    sessionRepository.findById(sessionId),
+    stationRepository.listBySessionId(sessionId),
+  ]);
+  const zones = await loadRadioZones(
+    interpreter.universeId,
+    interpreter.placeId,
+    stations.map((station) => station.stationId),
+  );
+  return {
+    vehicles: await Promise.all(
+      vehicles.map(async (vehicle) => {
+        const stationId = session ? physicalVehicleStation(session, vehicle.sensorId) : null;
+        const terminal = vehicle.binding
+          ? await radioTerminalRepository.find(vehicle.binding.userId)
+          : null;
+        const connected =
+          !!terminal?.ownerSocketId &&
+          terminal.sessionId === sessionId &&
+          terminal.endpoint?.kind === 'driver' &&
+          (terminal.expiresAt ?? 0) > Date.now();
+        const communication: GsmRCommunication = {
+          zone: stationId ? (zones.get(stationId) ?? '--') : '--',
+          browserConnected: connected,
+          call: connected ? terminal!.call : null,
+          outgoingEmergency: connected
+            ? (terminal!.emergencies.find((call) => call.outgoing) ?? null)
+            : null,
+          incomingEmergencies: connected
+            ? terminal!.emergencies.filter((call) => !call.outgoing).length
+            : 0,
+          notice: connected ? terminal!.notice : '',
+        };
+        return { ...vehicle, communication };
+      }),
+    ),
+  };
 }
 export async function commandGsmR(sessionId: string, body: unknown) {
   return serializeSessionMutation(sessionId, () => applyGsmRCommand(sessionId, body));
@@ -40,6 +82,38 @@ async function applyGsmRCommand(sessionId: string, body: unknown) {
     (item) => item.sensorId === command.sensorId,
   );
   if (!vehicle) throw new DisError(404, 'Snímač vozidla nie je inicializovaný.');
+  if (command.type === 'radio-action') {
+    if (!vehicle.binding || vehicle.binding.driverId !== command.actorUserId)
+      throw new DisError(403, 'Najprv zaregistrujte rádio vlastným volacím znakom.');
+    const terminal = await radioTerminalRepository.find(vehicle.binding.userId);
+    if (
+      !terminal?.ownerSocketId ||
+      terminal.sessionId !== sessionId ||
+      terminal.endpoint?.kind !== 'driver' ||
+      (terminal.expiresAt ?? 0) <= Date.now()
+    )
+      throw new DisError(409, 'V DIS aktivujte hlasový terminál rušňovodiča v tejto relácii.');
+    const saved = await radioTerminalRepository.enqueue({
+      _id: command.commandId,
+      sessionId,
+      userId: vehicle.binding.userId,
+      actorUserId: command.actorUserId,
+      sensorId: vehicle.sensorId,
+      action: command.action,
+      status: 'queued',
+      createdAt: Date.now(),
+      expiresAt: Date.now() + 10000,
+    });
+    if (
+      !saved ||
+      saved.sessionId !== sessionId ||
+      saved.userId !== vehicle.binding.userId ||
+      saved.sensorId !== vehicle.sensorId ||
+      saved.action !== command.action
+    )
+      throw new DisError(409, 'Identifikátor požiadavky už bol použitý.');
+    return { queued: true };
+  }
   if (command.type === 'deregister' && !vehicle.binding) {
     await refreshPhysicalTrainLabels(sessionId);
     return { vehicle };

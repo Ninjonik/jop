@@ -56,6 +56,9 @@ test('radio playback keeps the original audio until processing works and restore
     constructor() {
       contexts.push(this);
     }
+    createMediaStreamDestination() {
+      return Object.assign(new Node(), { stream: {} });
+    }
     createMediaStreamSource() {
       return new Node();
     }
@@ -84,7 +87,14 @@ test('radio playback keeps the original audio until processing works and restore
     value: FakeAudioContext,
   });
   Object.defineProperty(globalThis, 'MediaStream', { configurable: true, value: class {} });
-  const element = { muted: false, play: async () => {}, remove: () => {} };
+  const originalStream = {};
+  const element = {
+    volume: 1,
+    srcObject: originalStream,
+    muted: false,
+    play: async () => {},
+    remove: () => {},
+  };
   let detached = false;
   const track = {
     mediaStreamTrack: {},
@@ -94,26 +104,38 @@ test('radio playback keeps the original audio until processing works and restore
     },
   } as unknown as RemoteTrack;
   const container = { appendChild: () => {} } as unknown as HTMLElement;
-  const cleanup = attachRadioAudio(track, container);
+  const options = { radio: true, volume: () => 0.4 };
+  const cleanup = attachRadioAudio(track, container, options);
+  assert.equal(element.volume, 0.4, 'channel volume applies to the playback element');
   try {
     tick();
     assert.equal(
-      element.muted,
-      false,
+      element.srcObject,
+      originalStream,
       'original audio remains audible when no processed signal is available',
     );
     input = output = true;
     tick();
     assert.equal(
-      element.muted,
+      element.srcObject !== originalStream,
       true,
       'radio audio takes over after a processed signal is detected',
     );
+    options.radio = false;
+    tick();
+    assert.equal(
+      element.srcObject,
+      originalStream,
+      'disabling the filter restores unprocessed audio',
+    );
+    options.radio = true;
+    tick();
+    assert.notEqual(element.srcObject, originalStream, 'filter can resume during the same call');
     output = false;
     for (let index = 0; index < 4; index++) tick();
     assert.equal(
-      element.muted,
-      false,
+      element.srcObject,
+      originalStream,
       'original audio resumes if processing stops while input is active',
     );
   } finally {

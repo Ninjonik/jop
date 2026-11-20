@@ -1,34 +1,43 @@
 'use client';
+import { audioCaptureSettings } from '@/lib/dis/browser-settings';
+import type { RadioNormalCall as Call, RadioTerminalState } from '@/lib/dis/radio';
+import { ChannelVolume } from './ChannelVolume';
 
 import { AeroIcon } from '@/app/components/ui/AeroIcon';
 import { type ChatClientEvents, type ChatContact, type ChatServerEvents } from '@/lib/dis/chat';
 import { useTranslation } from '@/lib/i18n/client';
 import { Room, RoomEvent, Track, type RemoteTrack } from 'livekit-client';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type RefObject } from 'react';
 import type { Socket } from 'socket.io-client';
 import { attachRadioAudio } from './radio-audio';
 import { playCallCue, startCallRing } from './voice-sounds';
 import { VoiceLevelMeter } from './VoiceLevelMeter';
 
-type Call = { id: string; contact: ChatContact; incoming: boolean; phase: 'ringing' | 'connected' };
 type ChatSocket = Socket<ChatServerEvents, ChatClientEvents>;
 
 export function VoiceCall({
   socket,
   recipient,
   connected,
+  enabled,
+  terminalRef,
   mode,
   onCallChange,
 }: {
   socket: ChatSocket | null;
   recipient?: ChatContact;
   connected: boolean;
+  enabled: boolean;
+  terminalRef: RefObject<RadioTerminalState>;
   mode: 'station' | 'driver';
   onCallChange: (contact: ChatContact | null, incoming?: boolean) => void;
 }) {
   const t = useTranslation();
+  const [volume, setVolume] = useState(1);
+  const volumeRef = useRef(1);
   const [call, setCall] = useState<Call | null>(null);
   const [notice, setNotice] = useState('');
+  const [audioBlocked, setAudioBlocked] = useState(false);
   const [muted, setMuted] = useState(false);
   const [microphoneTrack, setMicrophoneTrack] = useState<MediaStreamTrack | null>(null);
   const [incomingTrack, setIncomingTrack] = useState<MediaStreamTrack | null>(null);
@@ -44,8 +53,9 @@ export function VoiceCall({
   }, []);
   const stop = useCallback(() => {
     stopSound();
-    void room.current?.disconnect();
+    const previousRoom = room.current;
     room.current = null;
+    void previousRoom?.disconnect();
     for (const cleanup of radioTracks.current.values()) cleanup();
     radioTracks.current.clear();
     if (audio.current) audio.current.replaceChildren();
@@ -59,7 +69,7 @@ export function VoiceCall({
   useEffect(() => {
     if (!socket) return;
     const onRinging: ChatServerEvents['call:ringing'] = (next) => {
-      if (callRef.current) return;
+      if (terminalRef.current.ownerSocketId !== socket.id || callRef.current) return;
       const active = { ...next, phase: 'ringing' as const };
       callRef.current = active;
       setCall(active);
@@ -72,24 +82,30 @@ export function VoiceCall({
       );
     };
     const onConnected: ChatServerEvents['call:connected'] = (credentials) => {
-      if (callRef.current?.id !== credentials.id) return;
+      if (terminalRef.current.ownerSocketId !== socket.id || callRef.current?.id !== credentials.id)
+        return;
       stopSound();
       playCallCue(soundKind.current, 'pickup');
       const active = { ...callRef.current, phase: 'connected' as const };
       callRef.current = active;
       setCall(active);
       const voice = new Room({
-        audioCaptureDefaults: { echoCancellation: true, noiseSuppression: true },
+        audioCaptureDefaults: audioCaptureSettings(),
       });
       room.current = voice;
+      voice.on(RoomEvent.AudioPlaybackStatusChanged, () => {
+        if (!voice.canPlaybackAudio) setAudioBlocked(true);
+      });
       voice.on(RoomEvent.TrackSubscribed, (track) => {
         if (track.kind !== Track.Kind.Audio || !audio.current) return;
         setIncomingTrack(track.mediaStreamTrack);
-        if (soundKind.current === 'radio') {
-          radioTracks.current.set(track, attachRadioAudio(track, audio.current));
-        } else {
-          audio.current.appendChild(track.attach());
-        }
+        radioTracks.current.set(
+          track,
+          attachRadioAudio(track, audio.current, {
+            radio: soundKind.current === 'radio',
+            volume: () => volumeRef.current,
+          }),
+        );
       });
       voice.on(RoomEvent.TrackUnsubscribed, (track) => {
         if (track.kind === Track.Kind.Audio)
@@ -112,11 +128,24 @@ export function VoiceCall({
       void (async () => {
         try {
           await voice.connect(credentials.url, credentials.token);
-          if (room.current !== voice) return;
+          if (room.current !== voice) {
+            await voice.disconnect();
+            return;
+          }
+          try {
+            await voice.startAudio();
+          } catch {
+            setAudioBlocked(true);
+          }
           const microphone = await voice.localParticipant.setMicrophoneEnabled(true);
           if (room.current === voice)
             setMicrophoneTrack(microphone?.track?.mediaStreamTrack ?? null);
+          else await voice.disconnect();
         } catch {
+          if (room.current !== voice) {
+            await voice.disconnect();
+            return;
+          }
           socket.emit('call:end', credentials.id);
           stop();
           setNotice(
@@ -152,7 +181,36 @@ export function VoiceCall({
       socket.off('disconnect', onDisconnect);
       stop();
     };
-  }, [socket, mode, stop, stopSound, onCallChange]);
+  }, [socket, terminalRef, mode, stop, stopSound, onCallChange]);
+  useEffect(() => {
+    // Revoking the lease must stop the external microphone immediately.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (!enabled) stop();
+  }, [enabled, stop]);
+  useEffect(() => {
+    const update = () => {
+      const voice = room.current;
+      if (!voice) return;
+      const settings = audioCaptureSettings();
+      void voice
+        .switchActiveDevice('audioinput', settings.deviceId || 'default')
+        .then(() =>
+          voice.localParticipant
+            .getTrackPublication(Track.Source.Microphone)
+            ?.track?.restartTrack(settings),
+        )
+        .catch(() => setNotice('Mikrofón sa nepodarilo zmeniť.'));
+    };
+    window.addEventListener('dis-input-settings', update);
+    return () => window.removeEventListener('dis-input-settings', update);
+  }, []);
+  useEffect(() => {
+    const container = audio.current;
+    const failed = () =>
+      setNotice('Výstup zvuku sa nepodarilo zmeniť. Skontrolujte vybrané reproduktory.');
+    container?.addEventListener('audio-device-error', failed);
+    return () => container?.removeEventListener('audio-device-error', failed);
+  }, []);
   return (
     <div className="flex flex-wrap items-center gap-2 px-2 py-1" aria-live="polite">
       <div ref={audio} />
@@ -160,7 +218,7 @@ export function VoiceCall({
         <button
           type="button"
           className="aero-btn"
-          disabled={!connected || !recipient || recipient.kind === 'session'}
+          disabled={!enabled || !connected || !recipient || recipient.kind === 'session'}
           onClick={() => {
             if (recipient && recipient.kind !== 'session')
               socket?.emit('call:start', { kind: recipient.kind, id: recipient.id });
@@ -188,6 +246,16 @@ export function VoiceCall({
             >
               <AeroIcon name="confirm" /> {t('Prijať')}
             </button>
+          )}
+          {call.phase === 'connected' && (
+            <ChannelVolume
+              value={volume}
+              onChange={(value) => {
+                volumeRef.current = value;
+                setVolume(value);
+                window.dispatchEvent(new Event('dis-audio-settings'));
+              }}
+            />
           )}
           {call.phase === 'connected' && (
             <div className="voice-levels" aria-live="off" aria-label={t('Úrovne zvuku')}>
@@ -234,6 +302,19 @@ export function VoiceCall({
             <AeroIcon name="close" /> {t('Ukončiť')}
           </button>
         </>
+      )}
+      {audioBlocked && (
+        <button
+          className="aero-btn"
+          onClick={() => {
+            void room.current
+              ?.startAudio()
+              .then(() => setAudioBlocked(false))
+              .catch(() => setNotice('Povoľte prehrávanie zvuku v prehliadači.'));
+          }}
+        >
+          {t('Povoliť zvuk')}
+        </button>
       )}
       {notice && <span role="status">{t(notice)}</span>}
     </div>

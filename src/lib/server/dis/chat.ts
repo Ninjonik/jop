@@ -16,6 +16,7 @@ import { MongoServerError } from 'mongodb';
 import { AppwriteException } from 'node-appwrite';
 import { createHash } from 'node:crypto';
 import { getMongoDb } from '../mongo';
+import { gsmRRepository } from '../repositories/gsm-r-repository';
 import { sessionRepository } from '../repositories/session-repository';
 import { stationRepository } from '../repositories/station-repository';
 import { databaseId, disDatabase, DisError } from './appwrite';
@@ -32,6 +33,11 @@ async function requireChatSession(sessionId: string) {
 }
 
 async function driverChatName(sessionId: string, userId: string, fallback: string) {
+  const radio = (await gsmRRepository.list(sessionId)).find(
+    (radio) => radio.binding?.userId === userId,
+  );
+  if (radio?.binding)
+    return `${radio.binding.trainType} ${radio.binding.trainNumber}${radio.binding.driverCallsign ? ` (${radio.binding.driverCallsign})` : ''}`;
   const train = await (
     await getMongoDb()
   )

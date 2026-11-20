@@ -1,5 +1,6 @@
 import { sessionIdSchema, stationIdSchema } from '@/lib/station/domain';
 import { z } from 'zod';
+import type { RadioCredentials, RadioEmergency, RadioTerminalState } from './radio';
 
 export const chatEndpointSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('station'), id: stationIdSchema }),
@@ -64,17 +65,29 @@ export function mergeChatMessages<T extends ChatMessage>(current: T[], incoming:
     .slice(-200);
 }
 export interface ChatClientEvents {
+  'chat:refresh-auth': (token: string) => void;
+  'radio:status': () => void;
+  'radio:claim': () => void;
+  'radio:release': () => void;
+  'radio:heartbeat': () => void;
+  'radio:emergency-start': (scope: 'session' | 'station') => void;
+  'radio:emergency-stop': () => void;
+  'radio:emergency-failed': (id: string) => void;
   'chat:subscribe': (scope: z.infer<typeof chatScopeSchema>) => void;
   'call:start': (recipient: ChatEndpoint) => void;
   'call:accept': (id: string) => void;
   'call:end': (id: string) => void;
 }
 export interface ChatServerEvents {
+  'radio:terminal': (state: RadioTerminalState) => void;
+  'radio:heartbeat-request': () => void;
+  'radio:emergency-connected': (call: RadioEmergency & RadioCredentials) => void;
+  'radio:emergency-ended': (call: { id: string; reason: string }) => void;
   'chat:snapshot': (snapshot: ChatSnapshot) => void;
   'chat:message': (message: ChatMessage) => void;
   'chat:error': (message: string) => void;
   'call:ringing': (call: { id: string; contact: ChatContact; incoming: boolean }) => void;
-  'call:connected': (call: { id: string; url: string; token: string }) => void;
+  'call:connected': (call: RadioCredentials) => void;
   'call:error': (message: string) => void;
   'call:ended': (call: { id: string; reason: string }) => void;
 }

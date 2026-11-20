@@ -1,8 +1,16 @@
+import { radioActions } from '@/lib/dis/radio';
 import { z } from 'zod';
 
 const sensorId = z.string().uuid();
 const robloxUserId = z.string().regex(/^[1-9]\d{0,15}$/);
 export const gsmRCommandSchema = z.discriminatedUnion('type', [
+  z.object({
+    type: z.literal('radio-action'),
+    sensorId,
+    actorUserId: robloxUserId,
+    action: z.enum(radioActions),
+    commandId: z.uuid(),
+  }),
   z.object({ type: z.literal('initialize'), sensorIds: z.array(sensorId).min(1).max(500) }),
   z.object({
     type: z.literal('register'),

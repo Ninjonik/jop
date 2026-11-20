@@ -41,6 +41,13 @@ export function frontmostContact<T extends PhysicalOccupation & { distanceToFron
   // Never infer train order from board X coordinates or unordered reservations.
   return ordered[0] ?? null;
 }
+/** Current station is knowable even when a stopped train spans several sections. */
+export function physicalVehicleStation(session: SessionDocument, sensorId: string): string | null {
+  const contacts = physicalVehicleContacts(session, sensorId);
+  const front = frontmostContact(contacts);
+  const stationIds = [...new Set(contacts.map((contact) => contact.stationId))];
+  return front?.stationId ?? (stationIds.length === 1 ? stationIds[0] : null);
+}
 export function projectPhysicalTrainLabels(
   session: SessionDocument,
   vehicles: GsmRVehicle[],

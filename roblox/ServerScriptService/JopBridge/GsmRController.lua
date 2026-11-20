@@ -81,6 +81,9 @@ local function prepareDisplay(gui)
 			object.BorderSizePixel = 0
 			object.TextColor3 = foreground
 			object.Text = radioText(object.Text)
+			if object.Name == "REGISTROVAN_text" or object.Name == "CELEJTE_text" then
+				object.TextWrapped, object.TextScaled = true, true
+			end
 		end
 	end
 	for _, frame in ipairs(gui:GetChildren()) do
@@ -110,6 +113,9 @@ local function prepareDisplay(gui)
 end
 
 local function render(vehicle)
+	local communication = vehicle.communication or {}
+	local call = type(communication.call) == "table" and communication.call or nil
+	local emergency = type(communication.outgoingEmergency) == "table" and communication.outgoingEmergency or nil
 	-- Occupation observers join this physical part to the confirmed radio UUID.
 	-- Repair a missing/stale attribute on every synchronization, not only attach.
 	if vehicle.sensor.Parent then vehicle.sensor:SetAttribute("JOPVehicleSensorId", vehicle.sensorId) end
@@ -126,7 +132,7 @@ local function render(vehicle)
 		if not gui then continue end
 		local screen = vehicle.screen
 		local frameName = screen == "startup" and "StartUp"
-			or (screen == "driver" or screen == "train") and "Registration_NumberEntering"
+			or (screen == "driver" or screen == "train" or screen == "dial") and "Registration_NumberEntering"
 			or screen == "hv" and "Registration_HVselection" or "MainScreen"
 		gui.Enabled = vehicle.powered
 		for _, frame in ipairs(gui:GetChildren()) do
@@ -134,24 +140,32 @@ local function render(vehicle)
 				frame.Visible = frame.Name == frameName
 				text(frame, "TrainNumberFrame/TextLabel", vehicle.trainNumber)
 				text(frame, "FunctionCode/TextLabel", vehicle.functionCode)
+				text(frame, "RadioChannel/TextLabel", communication.zone or "--")
 				text(frame, "Registrated/TextLabel", binding and "R" or "")
 				text(frame, "Mode/TextLabel", "GSM-R")
 			end
 		end
 		local entering = gui:FindFirstChild("Registration_NumberEntering")
 		if entering then
-			text(entering, "JOPEntryPrompt", screen == "driver" and "VOLACI ZNAK\nRUSNOVODICA" or "CISLO VLAKU")
+			text(entering, "JOPEntryPrompt", screen == "driver" and "VOLACI ZNAK\nRUSNOVODICA" or screen == "dial" and "VOLANE CISLO" or "CISLO VLAKU")
 			text(entering, "JOPEntryValue", vehicle.entry .. "_")
 			text(entering, "JOPEntryHelp", screen == "driver"
 				and "3 CISLICE Z DIS\n* POTVRDIT | DEL ZMAZAT"
+				or screen == "dial" and "1300: VYPRAVCA\n* VOLAT | NULL SPAT"
 				or "CISLO Z GVD\n* POTVRDIT | DEL ZMAZAT")
 		end
 		local main = gui:FindFirstChild("MainScreen")
 		if main then
 			text(main, "TrainNumberFrame/TrainNumber", binding and binding.trainNumber or vehicle.trainNumber)
 			text(main, "TrainNumberFrame/TrainNumber2", binding and ("VL" .. binding.trainNumber .. " STR" .. tonumber(binding.functionCode)) or "")
-			text(main, "REGISTROVAN_text", vehicle.message ~= "" and vehicle.message or binding and "REGISTROVANÝ" or "NEREGISTROVANÝ")
-			text(main, "CELEJTE_text", vehicle.busy and "ČAKAJTE" or "")
+			local status = binding and "REGISTROVANY" or "NEREGISTROVANY"
+			if call then status = (call.phase == "connected" and "HOVOR: " or call.incoming and "PRICHADZA HOVOR: " or "VOLAM: ") .. (call.contact and call.contact.name or "") end
+			if emergency then status = "TIESNOVE VYSIELANIE" end
+			if (communication.incomingEmergencies or 0) > 0 then status ..= " | PRIJEM TIESNE: " .. communication.incomingEmergencies end
+			text(main, "REGISTROVAN_text", vehicle.message ~= "" and vehicle.message or (communication.notice or "") ~= "" and communication.notice or status)
+			text(main, "CELEJTE_text", vehicle.busy and "CAKAJTE" or emergency and "F6 / NULL: KONIEC TIESNE"
+				or call and (call.incoming and call.phase == "ringing" and "*: ZDVIHNUT SLUCHADLO\nF6 / NULL: ODMIETNUT" or "F6 / NULL: ZAVESIT")
+				or binding and "F8: VYPRAVCA | F1: CISLO" or "")
 			text(main, "GSMRcountry", vehicle.prefix and "F: F8 funkcia / F9 vlak" or "GSM-R SK")
 			local icons = main:FindFirstChild("Icons")
 			if icons then
@@ -159,6 +173,10 @@ local function render(vehicle)
 					if icon:IsA("ImageLabel") then
 						icon.Visible = icon.Name == "deregestration" and binding ~= nil
 							or icon.Name == "regrestration" and binding == nil
+							or icon.Name == "CallDispatcher"
+							or icon.Name == "CallTrafficDispatcher"
+							or icon.Name == "CallElectricalDispatcher"
+							or icon.Name == "GroupCall" and (emergency ~= nil or (communication.incomingEmergencies or 0) > 0)
 					end
 				end
 			end
@@ -172,6 +190,20 @@ end
 local function apply(vehicle, confirmed)
 	if not confirmed or (vehicle.confirmed and confirmed.revision < vehicle.confirmed.revision) then return end
 	vehicle.confirmed = confirmed
+	if type(confirmed.communication) == "table" then
+		local communication = confirmed.communication
+		local call = type(communication.call) == "table" and communication.call or {}
+		local emergency = type(communication.outgoingEmergency) == "table" and communication.outgoingEmergency or {}
+		local signature = table.concat({ communication.zone or "--", tostring(communication.browserConnected), call.id or "", call.phase or "", emergency.id or "", tostring(communication.incomingEmergencies or 0), communication.notice or "" }, ":")
+		if signature ~= vehicle.communicationSignature then
+			vehicle.message = ""
+			local previousCall = (vehicle.communication or {}).call
+			if call.incoming and call.phase == "ringing" and (type(previousCall) ~= "table" or previousCall.id ~= call.id) then
+				vehicle.screen, vehicle.entry, vehicle.prefix = "main", "", false
+			end
+		end
+		vehicle.communication, vehicle.communicationSignature = communication, signature
+	end
 	local binding = confirmed.binding
 	if type(binding) == "table" then
 		vehicle.trainNumber, vehicle.driverId, vehicle.functionCode = binding.trainNumber, binding.driverCallsign or "", binding.functionCode
@@ -227,6 +259,18 @@ local function command(vehicle, player, deregister)
 	end
 	render(vehicle)
 end
+local function radioAction(vehicle, player, action)
+	if not ready or not ready() or not vehicle.confirmed or type(vehicle.confirmed.binding) ~= "table" then
+		vehicle.message = "NAJPRV ZAREGISTRUJTE RADIO"; return
+	end
+	vehicle.busy = true
+	render(vehicle)
+	-- Reuse this ID across HTTP retries: one press must never create two calls.
+	local result = api:GsmR(sessionId, { type = "radio-action", sensorId = vehicle.sensorId,
+		actorUserId = tostring(player.UserId), action = action, commandId = HttpService:GenerateGUID(false) })
+	vehicle.busy = false
+	vehicle.message = result.error or ""
+end
 local function press(vehicle, radio, button, player)
 	if not player or player.Parent ~= Players or vehicle.busy or vehicle.releaseRequested then return end
 	local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
@@ -244,6 +288,7 @@ local function press(vehicle, radio, button, player)
 	vehicle.owner, vehicle.ownerUntil = player.UserId, now + 60
 	local name = button.Name
 	if name == "StarEnter" then name = "Enter" end
+	if name == "Null" or name == "NULL" then name = "End" end
 	vehicle.message = ""
 	if name == "Power" then
 		if vehicle.uncertain then vehicle.message = "Najprv obnovte spojenie s JOP."
@@ -259,7 +304,38 @@ local function press(vehicle, radio, button, player)
 			end
 		end
 	elseif not vehicle.powered or vehicle.screen == "startup" then return
-	elseif name == "End" then vehicle.screen, vehicle.entry, vehicle.prefix = "main", "", false
+	elseif name == "RadioStop" then
+		local communication = vehicle.communication or {}
+		if type(communication.outgoingEmergency) == "table" then
+			vehicle.prefix = false
+			vehicle.message = "VYSIELATE. F6 / NULL: UKONCIT TIESEN"
+		else
+			local action = vehicle.prefix and "emergency-station" or "emergency-session"
+			vehicle.screen, vehicle.entry, vehicle.prefix = "main", "", false
+			radioAction(vehicle, player, action)
+		end
+	elseif vehicle.screen == "main" and name == "F8" and not vehicle.prefix then
+		radioAction(vehicle, player, "call-dispatcher")
+	elseif vehicle.screen == "main" and name == "F9" and not vehicle.prefix then
+		vehicle.message = "DOPRAVNY DISPECER NEDOSTUPNY. F8: VYPRAVCA"
+	elseif vehicle.screen == "main" and name == "F7" and not vehicle.prefix then
+		vehicle.message = "ELEKTRODISPECER NEDOSTUPNY. F8: VYPRAVCA"
+	elseif vehicle.screen == "main" and name == "F1" and not vehicle.prefix then
+		local communication = vehicle.communication or {}
+		if type(binding) ~= "table" then vehicle.message = "NAJPRV ZAREGISTRUJTE RADIO"
+		elseif type(communication.call) == "table" or type(communication.outgoingEmergency) == "table" then
+			vehicle.message = "NAJPRV UKONCITE HOVOR: F6 / NULL"
+		else vehicle.screen, vehicle.entry = "dial", "" end
+	elseif vehicle.screen == "main" and name == "Enter" and type((vehicle.communication or {}).call) == "table" then
+		local call = vehicle.communication.call
+		-- There is no modelled handset: * explicitly simulates lifting it.
+		if call.incoming and call.phase == "ringing" then radioAction(vehicle, player, "answer")
+		else vehicle.message = "F6 / NULL: ZAVESIT" end
+	elseif name == "End" or (vehicle.screen == "main" and name == "F6" and not vehicle.prefix) then
+		local communication = vehicle.communication or {}
+		if vehicle.screen == "main" and type(communication.outgoingEmergency) == "table" then radioAction(vehicle, player, "emergency-stop")
+		elseif vehicle.screen == "main" and type(communication.call) == "table" then radioAction(vehicle, player, "hangup") end
+		vehicle.screen, vehicle.entry, vehicle.prefix = "main", "", false
 	elseif name == "F" then vehicle.prefix = not vehicle.prefix
 	elseif name == "F4" and not vehicle.prefix and vehicle.screen == "main" then
 		if type(binding) == "table" then command(vehicle, player, true) end
@@ -275,6 +351,19 @@ local function press(vehicle, radio, button, player)
 		if index and index >= 1 and index <= 5 then
 			vehicle.functionCode, vehicle.screen = string.format("%02d", index), "main"
 			vehicle.message = "ENTER: potvrdiť registráciu"
+		end
+	elseif vehicle.screen == "dial" then
+		local digit = digits[name]
+		if digit and #vehicle.entry < 12 then vehicle.entry ..= digit
+		elseif name == "Delete" then vehicle.entry = string.sub(vehicle.entry, 1, -2)
+		elseif name == "Enter" then
+			if vehicle.entry == "1300" then
+				vehicle.screen, vehicle.entry = "main", ""
+				radioAction(vehicle, player, "call-dispatcher")
+			else
+				vehicle.screen, vehicle.entry = "main", ""
+				vehicle.message = "CISLO NEDOSTUPNE. F8 ALEBO 1300: VYPRAVCA"
+			end
 		end
 	elseif vehicle.screen == "driver" or vehicle.screen == "train" then
 		local digit = digits[name]
@@ -292,9 +381,12 @@ local function press(vehicle, radio, button, player)
 				vehicle.screen = "hv"
 			end
 		end
+	elseif name == "Enter" and type(binding) == "table" then
+		vehicle.message = type((vehicle.communication or {}).outgoingEmergency) == "table"
+			and "F6 / NULL: KONIEC TIESNE" or "F8: VYPRAVCA | F1: CISLO"
 	elseif name == "Enter" and vehicle.driverId ~= "" and vehicle.trainNumber ~= "" then
 		command(vehicle, player, false)
-	elseif name == "RadioStop" or name == "Simplex" or name == "System" or string.match(name, "^F%d$") then
+	elseif name == "Simplex" or name == "System" or string.match(name, "^F%d$") then
 		vehicle.message = "Táto funkcia zatiaľ nie je dostupná."
 	end
 	render(vehicle)
@@ -421,7 +513,7 @@ function Controller.Start(client, id, isReady)
 					end
 				end
 			end
-			task.wait(10)
+			task.wait(1)
 		end
 	end)
 end

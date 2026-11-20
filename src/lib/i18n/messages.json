@@ -1,4 +1,159 @@
 {
+  "Hlasový terminál aktívny v tejto karte": [
+    "Hlasový terminál aktívny v tejto karte",
+    "Voice terminal active in this tab"
+  ],
+  "Hlasový terminál používa iná karta": [
+    "Hlasový terminál používa iná karta",
+    "Voice terminal is in use in another tab"
+  ],
+  "Hlasový terminál nie je aktívny": [
+    "Hlasový terminál nie je aktívny",
+    "Voice terminal is inactive"
+  ],
+  "Uvoľniť terminál": ["Uvoľniť terminál", "Release terminal"],
+  "Aktivujem terminál…": ["Aktivujem terminál…", "Activating terminal…"],
+  "Aktivovať terminál v tejto karte": [
+    "Aktivovať terminál v tejto karte",
+    "Activate terminal in this tab"
+  ],
+  "Hovor prebieha v inej karte": ["Hovor prebieha v inej karte", "Call is active in another tab"],
+  "Ukončiť tiesňové vysielanie": ["Ukončiť tiesňové vysielanie", "End emergency broadcast"],
+  "Tiesňové vysielanie: celá relácia": [
+    "Tiesňové vysielanie: celá relácia",
+    "Emergency broadcast: whole session"
+  ],
+  "Tiesňové vysielanie: stanica": ["Tiesňové vysielanie: stanica", "Emergency broadcast: station"],
+  "Vysielate": ["Vysielate", "Broadcasting"],
+  "Príjem tiesňového vysielania": ["Príjem tiesňového vysielania", "Receiving emergency broadcast"],
+  "Povoliť zvuk": ["Povoliť zvuk", "Enable audio"],
+  "Mikrofón vyžaduje zabezpečené HTTPS pripojenie.": [
+    "Mikrofón vyžaduje zabezpečené HTTPS pripojenie.",
+    "The microphone requires a secure HTTPS connection."
+  ],
+  "Povoľte mikrofón pre hlasový terminál.": [
+    "Povoľte mikrofón pre hlasový terminál.",
+    "Allow microphone access for the voice terminal."
+  ],
+  "Tiesňové hlasové spojenie bolo prerušené.": [
+    "Tiesňové hlasové spojenie bolo prerušené.",
+    "Emergency audio connection was interrupted."
+  ],
+  "Tiesňové vysielanie sa nepodarilo pripojiť. Skontrolujte mikrofón a spojenie.": [
+    "Tiesňové vysielanie sa nepodarilo pripojiť. Skontrolujte mikrofón a spojenie.",
+    "Could not connect the emergency broadcast. Check your microphone and connection."
+  ],
+  "Povoľte prehrávanie zvuku v prehliadači.": [
+    "Povoľte prehrávanie zvuku v prehliadači.",
+    "Allow audio playback in your browser."
+  ],
+  "Hlasový terminál už používa iná karta. Počkajte na uvoľnenie alebo vypršanie spojenia.": [
+    "Hlasový terminál už používa iná karta. Počkajte na uvoľnenie alebo vypršanie spojenia.",
+    "The voice terminal is in use in another tab. Wait until it is released or the connection expires."
+  ],
+  "Najprv aktivujte tento prehliadač ako hlasový terminál.": [
+    "Najprv aktivujte tento prehliadač ako hlasový terminál.",
+    "First activate this browser tab as the voice terminal."
+  ],
+  "Hlasový terminál bol odpojený.": [
+    "Hlasový terminál bol odpojený.",
+    "The voice terminal was disconnected."
+  ],
+  "Vysielajúci terminál bol odpojený.": [
+    "Vysielajúci terminál bol odpojený.",
+    "The broadcasting terminal was disconnected."
+  ],
+  "Najprv ukončite prebiehajúci hovor alebo vysielanie.": [
+    "Najprv ukončite prebiehajúci hovor alebo vysielanie.",
+    "End the current call or broadcast first."
+  ],
+  "Účastník nemá aktívny hlasový terminál alebo má obsadené.": [
+    "Účastník nemá aktívny hlasový terminál alebo má obsadené.",
+    "The participant has no active voice terminal or is busy."
+  ],
+  "Táto voľba je určená rušňovodičovi.": [
+    "Táto voľba je určená rušňovodičovi.",
+    "This action is for drivers."
+  ],
+  "Poloha nie je známa alebo vlak nie je v stanici. Výpravca nie je dostupný.": [
+    "Poloha nie je známa alebo vlak nie je v stanici. Výpravca nie je dostupný.",
+    "The position is unknown or the train is outside a station. No dispatcher is available."
+  ],
+  "Prichádzajúci hovor už nie je dostupný.": [
+    "Prichádzajúci hovor už nie je dostupný.",
+    "The incoming call is no longer available."
+  ],
+  "Hovor prijal iný výpravca.": [
+    "Hovor prijal iný výpravca.",
+    "Another dispatcher answered the call."
+  ],
+  "Hovor bol odmietnutý.": ["Hovor bol odmietnutý.", "The call was declined."],
+  "Najprv ukončite vlastné tiesňové vysielanie.": [
+    "Najprv ukončite vlastné tiesňové vysielanie.",
+    "End your own emergency broadcast first."
+  ],
+  "Staničné tiesňové vysielanie vyžaduje známu polohu v stanici.": [
+    "Staničné tiesňové vysielanie vyžaduje známu polohu v stanici.",
+    "A station emergency broadcast requires a known position inside a station."
+  ],
+  "Hovor bol ukončený kvôli tiesňovému vysielaniu.": [
+    "Hovor bol ukončený kvôli tiesňovému vysielaniu.",
+    "The call ended because an emergency broadcast was started."
+  ],
+  "Tiesňové vysielanie sa nepodarilo pripojiť.": [
+    "Tiesňové vysielanie sa nepodarilo pripojiť.",
+    "Could not connect the emergency broadcast."
+  ],
+  "Tiesňové vysielanie zlyhalo.": [
+    "Tiesňové vysielanie zlyhalo.",
+    "The emergency broadcast failed."
+  ],
+  "Tiesňové vysielanie bolo ukončené.": [
+    "Tiesňové vysielanie bolo ukončené.",
+    "The emergency broadcast has ended."
+  ],
+  "Mikrofón alebo hlasové spojenie vysielajúceho zlyhalo.": [
+    "Mikrofón alebo hlasové spojenie vysielajúceho zlyhalo.",
+    "The broadcaster microphone or audio connection failed."
+  ],
+  "Tiesňové vysielanie sa nepodarilo prehrať. Povoľte zvuk v prehliadači.": [
+    "Tiesňové vysielanie sa nepodarilo prehrať. Povoľte zvuk v prehliadači.",
+    "Could not play the emergency broadcast. Allow audio in your browser."
+  ],
+  "Aktivujte terminál rušňovodiča v rovnakej relácii.": [
+    "Aktivujte terminál rušňovodiča v rovnakej relácii.",
+    "Activate the driver terminal in the same session."
+  ],
+  "Požiadavka rádia vypršala. Skúste znova.": [
+    "Požiadavka rádia vypršala. Skúste znova.",
+    "The radio request expired. Try again."
+  ],
+  "Registrácia rádia sa zmenila.": [
+    "Registrácia rádia sa zmenila.",
+    "The radio registration has changed."
+  ],
+  "Požiadavka rádia zlyhala.": ["Požiadavka rádia zlyhala.", "The radio request failed."],
+  "Najprv otvorte komunikáciu relácie.": [
+    "Najprv otvorte komunikáciu relácie.",
+    "Open session communications first."
+  ],
+  "Hlasová požiadavka zlyhala.": ["Hlasová požiadavka zlyhala.", "The voice request failed."],
+  "Najprv zaregistrujte rádio vlastným volacím znakom.": [
+    "Najprv zaregistrujte rádio vlastným volacím znakom.",
+    "Register the radio using your own callsign first."
+  ],
+  "V DIS aktivujte hlasový terminál rušňovodiča v tejto relácii.": [
+    "V DIS aktivujte hlasový terminál rušňovodiča v tejto relácii.",
+    "Activate the driver voice terminal for this session in DIS."
+  ],
+  "Identifikátor požiadavky už bol použitý.": [
+    "Identifikátor požiadavky už bol použitý.",
+    "The request identifier has already been used."
+  ],
+  "Nemožno prideliť rádiovú zónu stanice.": [
+    "Nemožno prideliť rádiovú zónu stanice.",
+    "Could not assign the station radio zone."
+  ],
   "Kontakty": ["Kontakty", "Contacts"],
   "Žiadne kontakty": ["Žiadne kontakty", "No contacts"],
   "Rozhovory": ["Rozhovory", "Conversations"],
@@ -2350,5 +2505,67 @@
   "Poloha zatiaľ nezistená": ["Poloha zatiaľ nezistená", "Position not yet known"],
   "Označenia vlakov": ["Označenia vlakov", "Train labels"],
   "Stav GSM-R nie je dostupný": ["Stav GSM-R nie je dostupný", "GSM-R status unavailable"],
-  "Overujem spojenie GSM-R…": ["Overujem spojenie GSM-R…", "Checking GSM-R connection…"]
+  "Overujem spojenie GSM-R…": ["Overujem spojenie GSM-R…", "Checking GSM-R connection…"],
+  "Nastavenia sa ukladajú v tomto prehliadači.": [
+    "Nastavenia sa ukladajú v tomto prehliadači.",
+    "Settings are saved in this browser."
+  ],
+  "Zobrazenie a rádio": ["Zobrazenie a rádio", "Display and radio"],
+  "Čísla vlakov pri podržaní kurzora nad obsadenou koľajou": [
+    "Čísla vlakov pri podržaní kurzora nad obsadenou koľajou",
+    "Show train numbers when hovering over occupied track"
+  ],
+  "Simulácia rádia – filter prijímaného hlasu": [
+    "Simulácia rádia – filter prijímaného hlasu",
+    "Radio simulation – incoming voice filter"
+  ],
+  "Zvukové zariadenia": ["Zvukové zariadenia", "Audio devices"],
+  "Reproduktory": ["Reproduktory", "Speakers"],
+  "Predvolené zariadenie systému": ["Predvolené zariadenie systému", "System default device"],
+  "Vybrané zariadenie nie je dostupné": [
+    "Vybrané zariadenie nie je dostupné",
+    "Selected device is unavailable"
+  ],
+  "Zariadenie": ["Zariadenie", "Device"],
+  "Názvy zariadení sa sprístupnia po povolení mikrofónu. Výber reproduktorov závisí od podpory prehliadača.": [
+    "Názvy zariadení sa sprístupnia po povolení mikrofónu. Výber reproduktorov závisí od podpory prehliadača.",
+    "Device names become available after microphone permission is granted. Speaker selection depends on browser support."
+  ],
+  "Celková hlasitosť hovorov": ["Celková hlasitosť hovorov", "Overall call volume"],
+  "Potlačenie ozveny": ["Potlačenie ozveny", "Echo cancellation"],
+  "Potlačenie šumu": ["Potlačenie šumu", "Noise suppression"],
+  "Test zvuku a povolení": ["Test zvuku a povolení", "Audio and permission tests"],
+  "Overiť povolenie mikrofónu": ["Overiť povolenie mikrofónu", "Check microphone permission"],
+  "Zastaviť test mikrofónu": ["Zastaviť test mikrofónu", "Stop microphone test"],
+  "Test mikrofónu": ["Test mikrofónu", "Test microphone"],
+  "Test reproduktorov": ["Test reproduktorov", "Test speakers"],
+  "Zastaviť zvuk": ["Zastaviť zvuk", "Stop sound"],
+  "Test mikrofónu sa neodosiela ostatným účastníkom. Po teste ho zastavte.": [
+    "Test mikrofónu sa neodosiela ostatným účastníkom. Po teste ho zastavte.",
+    "The microphone test is not sent to other participants. Stop it after testing."
+  ],
+  "Zvukové zariadenia nie sú dostupné. Použite HTTPS a skontrolujte povolenia prehliadača.": [
+    "Zvukové zariadenia nie sú dostupné. Použite HTTPS a skontrolujte povolenia prehliadača.",
+    "Audio devices are unavailable. Use HTTPS and check browser permissions."
+  ],
+  "Prístup k mikrofónu je povolený.": [
+    "Prístup k mikrofónu je povolený.",
+    "Microphone access is allowed."
+  ],
+  "Mikrofón nie je dostupný. Povoľte prístup v prehliadači a skontrolujte vybrané zariadenie.": [
+    "Mikrofón nie je dostupný. Povoľte prístup v prehliadači a skontrolujte vybrané zariadenie.",
+    "Microphone unavailable. Allow browser access and check the selected device."
+  ],
+  "Prehráva sa skúšobný zvuk.": ["Prehráva sa skúšobný zvuk.", "Playing test sound."],
+  "Zvuk sa nepodarilo prehrať na vybranom zariadení. Skontrolujte podporu a povolenia prehliadača.": [
+    "Zvuk sa nepodarilo prehrať na vybranom zariadení. Skontrolujte podporu a povolenia prehliadača.",
+    "Could not play sound on the selected device. Check browser support and permissions."
+  ],
+  "Hlasitosť kanála": ["Hlasitosť kanála", "Channel volume"],
+  "Hlasitosť": ["Hlasitosť", "Volume"],
+  "Výstup zvuku sa nepodarilo zmeniť. Skontrolujte vybrané reproduktory.": [
+    "Výstup zvuku sa nepodarilo zmeniť. Skontrolujte vybrané reproduktory.",
+    "Could not change audio output. Check the selected speakers."
+  ],
+  "Nastavenia": ["Nastavenia", "Settings"]
 }

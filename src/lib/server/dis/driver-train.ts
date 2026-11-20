@@ -2,7 +2,7 @@ import type { UserProfile } from '@/lib/dis/appwrite-client';
 import { driverTrainInputSchema, type DriverTrain } from '@/lib/dis/driver-train';
 import { canAssignShiftRole } from '@/lib/dis/shift-plan';
 import { getStationDisplayName } from '@/lib/station/display-name';
-import { frontmostContact, physicalVehicleContacts } from '@/lib/station/physical-trains';
+import { physicalVehicleStation } from '@/lib/station/physical-trains';
 import { isPublicStation } from '@/lib/station/visibility';
 import { createHash } from 'node:crypto';
 import { getMongoDb } from '../mongo';
@@ -43,10 +43,7 @@ export async function loadDriverDashboard(sessionId: string, profile: UserProfil
     gsmRRepository.list(sessionId),
   ]);
   const radio = radios.find((radio) => radio.binding?.userId === profile.userId);
-  const contacts = radio ? physicalVehicleContacts(session, radio.sensorId) : [];
-  const front = frontmostContact(contacts);
-  const stationIds = [...new Set(contacts.map((contact) => contact.stationId))];
-  const currentStationId = front?.stationId ?? (stationIds.length === 1 ? stationIds[0] : null);
+  const currentStationId = radio ? physicalVehicleStation(session, radio.sensorId) : null;
   const live = isRobloxSessionLive(session);
   return {
     radio: radio?.binding

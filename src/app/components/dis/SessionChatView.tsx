@@ -1,5 +1,7 @@
 'use client';
 import { useLocaleTag, useTranslation } from '@/lib/i18n/client';
+import { EmergencyAudio } from './EmergencyAudio';
+import { RadioTerminalControls, useRadioTerminal } from './RadioTerminal';
 
 import { AeroIcon } from '@/app/components/ui/AeroIcon';
 import { clearDisToken, disFetch, getDisToken } from '@/lib/dis/api-client';
@@ -41,6 +43,7 @@ export function SessionChatView({
   const [voiceSocket, setVoiceSocket] = useState<Socket<ChatServerEvents, ChatClientEvents> | null>(
     null,
   );
+  const terminal = useRadioTerminal(voiceSocket);
   const [contacts, setContacts] = useState<ChatContact[]>([globalChatContact]);
   const [messages, setMessages] = useState<DisplayMessage[]>([]);
   const [target, setTarget] = useState(chatEndpointKey(globalChatContact));
@@ -125,7 +128,19 @@ export function SessionChatView({
         socket.connect();
       }
     });
+    const refreshAuth = setInterval(
+      () => {
+        clearDisToken();
+        void getDisToken()
+          .then((token) => {
+            if (socket.connected) socket.emit('chat:refresh-auth', token);
+          })
+          .catch(() => socket.disconnect());
+      },
+      5 * 60 * 1000,
+    );
     return () => {
+      clearInterval(refreshAuth);
       active = false;
       socket.disconnect();
       connection.current = null;
@@ -260,6 +275,13 @@ export function SessionChatView({
             : t('Rušňovodič: {0}', profile?.name)}
         </span>
       </div>
+      <RadioTerminalControls terminal={terminal} connected={connected} />
+      <EmergencyAudio
+        socket={voiceSocket}
+        enabled={terminal.isOwner}
+        terminal={terminal.state}
+        terminalRef={terminal.current}
+      />
       {activeCall && (!expanded || chatEndpointKey(activeCall) !== target) && (
         <button
           type="button"
@@ -391,6 +413,10 @@ export function SessionChatView({
               socket={voiceSocket}
               recipient={recipient}
               connected={connected}
+              terminalRef={terminal.current}
+              enabled={
+                terminal.isOwner && !terminal.state.emergencies.some((call) => call.outgoing)
+              }
               mode={mode}
               onCallChange={onCallChange}
             />

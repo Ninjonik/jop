@@ -3,8 +3,8 @@
 GSM-R links a physical vehicle sensor, every radio in its cabins, a Roblox
 player, and their DIS driver selection. GVD supplies the category when the
 number exists; otherwise the category is Pos. Registration now supplies driver
-connection/position status and dispatcher train labels. It does not change
-train movement, radio calls, RadioStop, simplex operation, or web voice calls.
+connection/position status and dispatcher train labels. The radio also controls DIS browser voice calls and emergency broadcasts.
+It does not change train movement or implement simplex radio hardware.
 
 ## Install in Studio
 
@@ -23,6 +23,8 @@ train movement, radio calls, RadioStop, simplex operation, or web voice calls.
    the same name. Separate vehicles reference separate sensors.
 4. Keep `Buttons`, `Part.SurfaceGui`, and the supplied frame/label names intact.
    `Zero` and `StarEnter` are supported. `Enter` is also accepted as confirmation.
+   The existing `End` button supplies NULL/cancel; `Null` and `NULL` names are
+   also accepted for a dedicated yellow NULL button.
    The controller creates missing ClickDetectors and uses a 12-stud activation
    range. It does not use the old `One.SmartTagSettings.RemoteEvent`.
    Disable any other script that handles these same radio button presses.
@@ -76,7 +78,7 @@ and button rate. No client-provided RemoteEvent can supply a trusted identity.
 
 A lost HTTP reply triggers reconciliation. Until JOP confirms the outcome,
 registration, deregistration and power-off cannot replace the unknown state.
-The ten-second repair poll retries discovery and reconciles registrations.
+The one-second shared poll reconciles registrations, call state and radio zones.
 Leaving the server, destroying the sensor, or removing all attached radios
 queues deregistration, retried when JOP becomes reachable. Closing the entire
 Roblox server leaves historical records scoped to its old JobId; these records
@@ -92,6 +94,9 @@ do not reserve numbers in a new server/session.
 - `register`: sensor UUID, server-observed actor UserId, entered three-digit callsign (`driverId`), train
   number, function code, and expected revision.
 - `deregister`: sensor UUID, server-observed actor UserId, and expected revision.
+- `radio-action`: sensor UUID, server-observed actor UserId, action, and a UUID
+  command ID retained across HTTP retries. Accepted commands return `{ queued: true }`;
+  the next GET supplies the confirmed call state or error.
 
 All calls require the existing Roblox inbound bearer secret. The Roblox server
 is the trusted identity boundary; it derives actorUserId from ClickDetector's
@@ -130,7 +135,8 @@ also covers the device. Consult the original manuals for real railway use.
 
 The three-digit DIS callsign screen, DIS/GVD validation, shared mirrored input, short
 startup, final confirmation, and no-takeover policy are application adaptations.
-Only registration is implemented; unavailable functions report that explicitly.
+Calling uses the VO67 shortcuts described below. Unavailable functions report
+that explicitly; the service does not invent a traffic/electrical dispatcher.
 
 ## Verification
 
@@ -269,3 +275,106 @@ callsign prompt uses two lines (`VOLACI ZNAK` / `RUSNOVODICA`); the shorter
 `CISLO VLAKU` prompt uses one. Entry prompts and help reserve the right-hand
 indicator strip and wrap within their own bounds. No manual GUI edits are
 needed; refresh GsmRController for this layout/copy change.
+
+## Browser calls, emergencies and radio zones
+
+After deploying this update, restart the custom DIS server, refresh the
+**GsmRController ModuleScript**, then publish and restart Roblox. MainHandler,
+GsmRCameraController and the model/GUI do not need changing for this update.
+Keep the existing LiveKit environment variables configured on the custom server.
+
+1. Open the live session in DIS. Drivers use their **Rušňovodič** communication
+   inbox; dispatchers select their station and use the **Výpravca** inbox.
+2. In the communication dock, click **Aktivovať terminál v tejto karte** and
+   permit the microphone. Keep that tab open. Only this tab handles voice;
+   other tabs can read status but cannot take over or answer.
+3. Register the in-game radio normally. On its main screen:
+   - **F8** calls the current station's **výpravca** (VO67 shortcut **1300**).
+   - **F1** opens number dialing. Enter **1300**, then **StarEnter**, to call
+     the same station. Other numbers currently report unavailable.
+   - **StarEnter** answers an incoming call by simulating **lifting the handset**.
+     The display explicitly says `*: ZDVIHNUT SLUCHADLO`. It does not hang up.
+   - **F6** or **NULL** rejects an incoming call, ends a normal call, or stops
+     your own emergency broadcast. The existing model's `End` button supplies
+     this cancel/NULL action. In an entry screen NULL cancels the entry.
+   - **RadioStop** starts the session-wide emergency. To end it, use F6/NULL;
+     pressing the red key again explains how to end it without creating another.
+   - **F → RadioStop** starts a station-only emergency (a game shortcut).
+   - **F9** is reserved for the separate traffic dispatcher (**1200**), and
+     **F7** for the electrical dispatcher (**1400**). Both explicitly report
+     unavailable; neither silently calls the station výpravca.
+
+4. Dispatchers can call a driver using the existing browser contact list and
+   **Zavolať**. Calls may be answered or ended from either the browser or radio;
+   all cabins mirror the server state. The radio poll adds up to roughly one
+   second of display delay; it never carries audio.
+
+Normal calls allow one partner per person. A station can have several active
+staff terminals: all available terminals ring, and the first answer wins.
+Starting your own emergency hangs up your normal call. Receiving emergencies
+keeps your normal call and microphone connected to its original partner.
+Multiple incoming emergencies play simultaneously. Only each emergency's
+originator publishes into that broadcast; listener tokens cannot publish.
+To speak to everybody yourself, start your own broadcast.
+
+Session-wide broadcasts capture every active driver/dispatcher voice terminal
+in that session. Station broadcasts capture that station's dispatchers and
+registered drivers whose physical sensors are in that station at the moment
+of starting. The audience stays fixed until the originator stops, even when
+trains move. Drivers in inter or with unknown position cannot call a local
+dispatcher or start a station broadcast. A captured listener may release and
+reclaim a tab and resume the same still-running broadcast.
+
+Tab ownership uses a Mongo compare-and-set lease: heartbeats every five seconds,
+expiry after twenty seconds. **Uvoľniť terminál** releases it explicitly;
+an observed socket disconnect releases it immediately. Otherwise, loss of
+heartbeats ends that user's normal call and any broadcast they originated on
+expiry. Another tab must wait; there is no forced takeover. Browser microphone
+and autoplay permissions still apply; use **Povoliť zvuk** if playback is blocked.
+
+The existing **RadioChannel/TextLabel** shows the physical radio zone.
+Station codes are allocated once and persisted by universe/place/station in
+`radio_station_zones`, using an initial letter and a unique numeric suffix
+(e.g. Kolárovo **K1**, Veselé **V1**). Moving between stations updates the display;
+**inter = 00**, unknown position = **--**. These are simulation area identifiers,
+not GSM-R frequencies, and do not alter call routing rules.
+
+The custom server owns the live call lifecycle. `radio_terminals` stores the
+current lease and browser/radio read model. HTTP radio commands enter
+`radio_control_commands`; the authenticated `/chat` signalling service consumes
+them once, rechecks the binding, and publishes updated state to all of the
+user's tabs. Media cleanup retries asynchronously so a LiveKit outage cannot
+block heartbeats. Calls end when the custom server restarts; they are not
+restored as active audio sessions. This deployment assumes one custom server
+process owns signalling.
+
+Verification:
+
+```sh
+npm run test:dis
+node --env-file=.env.local --import tsx scripts/verify-radio-calls.ts
+node --import tsx scripts/verify-gsm-r-radio.ts /path/to/luau
+```
+
+The Mongo verification isolates all collections with a temporary prefix and
+removes them afterward. Engine and HTTP tests use a media fixture; a final
+end-to-end microphone test requires two signed-in browser users and a live
+Roblox server.
+
+### VO67 control fidelity
+
+Chapter C of the T-CZ manual, pages C6–C7 and C12, assigns F8 to the station
+controller, F9 to the traffic dispatcher, F7 to the electrical dispatcher,
+F1 to number dialing, and F6/NULL to ending calls. Incoming ordinary calls
+are answered by lifting the handset. Since the supplied model has no handset
+interaction, StarEnter is the explicit pickup substitute; F6 rejects rather
+than answers. An incoming call interrupts the dialing screen and shows pickup
+and reject instructions. Draft call numbers never change the registered train
+number, callsign or locomotive function. Both cabins share the dialing screen.
+
+The previously agreed broadcast rules remain game adaptations: several
+simultaneous incoming emergencies, normal calls continuing for listeners,
+originator-only speech, station/session scopes, and the F+RadioStop shortcut.
+This control update does not introduce real GSM-R priority pre-emption or VGCS
+floor control. It also retains the area-code display rather than pretending
+that the displayed station code is a real simplex channel.

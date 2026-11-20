@@ -59,7 +59,7 @@ local function radio()
   local link = instance("ObjectValue", "VehicleSensorLink", model); link.Value = sensor
   local buttons = instance("Model", "Buttons", model)
   for _, name in ipairs({ "Zero", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine",
-    "Power", "StarEnter", "End", "Delete", "F", "F3", "F4", "F8", "F9", "F1", "F2" }) do
+    "Power", "StarEnter", "End", "Delete", "F", "F3", "F4", "F8", "F9", "F1", "F2", "F6", "F7", "Null", "RadioStop" }) do
     local button = instance("MeshPart", name, buttons); button.Position = position
     local detector = instance("ClickDetector", "ClickDetector", button); detector.MouseClick = event()
   end
@@ -71,7 +71,7 @@ local function radio()
     instance("TextLabel", "TextLabel", number)
     instance("TextLabel", "TrainNumber", number)
     instance("TextLabel", "TrainNumber2", number)
-    for _, field in ipairs({ "Registrated", "FunctionCode", "Mode" }) do
+    for _, field in ipairs({ "Registrated", "FunctionCode", "Mode", "RadioChannel" }) do
       instance("TextLabel", "TextLabel", instance("Frame", field, frame))
     end
     for _, label in ipairs({ "REGISTROVAN_text", "GSMRcountry", "CELEJTE_text", "DeregistrationArrow" }) do instance("TextLabel", label, frame) end
@@ -96,6 +96,12 @@ local function advance(untilTime)
   now = untilTime
 end
 local stored, registrations, deregistrations, failReply, offline = {}, 0, 0, false, false
+local function snapshot(value)
+  if type(value) ~= "table" then return value end
+  local result = {}; for key, child in pairs(value) do result[key] = snapshot(child) end
+  return result
+end
+local actions = {}
 local api = {}
 function api:GsmR(_, command)
   if offline then return { error = "Offline" } end
@@ -106,14 +112,24 @@ function api:GsmR(_, command)
     stored[command.sensorId] = { sensorId = command.sensorId, revision = stored[command.sensorId].revision + 1, binding = {
       driverId = command.actorUserId, driverCallsign = command.driverId, trainNumber = command.trainNumber, functionCode = command.functionCode, timetableId = "gvd-1" } }
     if failReply then offline = true; return { error = "Lost reply" } end
-    return { vehicle = stored[command.sensorId] }
+    return snapshot({ vehicle = stored[command.sensorId] })
+  elseif command and command.type == "radio-action" then
+    table.insert(actions, command)
+    local comm = stored[command.sensorId].communication
+    if command.action == "call-dispatcher" then comm.call = { id = "normal", incoming = false, phase = "ringing" }
+    elseif command.action == "answer" then comm.call.phase = "connected"
+    elseif command.action == "hangup" then comm.call = nil
+    elseif command.action == "emergency-session" or command.action == "emergency-station" then
+      comm.call = nil; comm.outgoingEmergency = { id = "emergency", scope = command.action }
+    elseif command.action == "emergency-stop" then comm.outgoingEmergency = nil end
+    return { queued = true }
   elseif command and command.type == "deregister" then
     deregistrations += 1
     stored[command.sensorId] = { sensorId = command.sensorId, revision = stored[command.sensorId].revision + 1 }
-    return { vehicle = stored[command.sensorId] }
+    return snapshot({ vehicle = stored[command.sensorId] })
   end
   local result = {}; for _, vehicle in pairs(stored) do table.insert(result, vehicle) end
-  return { vehicles = result }
+  return snapshot({ vehicles = result })
 end
 local services = { HttpService = { GenerateGUID = function() return "one-sensor-id" end }, Players = playerService }
 local chunk = assert(loadstring([====[${source}]====]))
@@ -176,6 +192,66 @@ sensor.attributes.JOPVehicleSensorId = nil
 advance(30)
 assert(sensor.attributes.JOPVehicleSensorId == first.attributes.JOPVehicleSensorId, "Synchronization must repair the physical sensor identity")
 assert(sensor.attributes.JOPGsmRTrainNumber == "5001" and sensor.attributes.JOPGsmRDriverId == "12340")
+local state = stored[first.attributes.JOPVehicleSensorId]
+state.communication = { zone = "K1", browserConnected = true, incomingEmergencies = 0 }
+advance(now + 1.1); same()
+assert(label(first, "MainScreen", "RadioChannel"):FindFirstChild("TextLabel").Text == "K1")
+local previousRegistrations = registrations
+press(first, "F8"); advance(now + 1.1); same()
+assert(actions[#actions].action == "call-dispatcher" and actions[#actions].actorUserId == "12340")
+assert(string.find(label(first, "MainScreen", "REGISTROVAN_text").Text, "VOLAM:", 1, true))
+assert(label(first, "MainScreen", "CELEJTE_text").Text == "F6 / NULL: ZAVESIT")
+press(second, "F6"); advance(now + 1.1); same()
+assert(actions[#actions].action == "hangup")
+local count = #actions
+press(first, "F9"); press(first, "F7")
+assert(#actions == count, "Unavailable dispatcher roles must not silently call the station")
+press(first, "F1"); same()
+assert(label(first, "Registration_NumberEntering", "JOPEntryPrompt").Text == "VOLANE CISLO")
+for _, name in ipairs({ "One", "Three", "Zero", "Zero" }) do press(second, name) end
+assert(label(first, "Registration_NumberEntering", "JOPEntryValue").Text == "1300_")
+press(second, "StarEnter"); advance(now + 1.1); same()
+assert(#actions == count + 1 and actions[#actions].action == "call-dispatcher")
+press(first, "Null"); advance(now + 1.1)
+assert(actions[#actions].action == "hangup")
+count = #actions
+press(first, "F1"); press(first, "One"); press(first, "StarEnter")
+assert(#actions == count, "Unsupported direct numbers must not call a different destination")
+assert(string.find(label(first, "MainScreen", "REGISTROVAN_text").Text, "CISLO NEDOSTUPNE", 1, true))
+press(first, "F1"); press(second, "Null"); same()
+assert(label(first, "MainScreen", "REGISTROVAN_text").Visible ~= false)
+-- Incoming calls interrupt dialing, show handset help and F6 rejects rather than answers.
+press(first, "F1")
+state.communication.call = { id = "incoming-1", incoming = true, phase = "ringing" }
+advance(now + 1.1); same()
+assert(label(first, "MainScreen", "CELEJTE_text").Text == "*: ZDVIHNUT SLUCHADLO\\nF6 / NULL: ODMIETNUT")
+press(first, "F6"); advance(now + 1.1)
+assert(actions[#actions].action == "hangup" and state.communication.call == nil)
+state.communication.call = { id = "incoming-2", incoming = true, phase = "ringing" }
+advance(now + 1.1)
+press(second, "StarEnter"); advance(now + 1.1); same()
+assert(actions[#actions].action == "answer" and state.communication.call.phase == "connected")
+count = #actions
+press(first, "StarEnter")
+assert(#actions == count and registrations == previousRegistrations, "* during a call must neither hang up nor register again")
+press(first, "RadioStop"); advance(now + 1.1); same()
+assert(actions[#actions].action == "emergency-session" and state.communication.call == nil)
+count = #actions
+press(second, "RadioStop")
+assert(#actions == count, "Emergency key starts; F6 or NULL stops an active emergency")
+press(first, "F6"); advance(now + 1.1)
+assert(actions[#actions].action == "emergency-stop")
+press(first, "F"); press(first, "RadioStop"); advance(now + 1.1); same()
+assert(actions[#actions].action == "emergency-station")
+press(second, "End"); advance(now + 1.1)
+assert(actions[#actions].action == "emergency-stop")
+state.communication.zone = "00"; state.communication.incomingEmergencies = 2
+advance(now + 1.1); same()
+assert(label(first, "MainScreen", "RadioChannel"):FindFirstChild("TextLabel").Text == "00")
+assert(string.find(label(first, "MainScreen", "REGISTROVAN_text").Text, "PRIJEM TIESNE: 2", 1, true))
+local previousActions = #actions
+press(first, "F8", stranger)
+assert(#actions == previousActions, "A stranger cannot make calls using another driver's radio")
 press(first, "F4", stranger); assert(deregistrations == 0)
 press(second, "Power"); assert(first.attributes.JOPGsmRStatus == "registered")
 press(second, "F4"); same()
@@ -188,7 +264,7 @@ assert(label(first, "Registration_NumberEntering", "JOPEntryPrompt").Text == "CI
 for _, name in ipairs({ "Five", "Zero", "Zero", "One" }) do press(first, name) end
 press(first, "StarEnter"); press(first, "F1"); press(first, "StarEnter")
 player.Parent = nil; playerService.PlayerRemoving:Fire(player)
-advance(40); same()
+advance(now + 10); same()
 assert(first.attributes.JOPGsmRStatus == "unregistered" and deregistrations == 2)
 -- Removing the last radio must release its surviving sensor attributes too.
 player.Parent = playerService
@@ -199,9 +275,9 @@ assert(label(first, "Registration_NumberEntering", "JOPEntryPrompt").Text == "CI
 for _, name in ipairs({ "Five", "Zero", "Zero", "One" }) do press(first, name) end
 press(first, "StarEnter"); press(first, "F1"); press(first, "StarEnter")
 first.Destroying:Fire(); second.Destroying:Fire()
-advance(60)
+advance(now + 20)
 assert(deregistrations == 3 and not sensor.attributes.JOPGsmRTrainNumber)
-print("Actual GSM-R controller: synchronized cabins, keypad, lost replies, ownership and disconnect cleanup passed.")
+print("Actual GSM-R controller: synchronized cabins, keypad, lost replies, ownership, zones, two-way calls/emergencies and disconnect cleanup passed.")
 `;
 const directory = mkdtempSync(path.join(tmpdir(), 'jop-gsmr-luau-'));
 try {

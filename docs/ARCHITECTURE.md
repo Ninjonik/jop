@@ -812,12 +812,11 @@ in `shift_bookings`; it does not change runtime station ownership or train state
 
 See `docs/DIS.md` for setup, access policy migration, and verification commands.
 
-
 ## 23. Voice calls
 
 The communication dock uses the authenticated `/chat` socket for transient,
-session-scoped one-to-one call signalling. Calls ring connected station or
-driver inboxes, time out after 45 seconds, and end on disconnect. An accepted
+session-scoped one-to-one call signalling. Calls ring claimed station or
+driver voice terminals, time out after 45 seconds, and end on disconnect. An accepted
 call receives short-lived, room-scoped LiveKit tokens; room names start with
 `_jop_`. The custom server owns call state, so restarting it ends calls. Station
 inboxes may have multiple listeners; the first to answer receives the call.
@@ -841,9 +840,9 @@ Roblox driver against a linked DIS profile and matching selected GVD timetable;
 its binding captures explicit timetable identity and operating category.
 Mongo unique partial indexes arbitrate train/function and driver ownership, and
 compare-and-set revisions protect against stale commands. This registry is
-separate from mock movement and station physical occupation. Its sensor
-attributes are not yet consumed by station display. See `docs/GSM-R.md` for
-installation, controls, lifecycle, adaptations and verification.
+separate from mock movement. Its stable sensor identity joins physical
+occupations to station train labels. See `docs/GSM-R.md` for installation,
+controls, lifecycle, adaptations and verification.
 
 Personnel callsigns use stable numbers 001–999 reserved uniquely by user in
 MongoDB `personnel_callsigns` and written to Appwrite profiles. Login, import
@@ -865,8 +864,49 @@ Identity-only updates never replay axle-counter transitions or route progress.
 `src/lib/station/physical-trains.ts` owns frontmost-section selection; station
 documents persist `runtime.physicalTrainLabels`, with legacy normalization.
 The station change stream distributes labels in whole snapshots. Runtime
-clients render white centered text only on standard single-cell occupation
-indicators and may hide it locally. Driver dashboards join the same contacts
+clients expose train identification as optional hover tooltips on occupied tiles;
+the browser preference defaults to off. Driver dashboards join the same contacts
 to the confirmed radio registration and display the current station. GVD is
 the category authority; numbers absent from GVD receive Pos. Custom selections
 remain without a timetable identity unless one was explicitly selected.
+
+## 25. Browser voice terminal and GSM-R call synchronization
+
+`src/lib/server/dis/radio-calls.ts` owns transient call/broadcast lifecycle in
+one custom-server process. Each DIS user claims one authenticated `/chat`
+socket as their voice terminal. Mongo `radio_terminals` arbitrates claims
+atomically and persists the twenty-second lease plus a credential-free read
+model for every browser tab and Roblox. Server heartbeat challenges every five
+seconds keep a claimed background tab alive. Disconnect, explicit release or
+lease expiry ends its normal call and originating broadcasts. A server restart
+ends active audio rather than attempting to restore media transports.
+
+Normal calls allow one partner, with first-answer-wins for a station's several
+claimed staff terminals. Emergencies are separate LiveKit rooms: only the
+originator receives microphone publishing grants; listeners receive no publishing
+permission. Incoming broadcasts can coexist with a normal call and with each
+other. Starting a broadcast ends the originator's normal call. Session scope
+captures every claimed terminal in that session. Station scope captures that
+station's dispatchers and physically located registered drivers. Its audience
+is frozen at start, survives movement, and can resume after a listener changes
+tabs. Originators toggle their broadcasts off explicitly. Media-room cleanup
+runs outside the serialized signalling queue, with retry on service failure.
+
+Roblox `radio-action` HTTP commands enter Mongo `radio_control_commands` with a
+UUID idempotency key and ten-second deadline. The custom server consumes them,
+revalidates the current vehicle binding and live session, and invokes the same
+call service as browser controls. The one-second GSM-R GET poll returns zone,
+terminal availability, normal call state and emergency summaries without tokens.
+`physicalVehicleStation` is the shared location authority for driver status,
+local dispatcher routing, emergency audiences and the zone display. Internal
+inter is excluded from local calls/broadcast routing. `radio_station_zones`
+persists station codes by universe/place/station; inter is 00 and unknown is --.
+See `docs/GSM-R.md` for installation and controls.
+
+Browser audio/display preferences are owned by `src/lib/dis/browser-settings.ts`
+and the DIS Settings section. They are local preferences, not railway state.
+Microphone and speaker selection, echo/noise processing, receive volume and radio
+filter changes apply to voice media; each active call/broadcast has its own local
+receive volume. Radio processing and original-track fallback share one playback
+element so both follow the chosen speaker and volume. Microphone tests stay local
+and release their tracks when stopped or when leaving Settings.
