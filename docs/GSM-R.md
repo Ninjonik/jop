@@ -46,9 +46,11 @@ from the locomotive function code.
 
 - **Power**: switch the shared unit on. A three-second startup screen is a game
   adaptation; the real unit's startup is longer.
-- **F3**: begin registration. Enter your Roblox user ID, then **StarEnter**.
-  The number-entry screen shows `ID RUŠŇ.` during this step. The driver ID must
-  match the player who confirms it; entering another player's ID is rejected.
+- **F3**: begin registration. Enter the three digits of your DIS callsign (for example **042** for
+  **ZSSK-042**), then **StarEnter**.
+  The number-entry screen shows `VOLACÍ ZNAK` during this step. The server
+  matches that callsign to the player’s linked Roblox profile; another person’s
+  callsign is rejected.
 - Enter the exact GVD train number, then **StarEnter**. Use **Zero** for 0 and
   **Delete** to erase the last digit. Train numbers support one to six digits;
   leading zeroes are significant and must match the saved GVD.
@@ -59,7 +61,7 @@ from the locomotive function code.
   `R`, `REGISTROVANÝ`, and the registered train appear only after confirmation.
 - **F4**: deregister. Wait for server confirmation before changing identity or
   powering off. There is no forced takeover of somebody else's registration.
-- **F → F8**: select locomotive function; **F → F9**: reopen identification/number
+- **F → F8**: select locomotive function; **F → F9**: reopen callsign/number
   entry. These actions require deregistration if already registered.
 - **End**: leave an entry screen without changing confirmed registration.
 
@@ -84,7 +86,7 @@ do not reserve numbers in a new server/session.
 
 - `initialize`: a batch of session-local sensor UUIDs; upserts empty vehicles and
   never overwrites an existing registration.
-- `register`: sensor UUID, server-observed actor UserId, entered driver ID, train
+- `register`: sensor UUID, server-observed actor UserId, entered three-digit callsign (`driverId`), train
   number, function code, and expected revision.
 - `deregister`: sensor UUID, server-observed actor UserId, and expected revision.
 
@@ -122,7 +124,7 @@ F4 deregistration, and the registration indicator. The
 [Czech VO67 guide in ORLEN PRP 69](https://www.orlenunipetroldoprava.cz/CS/o-nas/Documents/PRP%2069_UNIDO_V1Z0_FINAL_II.pdf)
 also covers the device. Consult the original manuals for real railway use.
 
-The Roblox driver-ID screen, DIS/GVD validation, shared mirrored input, short
+The three-digit DIS callsign screen, DIS/GVD validation, shared mirrored input, short
 startup, final confirmation, and no-takeover policy are application adaptations.
 Only registration is implemented; unavailable functions report that explicitly.
 
@@ -144,8 +146,30 @@ regresses the existing bridge. These tests do not verify physical rendering or
 actual ClickDetector placement in Studio.
 
 Studio acceptance: test two cabins referencing one sensor, another vehicle,
-a driver with a GVD selection, a second player, incorrect ID/number, a train
+a driver with a GVD selection, a second player, incorrect callsign/number, a train
 number containing zero, all five functions, successful deregistration, a
 backend outage during registration, player departure, and vehicle deletion.
 Both cabins must agree at every intermediate step, and an occupied station
 sensor must still render exactly as before, without a new train label.
+
+## Unique personnel callsigns
+
+Callsigns previously used the final three Roblox-ID digits and could collide.
+They now use stable numbers **001–999**, reserved atomically per DIS user in
+MongoDB `personnel_callsigns` and projected onto the Appwrite profile as
+`ZSSK-NNN`. Login, personnel import and opening Personnel reconcile existing
+profiles: valid unique suffixes are preserved; duplicate, zero or malformed
+values receive a free number. Concurrent requests cannot allocate one number
+to different users. Allocations are retained rather than reassigned when a
+profile disappears. Exhaustion returns a clear error. Direct Appwrite edits do
+not change the reserved identity; reconciliation restores the assigned value.
+
+After deployment, open **Personál** and refresh to see your assigned callsign.
+Refresh the Roblox bridge scripts and restart the Roblox server. Enter only
+the three digits, including leading zeroes. Roblox UserId remains the trusted
+internal ownership key (including existing registrations); it is no longer
+entered on the keypad. `driverCallsign` is optional on old persisted bindings.
+
+Run `node --env-file=.env.local --import tsx scripts/verify-callsigns.ts` to test
+legacy collisions, stable allocation, concurrent callers and capacity limits.
+It uses a separate temporary Mongo collection and fixture Appwrite profiles.

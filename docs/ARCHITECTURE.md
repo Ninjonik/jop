@@ -844,3 +844,17 @@ compare-and-set revisions protect against stale commands. This registry is
 separate from mock movement and station physical occupation. Its sensor
 attributes are not yet consumed by station display. See `docs/GSM-R.md` for
 installation, controls, lifecycle, adaptations and verification.
+
+Personnel callsigns use stable numbers 001–999 reserved uniquely by user in
+MongoDB `personnel_callsigns` and written to Appwrite profiles. Login, import
+and Personnel repair legacy suffix collisions. GSM-R accepts only the three
+numeric callsign digits and verifies them against the clicking player’s linked
+profile; persisted `binding.driverId` retains its Roblox identity meaning for
+existing registrations, with optional `driverCallsign` for the entered number.
+
+DIS currently enables `singlePlaceSessionMode` in
+`src/lib/dis/operating-mode.ts`: it selects the default place and sole live
+session automatically, hides the place/session ribbon and manual refresh, and
+keeps background polling. Historical sessions are excluded from automatic
+selection. Set the flag to false to restore the existing selectors and refresh
+controls without changing the underlying multi-place/session APIs.

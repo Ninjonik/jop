@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { test, type TestContext } from 'node:test';
 import { importRobloxPersonnel } from '../../server/dis/import-personnel';
 import { readRobloxGroupPersonnel } from '../../server/roblox/group-personnel';
+import { mockCallsignReservations } from './callsign-fixture';
 
 function roster(context: TestContext) {
   context.mock.method(globalThis, 'fetch', async (input: URL) => {
@@ -53,8 +54,19 @@ test('personnel import is rerunnable and preserves existing assessments without 
     if (previous === undefined) delete process.env.APPWRITE_API_KEY;
     else process.env.APPWRITE_API_KEY = previous;
   });
+  mockCallsignReservations(context);
   const stored = new Map<string, Record<string, unknown>>([
-    ['rbx_56', { $id: 'rbx_56', strikes: 4, trainingStage: 'exam', notes: 'Preserve' }],
+    [
+      'rbx_56',
+      {
+        $id: 'rbx_56',
+        userId: 'rbx_56',
+        callsign: 'ZSSK-056',
+        strikes: 4,
+        trainingStage: 'exam',
+        notes: 'Preserve',
+      },
+    ],
   ]);
   context.mock.method(Databases.prototype, 'listDocuments', async () => ({
     documents: [...stored.values()],
@@ -82,6 +94,8 @@ test('personnel import is rerunnable and preserves existing assessments without 
   assert.equal((await importRobloxPersonnel('34', true)).created, 0);
   assert.deepEqual(stored.get('rbx_56'), {
     $id: 'rbx_56',
+    userId: 'rbx_56',
+    callsign: 'ZSSK-056',
     strikes: 4,
     trainingStage: 'exam',
     notes: 'Preserve',

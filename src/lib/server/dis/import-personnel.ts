@@ -1,6 +1,7 @@
 import { AppwriteException } from 'node-appwrite';
 import { readRobloxGroupPersonnel } from '../roblox/group-personnel';
 import { databaseId, disDatabase, listDocuments } from './appwrite';
+import { allocatePersonnelCallsign, ensurePersonnelCallsigns } from './callsigns';
 
 export async function importRobloxPersonnel(groupId: string, apply: boolean) {
   const roster = await readRobloxGroupPersonnel(groupId);
@@ -10,10 +11,14 @@ export async function importRobloxPersonnel(groupId: string, apply: boolean) {
   let created = 0,
     alreadyPresent = roster.length - missing.length;
   if (apply) {
+    await ensurePersonnelCallsigns();
     const db = disDatabase();
     for (const profile of missing) {
       try {
-        await db.createDocument(databaseId, 'profiles', profile.userId, profile);
+        await db.createDocument(databaseId, 'profiles', profile.userId, {
+          ...profile,
+          callsign: await allocatePersonnelCallsign(profile.userId),
+        });
         created++;
       } catch (error) {
         if (!(error instanceof AppwriteException) || error.code !== 409) throw error;

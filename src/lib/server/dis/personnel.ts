@@ -5,15 +5,14 @@ import { ID, Query, type Models } from 'node-appwrite';
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
 import { databaseId, disDatabase, DisError, listDocuments } from './appwrite';
+import { ensurePersonnelCallsigns } from './callsigns';
 import { readShiftPlan } from './shift-planning';
 
 type StoredShift = Models.Document & Omit<PlannedShift, 'plan'> & { planJson?: string };
 
 export async function loadStaff() {
   return {
-    profiles: await listDocuments<Models.Document & UserProfile>('profiles', [
-      Query.orderAsc('name'),
-    ]),
+    profiles: (await ensurePersonnelCallsigns()).sort((a, b) => a.name.localeCompare(b.name)),
   };
 }
 export async function assessStaff(body: unknown) {

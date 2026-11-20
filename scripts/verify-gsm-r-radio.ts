@@ -103,7 +103,7 @@ function api:GsmR(_, command)
   elseif command and command.type == "register" then
     registrations += 1
     stored[command.sensorId] = { sensorId = command.sensorId, revision = stored[command.sensorId].revision + 1, binding = {
-      driverId = command.driverId, trainNumber = command.trainNumber, functionCode = command.functionCode, timetableId = "gvd-1" } }
+      driverId = command.actorUserId, driverCallsign = command.driverId, trainNumber = command.trainNumber, functionCode = command.functionCode, timetableId = "gvd-1" } }
     if failReply then offline = true; return { error = "Lost reply" } end
     return { vehicle = stored[command.sensorId] }
   elseif command and command.type == "deregister" then
@@ -143,7 +143,7 @@ local function same()
 end
 press(first, "Power"); advance(4); same()
 press(first, "F3")
-for _, name in ipairs({ "One", "Two", "Three", "Four", "Zero" }) do press(second, name); same() end
+for _, name in ipairs({ "Zero", "Four", "Two" }) do press(second, name); same() end
 press(first, "StarEnter")
 for _, name in ipairs({ "Five", "Zero", "Zero", "One" }) do press(first, name) end
 press(second, "StarEnter"); press(first, "F1"); same()
@@ -161,7 +161,7 @@ press(second, "F4"); same()
 assert(first.attributes.JOPGsmRStatus == "unregistered" and not sensor.attributes.JOPGsmRTrainNumber)
 -- Register again, then release both cabins when their driver leaves.
 press(first, "F3")
-for _, name in ipairs({ "One", "Two", "Three", "Four", "Zero" }) do press(first, name) end
+for _, name in ipairs({ "Zero", "Four", "Two" }) do press(first, name) end
 press(first, "StarEnter")
 for _, name in ipairs({ "Five", "Zero", "Zero", "One" }) do press(first, name) end
 press(first, "StarEnter"); press(first, "F1"); press(first, "StarEnter")
@@ -171,7 +171,7 @@ assert(first.attributes.JOPGsmRStatus == "unregistered" and deregistrations == 2
 -- Removing the last radio must release its surviving sensor attributes too.
 player.Parent = playerService
 press(first, "F3")
-for _, name in ipairs({ "One", "Two", "Three", "Four", "Zero" }) do press(first, name) end
+for _, name in ipairs({ "Zero", "Four", "Two" }) do press(first, name) end
 press(first, "StarEnter")
 for _, name in ipairs({ "Five", "Zero", "Zero", "One" }) do press(first, name) end
 press(first, "StarEnter"); press(first, "F1"); press(first, "StarEnter")

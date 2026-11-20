@@ -8,7 +8,7 @@ export const gsmRCommandSchema = z.discriminatedUnion('type', [
     type: z.literal('register'),
     sensorId,
     actorUserId: robloxUserId,
-    driverId: robloxUserId,
+    driverId: z.string().regex(/^(?!000)\d{3}$/),
     trainNumber: z.string().regex(/^\d{1,6}$/),
     functionCode: z.enum(['01', '02', '03', '04', '05']),
     expectedRevision: z.number().int().nonnegative(),
@@ -22,7 +22,9 @@ export const gsmRCommandSchema = z.discriminatedUnion('type', [
 ]);
 export type GsmRCommand = z.infer<typeof gsmRCommandSchema>;
 export type GsmRBinding = {
+  /** Stable Roblox identity; retained for legacy registration compatibility. */
   driverId: string;
+  driverCallsign?: string;
   userId: string;
   timetableId: string;
   trainNumber: string;

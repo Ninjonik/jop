@@ -1,9 +1,10 @@
 import type { UserProfile } from '@/lib/dis/appwrite-client';
+import { callsignNumber } from '@/lib/dis/callsign';
 import type { DriverTrain } from '@/lib/dis/driver-train';
 import { canAssignShiftRole } from '@/lib/dis/shift-plan';
 import { gsmRCommandSchema, type GsmRBinding } from '@/lib/roblox/gsm-r';
 import { MongoServerError } from 'mongodb';
-import { Query, type Models } from 'node-appwrite';
+import type { Models } from 'node-appwrite';
 import { DisError, listDocuments } from '../dis/appwrite';
 import { getDisUniverseId } from '../dis/places';
 import { loadTimetables } from '../dis/timetables';
@@ -39,13 +40,18 @@ export async function commandGsmR(sessionId: string, body: unknown) {
     throw new DisError(403, 'Rádiostanicu používa iný rušňovodič.');
   let binding: GsmRBinding | null = null;
   if (command.type === 'register') {
-    if (command.driverId !== command.actorUserId)
-      throw new DisError(403, 'Číslo rušňovodiča musí byť vaše Roblox ID.');
-    const profiles = await listDocuments<Models.Document & UserProfile>('profiles', [
-      Query.equal('robloxUserId', command.actorUserId),
-    ]);
+    const personnel = await listDocuments<Models.Document & UserProfile>('profiles');
+    const profiles = personnel.filter((profile) => profile.robloxUserId === command.actorUserId);
     if (profiles.length !== 1 || !canAssignShiftRole(profiles[0], 'driver'))
       throw new DisError(403, 'Prihláste sa do DIS s prepojeným účtom rušňovodiča.');
+    if (callsignNumber(profiles[0].callsign) !== command.driverId)
+      throw new DisError(403, 'Zadajte tri číslice svojho volacieho znaku z Personálu DIS.');
+    const sameCallsign = personnel.filter((profile) => profile.callsign === profiles[0].callsign);
+    if (sameCallsign.length !== 1 || sameCallsign[0].userId !== profiles[0].userId)
+      throw new DisError(
+        409,
+        'Volací znak nie je jedinečný. Otvorte Personál DIS a obnovte údaje.',
+      );
     const driverTrain = await (
       await getMongoDb()
     )
@@ -61,7 +67,8 @@ export async function commandGsmR(sessionId: string, body: unknown) {
     )
       throw new DisError(400, 'V DIS vyberte v časti Môj vlak rovnaký vlak z GVD tejto relácie.');
     binding = {
-      driverId: command.driverId,
+      driverId: command.actorUserId,
+      driverCallsign: command.driverId,
       userId: profiles[0].userId,
       timetableId: timetable.$id,
       trainNumber: timetable.trainNumber,

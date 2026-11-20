@@ -1,7 +1,7 @@
 import type { UserProfile } from './appwrite-client';
 import { mapRobloxRoleToDis } from './roblox-roles';
 
-/** Shared first-login and personnel-import defaults. Existing assessments are not rebuilt. */
+/** Shared profile draft. Server callsign allocation resolves this preferred suffix before saving. */
 export function createRobloxPersonnelProfile(
   user: { id: string; username: string; displayName: string },
   groupRole: { name: string; rank: number },

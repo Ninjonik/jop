@@ -20,6 +20,7 @@ import { AeroIcon, type AeroIconName } from '@/app/components/ui/AeroIcon';
 import { DisAuthProvider, useDisAuth } from '@/lib/dis/auth-context';
 import type { DriverTrain } from '@/lib/dis/driver-train';
 import type { JopStationSummary } from '@/lib/dis/jop-bridge';
+import { singlePlaceSessionMode } from '@/lib/dis/operating-mode';
 import { isDisAdministrator } from '@/lib/dis/permissions';
 import { useDisResource } from '@/lib/dis/use-dis-resource';
 import { useRouter } from 'next/navigation';
@@ -92,18 +93,27 @@ function DisPortalShell() {
     { defaultPlaceId: '', placesComplete: true, places: [] },
     60000,
   );
-  const placeId = placeChoice === null ? places.defaultPlaceId : placeChoice;
+  const placeId = singlePlaceSessionMode
+    ? places.defaultPlaceId || places.places[0]?.placeId || ''
+    : placeChoice === null
+      ? places.defaultPlaceId
+      : placeChoice;
   const selectedPlace = places.places.find((place) => place.placeId === placeId);
   const { value: networkResult, error: networkError } = useDisResource<Network>(
     user && selectedPlace
-      ? `/api/dis/jop-data?placeId=${encodeURIComponent(placeId)}${showMore ? '&includeClosed=true' : ''}`
+      ? `/api/dis/jop-data?placeId=${encodeURIComponent(placeId)}${!singlePlaceSessionMode && showMore ? '&includeClosed=true' : ''}`
       : null,
     { placeId: '', stations: [], sessions: [] },
     20000,
   );
   const network =
     selectedPlace && networkResult.placeId === placeId
-      ? networkResult
+      ? {
+          ...networkResult,
+          sessions: singlePlaceSessionMode
+            ? networkResult.sessions.filter((session) => session.isLive)
+            : networkResult.sessions,
+        }
       : { placeId, stations: [], sessions: [] };
   const [tab, setTab] = useState<Tab>('sessions');
   const [scope, setScope] = useState<Scope | null>(null);
@@ -306,7 +316,7 @@ function DisPortalShell() {
           </button>
         </div>
       </nav>
-      {activeTab !== 'preparation' && !tool && (
+      {!singlePlaceSessionMode && activeTab !== 'preparation' && !tool && (
         <div className="ribbon-bar flex-wrap">
           <label>
             {' '}
@@ -473,6 +483,7 @@ function DisPortalShell() {
                   <SessionControlView
                     key={placeId}
                     placeId={placeId}
+                    showSessionControls={!singlePlaceSessionMode}
                     onLaunchRuntime={launch}
                     canLaunchSimulator={hasSession && canOperateStation}
                   />

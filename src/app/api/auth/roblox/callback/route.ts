@@ -5,6 +5,7 @@ import {
   mapRobloxRoleToDis,
   RobloxGroupLookupError,
 } from '@/lib/dis/roblox-roles';
+import { allocatePersonnelCallsign } from '@/lib/server/dis/callsigns';
 import { NextRequest, NextResponse } from 'next/server';
 import { AppwriteException, Client, Databases, ID, Users } from 'node-appwrite';
 
@@ -123,12 +124,13 @@ export async function GET(request: NextRequest) {
     }
 
     // 5. Update or Create DIS Profile in Appwrite Database
+    const callsign = await allocatePersonnelCallsign(appwriteUserId);
     try {
       const existingProfile = await databases.getDocument(DB_ID, 'profiles', appwriteUserId);
       // Update existing profile with latest Roblox group role
       await databases.updateDocument(DB_ID, 'profiles', appwriteUserId, {
         name: displayName,
-        callsign: `ZSSK-${robloxUserId.slice(-3)}`,
+        callsign,
         role: disRole,
         ...(existingProfile.role !== disRole ? { trainingStage } : {}),
         robloxUserId,
@@ -144,7 +146,10 @@ export async function GET(request: NextRequest) {
         { name: roleName, rank: roleRank },
       )!;
       try {
-        await databases.createDocument(DB_ID, 'profiles', appwriteUserId, newProfile);
+        await databases.createDocument(DB_ID, 'profiles', appwriteUserId, {
+          ...newProfile,
+          callsign,
+        });
       } catch (createError) {
         if (!(createError instanceof AppwriteException) || createError.code !== 409)
           throw createError;

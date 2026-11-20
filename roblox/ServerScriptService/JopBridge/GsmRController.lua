@@ -21,6 +21,7 @@ local function render(vehicle)
 	if type(binding) ~= "table" then binding = nil end
 	if vehicle.sensor.Parent then vehicle.sensor:SetAttribute("JOPGsmRTrainNumber", binding and binding.trainNumber or nil) end
 	if vehicle.sensor.Parent then vehicle.sensor:SetAttribute("JOPGsmRDriverId", binding and binding.driverId or nil) end
+	if vehicle.sensor.Parent then vehicle.sensor:SetAttribute("JOPGsmRDriverCallsign", binding and binding.driverCallsign or nil) end
 	if vehicle.sensor.Parent then vehicle.sensor:SetAttribute("JOPGsmRTimetableId", binding and binding.timetableId or nil) end
 	if vehicle.sensor.Parent then vehicle.sensor:SetAttribute("JOPGsmRFunctionCode", binding and binding.functionCode or nil) end
 	for radio in pairs(vehicle.radios) do
@@ -39,7 +40,7 @@ local function render(vehicle)
 					or screen == "train" and vehicle.entry or vehicle.trainNumber)
 				text(frame, "FunctionCode/TextLabel", vehicle.functionCode)
 				text(frame, "Registrated/TextLabel", binding and "R" or "")
-				text(frame, "Mode/TextLabel", screen == "driver" and "ID RUŠŇ." or "GSM-R")
+				text(frame, "Mode/TextLabel", screen == "driver" and "VOLACÍ ZNAK" or "GSM-R")
 			end
 		end
 		local main = gui:FindFirstChild("MainScreen")
@@ -70,7 +71,7 @@ local function apply(vehicle, confirmed)
 	vehicle.confirmed = confirmed
 	local binding = confirmed.binding
 	if type(binding) == "table" then
-		vehicle.trainNumber, vehicle.driverId, vehicle.functionCode = binding.trainNumber, binding.driverId, binding.functionCode
+		vehicle.trainNumber, vehicle.driverId, vehicle.functionCode = binding.trainNumber, binding.driverCallsign or "", binding.functionCode
 	end
 end
 local function reconcile(vehicle)
@@ -135,7 +136,7 @@ local function press(vehicle, radio, button, player)
 	if vehicle.owner and vehicle.owner ~= player.UserId and now < vehicle.ownerUntil then return end
 	if vehicle.owner ~= player.UserId then
 		vehicle.entry, vehicle.prefix, vehicle.screen = "", false, "main"
-		vehicle.driverId = type(binding) == "table" and binding.driverId or ""
+		vehicle.driverId = type(binding) == "table" and (binding.driverCallsign or "") or ""
 	end
 	vehicle.owner, vehicle.ownerUntil = player.UserId, now + 60
 	local name = button.Name
@@ -176,12 +177,12 @@ local function press(vehicle, radio, button, player)
 		local digit = digits[name]
 		if digit then
 			vehicle.prefix = false
-			if #vehicle.entry < (vehicle.screen == "driver" and 16 or 6) then vehicle.entry ..= digit end
+			if #vehicle.entry < (vehicle.screen == "driver" and 3 or 6) then vehicle.entry ..= digit end
 		elseif name == "Delete" then vehicle.entry = string.sub(vehicle.entry, 1, -2)
 		elseif name == "Enter" then
 			if vehicle.screen == "driver" then
-				if vehicle.entry ~= tostring(player.UserId) then
-					vehicle.screen, vehicle.message = "main", "Zadajte svoje Roblox ID rušňovodiča."
+				if #vehicle.entry ~= 3 or vehicle.entry == "000" then
+					vehicle.screen, vehicle.message = "main", "Zadajte 3 číslice volacieho znaku z DIS."
 				else vehicle.driverId, vehicle.screen, vehicle.entry = vehicle.entry, "train", "" end
 			elseif #vehicle.entry > 0 then
 				vehicle.trainNumber = vehicle.entry

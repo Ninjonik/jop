@@ -10,10 +10,12 @@ export function SessionControlView({
   onLaunchRuntime,
   placeId,
   canLaunchSimulator = false,
+  showSessionControls = true,
 }: {
   onLaunchRuntime?: (sessionId: string, stationId: string) => void;
   placeId: string;
   canLaunchSimulator?: boolean;
+  showSessionControls?: boolean;
 }) {
   const t = useTranslation();
   const [liveSessions, setLiveSessions] = useState<LiveRobloxSessionSummary[]>([]);
@@ -50,28 +52,29 @@ export function SessionControlView({
 
   return (
     <div className="flex-1 flex flex-col bg-white overflow-hidden text-[12px] font-sans">
-      {/* Top Ribbon */}
-      <div className="h-8 bg-[var(--aero-ribbon-bg)] border-b border-[var(--aero-ribbon-border)] px-3 flex items-center justify-between text-xs">
-        <div className="flex items-center space-x-2">
-          <span className="font-semibold text-[var(--aero-text)]">
-            {' '}
-            {t('Správa Prevádzkových Session (JOP & Roblox Bridge)')}{' '}
-          </span>
-          <span className="text-[var(--aero-text-muted)]">|</span>
-          <span className="text-[11px] text-[var(--aero-text-muted)]">
-            {' '}
-            {t('Aktívne simulácie a prepojenia staníc riadené priamo z DIS rozhrania.')}{' '}
-          </span>
-        </div>
+      {showSessionControls && (
+        <div className="h-8 bg-[var(--aero-ribbon-bg)] border-b border-[var(--aero-ribbon-border)] px-3 flex items-center justify-between text-xs">
+          <div className="flex items-center space-x-2">
+            <span className="font-semibold text-[var(--aero-text)]">
+              {' '}
+              {t('Správa Prevádzkových Session (JOP & Roblox Bridge)')}{' '}
+            </span>
+            <span className="text-[var(--aero-text-muted)]">|</span>
+            <span className="text-[11px] text-[var(--aero-text-muted)]">
+              {' '}
+              {t('Aktívne simulácie a prepojenia staníc riadené priamo z DIS rozhrania.')}{' '}
+            </span>
+          </div>
 
-        <button
-          onClick={fetchLive}
-          className="aero-btn text-[11px] font-semibold text-blue-700 flex items-center space-x-1"
-        >
-          <AeroIcon name="refresh" />
-          <span>{t('Obnoviť session')}</span>
-        </button>
-      </div>
+          <button
+            onClick={fetchLive}
+            className="aero-btn text-[11px] font-semibold text-blue-700 flex items-center space-x-1"
+          >
+            <AeroIcon name="refresh" />
+            <span>{t('Obnoviť session')}</span>
+          </button>
+        </div>
+      )}
 
       <div className="flex-1 p-4 overflow-y-auto space-y-4">
         {/* Live Roblox Sessions Box */}

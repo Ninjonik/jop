@@ -3,9 +3,13 @@ import { AppwriteException, Databases, Users } from 'node-appwrite';
 import assert from 'node:assert/strict';
 import { test, type TestContext } from 'node:test';
 import { GET } from '../../../app/api/auth/roblox/callback/route';
+import { mockCallsignReservations } from './callsign-fixture';
 
 function environment(context: TestContext) {
+  mockCallsignReservations(context);
+  context.mock.method(Databases.prototype, 'listDocuments', async () => ({ documents: [] }));
   for (const [key, value] of Object.entries({
+    APPWRITE_API_KEY: 'synthetic-test-key',
     ROBLOX_CLIENT_ID: 'test-client',
     ROBLOX_CLIENT_SECRET: 'test-secret',
     ROBLOX_GROUP_ID: '34',
@@ -74,6 +78,7 @@ test('OAuth callback creates a first account/profile with the verified group rol
   const location = new URL(response.headers.get('location')!);
   assert.equal(location.pathname, '/dis/auth-complete');
   assert.equal(location.searchParams.get('userId'), 'rbx_56');
+  assert.equal(createdProfile.callsign, 'ZSSK-001');
   assert.equal(createdProfile.role, 'dispatcher');
   assert.equal(createdProfile.robloxRank, 4);
   assert.equal(userCreation.mock.callCount(), 1);
