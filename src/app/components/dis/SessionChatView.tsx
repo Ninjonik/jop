@@ -43,7 +43,7 @@ export function SessionChatView({
   const [voiceSocket, setVoiceSocket] = useState<Socket<ChatServerEvents, ChatClientEvents> | null>(
     null,
   );
-  const terminal = useRadioTerminal(voiceSocket);
+  const terminal = useRadioTerminal(voiceSocket, connected);
   const [contacts, setContacts] = useState<ChatContact[]>([globalChatContact]);
   const [messages, setMessages] = useState<DisplayMessage[]>([]);
   const [target, setTarget] = useState(chatEndpointKey(globalChatContact));
@@ -274,8 +274,8 @@ export function SessionChatView({
             ? stationId || t('Vyberte stanicu')
             : t('Rušňovodič: {0}', profile?.name)}
         </span>
+        <RadioTerminalControls terminal={terminal} connected={connected} />
       </div>
-      <RadioTerminalControls terminal={terminal} connected={connected} />
       <EmergencyAudio
         socket={voiceSocket}
         enabled={terminal.isOwner}
@@ -291,7 +291,7 @@ export function SessionChatView({
             setExpanded(true);
           }}
         >
-          <AeroIcon name="network" /> {t('Hovor: {0}', activeCall.name)}
+          <AeroIcon name="phone" /> {t('Hovor: {0}', activeCall.name)}
         </button>
       )}
       <div className="session-chat-workspace" hidden={!expanded}>

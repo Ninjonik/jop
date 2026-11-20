@@ -962,3 +962,52 @@ button:disabled > .aero-icon {
 .session-chat-tab > button {
   border: 0;
 }
+
+/* Compact voice-terminal indicator in the communication caption. */
+.aero-btn.session-chat-terminal {
+  position: relative;
+  flex: 0 0 24px;
+  width: 24px;
+  height: 24px;
+  min-width: 24px;
+  min-height: 24px;
+  margin-left: auto;
+  padding: 3px;
+}
+.session-chat-terminal-indicator {
+  position: absolute;
+  right: 1px;
+  bottom: 1px;
+  width: 7px;
+  height: 7px;
+  border: 1px solid var(--aero-panel-bg);
+  border-radius: 50%;
+  background: var(--aero-text-muted);
+}
+.session-chat-terminal-indicator[data-state='active'] {
+  background: var(--sig-green);
+}
+.session-chat-terminal-indicator[data-state='occupied'] {
+  background: var(--sig-orange);
+}
+.session-chat-terminal-indicator[data-state='error'] {
+  background: var(--sig-red);
+}
+.session-chat-terminal-tooltip {
+  z-index: 100;
+  max-width: min(300px, calc(100vw - 24px));
+  padding: 7px 9px;
+  border: 1px solid var(--aero-panel-border);
+  border-radius: 3px;
+  background: linear-gradient(var(--aero-panel-bg), var(--aero-menubar-bg));
+  color: var(--aero-text);
+  box-shadow: 2px 3px 7px rgb(0 0 0 / 20%);
+  font:
+    12px/1.4 'Segoe UI',
+    Tahoma,
+    sans-serif;
+  overflow-wrap: anywhere;
+}
+.session-chat-terminal-tooltip p {
+  margin: 3px 0 0;
+}

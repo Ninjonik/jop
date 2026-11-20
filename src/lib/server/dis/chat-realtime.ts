@@ -7,9 +7,11 @@ import {
   type ChatMessage,
   type ChatServerEvents,
 } from '@/lib/dis/chat';
-import type { ChangeStream } from 'mongodb';
+import type { DriverTrain } from '@/lib/dis/driver-train';
+import type { ChangeStream, ChangeStreamDocument } from 'mongodb';
 import type { Namespace } from 'socket.io';
 import { z } from 'zod';
+import { getMongoDb } from '../mongo';
 import { gsmRRepository } from '../repositories/gsm-r-repository';
 import { radioTerminalRepository } from '../repositories/radio-terminal-repository';
 import { sessionRepository } from '../repositories/session-repository';
@@ -51,7 +53,7 @@ export async function startChatRealtime(namespace: ChatNamespace) {
     }),
   ]);
   let stopped = false;
-  let changes: ChangeStream<ChatMessage> | undefined;
+  let changes: ChangeStream<ChatMessage | DriverTrain> | undefined;
   let markReady!: () => void;
   const ready = new Promise<void>((resolve) => {
     markReady = resolve;
@@ -235,39 +237,56 @@ export async function startChatRealtime(namespace: ChatNamespace) {
       );
     });
   });
+  async function refreshChatSnapshots() {
+    for (const socket of namespace.sockets.values()) {
+      if (!socket.data.scope) continue;
+      try {
+        socket.emit('chat:snapshot', await loadChat(socket.data.scope, socket.data.profile));
+      } catch {
+        socket.disconnect();
+      }
+    }
+  }
+  async function publishChatChange(change: ChangeStreamDocument<ChatMessage | DriverTrain>) {
+    if (!('ns' in change) || !('coll' in change.ns)) return;
+    if (change.ns.coll === 'session_driver_trains') {
+      // Deletes have no full document/session ID, so refresh subscribed inboxes.
+      // This does not resubscribe or release an active voice terminal.
+      await refreshChatSnapshots();
+    } else if (change.operationType === 'insert' && 'sender' in change.fullDocument) {
+      const message = change.fullDocument;
+      namespace
+        .to(chatRoom(message.sessionId, message.sender))
+        .to(chatRoom(message.sessionId, message.recipient))
+        .emit('chat:message', message);
+    }
+  }
   async function watch() {
     while (!stopped) {
       try {
-        changes = messages.watch([{ $match: { operationType: 'insert' } }], {
-          maxAwaitTimeMS: 1000,
-        });
+        changes = (await getMongoDb()).watch<ChatMessage | DriverTrain>(
+          [
+            {
+              $match: {
+                $or: [
+                  { 'ns.coll': 'session_chat_messages', operationType: 'insert' },
+                  {
+                    'ns.coll': 'session_driver_trains',
+                    operationType: { $in: ['insert', 'update', 'replace', 'delete'] },
+                  },
+                ],
+              },
+            },
+          ],
+          { maxAwaitTimeMS: 1000 },
+        );
         // Open the cursor before accepting messages or restoring subscriber history.
         const first = await changes.tryNext();
         markReady();
-        if (first?.operationType === 'insert') {
-          const message = first.fullDocument;
-          namespace
-            .to(chatRoom(message.sessionId, message.sender))
-            .to(chatRoom(message.sessionId, message.recipient))
-            .emit('chat:message', message);
-        }
+        if (first) await publishChatChange(first);
         // Recover history after a change-stream restart instead of losing messages.
-        for (const socket of namespace.sockets.values()) {
-          if (!socket.data.scope) continue;
-          try {
-            socket.emit('chat:snapshot', await loadChat(socket.data.scope, socket.data.profile));
-          } catch {
-            socket.disconnect();
-          }
-        }
-        for await (const change of changes) {
-          if (change.operationType !== 'insert') continue;
-          const message = change.fullDocument;
-          namespace
-            .to(chatRoom(message.sessionId, message.sender))
-            .to(chatRoom(message.sessionId, message.recipient))
-            .emit('chat:message', message);
-        }
+        await refreshChatSnapshots();
+        for await (const change of changes) await publishChatChange(change);
       } catch (error) {
         if (stopped) return;
         console.error('[chat] MongoDB change stream disconnected:', error);

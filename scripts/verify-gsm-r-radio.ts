@@ -102,9 +102,10 @@ local function snapshot(value)
   return result
 end
 local actions = {}
+local failureMessage = "Offline"
 local api = {}
 function api:GsmR(_, command)
-  if offline then return { error = "Offline" } end
+  if offline then return { error = failureMessage } end
   if command and command.type == "initialize" then
     for _, id in ipairs(command.sensorIds) do if not stored[id] then stored[id] = { sensorId = id, revision = 0 } end end
   elseif command and command.type == "register" then
@@ -162,7 +163,23 @@ local function same()
     end
   end
 end
+local function assertScreenOff(model, expected)
+  local gui = model:FindFirstChild("Part"):FindFirstChild("SurfaceGui")
+  local off = gui:FindFirstChild("JOPPoweredOff")
+  assert(gui.Enabled and off.Visible == expected, "Off LCD must cover its grey backing part")
+  assert(off.BackgroundTransparency == 0 and off.BorderSizePixel == 0)
+  assert(off.BackgroundColor3[1] == 0 and off.BackgroundColor3[2] == 0 and off.BackgroundColor3[3] == 0)
+  assert(off.Size[1] == 1 and off.Size[2] == 1)
+  for _, frame in ipairs(gui:GetChildren()) do
+    if expected and frame:IsA("Frame") and frame ~= off then assert(not frame.Visible, "Powered-off LCD contains lit UI") end
+  end
+end
+assertScreenOff(first, true); assertScreenOff(second, true)
 press(first, "Power"); advance(4); same()
+assertScreenOff(first, false); assertScreenOff(second, false)
+press(second, "Power"); assertScreenOff(first, true); assertScreenOff(second, true)
+press(first, "Power"); advance(now + 4)
+assertScreenOff(first, false); assertScreenOff(second, false)
 press(first, "F2")
 assert(label(first, "MainScreen", "REGISTROVAN_text").Text == "Tato funkcia zatial nie je dostupna.")
 press(first, "F3")
@@ -196,6 +213,23 @@ local state = stored[first.attributes.JOPVehicleSensorId]
 state.communication = { zone = "K1", browserConnected = true, incomingEmergencies = 0 }
 advance(now + 1.1); same()
 assert(label(first, "MainScreen", "RadioChannel"):FindFirstChild("TextLabel").Text == "K1")
+-- Long status/error text and soft-key help must fit separate body rectangles.
+for _, model in ipairs({first, second}) do
+  local status = label(model, "MainScreen", "REGISTROVAN_text")
+  local help = label(model, "MainScreen", "CELEJTE_text")
+  assert(status.Position[2] + status.Size[2] < help.Position[2], "Status overlaps operation hints")
+  for _, item in ipairs({status, help}) do
+    assert(item.Position[1] >= 0.08 and item.Position[1] + item.Size[1] <= 0.78, "Body text overlaps side artwork")
+    assert(item.Position[2] >= 0.3 and item.Position[2] + item.Size[2] <= 0.76, "Body text overlaps header or soft keys")
+    assert(item.TextScaled and item.TextWrapped and item.ClipsDescendants)
+  end
+end
+failureMessage = "V DIS aktivujte hlasovy terminal rusnovodica v tejto relacii."
+offline = true
+press(first, "F8"); same()
+assert(label(first, "MainScreen", "REGISTROVAN_text").Text == failureMessage)
+assert(label(first, "MainScreen", "CELEJTE_text").Text == "F8: VYPRAVCA | F1: CISLO")
+offline = false
 local previousRegistrations = registrations
 press(first, "F8"); advance(now + 1.1); same()
 assert(actions[#actions].action == "call-dispatcher" and actions[#actions].actorUserId == "12340")

@@ -1,8 +1,10 @@
 /** Real Mongo leases, physical location and Roblox HTTP commands; isolated temporary collections. */
 import { Db, type CollectionOptions } from 'mongodb';
+import { Databases } from 'node-appwrite';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { mock } from 'node:test';
+import type { UserProfile } from '../src/lib/dis/appwrite-client';
 import type { RadioEmit } from '../src/lib/server/dis/radio-calls';
 import type { SessionDocument } from '../src/lib/station/domain';
 
@@ -182,6 +184,38 @@ async function run() {
     await assert.rejects(radio.robloxAction(driver, sessionId, 'call-dispatcher'), /Poloha/);
     await radio.release(driver, 'driver-owner');
     await post({ ...action, commandId: randomUUID() }, 409);
+    // Communication lists only eligible drivers with a selection in this session.
+    const { loadChat } = await import('../src/lib/server/dis/chat');
+    const staff = [
+      { userId: driver, name: 'Selected driver', role: 'driver', callsign: 'ZSSK-042' },
+      { userId: 'unselected', name: 'No train', role: 'driver', callsign: 'ZSSK-043' },
+      { userId: 'elsewhere', name: 'Other session', role: 'driver', callsign: 'ZSSK-044' },
+      { userId: dispatcher, name: 'Dispatcher', role: 'dispatcher', callsign: 'ZSSK-045' },
+    ];
+    const appwrite = mock.method(Databases.prototype, 'listDocuments', async () => ({
+      documents: staff.map((person) => ({ ...person, $id: person.userId })),
+      total: staff.length,
+    }));
+    try {
+      const scope = { sessionId, endpoint: { kind: 'station', id: 'kolarovo' } };
+      const operator = staff[3] as UserProfile;
+      const contacts = async () =>
+        (await loadChat(scope, operator)).contacts
+          .filter((contact) => contact.kind === 'driver')
+          .map((contact) => contact.id);
+      assert.deepEqual(await contacts(), []);
+      await db.collection('session_driver_trains').insertMany([
+        { sessionId, userId: driver, trainNumber: '5001' },
+        { sessionId: 'another-session', userId: 'elsewhere', trainNumber: '5002' },
+        { sessionId, userId: dispatcher, trainNumber: '5003' },
+        { sessionId, userId: 'orphan-profile', trainNumber: '5004' },
+      ]);
+      assert.deepEqual(await contacts(), [driver]);
+      await db.collection('session_driver_trains').deleteOne({ sessionId, userId: driver });
+      assert.deepEqual(await contacts(), []);
+    } finally {
+      appwrite.mock.restore();
+    }
     // The Mongo compare-and-set, independent of the service's memory, arbitrates racing tabs.
     const now = Date.now(),
       raceUser = randomUUID();

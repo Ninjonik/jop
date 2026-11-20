@@ -763,7 +763,9 @@ to the sender/recipient rooms; reconnects reload the last 200 inbox messages.
 Station inboxes follow the existing dispatcher access to station tools; this
 does not introduce exclusive station ownership. Drivers cannot subscribe or
 send as another driver or as a station. Contacts expose names, not full staff
-profiles. Message IDs deduplicate retried sends, and clients merge history/live
+profiles. Station contact lists include only eligible drivers with a selected
+train in the same session; train selection/finish changes refresh inbox snapshots
+without resubscribing or interrupting voice. Message IDs deduplicate retried sends, and clients merge history/live
 events by persisted ID. This web chat does not operate interlocking commands
 or replace the existing radio order journal. It does not add Roblox in-game UI.
 Every inbox also joins the session's global channel (`session:all`). Global
@@ -874,7 +876,11 @@ remain without a timetable identity unless one was explicitly selected.
 
 `src/lib/server/dis/radio-calls.ts` owns transient call/broadcast lifecycle in
 one custom-server process. Each DIS user claims one authenticated `/chat`
-socket as their voice terminal. Mongo `radio_terminals` arbitrates claims
+socket as their voice terminal. The first ready communication tab requests a
+claim automatically; later tabs never take over an existing owner. A compact
+headset indicator in the caption exposes status/help on hover or focus and
+manual claim/release on click. Automatic claims do not open the microphone.
+Mongo `radio_terminals` arbitrates claims
 atomically and persists the twenty-second lease plus a credential-free read
 model for every browser tab and Roblox. Server heartbeat challenges every five
 seconds keep a claimed background tab alive. Disconnect, explicit release or

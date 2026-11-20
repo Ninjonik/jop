@@ -71,7 +71,20 @@ local function text(parent, path, value)
 	end
 	if target and target:IsA("TextLabel") then target.Text = radioText(value) end
 end
+local function showScreen(gui, frameName)
+	-- Disabling SurfaceGui exposes the model's grey backing part. Keep an
+	-- opaque black UI surface when the LCD is off instead.
+	gui.Enabled = true
+	for _, frame in ipairs(gui:GetChildren()) do
+		if frame:IsA("Frame") then frame.Visible = frame.Name == frameName end
+	end
+end
 local function prepareDisplay(gui)
+	local off = gui:FindFirstChild("JOPPoweredOff") or Instance.new("Frame", gui)
+	off.Name = "JOPPoweredOff"
+	off.Position, off.Size = UDim2.fromScale(0, 0), UDim2.fromScale(1, 1)
+	off.BackgroundColor3, off.BackgroundTransparency = Color3.fromRGB(0, 0, 0), 0
+	off.BorderSizePixel, off.ZIndex = 0, 20
 	-- The supplied UI contains baked-in white selection backgrounds. Input is
 	-- now one explicit value, so keep its ordinary text and headers transparent.
 	local foreground = Color3.fromRGB(235, 235, 215)
@@ -92,6 +105,18 @@ local function prepareDisplay(gui)
 			if header and header:IsA("Frame") then header.BackgroundTransparency = 1 end
 		end
 	end
+	local main = gui:FindFirstChild("MainScreen")
+	local function positionMainText(name, y, height)
+		local label = main and main:FindFirstChild(name)
+		if not label or not label:IsA("TextLabel") then return end
+		-- Keep status/errors and operation hints in separate body rows, clear of
+		-- the header, right-hand call icons and bottom function-key artwork.
+		label.Position, label.Size = UDim2.fromScale(0.09, y), UDim2.fromScale(0.67, height)
+		label.TextScaled, label.TextWrapped, label.ClipsDescendants = true, true, true
+		label.ZIndex = 10
+	end
+	positionMainText("REGISTROVAN_text", 0.34, 0.21)
+	positionMainText("CELEJTE_text", 0.62, 0.12)
 	local entering = gui:FindFirstChild("Registration_NumberEntering")
 	if not entering then return end
 	local source = entering:FindFirstChild("TrainNumberFrame")
@@ -134,10 +159,9 @@ local function render(vehicle)
 		local frameName = screen == "startup" and "StartUp"
 			or (screen == "driver" or screen == "train" or screen == "dial") and "Registration_NumberEntering"
 			or screen == "hv" and "Registration_HVselection" or "MainScreen"
-		gui.Enabled = vehicle.powered
+		showScreen(gui, vehicle.powered and frameName or "JOPPoweredOff")
 		for _, frame in ipairs(gui:GetChildren()) do
 			if frame:IsA("Frame") then
-				frame.Visible = frame.Name == frameName
 				text(frame, "TrainNumberFrame/TextLabel", vehicle.trainNumber)
 				text(frame, "FunctionCode/TextLabel", vehicle.functionCode)
 				text(frame, "RadioChannel/TextLabel", communication.zone or "--")
@@ -440,7 +464,7 @@ function Controller.Attach(radio)
 		warn("[JOP][GSM-R] VehicleSensorLink changed; restore it or restart the server: " .. radio:GetFullName())
 		for _, connection in ipairs(connections) do connection:Disconnect() end
 		local gui = radio:FindFirstChild("Part") and radio.Part:FindFirstChild("SurfaceGui")
-		if gui then gui.Enabled = false end
+		if gui then showScreen(gui, "JOPPoweredOff") end
 		vehicle.radios[radio], radios[radio] = nil, nil
 		if not next(vehicle.radios) then vehicle.releaseRequested = true end
 	end))

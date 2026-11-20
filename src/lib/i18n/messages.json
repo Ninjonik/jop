@@ -1,4 +1,20 @@
 {
+  "Hlasový terminál je odpojený": [
+    "Hlasový terminál je odpojený",
+    "Voice terminal is disconnected"
+  ],
+  "Kliknutím uvoľníte terminál.": [
+    "Kliknutím uvoľníte terminál.",
+    "Click to release the terminal."
+  ],
+  "Počkajte na uvoľnenie terminálu alebo vypršanie spojenia.": [
+    "Počkajte na uvoľnenie terminálu alebo vypršanie spojenia.",
+    "Wait for the terminal to be released or the connection to expire."
+  ],
+  "Kliknutím aktivujete terminál v tejto karte.": [
+    "Kliknutím aktivujete terminál v tejto karte.",
+    "Click to activate the terminal in this tab."
+  ],
   "Hlasový terminál aktívny v tejto karte": [
     "Hlasový terminál aktívny v tejto karte",
     "Voice terminal active in this tab"

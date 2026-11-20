@@ -285,9 +285,14 @@ Keep the existing LiveKit environment variables configured on the custom server.
 
 1. Open the live session in DIS. Drivers use their **Rušňovodič** communication
    inbox; dispatchers select their station and use the **Výpravca** inbox.
-2. In the communication dock, click **Aktivovať terminál v tejto karte** and
-   permit the microphone. Keep that tab open. Only this tab handles voice;
-   other tabs can read status but cannot take over or answer.
+2. The first eligible communication tab automatically claims the voice terminal.
+   Keep it open and permit microphone/audio access when the browser asks.
+   A compact headset icon in the caption shows green for this tab, amber when
+   another tab owns it, grey when inactive, and red for an action error.
+   Hover or keyboard-focus the icon for status, notices and click instructions.
+   Click the active icon to release it, or an inactive icon to claim this tab.
+   Other tabs cannot take over or answer. Automatic claiming itself does not
+   open the microphone; audio still uses the browser's normal permission checks.
 3. Register the in-game radio normally. On its main screen:
    - **F8** calls the current station's **výpravca** (VO67 shortcut **1300**).
    - **F1** opens number dialing. Enter **1300**, then **StarEnter**, to call
@@ -326,7 +331,7 @@ dispatcher or start a station broadcast. A captured listener may release and
 reclaim a tab and resume the same still-running broadcast.
 
 Tab ownership uses a Mongo compare-and-set lease: heartbeats every five seconds,
-expiry after twenty seconds. **Uvoľniť terminál** releases it explicitly;
+expiry after twenty seconds. Clicking the active headset icon releases it explicitly;
 an observed socket disconnect releases it immediately. Otherwise, loss of
 heartbeats ends that user's normal call and any broadcast they originated on
 expiry. Another tab must wait; there is no forced takeover. Browser microphone
@@ -378,3 +383,19 @@ originator-only speech, station/session scopes, and the F+RadioStop shortcut.
 This control update does not introduce real GSM-R priority pre-emption or VGCS
 floor control. It also retains the area-code display rather than pretending
 that the displayed station code is a real simplex channel.
+
+Main-screen status/errors and operation hints use separate bounded text rows.
+Both wrap and scale inside the central display body, reserving the header,
+right-hand call symbols and bottom function-key artwork. This layout repair is
+applied by GsmRController at attachment; no Studio GUI edits are required.
+
+A powered-off LCD renders an opaque black frame over the whole SurfaceGui,
+with all operating frames hidden. The GUI remains enabled only to cover the
+model's grey screen backing. Power-on hides that frame and shows the normal
+startup/display; no screen-part material or color needs changing in Studio.
+
+Automatic claiming runs once per authenticated socket after the inbox is ready,
+and only if no terminal owner is known. Concurrent tab attempts still use the
+Mongo lease arbiter. Releasing the icon disables automatic claiming for that
+mounted dock, so heartbeat/contact updates cannot immediately take it back.
+Existing waiting tabs remain available for a manual claim after unlock/expiry.

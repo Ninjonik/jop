@@ -97,7 +97,7 @@ export async function authorizeChatScope(body: unknown, profile: UserProfile) {
 
 export async function loadChat(body: unknown, profile: UserProfile) {
   const scope = await authorizeChatScope(body, profile);
-  const [stations, staff, messages] = await Promise.all([
+  const [stations, staff, messages, selectedTrains] = await Promise.all([
     stationRepository.listBySessionId(scope.sessionId),
     scope.endpoint.kind === 'station' ? loadStaff() : Promise.resolve({ profiles: [] }),
     (await chatMessagesCollection())
@@ -112,7 +112,14 @@ export async function loadChat(body: unknown, profile: UserProfile) {
       .sort({ createdAt: -1, _id: -1 })
       .limit(200)
       .toArray(),
+    scope.endpoint.kind === 'station'
+      ? (await getMongoDb())
+          .collection<DriverTrain>('session_driver_trains')
+          .find({ sessionId: scope.sessionId })
+          .toArray()
+      : Promise.resolve([]),
   ]);
+  const selectedDrivers = new Set(selectedTrains.map((train) => train.userId));
   const contacts: ChatContact[] = [
     globalChatContact,
     ...stations
@@ -123,7 +130,9 @@ export async function loadChat(body: unknown, profile: UserProfile) {
         name: getStationDisplayName(station.stationId),
       })),
     ...staff.profiles
-      .filter((person) => canAssignShiftRole(person, 'driver'))
+      .filter(
+        (person) => canAssignShiftRole(person, 'driver') && selectedDrivers.has(person.userId),
+      )
       .map((person) => ({ kind: 'driver' as const, id: person.userId, name: person.name })),
   ].filter((contact) => chatEndpointKey(contact) !== chatEndpointKey(scope.endpoint));
   return { contacts, messages: messages.reverse(), self: scope.contact };

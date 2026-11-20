@@ -224,7 +224,7 @@ export function VoiceCall({
               socket?.emit('call:start', { kind: recipient.kind, id: recipient.id });
           }}
         >
-          <AeroIcon name="network" /> {t('Zavolať')}
+          <AeroIcon name="call" /> {t('Zavolať')}
         </button>
       )}
       {call && (
@@ -244,7 +244,7 @@ export function VoiceCall({
               className="aero-btn"
               onClick={() => socket?.emit('call:accept', call.id)}
             >
-              <AeroIcon name="confirm" /> {t('Prijať')}
+              <AeroIcon name="call" /> {t('Prijať')}
             </button>
           )}
           {call.phase === 'connected' && (
@@ -299,7 +299,7 @@ export function VoiceCall({
               playCallCue(soundKind.current, 'hangup');
             }}
           >
-            <AeroIcon name="close" /> {t('Ukončiť')}
+            <AeroIcon name="hangup" /> {t('Ukončiť')}
           </button>
         </>
       )}
