@@ -18,6 +18,7 @@ end
 local function instance(class, name, parent)
   local obj = { ClassName = class, Name = name, Parent = parent, children = {}, attributes = {},
     Destroying = event(), changed = event() }
+  if class == "TextLabel" then obj.Text = "Cislo" end
   if parent then table.insert(parent.children, obj) end
   function obj:IsA(expected) return expected == self.ClassName or expected == "BasePart" and self.ClassName == "MeshPart" end
   function obj:GetChildren() return self.children end
@@ -146,15 +147,22 @@ local function same()
   end
 end
 press(first, "Power"); advance(4); same()
+press(first, "F2")
+assert(label(first, "MainScreen", "REGISTROVAN_text").Text == "Tato funkcia zatial nie je dostupna.")
 press(first, "F3")
-assert(label(first, "Registration_NumberEntering", "JOPEntryPrompt").Text == "VOLACÍ ZNAK RUŠŇOVODIČA")
+assert(label(first, "Registration_NumberEntering", "JOPEntryPrompt").Text == "VOLACI ZNAK\\nRUSNOVODICA")
+assert(label(first, "Registration_NumberEntering", "JOPEntryPrompt").TextWrapped)
+assert(label(first, "Registration_NumberEntering", "JOPEntryPrompt").Size[1] == 0.68)
 for _, name in ipairs({ "Zero", "Four", "Two" }) do press(second, name); same() end
 assert(label(first, "Registration_NumberEntering", "JOPEntryValue").Text == "042_")
 for _, object in ipairs(first:GetDescendants()) do
-  if object:IsA("TextLabel") then assert(object.BackgroundTransparency == 1, "Unexpected white selection background") end
+  if object:IsA("TextLabel") then
+    assert(object.BackgroundTransparency == 1, "Unexpected white selection background")
+    for index=1,#(object.Text or "") do assert(string.byte(object.Text,index)<128,"Unsupported radio glyph") end
+  end
 end
 press(first, "StarEnter")
-assert(label(first, "Registration_NumberEntering", "JOPEntryPrompt").Text == "ČÍSLO VLAKU")
+assert(label(first, "Registration_NumberEntering", "JOPEntryPrompt").Text == "CISLO VLAKU")
 for _, name in ipairs({ "Five", "Zero", "Zero", "One" }) do press(first, name) end
 press(second, "StarEnter"); press(first, "F1"); same()
 failReply = true
@@ -164,6 +172,9 @@ press(first, "F4"); assert(deregistrations == 0, "Unknown outcome must block the
 offline, failReply = false, false
 advance(20); same()
 assert(first.attributes.JOPGsmRStatus == "registered")
+sensor.attributes.JOPVehicleSensorId = nil
+advance(30)
+assert(sensor.attributes.JOPVehicleSensorId == first.attributes.JOPVehicleSensorId, "Synchronization must repair the physical sensor identity")
 assert(sensor.attributes.JOPGsmRTrainNumber == "5001" and sensor.attributes.JOPGsmRDriverId == "12340")
 press(first, "F4", stranger); assert(deregistrations == 0)
 press(second, "Power"); assert(first.attributes.JOPGsmRStatus == "registered")
@@ -173,7 +184,7 @@ assert(first.attributes.JOPGsmRStatus == "unregistered" and not sensor.attribute
 press(first, "F3")
 for _, name in ipairs({ "Zero", "Four", "Two" }) do press(first, name) end
 press(first, "StarEnter")
-assert(label(first, "Registration_NumberEntering", "JOPEntryPrompt").Text == "ČÍSLO VLAKU")
+assert(label(first, "Registration_NumberEntering", "JOPEntryPrompt").Text == "CISLO VLAKU")
 for _, name in ipairs({ "Five", "Zero", "Zero", "One" }) do press(first, name) end
 press(first, "StarEnter"); press(first, "F1"); press(first, "StarEnter")
 player.Parent = nil; playerService.PlayerRemoving:Fire(player)
@@ -184,7 +195,7 @@ player.Parent = playerService
 press(first, "F3")
 for _, name in ipairs({ "Zero", "Four", "Two" }) do press(first, name) end
 press(first, "StarEnter")
-assert(label(first, "Registration_NumberEntering", "JOPEntryPrompt").Text == "ČÍSLO VLAKU")
+assert(label(first, "Registration_NumberEntering", "JOPEntryPrompt").Text == "CISLO VLAKU")
 for _, name in ipairs({ "Five", "Zero", "Zero", "One" }) do press(first, name) end
 press(first, "StarEnter"); press(first, "F1"); press(first, "StarEnter")
 first.Destroying:Fire(); second.Destroying:Fire()

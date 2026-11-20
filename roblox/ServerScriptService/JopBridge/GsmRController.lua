@@ -9,12 +9,67 @@ local rejectedRadios = {}
 local api, sessionId, ready
 local digits = { Zero = "0", One = "1", Two = "2", Three = "3", Four = "4",
 	Five = "5", Six = "6", Seven = "7", Eight = "8", Nine = "9" }
+-- Keep radio copy within the bitmap font's plain ASCII character set.
+local plainCharacters = {
+	["á"] = "a",
+	["Á"] = "A",
+	["ä"] = "a",
+	["Ä"] = "A",
+	["č"] = "c",
+	["Č"] = "C",
+	["ď"] = "d",
+	["Ď"] = "D",
+	["é"] = "e",
+	["É"] = "E",
+	["ě"] = "e",
+	["Ě"] = "E",
+	["í"] = "i",
+	["Í"] = "I",
+	["ĺ"] = "l",
+	["Ĺ"] = "L",
+	["ľ"] = "l",
+	["Ľ"] = "L",
+	["ň"] = "n",
+	["Ň"] = "N",
+	["ó"] = "o",
+	["Ó"] = "O",
+	["ô"] = "o",
+	["Ô"] = "O",
+	["ö"] = "o",
+	["Ö"] = "O",
+	["ŕ"] = "r",
+	["Ŕ"] = "R",
+	["ř"] = "r",
+	["Ř"] = "R",
+	["š"] = "s",
+	["Š"] = "S",
+	["ť"] = "t",
+	["Ť"] = "T",
+	["ú"] = "u",
+	["Ú"] = "U",
+	["ů"] = "u",
+	["Ů"] = "U",
+	["ü"] = "u",
+	["Ü"] = "U",
+	["ý"] = "y",
+	["Ý"] = "Y",
+	["ž"] = "z",
+	["Ž"] = "Z",
+	["·"] = "|", ["→"] = ">", ["…"] = "...",
+}
+local function radioText(value)
+	local plain = string.gsub(value, "[\194-\244][\128-\191]*", function(character)
+		return plainCharacters[character] or ""
+	end)
+	return plain
+end
+
 local function text(parent, path, value)
 	local target = parent
 	for segment in string.gmatch(path, "[^/]+") do
 		target = target and target:FindFirstChild(segment)
 	end
-	if target and target:IsA("TextLabel") then target.Text = value end
+	if target and target:IsA("TextLabel") then target.Text = radioText(value) end
 end
 local function prepareDisplay(gui)
 	-- The supplied UI contains baked-in white selection backgrounds. Input is
@@ -25,6 +80,7 @@ local function prepareDisplay(gui)
 			object.BackgroundTransparency = 1
 			object.BorderSizePixel = 0
 			object.TextColor3 = foreground
+			object.Text = radioText(object.Text)
 		end
 	end
 	for _, frame in ipairs(gui:GetChildren()) do
@@ -38,22 +94,25 @@ local function prepareDisplay(gui)
 	local source = entering:FindFirstChild("TrainNumberFrame")
 	local reference = source and source:FindFirstChildOfClass("TextLabel")
 	local function entryLabel(name, y, height)
-		if entering:FindFirstChild(name) then return end
-		local label = Instance.new("TextLabel", entering)
+		local label = entering:FindFirstChild(name) or Instance.new("TextLabel", entering)
 		label.Name = name
 		label.BackgroundTransparency, label.BorderSizePixel = 1, 0
 		label.TextColor3 = foreground
-		label.Position, label.Size = UDim2.fromScale(0.08, y), UDim2.fromScale(0.84, height)
+		label.Position, label.Size = UDim2.fromScale(0.08, y), UDim2.fromScale(0.68, height)
 		label.TextScaled, label.TextWrapped = true, true
+		label.ClipsDescendants = true
 		label.ZIndex = 10
 		if reference then label.FontFace = reference.FontFace end
 	end
-	entryLabel("JOPEntryPrompt", 0.28, 0.11)
-	entryLabel("JOPEntryValue", 0.43, 0.18)
-	entryLabel("JOPEntryHelp", 0.68, 0.09)
+	entryLabel("JOPEntryPrompt", 0.23, 0.18)
+	entryLabel("JOPEntryValue", 0.44, 0.14)
+	entryLabel("JOPEntryHelp", 0.62, 0.12)
 end
 
 local function render(vehicle)
+	-- Occupation observers join this physical part to the confirmed radio UUID.
+	-- Repair a missing/stale attribute on every synchronization, not only attach.
+	if vehicle.sensor.Parent then vehicle.sensor:SetAttribute("JOPVehicleSensorId", vehicle.sensorId) end
 	local binding = vehicle.confirmed and vehicle.confirmed.binding
 	if type(binding) ~= "table" then binding = nil end
 	if vehicle.sensor.Parent then vehicle.sensor:SetAttribute("JOPGsmRTrainNumber", binding and binding.trainNumber or nil) end
@@ -81,11 +140,11 @@ local function render(vehicle)
 		end
 		local entering = gui:FindFirstChild("Registration_NumberEntering")
 		if entering then
-			text(entering, "JOPEntryPrompt", screen == "driver" and "VOLACÍ ZNAK RUŠŇOVODIČA" or "ČÍSLO VLAKU")
+			text(entering, "JOPEntryPrompt", screen == "driver" and "VOLACI ZNAK\nRUSNOVODICA" or "CISLO VLAKU")
 			text(entering, "JOPEntryValue", vehicle.entry .. "_")
 			text(entering, "JOPEntryHelp", screen == "driver"
-				and "3 číslice z DIS · * potvrdiť · DEL zmazať"
-				or "Číslo z GVD · * potvrdiť · DEL zmazať")
+				and "3 CISLICE Z DIS\n* POTVRDIT | DEL ZMAZAT"
+				or "CISLO Z GVD\n* POTVRDIT | DEL ZMAZAT")
 		end
 		local main = gui:FindFirstChild("MainScreen")
 		if main then

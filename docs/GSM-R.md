@@ -51,7 +51,7 @@ silently attached to a timetable ID by number alone.
   adaptation; the real unit's startup is longer.
 - **F3**: begin registration. Enter the three digits of your DIS callsign (for example **042** for
   **ZSSK-042**), then **StarEnter**.
-  The number-entry screen shows `VOLACÍ ZNAK RUŠŇOVODIČA` and a large input value during this step. The server
+  The number-entry screen shows `VOLACI ZNAK` / `RUSNOVODICA` on two lines and a large input value during this step. The server
   matches that callsign to the player’s linked Roblox profile; another person’s
   callsign is rejected.
 - Enter the exact selected train number, then **StarEnter**. Use **Zero** for 0 and
@@ -61,7 +61,7 @@ silently attached to a timetable ID by number alone.
   second locomotive, banking locomotive, shunting onto the train, shunting away
   from the train. These map to functional codes **01–05**.
 - Press **StarEnter** again on the main screen to send registration to JOP.
-  `R`, `REGISTROVANÝ`, and the registered train appear only after confirmation.
+  `R`, `REGISTROVANY`, and the registered train appear only after confirmation.
 - **F4**: deregister. Wait for server confirmation before changing identity or
   powering off. There is no forced takeover of somebody else's registration.
 - **F → F8**: select locomotive function; **F → F9**: reopen callsign/number
@@ -263,3 +263,9 @@ shared sensors, GVD/Pos category resolution, cross-station position, stale
 heartbeats and deregistration. The Luau test executes the actual hardware
 observer, including late radio initialization and occupants changing while the
 section remains occupied. Both use isolated fixtures and preserve live state.
+
+Radio display text is normalized to plain ASCII, including backend errors. The
+callsign prompt uses two lines (`VOLACI ZNAK` / `RUSNOVODICA`); the shorter
+`CISLO VLAKU` prompt uses one. Entry prompts and help reserve the right-hand
+indicator strip and wrap within their own bounds. No manual GUI edits are
+needed; refresh GsmRController for this layout/copy change.
