@@ -16,6 +16,43 @@ local function text(parent, path, value)
 	end
 	if target and target:IsA("TextLabel") then target.Text = value end
 end
+local function prepareDisplay(gui)
+	-- The supplied UI contains baked-in white selection backgrounds. Input is
+	-- now one explicit value, so keep its ordinary text and headers transparent.
+	local foreground = Color3.fromRGB(235, 235, 215)
+	for _, object in ipairs(gui:GetDescendants()) do
+		if object:IsA("TextLabel") then
+			object.BackgroundTransparency = 1
+			object.BorderSizePixel = 0
+			object.TextColor3 = foreground
+		end
+	end
+	for _, frame in ipairs(gui:GetChildren()) do
+		for _, name in ipairs({ "TrainNumberFrame", "FunctionCode", "RadioChannel", "Registrated", "Mode" }) do
+			local header = frame:FindFirstChild(name)
+			if header and header:IsA("Frame") then header.BackgroundTransparency = 1 end
+		end
+	end
+	local entering = gui:FindFirstChild("Registration_NumberEntering")
+	if not entering then return end
+	local source = entering:FindFirstChild("TrainNumberFrame")
+	local reference = source and source:FindFirstChildOfClass("TextLabel")
+	local function entryLabel(name, y, height)
+		if entering:FindFirstChild(name) then return end
+		local label = Instance.new("TextLabel", entering)
+		label.Name = name
+		label.BackgroundTransparency, label.BorderSizePixel = 1, 0
+		label.TextColor3 = foreground
+		label.Position, label.Size = UDim2.fromScale(0.08, y), UDim2.fromScale(0.84, height)
+		label.TextScaled, label.TextWrapped = true, true
+		label.ZIndex = 10
+		if reference then label.FontFace = reference.FontFace end
+	end
+	entryLabel("JOPEntryPrompt", 0.28, 0.11)
+	entryLabel("JOPEntryValue", 0.43, 0.18)
+	entryLabel("JOPEntryHelp", 0.68, 0.09)
+end
+
 local function render(vehicle)
 	local binding = vehicle.confirmed and vehicle.confirmed.binding
 	if type(binding) ~= "table" then binding = nil end
@@ -36,12 +73,19 @@ local function render(vehicle)
 		for _, frame in ipairs(gui:GetChildren()) do
 			if frame:IsA("Frame") then
 				frame.Visible = frame.Name == frameName
-				text(frame, "TrainNumberFrame/TextLabel", screen == "driver" and vehicle.entry
-					or screen == "train" and vehicle.entry or vehicle.trainNumber)
+				text(frame, "TrainNumberFrame/TextLabel", vehicle.trainNumber)
 				text(frame, "FunctionCode/TextLabel", vehicle.functionCode)
 				text(frame, "Registrated/TextLabel", binding and "R" or "")
-				text(frame, "Mode/TextLabel", screen == "driver" and "VOLACÍ ZNAK" or "GSM-R")
+				text(frame, "Mode/TextLabel", "GSM-R")
 			end
+		end
+		local entering = gui:FindFirstChild("Registration_NumberEntering")
+		if entering then
+			text(entering, "JOPEntryPrompt", screen == "driver" and "VOLACÍ ZNAK RUŠŇOVODIČA" or "ČÍSLO VLAKU")
+			text(entering, "JOPEntryValue", vehicle.entry .. "_")
+			text(entering, "JOPEntryHelp", screen == "driver"
+				and "3 číslice z DIS · * potvrdiť · DEL zmazať"
+				or "Číslo z GVD · * potvrdiť · DEL zmazať")
 		end
 		local main = gui:FindFirstChild("MainScreen")
 		if main then
@@ -226,6 +270,7 @@ function Controller.Attach(radio)
 		vehicles[sensor] = vehicle
 		sensor.Destroying:Connect(function() vehicle.releaseRequested = true end)
 	end
+	prepareDisplay(part:FindFirstChild("SurfaceGui"))
 	vehicle.radios[radio], radios[radio] = true, vehicle
 	local connections = {}
 	if buttons then

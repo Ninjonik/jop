@@ -48,7 +48,7 @@ from the locomotive function code.
   adaptation; the real unit's startup is longer.
 - **F3**: begin registration. Enter the three digits of your DIS callsign (for example **042** for
   **ZSSK-042**), then **StarEnter**.
-  The number-entry screen shows `VOLACÍ ZNAK` during this step. The server
+  The number-entry screen shows `VOLACÍ ZNAK RUŠŇOVODIČA` and a large input value during this step. The server
   matches that callsign to the player’s linked Roblox profile; another person’s
   callsign is rejected.
 - Enter the exact GVD train number, then **StarEnter**. Use **Zero** for 0 and
@@ -183,7 +183,11 @@ windows fit the height as well so no keys are clipped. Framing follows the
 moving radio and updates when the viewport changes. Its orientation comes from
 `Part.SurfaceGui.Face`, so that face must match the actual display surface.
 
-**Backspace** or **Escape** restores the previous camera and mouse settings.
+**Backspace**, **Escape**, or another click on the same housing/display closes
+the view. The previous camera type, subject, view and field of view are restored.
+Temporary mouse locks are released; Roblox then owns normal first-person,
+third-person and shift-lock behavior again. Player camera mode and zoom limits
+are never changed.
 Escape may also open Roblox's standard menu; opening that menu always leaves
 the close-up. Gamepad B and a touch “Späť” button also exit. Moving out of range,
 respawning, radio removal, or replacement of CurrentCamera ends the close-up.
@@ -199,3 +203,11 @@ Run `node --import tsx scripts/verify-radio-camera.ts /path/to/luau` for framing
 window resizing, moving/rotated radios, keypad exclusion and camera/input
 restoration checks. Physical mesh orientation and actual Roblox input behavior
 still need Studio acceptance.
+
+The focused screen temporarily uses `SurfaceGui.AlwaysOnTop` to prevent
+intersecting model geometry from cutting into its text. This is local to the
+focused panel; its original depth behavior returns on exit. Keypad text uses
+transparent backgrounds rather than baked-in white selection blocks. Number
+entry has explicit callsign/train-number prompts, a large value with an
+underscore cursor, and confirmation/deletion instructions. Both cabins receive
+the same prompt and input value.

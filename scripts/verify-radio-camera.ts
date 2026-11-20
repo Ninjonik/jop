@@ -50,7 +50,7 @@ local humanoid=instance("Humanoid","Humanoid",character); humanoid.Health=100
 local player={Character=character,CharacterRemoving=event()}
 local radio=instance("Model","RadioStation",world)
 local display=instance("MeshPart","Part",radio); display.CFrame=cframe.new(); display.Position=vec(0,0,0); display.Size=vec(5,2,.2)
-local gui=instance("SurfaceGui","SurfaceGui",display); gui.Face="Front"
+local gui=instance("SurfaceGui","SurfaceGui",display); gui.Face="Front"; gui.AlwaysOnTop=false
 local hull=instance("Model","Hull",radio)
 local body=instance("MeshPart","Body",hull); body.CFrame=cframe.new(); body.Position=vec(0,0,0); body.Size=vec(10,4,1)
 local buttons=instance("Model","Buttons",radio)
@@ -91,16 +91,20 @@ local function fit()
   assert(maxH <= 1 and maxV <= 1,"A control falls outside the viewport")
   assert(math.max(maxH,maxV) > .97,"Radio should fill the limiting screen dimension")
 end
+local expectedType="Custom"
 local function restored()
-  assert(camera.CameraType=="Custom" and camera.CameraSubject==humanoid)
+  assert(camera.CameraType==expectedType and camera.CameraSubject==humanoid)
   assert(camera.CFrame==oldCFrame and camera.Focus==oldFocus and camera.FieldOfView==70 and camera.FieldOfViewMode=="Diagonal")
-  assert(input.MouseBehavior=="LockCenter" and not input.MouseIconEnabled)
+  assert(input.MouseBehavior=="Default" and not input.MouseIconEnabled)
+  assert(gui.AlwaysOnTop==false)
   assert(not next(render) and not next(actions))
 end
+input.MouseBehavior="Default"
 click(key); restored()
 click(body,true); restored()
+input.MouseBehavior="LockCurrentPosition"
 click(body); assert(camera.CameraType=="Scriptable"); fit()
-assert(input.MouseBehavior=="Default" and input.MouseIconEnabled)
+assert(input.MouseBehavior=="Default" and input.MouseIconEnabled and gui.AlwaysOnTop)
 camera.ViewportSize={X=600,Y=1200}; render.JOPRadioCloseUp(); fit()
 -- Follow a moving/rotated radio without recalculating its mesh bounds.
 local movement=cframe.lookAt(vec(2,1,0),vec(1,1,0),vec(0,1,0))
@@ -108,11 +112,28 @@ for _,p in ipairs(radio:GetDescendants()) do if p:IsA("BasePart") then p.CFrame=
 display.Position=display.CFrame.p
 render.JOPRadioCloseUp(); fit()
 input.InputBegan:Fire({KeyCode="Backspace"},true); restored()
+click(body); click(key); assert(camera.CameraType=="Scriptable"); click(body); restored()
 click(body); menu.MenuOpened:Fire(); restored()
 click(body); actions.JOPRadioCloseUpExit(nil,"Begin"); restored()
 click(body); root.Position=vec(100,0,0); render.JOPRadioCloseUp(); restored()
 root.Position=vec(0,0,-5)
 click(body); player.CharacterRemoving:Fire(); restored()
+for _,mode in ipairs({"Custom","Follow","Orbital","Attach","Track","Watch","Fixed","Scriptable"}) do
+  camera.CameraType=mode; expectedType=mode
+  player.CameraMode="Classic"; input.MouseBehavior="LockCurrentPosition"
+  click(body); input.InputBegan:Fire({KeyCode="Backspace"},true); restored()
+  assert(player.CameraMode=="Classic")
+end
+camera.CameraType="Custom"; expectedType="Custom"; player.CameraMode="LockFirstPerson"
+input.MouseBehavior="LockCenter"
+click(body); input.InputBegan:Fire({KeyCode="Backspace"},true); restored()
+assert(player.CameraMode=="LockFirstPerson")
+-- Roblox's FPS controller may reacquire center lock after handoff; the radio
+-- script must no longer override it once the close-up has ended.
+input.MouseBehavior="LockCenter"
+input.InputBegan:Fire({UserInputType="MouseMovement"},false)
+assert(input.MouseBehavior=="LockCenter")
+input.MouseBehavior="Default"
 click(body); radio.Parent=nil; render.JOPRadioCloseUp(); restored()
 print("Radio camera: full-width/portrait fit, moving radio, keypad exclusion, exit and camera/mouse restoration passed.")
 `;

@@ -117,7 +117,11 @@ end
 local services = { HttpService = { GenerateGUID = function() return "one-sensor-id" end }, Players = playerService }
 local chunk = assert(loadstring([====[${source}]====]))
 setfenv(chunk, setmetatable({ game = { GetService = function(_, key) return services[key] end },
-  workspace = workspace, task = tasks, os = { clock = function() return now end },
+  workspace = workspace, task = tasks,
+  Instance = { new = function(class, parent) return instance(class, class, parent) end },
+  Color3 = { fromRGB = function(r,g,b) return {r,g,b} end },
+  UDim2 = { fromScale = function(x,y) return {x,y} end },
+  os = { clock = function() return now end },
   warn = function() end }, { __index = getfenv() }))
 local controller = chunk()
 controller.Start(api, "session", function() return true end)
@@ -143,8 +147,14 @@ local function same()
 end
 press(first, "Power"); advance(4); same()
 press(first, "F3")
+assert(label(first, "Registration_NumberEntering", "JOPEntryPrompt").Text == "VOLACÍ ZNAK RUŠŇOVODIČA")
 for _, name in ipairs({ "Zero", "Four", "Two" }) do press(second, name); same() end
+assert(label(first, "Registration_NumberEntering", "JOPEntryValue").Text == "042_")
+for _, object in ipairs(first:GetDescendants()) do
+  if object:IsA("TextLabel") then assert(object.BackgroundTransparency == 1, "Unexpected white selection background") end
+end
 press(first, "StarEnter")
+assert(label(first, "Registration_NumberEntering", "JOPEntryPrompt").Text == "ČÍSLO VLAKU")
 for _, name in ipairs({ "Five", "Zero", "Zero", "One" }) do press(first, name) end
 press(second, "StarEnter"); press(first, "F1"); same()
 failReply = true
@@ -163,6 +173,7 @@ assert(first.attributes.JOPGsmRStatus == "unregistered" and not sensor.attribute
 press(first, "F3")
 for _, name in ipairs({ "Zero", "Four", "Two" }) do press(first, name) end
 press(first, "StarEnter")
+assert(label(first, "Registration_NumberEntering", "JOPEntryPrompt").Text == "ČÍSLO VLAKU")
 for _, name in ipairs({ "Five", "Zero", "Zero", "One" }) do press(first, name) end
 press(first, "StarEnter"); press(first, "F1"); press(first, "StarEnter")
 player.Parent = nil; playerService.PlayerRemoving:Fire(player)
@@ -173,6 +184,7 @@ player.Parent = playerService
 press(first, "F3")
 for _, name in ipairs({ "Zero", "Four", "Two" }) do press(first, name) end
 press(first, "StarEnter")
+assert(label(first, "Registration_NumberEntering", "JOPEntryPrompt").Text == "ČÍSLO VLAKU")
 for _, name in ipairs({ "Five", "Zero", "Zero", "One" }) do press(first, name) end
 press(first, "StarEnter"); press(first, "F1"); press(first, "StarEnter")
 first.Destroying:Fire(); second.Destroying:Fire()

@@ -47,6 +47,11 @@ local function exitCloseUp()
 	active = nil
 	RunService:UnbindFromRenderStep(RENDER_NAME)
 	ContextActionService:UnbindAction(EXIT_ACTION)
+	-- A captured lock can be a temporary RMB-drag lock, not the player's mode.
+	-- Clear it before handing back to Roblox; FPS/shift-lock reacquire their own
+	-- lock through the normal camera controller, which remains authoritative.
+	UserInputService.MouseBehavior = Enum.MouseBehavior.Default
+	if previous.gui.Parent then previous.gui.AlwaysOnTop = previous.alwaysOnTop end
 	local camera = previous.camera
 	if camera.Parent then
 		camera.FieldOfViewMode = previous.fieldOfViewMode
@@ -59,7 +64,6 @@ local function exitCloseUp()
 		camera.CameraSubject = subject
 		camera.CameraType = previous.cameraType
 	end
-	UserInputService.MouseBehavior = previous.mouseBehavior
 	UserInputService.MouseIconEnabled = previous.mouseIconEnabled
 end
 
@@ -103,7 +107,7 @@ local function updateCamera()
 end
 
 local function enterCloseUp(radio)
-	if active and active.radio == radio then return end
+	if active and active.radio == radio then exitCloseUp(); return end
 	local display = radio:FindFirstChild("Part")
 	local gui = display and display:FindFirstChildOfClass("SurfaceGui")
 	if not display or not display:IsA("BasePart") or not gui or not inRange(radio, display) then return end
@@ -114,13 +118,17 @@ local function enterCloseUp(radio)
 	if #points == 0 then return end
 	exitCloseUp()
 	active = {
-		radio = radio, display = display, face = gui.Face,
+		radio = radio, display = display, face = gui.Face, gui = gui, alwaysOnTop = gui.AlwaysOnTop,
 		points = points, centerX = centerX, centerY = centerY,
 		camera = camera, cameraType = camera.CameraType, subject = camera.CameraSubject,
 		cframe = camera.CFrame, focus = camera.Focus,
 		fieldOfView = camera.FieldOfView, fieldOfViewMode = camera.FieldOfViewMode,
-		mouseBehavior = UserInputService.MouseBehavior, mouseIconEnabled = UserInputService.MouseIconEnabled,
+		mouseIconEnabled = UserInputService.MouseIconEnabled,
 	}
+	-- Only the focused panel bypasses depth testing, so a coplanar housing mesh
+	-- cannot cut triangles out of the text. Other radios stay world-occluded.
+	gui.AlwaysOnTop = true
+	UserInputService.MouseBehavior = Enum.MouseBehavior.Default
 	ContextActionService:BindActionAtPriority(EXIT_ACTION, function(_, state)
 		if state == Enum.UserInputState.Begin then exitCloseUp() end
 		return Enum.ContextActionResult.Sink
