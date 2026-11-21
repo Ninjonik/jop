@@ -33,7 +33,15 @@ export type UserRole =
   | 'dispatcher'
   | 'driver'
   | 'dispatcher_trainee'
-  | 'driver_trainee';
+  | 'driver_trainee'
+  | 'other_staff'
+  | 'conductor'
+  | 'shuntman'
+  | 'operations_dispatcher'
+  | 'vehicle_manager'
+  | 'conductor_manager'
+  | 'relations_manager'
+  | 'workforce_director';
 
 export type UserProfile = {
   $id?: string;

@@ -1,10 +1,11 @@
+import { authorizeStationCommand } from '@/lib/server/dis/station-command';
+import { jsonErrorResponse, parseJsonRequest } from '@/lib/server/http';
+import { stationService } from '@/lib/server/services/station-service';
 import {
   privolavaciaInteractCommandSchema,
   sessionIdSchema,
   stationIdSchema,
 } from '@/lib/station/domain';
-import { jsonErrorResponse, parseJsonRequest } from '@/lib/server/http';
-import { stationService } from '@/lib/server/services/station-service';
 
 export const runtime = 'nodejs';
 
@@ -15,15 +16,14 @@ interface StationPrivolavaciaInteractRouteProps {
   }>;
 }
 
-export async function POST(
-  request: Request,
-  { params }: StationPrivolavaciaInteractRouteProps,
-) {
+export async function POST(request: Request, { params }: StationPrivolavaciaInteractRouteProps) {
   try {
     const { sessionId, stationId } = await params;
     const parsedSessionId = sessionIdSchema.parse(sessionId);
     const parsedStationId = stationIdSchema.parse(stationId);
+    const profile = await authorizeStationCommand(request, parsedSessionId, parsedStationId);
     const command = await parseJsonRequest(request, privolavaciaInteractCommandSchema);
+    if (profile) command.actor = { type: 'user', id: profile.userId };
 
     if (command.sessionId !== parsedSessionId || command.stationId !== parsedStationId) {
       return Response.json(

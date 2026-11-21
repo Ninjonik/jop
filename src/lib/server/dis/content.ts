@@ -12,7 +12,7 @@ import { stationRepository } from '../repositories/station-repository';
 import { databaseId, disDatabase, DisError, listDocuments } from './appwrite';
 import { requireStation } from './edd';
 import { getDisUniverseId } from './places';
-import { loadTimetables } from './timetables';
+import { loadOperatingTimetables } from './session-timetables';
 
 export async function loadDisDocuments(canEdit: boolean) {
   return listDocuments<Models.Document & DisDocument>(
@@ -82,10 +82,10 @@ export async function loadRadioRecipients(sessionId: string) {
     stationRepository.listBySessionId(sessionId),
     (await getMongoDb())
       .collection<DriverTrain>('session_driver_trains')
-      .find({ sessionId })
+      .find({ sessionId, expiresAt: { $gt: Date.now() } })
       .toArray(),
     session.interpreter.kind === 'roblox' && session.interpreter.universeId === getDisUniverseId()
-      ? loadTimetables(session.interpreter.placeId)
+      ? loadOperatingTimetables(sessionId)
       : Promise.resolve([]),
   ]);
   const recipients = [

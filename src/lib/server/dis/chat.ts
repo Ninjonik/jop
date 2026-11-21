@@ -9,6 +9,7 @@ import {
   type ChatRecipient,
 } from '@/lib/dis/chat';
 import type { DriverTrain } from '@/lib/dis/driver-train';
+import { canPublishAnnouncements } from '@/lib/dis/permissions';
 import { canAssignShiftRole } from '@/lib/dis/shift-plan';
 import { getStationDisplayName } from '@/lib/station/display-name';
 import { isPublicStation } from '@/lib/station/visibility';
@@ -20,6 +21,7 @@ import { gsmRRepository } from '../repositories/gsm-r-repository';
 import { sessionRepository } from '../repositories/session-repository';
 import { stationRepository } from '../repositories/station-repository';
 import { databaseId, disDatabase, DisError } from './appwrite';
+import { requireStationClaim } from './claims';
 import { loadStaff } from './personnel';
 
 export async function chatMessagesCollection() {
@@ -42,7 +44,7 @@ async function driverChatName(sessionId: string, userId: string, fallback: strin
     await getMongoDb()
   )
     .collection<DriverTrain>('session_driver_trains')
-    .findOne({ sessionId, userId });
+    .findOne({ sessionId, userId, expiresAt: { $gt: Date.now() } });
   return train ? `${train.trainType} ${train.trainNumber}` : fallback;
 }
 
@@ -79,7 +81,7 @@ export async function authorizeChatScope(body: unknown, profile: UserProfile) {
   const scope = chatScopeSchema.parse(body);
   await requireChatSession(scope.sessionId);
   if (scope.endpoint.kind === 'driver') {
-    if (scope.endpoint.id !== profile.userId || !canAssignShiftRole(profile, 'driver'))
+    if (scope.endpoint.id !== profile.userId)
       throw new DisError(403, 'Môžete otvoriť iba vlastnú komunikáciu rušňovodiča.');
     return {
       ...scope,
@@ -91,6 +93,7 @@ export async function authorizeChatScope(body: unknown, profile: UserProfile) {
   }
   if (!canAssignShiftRole(profile, 'dispatcher'))
     throw new DisError(403, 'Staničná komunikácia je určená výpravcom.');
+  await requireStationClaim(scope.sessionId, scope.endpoint.id, profile);
   const contact = await resolveContact(scope.sessionId, scope.endpoint);
   return { ...scope, contact: { ...scope.endpoint, name: contact.name } };
 }
@@ -115,7 +118,7 @@ export async function loadChat(body: unknown, profile: UserProfile) {
     scope.endpoint.kind === 'station'
       ? (await getMongoDb())
           .collection<DriverTrain>('session_driver_trains')
-          .find({ sessionId: scope.sessionId })
+          .find({ sessionId: scope.sessionId, expiresAt: { $gt: Date.now() } })
           .toArray()
       : Promise.resolve([]),
   ]);
@@ -141,6 +144,11 @@ export async function loadChat(body: unknown, profile: UserProfile) {
 export async function sendChat(body: unknown, profile: UserProfile) {
   const command = sendChatSchema.parse(body);
   const scope = await authorizeChatScope(command, profile);
+  if (
+    command.announcement &&
+    (!canPublishAnnouncements(profile.role) || command.recipient.kind !== 'session')
+  )
+    throw new DisError(403, 'Oznam môže odoslať iba oprávnený pracovník celej relácii.');
   if (chatEndpointKey(command.endpoint) === chatEndpointKey(command.recipient))
     throw new DisError(400, 'Vyberte iného príjemcu.');
   if (
@@ -158,6 +166,8 @@ export async function sendChat(body: unknown, profile: UserProfile) {
     recipient,
     senderUserId: profile.userId,
     senderName: profile.name,
+    senderRole: profile.role,
+    ...(command.announcement ? { announcement: command.announcement } : {}),
     content: command.content,
     createdAt: new Date().toISOString(),
     clientMessageId: command.messageId,
@@ -172,6 +182,7 @@ export async function sendChat(body: unknown, profile: UserProfile) {
       !existing ||
       existing.sessionId !== message.sessionId ||
       existing.content !== message.content ||
+      existing.announcement !== message.announcement ||
       chatEndpointKey(existing.sender) !== chatEndpointKey(message.sender) ||
       chatEndpointKey(existing.recipient) !== chatEndpointKey(message.recipient)
     )

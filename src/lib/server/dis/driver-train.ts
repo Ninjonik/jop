@@ -1,21 +1,23 @@
 import type { UserProfile } from '@/lib/dis/appwrite-client';
+import { CLAIM_LEASE_MS } from '@/lib/dis/claims';
 import { driverTrainInputSchema, type DriverTrain } from '@/lib/dis/driver-train';
 import { canAssignShiftRole } from '@/lib/dis/shift-plan';
 import { getStationDisplayName } from '@/lib/station/display-name';
 import { physicalVehicleStation } from '@/lib/station/physical-trains';
 import { isPublicStation } from '@/lib/station/visibility';
+import { MongoServerError } from 'mongodb';
 import { createHash } from 'node:crypto';
 import { getMongoDb } from '../mongo';
 import { gsmRRepository } from '../repositories/gsm-r-repository';
-import { sessionRepository } from '../repositories/session-repository';
 import { stationRepository } from '../repositories/station-repository';
 import { isRobloxSessionLive } from '../services/station-service';
 import { DisError } from './appwrite';
+import { requireLiveSession } from './claims';
 import { getDisUniverseId } from './places';
-import { loadTimetables } from './timetables';
+import { loadOperatingTimetables } from './session-timetables';
 
 async function drivingSession(sessionId: string) {
-  const session = await sessionRepository.findById(sessionId);
+  const session = await requireLiveSession(sessionId);
   if (!session || session.status !== 'active')
     throw new DisError(404, 'Aktívna relácia neexistuje.');
   if (
@@ -26,7 +28,13 @@ async function drivingSession(sessionId: string) {
   return session;
 }
 async function collection() {
-  return (await getMongoDb()).collection<DriverTrain>('session_driver_trains');
+  const result = (await getMongoDb()).collection<DriverTrain>('session_driver_trains');
+  await result.createIndex(
+    { claimKey: 1 },
+    { unique: true, partialFilterExpression: { claimKey: { $type: 'string' } } },
+  );
+  await result.deleteMany({ expiresAt: { $lte: Date.now() } });
+  return result;
 }
 const driverKey = (sessionId: string, userId: string) =>
   createHash('sha256')
@@ -37,8 +45,8 @@ export async function loadDriverDashboard(sessionId: string, profile: UserProfil
   const session = await drivingSession(sessionId);
   if (session.interpreter.kind !== 'roblox') throw new DisError(400, 'Chýba sieť GVD.');
   const [trains, timetables, stations, radios] = await Promise.all([
-    (await collection()).find({ sessionId }).toArray(),
-    loadTimetables(session.interpreter.placeId),
+    (await collection()).find({ sessionId, expiresAt: { $gt: Date.now() } }).toArray(),
+    loadOperatingTimetables(sessionId),
     stationRepository.listBySessionId(sessionId),
     gsmRRepository.list(sessionId),
   ]);
@@ -62,7 +70,10 @@ export async function loadDriverDashboard(sessionId: string, profile: UserProfil
     drivers: trains,
     stations: stations
       .filter((station) => isPublicStation(station.stationId))
-      .map((station) => ({ stationId: station.stationId, name: station.stationId })),
+      .map((station) => ({
+        stationId: station.stationId,
+        name: getStationDisplayName(station.stationId),
+      })),
   };
 }
 
@@ -72,7 +83,7 @@ export async function saveDriverTrain(body: unknown, profile: UserProfile) {
   const input = driverTrainInputSchema.parse(body);
   const session = await drivingSession(input.sessionId);
   if (input.timetableId && session.interpreter.kind === 'roblox') {
-    const timetable = (await loadTimetables(session.interpreter.placeId)).find(
+    const timetable = (await loadOperatingTimetables(input.sessionId)).find(
       (train) => train.$id === input.timetableId,
     );
     if (!timetable || timetable.trainNumber !== input.trainNumber)
@@ -89,8 +100,16 @@ export async function saveDriverTrain(body: unknown, profile: UserProfile) {
     userId: profile.userId,
     userName: profile.name,
     updatedAt: new Date().toISOString(),
+    expiresAt: Date.now() + CLAIM_LEASE_MS,
+    claimKey: JSON.stringify([input.sessionId, input.trainNumber.toLocaleLowerCase('sk')]),
   };
-  await (await collection()).replaceOne({ _id: train._id }, train, { upsert: true });
+  try {
+    await (await collection()).replaceOne({ _id: train._id }, train, { upsert: true });
+  } catch (error) {
+    if (error instanceof MongoServerError && error.code === 11000)
+      throw new DisError(409, 'Vlak už má prideleného rušňovodiča.');
+    throw error;
+  }
   return { train };
 }
 

@@ -23,6 +23,12 @@ test('public group roles use the actual configured group and rank', async (conte
 test('only explicitly mapped Roblox roles receive the intended DIS role', () => {
   const cases = [
     ['Driver', 2, 'driver'],
+    ['Other Staff', 18, 'other_staff'],
+    ['Signaller', 4, 'dispatcher'],
+    ['Operations Dispatcher', 50, 'operations_dispatcher'],
+    ['Vehicle Manager', 51, 'vehicle_manager'],
+    ['Relations Manager', 150, 'relations_manager'],
+    ['Workforce Director', 200, 'workforce_director'],
     ['Dispatcher', 4, 'dispatcher'],
     ['Trainee Driver', 8, 'driver_trainee'],
     ['Trainee Dispatcher', 9, 'dispatcher_trainee'],
@@ -40,7 +46,7 @@ test('only explicitly mapped Roblox roles receive the intended DIS role', () => 
     ['Passenger', 1],
     ['Member', 1],
     ['Unused role 1', 253],
-    ['Other Staff', 18],
+
     ['Driver', 255],
     ['Unknown', 255],
     ['Head Of Conductors', 198],

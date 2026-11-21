@@ -9,8 +9,9 @@ import { z } from 'zod';
 import { sessionRepository } from '../repositories/session-repository';
 import { stationRepository } from '../repositories/station-repository';
 import { databaseId, disDatabase, DisError, listDocuments } from './appwrite';
+import { requireStationClaim } from './claims';
 import { getDisUniverseId } from './places';
-import { loadTimetables } from './timetables';
+import { loadOperatingTimetables } from './session-timetables';
 
 const identity = z.string().trim().min(1).max(64);
 export const scopeSchema = z.object({ sessionId: identity, stationId: identity });
@@ -34,7 +35,7 @@ export async function listEdd(scope: DisScope) {
     session?.interpreter.kind === 'roblox' &&
     session.interpreter.universeId === getDisUniverseId()
   ) {
-    const timetables = await loadTimetables(session.interpreter.placeId);
+    const timetables = await loadOperatingTimetables(scope.sessionId);
     for (const timetable of timetables)
       imported += (await persistTimetableStops(scope, timetable, 'system:gvd', existingIds))
         .imported;
@@ -58,6 +59,7 @@ const createSchema = scopeSchema.extend({
 });
 export async function createEdd(body: unknown, profile: UserProfile) {
   const command = createSchema.parse(body);
+  await requireStationClaim(command.sessionId, command.stationId, profile);
   await requireStation(command);
   return {
     record: await disDatabase().createDocument(databaseId, 'edd_records', ID.unique(), {
@@ -72,6 +74,7 @@ export async function createEdd(body: unknown, profile: UserProfile) {
 }
 export async function importTimetable(body: unknown, profile: UserProfile) {
   const command = scopeSchema.extend({ timetableId: identity }).parse(body);
+  await requireStationClaim(command.sessionId, command.stationId, profile);
   await requireStation(command);
   const session = await sessionRepository.findById(command.sessionId);
   if (
@@ -80,7 +83,7 @@ export async function importTimetable(body: unknown, profile: UserProfile) {
     session.interpreter.universeId !== getDisUniverseId()
   )
     throw new DisError(400, 'Relácia nemá priradené miesto v tomto universe.');
-  const timetable = (await loadTimetables(session.interpreter.placeId)).find(
+  const timetable = (await loadOperatingTimetables(command.sessionId)).find(
     (item) => item.$id === command.timetableId,
   );
   if (!timetable) throw new DisError(404, 'Grafikon neexistuje.');
@@ -135,6 +138,7 @@ export async function recordEddEvent(body: unknown, profile: UserProfile) {
   const command = scopeSchema
     .extend({ id: identity, event: z.enum(['arrival', 'departure']), time: clockSchema.optional() })
     .parse(body);
+  await requireStationClaim(command.sessionId, command.stationId, profile);
   await requireStation(command);
   const db = disDatabase();
   const record = await db.getDocument<Models.Document & EddRecord>(

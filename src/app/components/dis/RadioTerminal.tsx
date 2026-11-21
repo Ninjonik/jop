@@ -29,7 +29,7 @@ export function useRadioTerminal(socket: ChatSocket | null, ready: boolean) {
       setClaiming(false);
     };
     const heartbeat = () => {
-      if (current.current.ownerSocketId === socket.id) socket.emit('radio:heartbeat');
+      socket.emit('radio:heartbeat');
     };
     const failed = (message: string) => {
       setNotice(message);

@@ -27,7 +27,7 @@ function snapshot() {
         if (typeof saved[name] === typeof cached[name])
           Object.assign(cached, { [name]: saved[name] });
       }
-      cached.volume = Math.max(0, Math.min(1, cached.volume));
+      cached.volume = Math.max(0, Math.min(2, cached.volume));
     }
   } catch {
     /* Use defaults when storage is unavailable. */

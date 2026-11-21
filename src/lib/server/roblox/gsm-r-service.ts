@@ -9,7 +9,7 @@ import { MongoServerError } from 'mongodb';
 import type { Models } from 'node-appwrite';
 import { DisError, listDocuments } from '../dis/appwrite';
 import { getDisUniverseId } from '../dis/places';
-import { loadTimetables } from '../dis/timetables';
+import { loadOperatingTimetables } from '../dis/session-timetables';
 import { getMongoDb } from '../mongo';
 import { gsmRRepository } from '../repositories/gsm-r-repository';
 import { radioTerminalRepository } from '../repositories/radio-terminal-repository';
@@ -72,7 +72,7 @@ export async function commandGsmR(sessionId: string, body: unknown) {
 }
 async function applyGsmRCommand(sessionId: string, body: unknown) {
   const command = gsmRCommandSchema.parse(body);
-  const interpreter = await radioSession(sessionId);
+  await radioSession(sessionId);
   if (command.type === 'initialize') {
     await gsmRRepository.initialize(sessionId, command.sensorIds);
     return { vehicles: await gsmRRepository.list(sessionId) };
@@ -137,8 +137,8 @@ async function applyGsmRCommand(sessionId: string, body: unknown) {
       await getMongoDb()
     )
       .collection<DriverTrain>('session_driver_trains')
-      .findOne({ sessionId, userId: profiles[0].userId });
-    const timetables = await loadTimetables(interpreter.placeId);
+      .findOne({ sessionId, userId: profiles[0].userId, expiresAt: { $gt: Date.now() } });
+    const timetables = await loadOperatingTimetables(sessionId);
     const timetable = timetables.find((train) => train.trainNumber === command.trainNumber);
     if (!driverTrain || driverTrain.trainNumber !== command.trainNumber)
       throw new DisError(400, 'V DIS vyberte v časti Môj vlak rovnaké číslo vlaku tejto relácie.');

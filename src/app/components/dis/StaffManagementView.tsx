@@ -75,6 +75,14 @@ export function StaffManagementView() {
     driver: 'Rušňovodič ZSSK',
     dispatcher_trainee: 'Výpravca v zácviku',
     driver_trainee: 'Kadet rušňovodič',
+    other_staff: 'Ostatný personál',
+    conductor: 'Sprievodca',
+    shuntman: 'Posunovač',
+    operations_dispatcher: 'Prevádzkový dispečer',
+    vehicle_manager: 'Vozmajster',
+    conductor_manager: 'Vedúci sprievodcov',
+    relations_manager: 'Manažér komunikácie',
+    workforce_director: 'Personálny riaditeľ',
   };
 
   const filtered = employees.filter((emp) => {

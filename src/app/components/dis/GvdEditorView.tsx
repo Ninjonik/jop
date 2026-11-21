@@ -1,5 +1,8 @@
 'use client';
+import type { RailwayLine } from '@/lib/dis/lines';
 import { useTranslation } from '@/lib/i18n/client';
+import { LineEditor } from './LineEditor';
+import { TimetableGraph } from './TimetableGraph';
 
 import { AeroAutocomplete } from '@/app/components/ui/AeroAutocomplete';
 import { AeroIcon } from '@/app/components/ui/AeroIcon';
@@ -20,18 +23,28 @@ const newTimetable = (): TimetableInput => ({
 });
 export function GvdEditorView({
   place,
+  sessionId = '',
 }: {
+  sessionId?: string;
   place: { placeId: string; name: string; stations: { stationId: string; name: string }[] };
 }) {
   const t = useTranslation();
   const { canCreateGvd } = useDisAuth();
+  const [sessionOnly, setSessionOnly] = useState(false);
+  const [lineId, setLineId] = useState('');
+  const { value: lineNetwork, refresh: refreshLines } = useDisResource<{ lines: RailwayLine[] }>(
+    `/api/dis/lines?${new URLSearchParams({ placeId: place.placeId })}`,
+    { lines: [] },
+  );
   const {
     value,
     error: loadError,
     loading,
     refresh,
   } = useDisResource<{ timetables: Timetable[] }>(
-    `/api/dis/timetables?placeId=${encodeURIComponent(place.placeId)}`,
+    sessionOnly
+      ? `/api/dis/session-timetables?${new URLSearchParams({ sessionId })}`
+      : `/api/dis/timetables?placeId=${encodeURIComponent(place.placeId)}`,
     { timetables: [] },
   );
   const stations = place.stations;
@@ -60,11 +73,16 @@ export function GvdEditorView({
     setMessage('');
     try {
       const result = await disFetch<{ timetable?: Timetable; report: ConflictReport }>(
-        save ? '/api/dis/timetables' : '/api/dis/timetables/check',
+        sessionOnly
+          ? '/api/dis/session-timetables'
+          : save
+            ? '/api/dis/timetables'
+            : '/api/dis/timetables/check',
         {
           method: 'POST',
           body: JSON.stringify({
             placeId: place.placeId,
+            ...(sessionOnly ? { sessionId, preview: !save } : {}),
             id: selectedId || undefined,
             timetable: draft,
           }),
@@ -72,8 +90,8 @@ export function GvdEditorView({
       );
       setReport(result.report);
       if (result.timetable) {
-        setSelectedId(result.timetable.$id);
-        setDraft(result.timetable);
+        setSelectedId(sessionOnly ? '' : result.timetable.$id);
+        setDraft(sessionOnly ? newTimetable() : result.timetable);
         await refresh();
         setMessage('Grafikon bol uložený.');
       }
@@ -86,6 +104,22 @@ export function GvdEditorView({
   return (
     <div className="gvd-editor">
       <div className="gvd-toolbar">
+        {sessionId && (
+          <label>
+            <input
+              type="checkbox"
+              checked={sessionOnly}
+              onChange={(e) => {
+                setSessionOnly(e.target.checked);
+                setSelectedId('');
+                setDraft(newTimetable());
+                setReport(null);
+                setMessage('');
+              }}
+            />{' '}
+            {t('Mimoriadny vlak iba pre túto reláciu')}
+          </label>
+        )}
         <strong>
           <AeroIcon name="table" /> {t('Tvorba GVD a kontrola kolízií')}
         </strong>
@@ -94,7 +128,7 @@ export function GvdEditorView({
           <select
             aria-label={t('Uložený grafikon')}
             className="aero-select"
-            disabled={busy || loading}
+            disabled={busy || loading || sessionOnly}
             value={selectedId}
             onChange={(event) => {
               const id = event.target.value;
@@ -125,6 +159,51 @@ export function GvdEditorView({
         </div>
       </div>
       <div className="gvd-workspace">
+        <LineEditor placeId={place.placeId} stations={stations} onChange={refreshLines} />
+        <details className="gvd-section" open>
+          <summary>{t('Grafická tvorba cestovného poriadku')}</summary>
+          <label>
+            {t('Trať')}{' '}
+            <select
+              className="aero-select"
+              value={lineId}
+              onChange={(e) => setLineId(e.target.value)}
+            >
+              <option value="">{t('Stanice vlaku')}</option>
+              {lineNetwork.lines.map((line) => (
+                <option key={line.id} value={line.id}>
+                  {line.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <TimetableGraph
+            trains={[
+              ...value.timetables.filter((train) => train.$id !== selectedId),
+              { ...draft, $id: selectedId || 'draft' },
+            ]}
+            stations={(
+              lineNetwork.lines.find((line) => line.id === lineId)?.stations || [
+                ...new Set(draft.stops.map((stop) => stop.station).filter(Boolean)),
+              ]
+            ).map((id) => ({
+              stationId: id,
+              name: stations.find((s) => s.stationId === id)?.name || id,
+            }))}
+            editableId={selectedId || 'draft'}
+            onEdit={busy || !canCreateGvd ? undefined : (changed) => change(changed)}
+            onSelect={
+              sessionOnly
+                ? undefined
+                : (train) => {
+                    if (train.$id === 'draft') return;
+                    setSelectedId(train.$id);
+                    setDraft(train);
+                    setReport(null);
+                  }
+            }
+          />
+        </details>
         {(error || loadError) && (
           <p role="alert" className="text-red-700">
             {t(error) || t(loadError)}
@@ -231,17 +310,18 @@ export function GvdEditorView({
             {t('Vyberte stanicu podľa názvu. Časy po polnoci pokračujú nasledujúcim dňom.')}
           </p>
           <table className="aero-grid gvd-stops text-left">
-            <colgroup>
-              <col className="gvd-station-column" />
-              <col className="gvd-time-column" />
-              <col className="gvd-time-column" />
-              <col className="gvd-track-column" />
-              <col />
-              <col className="gvd-action-column" />
-            </colgroup>
             <thead>
               <tr>
-                {['Stanica', 'Príchod', 'Odchod', 'Koľaj', 'Poznámky', ''].map((heading, index) => (
+                {[
+                  'Stanica',
+                  'Príchod',
+                  'Odchod',
+                  'Koľaj',
+                  'km',
+                  'Rýchlosť (km/h)',
+                  'Poznámky',
+                  '',
+                ].map((heading, index) => (
                   <th key={index}>{t(heading)}</th>
                 ))}
               </tr>
@@ -249,7 +329,17 @@ export function GvdEditorView({
             <tbody>
               {draft.stops.map((stop, index) => (
                 <tr key={index}>
-                  {(['station', 'arrival', 'departure', 'track', 'notes'] as const).map((field) => (
+                  {(
+                    [
+                      'station',
+                      'arrival',
+                      'departure',
+                      'track',
+                      'kilometer',
+                      'speedLimit',
+                      'notes',
+                    ] as const
+                  ).map((field) => (
                     <td key={field}>
                       {field === 'station' ? (
                         <StationPicker
@@ -268,13 +358,36 @@ export function GvdEditorView({
                         <input
                           aria-label={`${t(field)} ${index + 1}`}
                           className="aero-input w-full"
-                          type={field === 'arrival' || field === 'departure' ? 'time' : 'text'}
-                          value={stop[field] || ''}
+                          type={
+                            field === 'arrival' || field === 'departure'
+                              ? 'time'
+                              : field === 'kilometer' || field === 'speedLimit'
+                                ? 'number'
+                                : 'text'
+                          }
+                          min={field === 'speedLimit' ? 1 : field === 'kilometer' ? 0 : undefined}
+                          max={
+                            field === 'speedLimit'
+                              ? 300
+                              : field === 'kilometer'
+                                ? 100000
+                                : undefined
+                          }
+                          step={field === 'kilometer' ? 0.001 : undefined}
+                          value={stop[field] ?? ''}
                           onChange={(event) =>
                             change({
                               stops: draft.stops.map((item, position) =>
                                 position === index
-                                  ? { ...item, [field]: event.target.value }
+                                  ? {
+                                      ...item,
+                                      [field]:
+                                        field === 'kilometer' || field === 'speedLimit'
+                                          ? event.target.value === ''
+                                            ? undefined
+                                            : Number(event.target.value)
+                                          : event.target.value,
+                                    }
                                   : item,
                               ),
                             })
@@ -328,7 +441,7 @@ export function GvdEditorView({
         <p className="gvd-help">
           {' '}
           {t(
-            'Kontrola porovnáva uložené denné grafikony. Pri prejazde počíta s obsadením aspoň 1 minútu. Počet traťových koľají, bezpečné medzidobia, dĺžky nástupíšť a vzdialenosti nie sú v modeli uvedené; kontrola nenahrádza zabezpečovacie zariadenie.',
+            'Kontrola porovnáva uložené denné grafikony. Pri prejazde počíta s obsadením aspoň 1 minútu. Medzidobia, počet traťových koľají a dĺžky nástupíšť nie sú modelované; kontrola nenahrádza zabezpečovacie zariadenie.',
           )}{' '}
         </p>
       </div>

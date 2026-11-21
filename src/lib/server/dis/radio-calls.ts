@@ -503,11 +503,11 @@ export class RadioCalls {
         return this.stopEmergency(userId, terminal.socketId);
     }
   }
-  async tick() {
+  async tick(challenge = true) {
     const now = this.now();
     for (const terminal of [...this.terminals.values()]) {
       if (terminal.expiresAt <= now) await this.release(terminal.userId, terminal.socketId);
-      else if (now - terminal.challengedAt >= RADIO_HEARTBEAT_MS) {
+      else if (challenge && now - terminal.challengedAt >= RADIO_HEARTBEAT_MS) {
         terminal.challengedAt = now;
         this.dependencies.emit(terminal.socketId, 'radio:heartbeat-request');
       }

@@ -1,4 +1,5 @@
 import { getMongoDb } from '@/lib/server/mongo';
+import { getStationDisplayName } from '@/lib/station/display-name';
 import type { StationDocument } from '@/lib/station/domain';
 import { isPublicStation } from '@/lib/station/visibility';
 
@@ -36,7 +37,7 @@ export async function listJopStations(includeClosed = false): Promise<JopStation
       return {
         sessionId: station.sessionId,
         stationId: station.stationId,
-        name: station.stationId,
+        name: getStationDisplayName(station.stationId),
         trackCount: tracks.length,
         tracks,
       };

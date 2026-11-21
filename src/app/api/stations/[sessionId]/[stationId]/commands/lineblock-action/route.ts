@@ -1,10 +1,11 @@
+import { authorizeStationCommand } from '@/lib/server/dis/station-command';
+import { jsonErrorResponse, parseJsonRequest } from '@/lib/server/http';
+import { stationService } from '@/lib/server/services/station-service';
 import {
   lineblockActionCommandSchema,
   sessionIdSchema,
   stationIdSchema,
 } from '@/lib/station/domain';
-import { jsonErrorResponse, parseJsonRequest } from '@/lib/server/http';
-import { stationService } from '@/lib/server/services/station-service';
 
 export const runtime = 'nodejs';
 
@@ -20,7 +21,9 @@ export async function POST(request: Request, { params }: StationLineblockActionR
     const { sessionId, stationId } = await params;
     const parsedSessionId = sessionIdSchema.parse(sessionId);
     const parsedStationId = stationIdSchema.parse(stationId);
+    const profile = await authorizeStationCommand(request, parsedSessionId, parsedStationId);
     const command = await parseJsonRequest(request, lineblockActionCommandSchema);
+    if (profile) command.actor = { type: 'user', id: profile.userId };
 
     if (command.sessionId !== parsedSessionId || command.stationId !== parsedStationId) {
       return Response.json(
@@ -30,7 +33,7 @@ export async function POST(request: Request, { params }: StationLineblockActionR
             message: 'Route and payload station identity must match.',
           },
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 

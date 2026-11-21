@@ -1,10 +1,7 @@
-import {
-  routeInteractCommandSchema,
-  sessionIdSchema,
-  stationIdSchema,
-} from '@/lib/station/domain';
+import { authorizeStationCommand } from '@/lib/server/dis/station-command';
 import { jsonErrorResponse, parseJsonRequest } from '@/lib/server/http';
 import { stationService } from '@/lib/server/services/station-service';
+import { routeInteractCommandSchema, sessionIdSchema, stationIdSchema } from '@/lib/station/domain';
 
 export const runtime = 'nodejs';
 
@@ -20,7 +17,9 @@ export async function POST(request: Request, { params }: StationRouteInteractRou
     const { sessionId, stationId } = await params;
     const parsedSessionId = sessionIdSchema.parse(sessionId);
     const parsedStationId = stationIdSchema.parse(stationId);
+    const profile = await authorizeStationCommand(request, parsedSessionId, parsedStationId);
     const command = await parseJsonRequest(request, routeInteractCommandSchema);
+    if (profile) command.actor = { type: 'user', id: profile.userId };
 
     if (command.sessionId !== parsedSessionId || command.stationId !== parsedStationId) {
       return Response.json(
@@ -30,7 +29,7 @@ export async function POST(request: Request, { params }: StationRouteInteractRou
             message: 'Route and payload station identity must match.',
           },
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 

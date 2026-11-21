@@ -11,6 +11,8 @@ export const stopSchema = z.object({
   track: z.string().trim().max(16).default(''),
   notes: z.string().trim().max(500).optional(),
   dwell: z.number().optional(),
+  kilometer: z.number().min(0).max(100000).optional(),
+  speedLimit: z.number().int().min(1).max(300).optional(),
 });
 export const timetableSchema = z.object({
   trainNumber: z.string().trim().min(1).max(32),
@@ -89,6 +91,8 @@ export function normalizeTimetable(input: unknown): TimetableInput {
       departure: stop.departure,
       track: stop.track,
       dwell: stop.dwell,
+      ...(stop.kilometer !== undefined ? { kilometer: stop.kilometer } : {}),
+      ...(stop.speedLimit !== undefined ? { speedLimit: stop.speedLimit } : {}),
       ...(stop.notes !== undefined ? { notes: stop.notes } : {}),
     })),
   };
@@ -160,4 +164,16 @@ export function checkTimetableConflicts(
       }
   }
   return result;
+}
+
+/** Move every stop by the same minute delta, preserving midnight rollover. */
+export function shiftTimetable(timetable: TimetableInput, minutes: number): TimetableInput {
+  return {
+    ...timetable,
+    stops: timetable.stops.map((stop) => ({
+      ...stop,
+      arrival: formatMinute(clockMinutes(stop.arrival) + minutes),
+      departure: formatMinute(clockMinutes(stop.departure) + minutes),
+    })),
+  };
 }

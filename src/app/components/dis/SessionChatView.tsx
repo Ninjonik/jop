@@ -1,4 +1,5 @@
 'use client';
+import { canPublishAnnouncements } from '@/lib/dis/permissions';
 import { useLocaleTag, useTranslation } from '@/lib/i18n/client';
 import { EmergencyAudio } from './EmergencyAudio';
 import { RadioTerminalControls, useRadioTerminal } from './RadioTerminal';
@@ -38,7 +39,8 @@ export function SessionChatView({
   const [mode, setMode] = useState<'station' | 'driver'>(
     canOperateStation && stationId ? 'station' : 'driver',
   );
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(true);
+  const [announcement, setAnnouncement] = useState<'' | 'info' | 'warning' | 'alarm'>('');
   const [connected, setConnected] = useState(false);
   const [voiceSocket, setVoiceSocket] = useState<Socket<ChatServerEvents, ChatClientEvents> | null>(
     null,
@@ -203,6 +205,7 @@ export function SessionChatView({
           recipient: { kind: message.recipient.kind, id: message.recipient.id },
           content: message.content,
           messageId: message.clientMessageId,
+          announcement: message.announcement,
         }),
       });
       setMessages((previous) => mergeChatMessages(previous, [result.message]));
@@ -242,6 +245,8 @@ export function SessionChatView({
       recipient,
       senderUserId: profile.userId,
       senderName: profile.name,
+      senderRole: profile.role,
+      ...(announcement && recipient.kind === 'session' ? { announcement } : {}),
       content: text.trim(),
       createdAt: new Date().toISOString(),
       delivery: 'sending',
@@ -449,14 +454,23 @@ export function SessionChatView({
               </p>
             ) : (
               conversation.map((message) => (
-                <div key={message._id} className="session-chat-message">
+                <div
+                  key={message._id}
+                  className="session-chat-message"
+                  data-announcement={message.announcement}
+                >
                   <time dateTime={message.createdAt}>
                     {new Date(message.createdAt).toLocaleTimeString(localeTag, {
                       hour: '2-digit',
                       minute: '2-digit',
                     })}
                   </time>{' '}
-                  <strong>
+                  <strong
+                    className="chat-role-prefix"
+                    data-role={message.senderRole || message.sender.kind}
+                  >
+                    <span className="chat-role-dot" aria-hidden="true" />
+                    {t(message.senderRole || message.sender.kind)} ·{' '}
                     {message.sender.kind === 'station'
                       ? getStationDisplayName(message.sender.id)
                       : message.sender.name}
@@ -465,7 +479,20 @@ export function SessionChatView({
                     message.sender.name !== message.senderName) && (
                     <span> ({message.senderName})</span>
                   )}
-                  : <span className="whitespace-pre-wrap break-words">{message.content}</span>
+                  :{' '}
+                  {message.announcement && (
+                    <strong>
+                      {t(
+                        message.announcement === 'info'
+                          ? 'Oznam'
+                          : message.announcement === 'warning'
+                            ? 'Upozornenie'
+                            : 'Poplach',
+                      )}{' '}
+                      ·{' '}
+                    </strong>
+                  )}
+                  <span className="whitespace-pre-wrap break-words">{message.content}</span>
                   {message.delivery === 'sending' && (
                     <span className="ml-2 text-[var(--aero-text-muted)]">{t('Odosielam…')}</span>
                   )}
@@ -482,7 +509,20 @@ export function SessionChatView({
               ))
             )}
           </div>
-          <form className="flex gap-2" onSubmit={send}>
+          <form className="flex gap-2 flex-wrap" onSubmit={send}>
+            {profile && canPublishAnnouncements(profile.role) && recipient?.kind === 'session' && (
+              <select
+                aria-label={t('Druh oznamu')}
+                className="aero-select"
+                value={announcement}
+                onChange={(e) => setAnnouncement(e.target.value as typeof announcement)}
+              >
+                <option value="">{t('Bežná správa')}</option>
+                <option value="info">{t('Oznam')}</option>
+                <option value="warning">{t('Upozornenie')}</option>
+                <option value="alarm">{t('Poplach')}</option>
+              </select>
+            )}
             <input
               className="aero-input min-w-0 flex-1"
               aria-label={t('Text správy')}

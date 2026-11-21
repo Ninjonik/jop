@@ -1011,3 +1011,300 @@ button:disabled > .aero-icon {
 .session-chat-terminal-tooltip p {
   margin: 3px 0 0;
 }
+
+/* DIS working positions and line-based station entry. */
+.working-mode-selection {
+  margin: auto;
+  padding: 24px;
+  max-width: 1000px;
+}
+.working-mode-selection h1 {
+  font-size: 18px;
+  margin-bottom: 18px;
+}
+.working-mode-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+.working-mode-choice,
+.station-choice {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+  white-space: normal;
+}
+.working-mode-choice {
+  width: 240px;
+  min-height: 150px;
+  padding: 20px;
+}
+.station-selection {
+  overflow: auto;
+  flex: 1;
+  background: var(--aero-panel-bg);
+}
+.station-line {
+  margin: 8px;
+  border: 1px solid var(--aero-panel-border);
+}
+.station-line-stops {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 12px;
+}
+.station-choice {
+  min-width: 170px;
+  min-height: 120px;
+  padding: 12px;
+}
+.station-control-tab {
+  display: inline-flex;
+  gap: 2px;
+}
+.dis-communication-side:empty {
+  display: none;
+}
+.dis-communication-side:has(.session-chat) {
+  width: clamp(270px, 28vw, 470px);
+  min-width: 220px;
+  overflow: auto;
+  border-left: 1px solid var(--aero-panel-border);
+}
+.dis-communication-side .session-chat {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+.dis-communication-side .session-chat-workspace {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+.dis-communication-side .session-chat-workspace[hidden] {
+  display: none;
+}
+.dis-communication-side .session-chat-contacts {
+  max-height: 150px;
+  overflow: auto;
+}
+.dis-communication-side .session-chat-conversations {
+  flex: 1;
+  min-height: 180px;
+}
+.dis-communication-side .session-chat .authoring-caption {
+  flex-wrap: wrap;
+}
+@media (max-width: 850px) {
+  .workspace:has(.dis-communication-side .session-chat) {
+    flex-direction: column;
+  }
+  .dis-communication-side:has(.session-chat) {
+    width: 100%;
+    max-height: 35vh;
+    min-height: 35px;
+    border-left: 0;
+  }
+}
+.reminder-tools {
+  position: absolute;
+  right: 6px;
+  top: 6px;
+  z-index: 25;
+  max-width: 340px;
+  padding: 5px;
+  color: var(--aero-text);
+  background: var(--aero-panel-bg);
+  border: 1px solid var(--aero-panel-border);
+  font-size: 11px;
+}
+.reminder-tools summary {
+  cursor: pointer;
+}
+.station-reminder {
+  position: absolute;
+  z-index: 20;
+  padding: 0.3em;
+  cursor: move;
+  touch-action: none;
+  overflow-wrap: anywhere;
+  line-height: 1.2;
+  box-shadow: 1px 2px 3px #0006;
+  border-radius: 1px;
+}
+.reminder-note {
+  background: #f4ecc7;
+  color: #292619;
+  border: 1px solid #9a916e;
+  font-family: 'Segoe Print', cursive;
+  transform: rotate(-2deg);
+}
+.reminder-maintenance {
+  background: #eee9d7;
+  color: #201d18;
+  border: 2px solid #922828;
+  font-weight: bold;
+}
+.reminder-stripe {
+  display: block;
+  height: 0.5em;
+  background: repeating-linear-gradient(135deg, #161616 0 5px, #e8c633 5px 10px);
+  margin-bottom: 0.25em;
+}
+.reminder-cover {
+  background: linear-gradient(135deg, #45494bb3, #22272b85);
+  color: #fff;
+  border: 2px solid #171a1b;
+  box-shadow:
+    inset 1px 1px 2px #fff7,
+    1px 2px 3px #0007;
+  font-weight: bold;
+}
+.timetable-graph {
+  display: flex;
+  flex-direction: column;
+  min-height: 250px;
+  flex: 1;
+  overflow: hidden;
+  background: var(--tpv-bg);
+}
+.timetable-graph-scroll {
+  overflow: auto;
+  flex: 1;
+  min-height: 0;
+}
+.timetable-graph svg {
+  display: block;
+  touch-action: pan-y;
+}
+.tpv-route-selector {
+  padding: 8px;
+  border-bottom: 1px solid var(--aero-panel-border);
+  background: var(--aero-panel-bg);
+  max-height: 35vh;
+  overflow: auto;
+}
+.tpv-schematic {
+  display: flex;
+  padding: 12px 0;
+  overflow: auto;
+}
+.tpv-schematic-stop {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  min-width: 140px;
+  font-size: 11px;
+}
+.tpv-schematic-stop > span:first-child {
+  color: var(--sig-orange);
+  font-size: 20px;
+}
+.dis-dialog-overlay {
+  position: fixed;
+  inset: 0;
+  background: #0006;
+  z-index: 80;
+}
+.dis-train-dialog {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(1000px, 95vw);
+  max-height: 85vh;
+  overflow: auto;
+  background: var(--aero-panel-bg);
+  color: var(--aero-text);
+  border: 1px solid var(--aero-window-border);
+  box-shadow: 0 8px 24px #0006;
+  z-index: 81;
+  font-size: 12px;
+}
+.booklet-timetable {
+  margin-top: 8px;
+  border: 1px solid var(--aero-panel-border);
+  background: var(--aero-panel-bg);
+  color: var(--aero-text);
+}
+.booklet-heading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 12px 8px;
+  gap: 4px;
+}
+.booklet-heading strong {
+  font-size: 20px;
+}
+.booklet-timetable table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 650px;
+  font-variant-numeric: tabular-nums;
+}
+.booklet-timetable th,
+.booklet-timetable td {
+  border: 1px solid var(--aero-panel-border);
+  padding: 4px 6px;
+}
+.booklet-timetable tbody tr:nth-child(odd) {
+  background: var(--grid-row-alt);
+}
+.booklet-timetable td:first-child {
+  min-width: 170px;
+}
+.chat-role-prefix {
+  color: var(--sig-blue);
+}
+.chat-role-prefix[data-role='driver'],
+.chat-role-prefix[data-role='driver_trainee'],
+.chat-role-prefix[data-role='driver_instructor'] {
+  color: var(--sig-green);
+}
+.chat-role-prefix[data-role='admin'],
+.chat-role-prefix[data-role$='_manager'],
+.chat-role-prefix[data-role='workforce_director'] {
+  color: var(--sig-orange);
+}
+.chat-role-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-right: 4px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.session-chat-message[data-announcement] {
+  padding: 5px;
+  border-left: 3px solid var(--sig-blue);
+  background: color-mix(in srgb, var(--sig-blue) 10%, var(--aero-panel-bg));
+}
+.session-chat-message[data-announcement='warning'] {
+  border-color: var(--sig-orange);
+  background: color-mix(in srgb, var(--sig-orange) 12%, var(--aero-panel-bg));
+}
+.session-chat-message[data-announcement='alarm'] {
+  border-color: var(--sig-red);
+  background: color-mix(in srgb, var(--sig-red) 12%, var(--aero-panel-bg));
+}
+.dis-portal .menubar[hidden] {
+  display: none;
+}
+.dis-communication-side .session-chat {
+  max-height: none;
+}
+.gvd-section:has(.timetable-graph) {
+  min-height: 340px;
+}
+.gvd-section .timetable-graph {
+  height: 340px;
+}
+.gvd-stops {
+  min-width: 850px;
+}

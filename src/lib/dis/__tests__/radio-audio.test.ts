@@ -28,6 +28,7 @@ test('radio playback keeps the original audio until processing works and restore
   let input = false;
   let output = false;
   const contexts: FakeAudioContext[] = [];
+  const gains: Node[] = [];
   class Node {
     frequency = { value: 0 };
     threshold = { value: 0 };
@@ -75,7 +76,9 @@ test('radio playback keeps the original audio until processing works and restore
       return new Node();
     }
     createGain() {
-      return new Node();
+      const gain = new Node();
+      gains.push(gain);
+      return gain;
     }
     async resume() {}
     async close() {
@@ -104,9 +107,10 @@ test('radio playback keeps the original audio until processing works and restore
     },
   } as unknown as RemoteTrack;
   const container = { appendChild: () => {} } as unknown as HTMLElement;
-  const options = { radio: true, volume: () => 0.4 };
+  let receiveVolume = 2;
+  const options = { radio: true, volume: () => receiveVolume };
   const cleanup = attachRadioAudio(track, container, options);
-  assert.equal(element.volume, 0.4, 'channel volume applies to the playback element');
+  assert.equal(element.volume, 1, 'boosted playback clamps the media element volume');
   try {
     tick();
     assert.equal(
@@ -114,13 +118,17 @@ test('radio playback keeps the original audio until processing works and restore
       originalStream,
       'original audio remains audible when no processed signal is available',
     );
+    receiveVolume = 2;
     input = output = true;
     tick();
+    assert.equal(element.volume, 1, 'the media element stays inside its legal volume range');
+    assert.equal(gains[0].gain.value, 2, 'Web Audio supplies the 200% receive gain');
     assert.equal(
       element.srcObject !== originalStream,
       true,
       'radio audio takes over after a processed signal is detected',
     );
+    receiveVolume = 1;
     options.radio = false;
     tick();
     assert.equal(

@@ -155,14 +155,14 @@ export function EmergencyAudio({
             disabled={!enabled}
             onClick={() => socket?.emit('radio:emergency-start', 'session')}
           >
-            <AeroIcon name="warning" /> {t('Tiesňové vysielanie: celá relácia')}
+            <AeroIcon name="warning" /> {t('RADIOSTOP: celá relácia')}
           </button>
           <button
             className="aero-btn"
             disabled={!enabled}
             onClick={() => socket?.emit('radio:emergency-start', 'station')}
           >
-            <AeroIcon name="warning" /> {t('Tiesňové vysielanie: stanica')}
+            <AeroIcon name="warning" /> {t('RADIOSTOP: miestna oblasť')}
           </button>
         </>
       )}

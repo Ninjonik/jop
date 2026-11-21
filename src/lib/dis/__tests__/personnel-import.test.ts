@@ -14,7 +14,7 @@ function roster(context: TestContext) {
         roles: [
           { id: 1, name: 'Head Of Dispatchers', rank: 203 },
           { id: 2, name: 'Dispatcher', rank: 4 },
-          { id: 3, name: 'Other Staff', rank: 18 },
+          { id: 3, name: 'Unused role', rank: 18 },
         ],
       });
     if (url.pathname.includes('/roles/1/'))

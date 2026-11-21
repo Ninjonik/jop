@@ -760,8 +760,7 @@ messages in MongoDB `session_chat_messages`. The `/chat` Socket.IO namespace
 authenticates Appwrite JWTs and subscribes each client to one station inbox or
 its own driver inbox. A MongoDB insert change stream publishes saved messages
 to the sender/recipient rooms; reconnects reload the last 200 inbox messages.
-Station inboxes follow the existing dispatcher access to station tools; this
-does not introduce exclusive station ownership. Drivers cannot subscribe or
+Station inboxes require the exclusive station claim described in section 26. Drivers cannot subscribe or
 send as another driver or as a station. Contacts expose names, not full staff
 profiles. Station contact lists include only eligible drivers with a selected
 train in the same session; train selection/finish changes refresh inbox snapshots
@@ -920,3 +919,69 @@ filter changes apply to voice media; each active call/broadcast has its own loca
 receive volume. Radio processing and original-track fallback share one playback
 element so both follow the chosen speaker and volume. Microphone tests stay local
 and release their tracks when stopped or when leaving Settings.
+
+## 26. Operating workspace, lines and exclusive control
+
+DIS opens with an authorized working-position selection (administration,
+signaller, driver/train crew). Choosing a position never grants a new role.
+Support ranks have no vehicle-maintenance or consist-management subsystem.
+Operations dispatchers may author GVD and session trains; relations managers
+may publish communication announcements. Department heads and executives retain
+administrator access. New v6.5 role names without supplied numerical ranks are
+matched by exact name and a positive, server-observed group rank; legacy mappings
+retain their exact rank checks. Run `npm run dis:setup` to extend existing Appwrite
+profile role enums before admitting profiles with the additional roles.
+
+`railway_lines` stores named, ordered lines per universe/place, referencing only
+real public stations from the saved place template. The GVD line editor owns this
+catalogue. Station entry groups stations by these lines and keeps unassigned
+stations visible. TPV uses line order for schematic spacing, optional end points,
+station selection/highlighting, and a train detail dialog. It loads EDD reports
+for the entire session rather than just the currently selected station.
+
+`session_station_claims` arbitrates exclusive station ownership atomically by
+session/station. One signaller may hold several stations and switch using tabs.
+Runtime Roblox commands, EDD writes, station communication, and reminder writes
+require a live claim. Mock commands retain their isolated simulator behavior.
+Command actor identity comes from the authenticated profile. Administrators
+claim stations through the same process; there is no silent forced takeover.
+
+Station and train selection leases last 60 seconds. The existing authenticated
+`radio:heartbeat-request` / `radio:heartbeat` exchange runs once every five seconds
+and renews both operation leases and the existing 20-second voice terminal
+lease. It works even without voice configuration or microphone permission.
+Expired claims cannot be renewed by late heartbeat packets. Claims follow the
+user within the session, so another authenticated tab of that user can keep them
+alive. Train records have a unique partial `claimKey` index; simultaneous claims
+of one train cannot both succeed. Legacy selections without a lease are inactive
+and must be explicitly selected again. GSM-R registration validates an active
+selection and recognizes session-only timetables. Existing physical radio
+registrations remain independent of browser operation leases.
+
+`station_reminders` contains session/station-bound maintenance signs, paper notes
+and visual button covers in board-cell coordinates. They do not change layout,
+interlocking rules, or railway reservations. Current station owners may create,
+move, edit or delete them; station handover preserves them. The browser previews
+a drag but reloads persisted results after saving. Closed/dead Roblox sessions'
+claims, reminders and additional timetables are pruned by the custom server.
+
+`session_timetables` stores manually authored additional trains separately from
+recurring Appwrite GVD. Driver selection, TPV, radio recipients, GSM-R and EDD use
+the same combined operating timetable loader. Distance/kilometre and speed-limit
+fields are optional per-stop values in existing `stopsJson`; no running times or
+infrastructure values are inferred. The shared graph supports whole-train time
+shifts and individual arrival/departure dragging, with explicit save/validation.
+The driver booklet view uses the same fields and leaves absent information blank.
+
+Communication messages retain the server-resolved sender role and optional
+announcement kind (information, warning, alarm). Only authorized staff may send
+announcements to the session channel. RADIOSTOP is the existing local/session
+emergency audio broadcast, with no physical train-stop command. Receive volume
+may be set to 200%; Web Audio supplies amplification while preserving the selected
+output device and original-track fallback.
+
+Validation: `npm run test:dis`, `npm run test:i18n`, and
+`node --env-file=.env.local --import tsx scripts/verify-operating-update.ts`.
+The latter creates and removes isolated Mongo fixtures. `--offline-gvd` supplies
+an empty recurring-GVD read fixture when Appwrite is unavailable; Mongo claim,
+reminder, line and session-timetable persistence remains real.

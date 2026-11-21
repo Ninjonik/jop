@@ -104,3 +104,26 @@ test('reported clocks are aligned to the nearest service day', () => {
   assert.equal(alignClockMinute('23:58', 1445), 1438);
   assert.equal(alignClockMinute('12:00', 720), 720);
 });
+
+test('graph shifts preserve midnight and manual booklet metadata', async () => {
+  const { shiftTimetable } = await import('../timetable');
+  const timetable = normalizeTimetable({
+    trainNumber: '9401',
+    trainType: 'Os',
+    maxSpeed: 100,
+    trainLength: 120,
+    stops: [
+      { station: 'A', arrival: '23:55', departure: '23:57', kilometer: 1.2, speedLimit: 80 },
+      { station: 'B', arrival: '00:10', departure: '00:12', kilometer: 12.5, speedLimit: 60 },
+    ],
+  });
+  const shifted = normalizeTimetable(shiftTimetable(timetable, 10));
+  assert.equal(shifted.stops[0].arrival, '00:05');
+  assert.equal(shifted.stops[1].arrival, '00:20');
+  assert.equal(shifted.stops[0].kilometer, 1.2);
+  assert.equal(shifted.stops[1].speedLimit, 60);
+  assert.equal(
+    unfoldStops(shifted.stops)[1].arrivalMinute - unfoldStops(shifted.stops)[0].departureMinute,
+    13,
+  );
+});

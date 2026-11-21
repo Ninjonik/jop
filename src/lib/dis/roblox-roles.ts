@@ -42,7 +42,23 @@ const groupRoles: Record<string, { rank: number; assignment: DisRoleAssignment }
 };
 
 export function mapRobloxRoleToDis(roleName: string, rank: number): DisRoleAssignment | null {
-  const entry = groupRoles[roleName.trim().toLowerCase()];
+  const name = roleName.trim().toLowerCase();
+  // v6.5 names are explicit; numerical ranks for these additions were not supplied.
+  const additions: Record<string, UserRole> = {
+    'other staff': 'other_staff',
+    conductor: 'conductor',
+    shuntman: 'shuntman',
+    signaller: 'dispatcher',
+    'operations dispatcher': 'operations_dispatcher',
+    'vehicle manager': 'vehicle_manager',
+    'head of signallers': 'dispatcher_manager',
+    'relations manager': 'relations_manager',
+    'workforce director': 'workforce_director',
+    'board of executive directors': 'admin',
+  };
+  if (Number.isInteger(rank) && rank > 0 && rank <= 255 && additions[name])
+    return { role: additions[name], trainingStage: 'certified' };
+  const entry = groupRoles[name];
   return entry?.rank === rank ? entry.assignment : null;
 }
 

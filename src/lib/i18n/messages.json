@@ -2583,5 +2583,385 @@
     "Výstup zvuku sa nepodarilo zmeniť. Skontrolujte vybrané reproduktory.",
     "Could not change audio output. Check the selected speakers."
   ],
-  "Nastavenia": ["Nastavenia", "Settings"]
+  "Nastavenia": ["Nastavenia", "Settings"],
+  "Zošitový cestovný poriadok": [
+    "Zošitový cestovný poriadok",
+    "Booklet timetable"
+  ],
+  "Najvyššia rýchlosť": [
+    "Najvyššia rýchlosť",
+    "Maximum speed"
+  ],
+  "Dĺžka vlaku": [
+    "Dĺžka vlaku",
+    "Train length"
+  ],
+  "Dopravňa": [
+    "Dopravňa",
+    "Operating point"
+  ],
+  "km": [
+    "km",
+    "km"
+  ],
+  "Pobyt (min)": [
+    "Pobyt (min)",
+    "Dwell (min)"
+  ],
+  "Mimoriadny vlak iba pre túto reláciu": [
+    "Mimoriadny vlak iba pre túto reláciu",
+    "Additional train for this session only"
+  ],
+  "Grafická tvorba cestovného poriadku": [
+    "Grafická tvorba cestovného poriadku",
+    "Graphical timetable editor"
+  ],
+  "Trať": [
+    "Trať",
+    "Line"
+  ],
+  "Stanice vlaku": [
+    "Stanice vlaku",
+    "Train stops"
+  ],
+  "Trate a poradie staníc": [
+    "Trate a poradie staníc",
+    "Lines and station order"
+  ],
+  "Nová trať": [
+    "Nová trať",
+    "New line"
+  ],
+  "Názov trate": [
+    "Názov trate",
+    "Line name"
+  ],
+  "Vyššie": [
+    "Vyššie",
+    "Move up"
+  ],
+  "Nižšie": [
+    "Nižšie",
+    "Move down"
+  ],
+  "Pridať stanicu na trať": [
+    "Pridať stanicu na trať",
+    "Add station to line"
+  ],
+  "Uložiť trať": [
+    "Uložiť trať",
+    "Save line"
+  ],
+  "Odstrániť trať": [
+    "Odstrániť trať",
+    "Delete line"
+  ],
+  "Druh oznamu": [
+    "Druh oznamu",
+    "Announcement type"
+  ],
+  "Bežná správa": [
+    "Bežná správa",
+    "Regular message"
+  ],
+  "Oznam": [
+    "Oznam",
+    "Announcement"
+  ],
+  "Upozornenie": [
+    "Upozornenie",
+    "Warning"
+  ],
+  "Poplach": [
+    "Poplach",
+    "Alarm"
+  ],
+  "Značky a poznámky": [
+    "Značky a poznámky",
+    "Signs and notes"
+  ],
+  "Text pripomienky": [
+    "Text pripomienky",
+    "Reminder text"
+  ],
+  "Uložiť": [
+    "Uložiť",
+    "Save"
+  ],
+  "Presuňte značku myšou. Dvojklik otvorí úpravu. Šípky posúvajú označenú značku.": [
+    "Presuňte značku myšou. Dvojklik otvorí úpravu. Šípky posúvajú označenú značku.",
+    "Drag a sign to move it. Double-click to edit. Use arrow keys to move the focused sign."
+  ],
+  "Upraviť pripomienku": [
+    "Upraviť pripomienku",
+    "Edit reminder"
+  ],
+  "Pripomienka": [
+    "Pripomienka",
+    "Reminder"
+  ],
+  "Poznámka": [
+    "Poznámka",
+    "Note"
+  ],
+  "Výstražná značka": [
+    "Výstražná značka",
+    "Maintenance sign"
+  ],
+  "Papierová poznámka": [
+    "Papierová poznámka",
+    "Paper note"
+  ],
+  "Kryt tlačidla": [
+    "Kryt tlačidla",
+    "Button cover"
+  ],
+  "Ostatné stanice": [
+    "Ostatné stanice",
+    "Other stations"
+  ],
+  "Výber stanice": [
+    "Výber stanice",
+    "Station selection"
+  ],
+  "Prevezmite voľnú stanicu. Ďalšie stanice môžete otvoriť do samostatných kariet.": [
+    "Prevezmite voľnú stanicu. Ďalšie stanice môžete otvoriť do samostatných kariet.",
+    "Claim an available station. Open additional stations in separate tabs."
+  ],
+  "Momentálne nie je aktívny žiadny server Roblox.": [
+    "Momentálne nie je aktívny žiadny server Roblox.",
+    "There is no active Roblox server."
+  ],
+  "Ovládate": [
+    "Ovládate",
+    "Under your control"
+  ],
+  "Obsadená": [
+    "Obsadená",
+    "Claimed"
+  ],
+  "Voľná stanica": [
+    "Voľná stanica",
+    "Available station"
+  ],
+  "Vlaky: {0}": [
+    "Vlaky: {0}",
+    "Trains: {0}"
+  ],
+  "Traťová poloha vlakov": [
+    "Traťová poloha vlakov",
+    "Train position graph"
+  ],
+  "Čas +": [
+    "Čas +",
+    "Time +"
+  ],
+  "Čas −": [
+    "Čas −",
+    "Time −"
+  ],
+  "Stanice +": [
+    "Stanice +",
+    "Stations +"
+  ],
+  "Stanice −": [
+    "Stanice −",
+    "Stations −"
+  ],
+  "Pre zobrazenie grafu vyplňte stanice a časy vlaku.": [
+    "Pre zobrazenie grafu vyplňte stanice a časy vlaku.",
+    "Enter train stations and times to display the graph."
+  ],
+  "Zvýrazniť stanicu {0}": [
+    "Zvýrazniť stanicu {0}",
+    "Highlight station {0}"
+  ],
+  "Potiahnite čiaru pre posun celého vlaku; body upravujú jednotlivé časy. Zmeny potvrďte uložením.": [
+    "Potiahnite čiaru pre posun celého vlaku; body upravujú jednotlivé časy. Zmeny potvrďte uložením.",
+    "Drag a line to shift the whole train; drag points to change individual times. Save to confirm your changes."
+  ],
+  "Bodkovaná čiara: plán. Plná čiara a body: hlásenia EDD. Kliknutím zobrazíte vlak.": [
+    "Bodkovaná čiara: plán. Plná čiara a body: hlásenia EDD. Kliknutím zobrazíte vlak.",
+    "Dotted lines: planned timetable. Solid lines and points: EDD reports. Click to inspect a train."
+  ],
+  "Výber trate a staníc": [
+    "Výber trate a staníc",
+    "Select line and stations"
+  ],
+  "Trate môžete vytvoriť v Tvorbe GVD. Zobrazené sú stanice uložených vlakov.": [
+    "Trate môžete vytvoriť v Tvorbe GVD. Zobrazené sú stanice uložených vlakov.",
+    "Create lines in the GVD editor. Stations from saved timetables are shown."
+  ],
+  "Údaje o vlaku, rušňovodič a skutočné hlásenia staníc.": [
+    "Údaje o vlaku, rušňovodič a skutočné hlásenia staníc.",
+    "Train details, driver and actual station reports."
+  ],
+  "Zatiaľ neboli zaznamenané hlásenia EDD.": [
+    "Zatiaľ neboli zaznamenané hlásenia EDD.",
+    "No EDD reports have been recorded yet."
+  ],
+  "Od stanice": [
+    "Od stanice",
+    "From station"
+  ],
+  "Po stanicu": [
+    "Po stanicu",
+    "To station"
+  ],
+  "Začiatok trate": [
+    "Začiatok trate",
+    "Start of line"
+  ],
+  "Koniec trate": [
+    "Koniec trate",
+    "End of line"
+  ],
+  "Meškanie (min)": [
+    "Meškanie (min)",
+    "Delay (min)"
+  ],
+  "Zmeniť pracovnú pozíciu": [
+    "Zmeniť pracovnú pozíciu",
+    "Change working position"
+  ],
+  "Vyberte pracovnú pozíciu": [
+    "Vyberte pracovnú pozíciu",
+    "Choose your working position"
+  ],
+  "Ovládané stanice": [
+    "Ovládané stanice",
+    "Claimed stations"
+  ],
+  "Uvoľniť stanicu {0}": [
+    "Uvoľniť stanicu {0}",
+    "Release station {0}"
+  ],
+  "Ďalšia stanica": [
+    "Ďalšia stanica",
+    "Another station"
+  ],
+  "Administratíva": [
+    "Administratíva",
+    "Administration"
+  ],
+  "Rušňovodič a vlakový personál": [
+    "Rušňovodič a vlakový personál",
+    "Driver and train crew"
+  ],
+  "Správa, GVD a dokumenty": [
+    "Správa, GVD a dokumenty",
+    "Administration, GVD and documents"
+  ],
+  "Výber stanice a riadenie dopravy": [
+    "Výber stanice a riadenie dopravy",
+    "Station selection and traffic control"
+  ],
+  "Môj vlak a cestovný poriadok": [
+    "Môj vlak a cestovný poriadok",
+    "My train and timetable"
+  ],
+  "RADIOSTOP: celá relácia": [
+    "RADIOSTOP: celá relácia",
+    "RADIOSTOP: entire session"
+  ],
+  "RADIOSTOP: miestna oblasť": [
+    "RADIOSTOP: miestna oblasť",
+    "RADIOSTOP: local area"
+  ],
+  "other_staff": [
+    "Ostatný personál",
+    "Other staff"
+  ],
+  "conductor": [
+    "Sprievodca",
+    "Conductor"
+  ],
+  "shuntman": [
+    "Posunovač",
+    "Shuntman"
+  ],
+  "operations_dispatcher": [
+    "Prevádzkový dispečer",
+    "Operations dispatcher"
+  ],
+  "vehicle_manager": [
+    "Vozmajster",
+    "Vehicle manager"
+  ],
+  "conductor_manager": [
+    "Vedúci sprievodcov",
+    "Head of conductors"
+  ],
+  "relations_manager": [
+    "Manažér komunikácie",
+    "Relations manager"
+  ],
+  "workforce_director": [
+    "Personálny riaditeľ",
+    "Workforce director"
+  ],
+  "Relácia už nie je aktívna.": [
+    "Relácia už nie je aktívna.",
+    "This session is no longer active."
+  ],
+  "Stanicu môže prevziať iba výpravca.": [
+    "Stanicu môže prevziať iba výpravca.",
+    "Only a signaller can claim a station."
+  ],
+  "Stanicu už ovláda iný výpravca.": [
+    "Stanicu už ovláda iný výpravca.",
+    "Another signaller already controls this station."
+  ],
+  "Najprv prevezmite ovládanie stanice.": [
+    "Najprv prevezmite ovládanie stanice.",
+    "Claim this station before operating it."
+  ],
+  "Vlak už má prideleného rušňovodiča.": [
+    "Vlak už má prideleného rušňovodiča.",
+    "This train already has a driver."
+  ],
+  "Trať môže obsahovať iba existujúce stanice vybranej siete.": [
+    "Trať môže obsahovať iba existujúce stanice vybranej siete.",
+    "A line can contain only existing stations in the selected network."
+  ],
+  "Stanice na trati sa nesmú opakovať.": [
+    "Stanice na trati sa nesmú opakovať.",
+    "A station cannot occur twice on a line."
+  ],
+  "Pripomienka musí zostať na staničnom pulte.": [
+    "Pripomienka musí zostať na staničnom pulte.",
+    "The reminder must stay on the station board."
+  ],
+  "Oznam môže odoslať iba oprávnený pracovník celej relácii.": [
+    "Oznam môže odoslať iba oprávnený pracovník celej relácii.",
+    "Only authorized staff may send an announcement to the whole session."
+  ],
+  "Trať sa nepodarilo uložiť.": [
+    "Trať sa nepodarilo uložiť.",
+    "Could not save the line."
+  ],
+  "Pripomienku sa nepodarilo uložiť.": [
+    "Pripomienku sa nepodarilo uložiť.",
+    "Could not save the reminder."
+  ],
+  "Stanicu sa nepodarilo uvoľniť.": [
+    "Stanicu sa nepodarilo uvoľniť.",
+    "Could not release the station."
+  ],
+  "Stanicu sa nepodarilo prevziať.": [
+    "Stanicu sa nepodarilo prevziať.",
+    "Could not claim the station."
+  ],
+  "kilometer": [
+    "Kilometer",
+    "Kilometre"
+  ],
+  "speedLimit": [
+    "Traťová rýchlosť",
+    "Line speed"
+  ],
+  "Kontrola porovnáva uložené denné grafikony. Pri prejazde počíta s obsadením aspoň 1 minútu. Medzidobia, počet traťových koľají a dĺžky nástupíšť nie sú modelované; kontrola nenahrádza zabezpečovacie zariadenie.": [
+    "Kontrola porovnáva uložené denné grafikony. Pri prejazde počíta s obsadením aspoň 1 minútu. Medzidobia, počet traťových koľají a dĺžky nástupíšť nie sú modelované; kontrola nenahrádza zabezpečovacie zariadenie.",
+    "Checks compare saved daily timetables and allow at least one minute of occupation for passing trains. Headways, line track count and platform lengths are not modelled; this check does not replace interlocking."
+  ]
 }

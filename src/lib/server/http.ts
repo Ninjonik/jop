@@ -1,4 +1,5 @@
 import { ZodError, type ZodType } from 'zod';
+import { DisError } from './dis/appwrite';
 
 export async function parseJsonRequest<T>(request: Request, schema: ZodType<T>) {
   const body = await request.json();
@@ -6,6 +7,11 @@ export async function parseJsonRequest<T>(request: Request, schema: ZodType<T>) 
 }
 
 export function jsonErrorResponse(error: unknown) {
+  if (error instanceof DisError)
+    return Response.json(
+      { error: { code: 'ACCESS_ERROR', message: error.message } },
+      { status: error.status },
+    );
   if (error instanceof ZodError) {
     return Response.json(
       {

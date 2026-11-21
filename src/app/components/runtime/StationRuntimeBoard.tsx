@@ -1,4 +1,6 @@
 'use client';
+import { StationReminders } from '@/app/components/dis/StationReminders';
+import { getDisToken } from '@/lib/dis/api-client';
 import { useBrowserSettings } from '@/lib/dis/browser-settings';
 import { useTranslation } from '@/lib/i18n/client';
 
@@ -108,6 +110,7 @@ export default function StationRuntimeBoard({
   const t = useTranslation();
   const renderablePieces = getRenderablePieces(station.layout);
   const layout = station.layout;
+  const pan = useRef<{ x: number; y: number; left: number; top: number } | null>(null);
   const boardViewportRef = useRef<HTMLDivElement>(null);
   const { trainTooltips } = useBrowserSettings();
   const [fitWidth, setFitWidth] = useState(true);
@@ -138,9 +141,10 @@ export default function StationRuntimeBoard({
   }
 
   function changeManualZoom(factor: number) {
-    setManualTileSize((currentSize) =>
-      Math.max(20, Math.min(180, Math.round(currentSize * factor))),
+    setManualTileSize(
+      Math.max(8, Math.min(180, (fitWidth ? fittedTileSize : manualTileSize) * factor)),
     );
+    setFitWidth(false);
   }
 
   function startAhBlockReset(pieceId: string) {
@@ -162,6 +166,7 @@ export default function StationRuntimeBoard({
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
+            Authorization: `Bearer ${await getDisToken().catch(() => '')}`,
           },
           body: JSON.stringify({
             commandId: crypto.randomUUID(),
@@ -218,6 +223,7 @@ export default function StationRuntimeBoard({
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
+            Authorization: `Bearer ${await getDisToken().catch(() => '')}`,
           },
           body: JSON.stringify({
             commandId: crypto.randomUUID(),
@@ -263,6 +269,7 @@ export default function StationRuntimeBoard({
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
+            Authorization: `Bearer ${await getDisToken().catch(() => '')}`,
           },
           body: JSON.stringify({
             commandId: crypto.randomUUID(),
@@ -306,6 +313,7 @@ export default function StationRuntimeBoard({
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
+            Authorization: `Bearer ${await getDisToken().catch(() => '')}`,
           },
           body: JSON.stringify({
             commandId: crypto.randomUUID(),
@@ -512,36 +520,60 @@ export default function StationRuntimeBoard({
       ref={boardViewportRef}
       className={`relative flex flex-1 items-start overflow-auto bg-neutral-400 ${fitWidth ? 'justify-center' : 'justify-start'}`}
       onContextMenu={(event) => event.preventDefault()}
+      onPointerDown={(event) => {
+        if (event.button !== 1) return;
+        event.preventDefault();
+        event.currentTarget.setPointerCapture(event.pointerId);
+        pan.current = {
+          x: event.clientX,
+          y: event.clientY,
+          left: event.currentTarget.scrollLeft,
+          top: event.currentTarget.scrollTop,
+        };
+      }}
+      onPointerMove={(event) => {
+        if (!pan.current) return;
+        event.currentTarget.scrollLeft = pan.current.left - event.clientX + pan.current.x;
+        event.currentTarget.scrollTop = pan.current.top - event.clientY + pan.current.y;
+      }}
+      onPointerUp={(event) => {
+        if (pan.current) {
+          pan.current = null;
+          event.currentTarget.releasePointerCapture(event.pointerId);
+        }
+      }}
+      onPointerCancel={() => {
+        pan.current = null;
+      }}
+      onAuxClick={(event) => {
+        if (event.button === 1) event.preventDefault();
+      }}
     >
-      <div className="pointer-events-auto absolute top-2 left-2 z-10 flex max-w-[calc(100%_-_1rem)] flex-wrap gap-1 rounded border border-neutral-700 bg-white/95 p-1 shadow">
+      <div className="pointer-events-auto absolute top-2 left-2 z-10 flex max-w-[calc(100%_-_1rem)] flex-wrap gap-1 rounded border border-[var(--aero-panel-border)] bg-[var(--aero-panel-bg)] text-[var(--aero-text)] p-1 shadow">
         <button
           type="button"
           aria-pressed={fitWidth}
           onClick={() => (fitWidth ? disableFitWidth() : setFitWidth(true))}
-          className="rounded border border-neutral-500 px-2 py-1 text-xs font-medium text-neutral-900 hover:bg-neutral-100"
+          className="aero-btn"
         >
           <AeroIcon name="zoomReset" /> {t('Fit width')}{' '}
         </button>
-        {!fitWidth ? (
-          <>
-            <button
-              type="button"
-              aria-label={t('Zoom out')}
-              onClick={() => changeManualZoom(1 / 1.2)}
-              className="grid size-7 place-items-center rounded border border-neutral-500 text-neutral-900 hover:bg-neutral-100"
-            >
-              <AeroIcon name="zoomOut" />
-            </button>
-            <button
-              type="button"
-              aria-label={t('Zoom in')}
-              onClick={() => changeManualZoom(1.2)}
-              className="grid size-7 place-items-center rounded border border-neutral-500 text-neutral-900 hover:bg-neutral-100"
-            >
-              <AeroIcon name="zoomIn" />
-            </button>
-          </>
-        ) : null}
+        <button
+          type="button"
+          aria-label={t('Zoom out')}
+          onClick={() => changeManualZoom(1 / 1.2)}
+          className="aero-btn size-7"
+        >
+          <AeroIcon name="zoomOut" />
+        </button>
+        <button
+          type="button"
+          aria-label={t('Zoom in')}
+          onClick={() => changeManualZoom(1.2)}
+          className="aero-btn size-7"
+        >
+          <AeroIcon name="zoomIn" />
+        </button>
       </div>
       <div
         className="relative shrink-0"
@@ -846,6 +878,13 @@ export default function StationRuntimeBoard({
             </div>
           );
         })}
+        <StationReminders
+          sessionId={station.sessionId}
+          stationId={station.stationId}
+          width={layout.width}
+          height={layout.height}
+          tileSize={tileSize}
+        />
       </div>
     </div>
   );

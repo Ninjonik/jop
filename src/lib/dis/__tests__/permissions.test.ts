@@ -48,3 +48,23 @@ test('server grants admin-only operations to department heads and rejects other 
   role = 'driver_instructor';
   await assert.rejects(requireDisProfile(request, ['admin']), { status: 403 });
 });
+
+test('working positions never grant operations to support ranks', async () => {
+  const { canUseWorkingMode, canPublishAnnouncements } = await import('../permissions');
+  for (const role of [
+    'other_staff',
+    'vehicle_manager',
+    'relations_manager',
+    'operations_dispatcher',
+  ] as const) {
+    assert.equal(canUseWorkingMode(role, 'admin'), true);
+    assert.equal(canAssignShiftRole({ role } as UserProfile, 'dispatcher'), false);
+    assert.equal(canAssignShiftRole({ role } as UserProfile, 'driver'), false);
+  }
+  assert.equal(canUseWorkingMode('dispatcher', 'driver'), false);
+  assert.equal(canUseWorkingMode('driver', 'dispatcher'), false);
+  assert.equal(canPublishAnnouncements('relations_manager'), true);
+  assert.equal(canPublishAnnouncements('dispatcher'), false);
+  assert.equal(hasDisRole('operations_dispatcher', ['dispatcher_manager']), true);
+  assert.equal(hasDisRole('vehicle_manager', ['dispatcher_manager']), false);
+});

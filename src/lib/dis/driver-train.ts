@@ -19,6 +19,8 @@ export type DriverTrain = DriverTrainInput & {
   userId: string;
   userName: string;
   updatedAt: string;
+  expiresAt?: number;
+  claimKey?: string;
 };
 export type DriverRadioStatus = {
   connected: boolean;

@@ -1,12 +1,15 @@
-import { switchSetPositionCommandSchema } from '@/lib/station/domain';
-import { parseJsonRequest, jsonErrorResponse } from '@/lib/server/http';
+import { authorizeStationCommand } from '@/lib/server/dis/station-command';
+import { jsonErrorResponse, parseJsonRequest } from '@/lib/server/http';
 import { stationService } from '@/lib/server/services/station-service';
+import { switchSetPositionCommandSchema } from '@/lib/station/domain';
 
 export const runtime = 'nodejs';
 
 export async function POST(request: Request) {
   try {
     const command = await parseJsonRequest(request, switchSetPositionCommandSchema);
+    const profile = await authorizeStationCommand(request, command.sessionId, command.stationId);
+    if (profile) command.actor = { type: 'user', id: profile.userId };
     const action = await stationService.submitSwitchSetPosition(command);
     return Response.json({ action }, { status: 202 });
   } catch (error) {

@@ -1,5 +1,10 @@
 'use client';
 import { SettingsView } from '@/app/components/dis/SettingsView';
+import { StationSelectionView } from '@/app/components/dis/StationSelectionView';
+import { disFetch } from '@/lib/dis/api-client';
+import type { StationClaim } from '@/lib/dis/claims';
+import { canUseWorkingMode, type WorkingMode } from '@/lib/dis/permissions';
+import { useLeaseClock } from '@/lib/dis/use-lease-clock';
 import { LanguageSelector, useLocaleTag, useTranslation } from '@/lib/i18n/client';
 
 import { DocumentCenterView } from '@/app/components/dis/DocumentCenterView';
@@ -71,20 +76,14 @@ type Place = {
 type Places = { defaultPlaceId: string; placesComplete: boolean; places: Place[] };
 function DisPortalShell() {
   const t = useTranslation();
+  const leaseNow = useLeaseClock();
   const localeTag = useLocaleTag();
-  const {
-    user,
-    profile,
-    loading,
-    logout,
-    canCreateGvd,
-    canManageStaff,
-    canOperateStation,
-    canDriveTrain,
-  } = useDisAuth();
+  const { user, profile, loading, logout, canCreateGvd, canManageStaff, canOperateStation } =
+    useDisAuth();
   const router = useRouter();
   const [showMore, setShowMore] = useState(false);
-  const [stationsCollapsed, setStationsCollapsed] = useState(false);
+  const [workingMode, setWorkingMode] = useState<WorkingMode | null>(null);
+  const [claimError, setClaimError] = useState('');
   const [sessionSearch, setSessionSearch] = useState('');
   const [placeChoice, setPlaceChoice] = useState<string | null>(null);
   const {
@@ -143,6 +142,40 @@ function DisPortalShell() {
   }
   const current = selectedScope || { sessionId: '', stationId: '' };
   const hasSession = Boolean(selectedPlace && current.sessionId);
+  const {
+    value: control,
+    refresh: refreshClaims,
+    error: claimsError,
+  } = useDisResource<{ claims: StationClaim[] }>(
+    user && current.sessionId
+      ? `/api/dis/station-claims?${new URLSearchParams({ sessionId: current.sessionId })}`
+      : null,
+    { claims: [] },
+    10000,
+  );
+  const ownClaims = control.claims.filter(
+    (claim) =>
+      claim.sessionId === current.sessionId &&
+      claim.userId === profile?.userId &&
+      claim.expiresAt > leaseNow,
+  );
+  const ownsStation = ownClaims.some((claim) => claim.stationId === current.stationId);
+  async function releaseStation(stationId: string) {
+    try {
+      await disFetch('/api/dis/station-claims', {
+        method: 'DELETE',
+        body: JSON.stringify({ sessionId: current.sessionId, stationId }),
+      });
+      await refreshClaims();
+      if (stationId === current.stationId) {
+        const next = ownClaims.find((claim) => claim.stationId !== stationId);
+        if (next) setScope({ sessionId: next.sessionId, stationId: next.stationId });
+        else openTab('sessions');
+      }
+    } catch (error) {
+      setClaimError(error instanceof Error ? error.message : 'Stanicu sa nepodarilo uvoľniť.');
+    }
+  }
   const onDriverTrainChange = useCallback(
     (train: DriverTrain | null) => {
       setDriverSelection({ sessionId: current.sessionId, train });
@@ -206,7 +239,7 @@ function DisPortalShell() {
       setTool(null);
     }
   }
-  function launch(target: string, stationId: string) {
+  async function launch(target: string, stationId: string) {
     const tools: Record<string, { url: string; title: string }> = {
       editor: { url: '/editor', title: 'Editor staníc' },
       linker: { url: '/linker', title: 'Prepojovač staníc' },
@@ -230,8 +263,18 @@ function DisPortalShell() {
       )
     )
       return;
-    setScope({ sessionId: target, stationId });
-    openTab('runtime');
+    setClaimError('');
+    try {
+      await disFetch('/api/dis/station-claims', {
+        method: 'POST',
+        body: JSON.stringify({ sessionId: target, stationId }),
+      });
+      setScope({ sessionId: target, stationId });
+      await refreshClaims();
+      openTab('runtime');
+    } catch (error) {
+      setClaimError(error instanceof Error ? error.message : 'Stanicu sa nepodarilo prevziať.');
+    }
   }
   if (loading || !user) return <div className="p-6">{t('Overujem prihlásenie...')}</div>;
   if (!profile)
@@ -245,17 +288,37 @@ function DisPortalShell() {
   const tabs: { id: Tab; title: string; visible?: boolean }[] = [
     { id: 'settings', title: 'Nastavenia' },
     { id: 'sessions', title: 'Relácie' },
-    { id: 'driver', title: 'Môj vlak', visible: hasSession && canDriveTrain },
-    { id: 'runtime', title: 'Staničný pult', visible: hasSession && canOperateStation },
-    { id: 'edd', visible: hasStation, title: 'Dopravný denník' },
+    { id: 'driver', title: 'Môj vlak', visible: hasSession && workingMode === 'driver' },
+    {
+      id: 'runtime',
+      title: 'Staničný pult',
+      visible: hasSession && canOperateStation && workingMode === 'dispatcher',
+    },
+    {
+      id: 'edd',
+      visible: hasStation && ownsStation && workingMode === 'dispatcher',
+      title: 'Dopravný denník',
+    },
     { id: 'tpv', title: 'TPV', visible: hasSession },
     { id: 'shifts', title: 'Šichty' },
-    { id: 'staff', title: 'Personál', visible: canManageStaff },
+    { id: 'staff', title: 'Personál', visible: canManageStaff && workingMode === 'admin' },
     { id: 'docs', title: 'Dokumenty' },
-    { id: 'preparation', title: 'Príprava siete' },
-    { id: 'gvd', title: 'Tvorba GVD', visible: canCreateGvd },
-    { id: 'mock', title: 'Simulátor', visible: hasSession && canOperateStation },
-    { id: 'recovery', title: 'Obnova', visible: hasSession && isDisAdministrator(profile.role) },
+    {
+      id: 'preparation',
+      title: 'Príprava siete',
+      visible: workingMode === 'admin' && canCreateGvd,
+    },
+    { id: 'gvd', title: 'Tvorba GVD', visible: canCreateGvd && workingMode === 'admin' },
+    {
+      id: 'mock',
+      title: 'Simulátor',
+      visible: hasSession && canOperateStation && workingMode === 'admin',
+    },
+    {
+      id: 'recovery',
+      title: 'Obnova',
+      visible: hasSession && isDisAdministrator(profile.role) && workingMode === 'admin',
+    },
   ];
   const activeTab = tabs.find((item) => item.id === tab)?.visible === false ? 'sessions' : tab;
   return (
@@ -269,7 +332,11 @@ function DisPortalShell() {
           {profile.name} ({profile.callsign})
         </span>
       </div>
-      <nav className="menubar flex-wrap" aria-label={t('Moduly DIS')}>
+      <nav hidden={!workingMode} className="menubar flex-wrap" aria-label={t('Moduly DIS')}>
+        <button className="menu-btn" onClick={() => setWorkingMode(null)}>
+          <AeroIcon name="staff" />
+          {t('Zmeniť pracovnú pozíciu')}
+        </button>
         <span className="menu-group-label">{t('Relácia')}</span>
         {tabs
           .filter((item) => item.visible !== false)
@@ -443,45 +510,55 @@ function DisPortalShell() {
         </p>
       )}
       <div className="workspace min-h-0">
-        {!['preparation', 'settings'].includes(activeTab) &&
-          !tool &&
-          hasSession &&
-          sessionStations.length > 0 && (
-            <aside className={`sidebar-panel ${stationsCollapsed ? 'is-collapsed' : ''}`}>
-              <button
-                type="button"
-                className="sidebar-header station-selector-toggle"
-                onClick={() => setStationsCollapsed((collapsed) => !collapsed)}
-                aria-expanded={!stationsCollapsed}
-                aria-controls="session-station-selector"
-                aria-label={
-                  stationsCollapsed ? t('Rozbaliť výber stanice') : t('Zbaliť výber stanice')
-                }
-                title={stationsCollapsed ? t('Rozbaliť výber stanice') : t('Zbaliť výber stanice')}
-              >
-                {!stationsCollapsed && <span>{t('Stanice vybranej relácie')}</span>}
-                <AeroIcon name={stationsCollapsed ? 'expand' : 'collapse'} />
-              </button>
-              <div
-                id="session-station-selector"
-                className="tree-content"
-                hidden={stationsCollapsed}
-              >
-                {sessionStations.map((station) => (
+        <main className="content-panel min-w-0">
+          {!workingMode ? (
+            <div className="working-mode-selection">
+              <h1>{t('Vyberte pracovnú pozíciu')}</h1>
+              <div className="working-mode-options">
+                {(['admin', 'dispatcher', 'driver'] as const).map((mode) => (
                   <button
-                    key={station.stationId}
-                    className={`tree-row w-full text-left ${current.stationId === station.stationId ? 'selected' : ''}`}
-                    onClick={() => launch(station.sessionId, station.stationId)}
+                    key={mode}
+                    className="aero-btn working-mode-choice"
+                    disabled={!canUseWorkingMode(profile.role, mode)}
+                    onClick={() => {
+                      setWorkingMode(mode);
+                      openTab(mode === 'driver' ? 'driver' : 'sessions');
+                    }}
                   >
-                    {station.name}
+                    <AeroIcon
+                      name={
+                        mode === 'admin' ? 'settings' : mode === 'dispatcher' ? 'network' : 'train'
+                      }
+                      size={32}
+                    />
+                    <strong>
+                      {t(
+                        mode === 'admin'
+                          ? 'Administratíva'
+                          : mode === 'dispatcher'
+                            ? 'Výpravca'
+                            : 'Rušňovodič a vlakový personál',
+                      )}
+                    </strong>
+                    <span>
+                      {t(
+                        mode === 'admin'
+                          ? 'Správa, GVD a dokumenty'
+                          : mode === 'dispatcher'
+                            ? 'Výber stanice a riadenie dopravy'
+                            : 'Môj vlak a cestovný poriadok',
+                      )}
+                    </span>
                   </button>
                 ))}
-                {!network.stations.length && <p className="p-2">{t('Žiadne aktívne stanice.')}</p>}
               </div>
-            </aside>
-          )}
-        <main className="content-panel min-w-0">
-          {tool ? (
+              <p>{t(profile.role)}</p>
+              <button className="aero-btn" onClick={logout}>
+                <AeroIcon name="logout" />
+                {t('Odhlásiť')}
+              </button>
+            </div>
+          ) : tool ? (
             <JopEmbeddedView {...tool} onClose={() => setTool(null)} onNavigate={navigateTool} />
           ) : activeTab === 'preparation' ? (
             <NetworkPreparationView onOpenTool={(target) => launch(target, '')} />
@@ -491,8 +568,18 @@ function DisPortalShell() {
             <p className="p-4">{t('Najprv vyberte sieť.')}</p>
           ) : (
             <>
-              {activeTab === 'sessions' && (
-                <>
+              {activeTab === 'sessions' &&
+                (workingMode === 'dispatcher' ? (
+                  <StationSelectionView
+                    placeId={placeId}
+                    sessionId={current.sessionId}
+                    stations={sessionStations}
+                    claims={control.claims}
+                    userId={profile.userId}
+                    onSelect={launch}
+                    error={claimError || claimsError || ''}
+                  />
+                ) : (
                   <SessionControlView
                     key={placeId}
                     placeId={placeId}
@@ -500,15 +587,7 @@ function DisPortalShell() {
                     onLaunchRuntime={launch}
                     canLaunchSimulator={hasSession && canOperateStation}
                   />
-                  {hasSession && canDriveTrain && !canOperateStation && (
-                    <DriverDashboardView
-                      key={current.sessionId}
-                      sessionId={current.sessionId}
-                      onTrainChange={onDriverTrainChange}
-                    />
-                  )}
-                </>
-              )}
+                ))}
               {activeTab === 'driver' && hasSession && (
                 <DriverDashboardView
                   key={current.sessionId}
@@ -522,12 +601,51 @@ function DisPortalShell() {
                 )}
               {activeTab === 'runtime' &&
                 current.sessionId &&
-                (current.sessionId && current.stationId && canOperateStation ? (
-                  <RuntimeStationClient key={scopeKey} {...current} embedded />
+                (current.sessionId && current.stationId && canOperateStation && ownsStation ? (
+                  <>
+                    <div
+                      className="ribbon-bar flex-wrap"
+                      role="group"
+                      aria-label={t('Ovládané stanice')}
+                    >
+                      {ownClaims.map((claim) => (
+                        <span key={claim.stationId} className="station-control-tab">
+                          <button
+                            className="aero-btn"
+                            aria-pressed={claim.stationId === current.stationId}
+                            onClick={() =>
+                              setScope({ sessionId: claim.sessionId, stationId: claim.stationId })
+                            }
+                          >
+                            {sessionStations.find((s) => s.stationId === claim.stationId)?.name ||
+                              claim.stationId}
+                          </button>
+                          <button
+                            className="aero-btn"
+                            onClick={() => void releaseStation(claim.stationId)}
+                            aria-label={t('Uvoľniť stanicu {0}', claim.stationId)}
+                          >
+                            <AeroIcon name="close" />
+                          </button>
+                        </span>
+                      ))}
+                      <button className="aero-btn" onClick={() => openTab('sessions')}>
+                        <AeroIcon name="add" />
+                        {t('Ďalšia stanica')}
+                      </button>
+                    </div>
+                    <RuntimeStationClient key={scopeKey} {...current} embedded />
+                  </>
                 ) : (
-                  <p className="p-4">
-                    {t('Vyberte stanicu. Staničný pult je určený pre výpravcov.')}
-                  </p>
+                  <StationSelectionView
+                    placeId={placeId}
+                    sessionId={current.sessionId}
+                    stations={sessionStations}
+                    claims={control.claims}
+                    userId={profile.userId}
+                    onSelect={launch}
+                    error={claimError || claimsError || ''}
+                  />
                 ))}
               {activeTab === 'edd' && current.sessionId && (
                 <div className="flex flex-1 flex-col overflow-hidden">
@@ -551,7 +669,7 @@ function DisPortalShell() {
               {activeTab === 'staff' && canManageStaff && <StaffManagementView />}
               {activeTab === 'docs' && <DocumentCenterView />}
               {activeTab === 'gvd' && canCreateGvd && (
-                <GvdEditorView key={placeId} place={selectedPlace} />
+                <GvdEditorView key={placeId} place={selectedPlace} sessionId={current.sessionId} />
               )}
               {activeTab === 'recovery' &&
                 current.sessionId &&
@@ -585,17 +703,20 @@ function DisPortalShell() {
             </>
           )}
         </main>
+        <aside className="dis-communication-side">
+          {' '}
+          {hasSession && workingMode && activeTab !== 'preparation' && (
+            <SessionChatView
+              key={`${current.sessionId}/${workingMode}/${workingMode === 'dispatcher' && ownsStation ? current.stationId : 'self'}`}
+              sessionId={current.sessionId}
+              stationId={workingMode === 'dispatcher' && ownsStation ? current.stationId : ''}
+              driverTrain={
+                driverSelection?.sessionId === current.sessionId ? driverSelection.train : undefined
+              }
+            />
+          )}
+        </aside>
       </div>
-      {hasSession && activeTab !== 'preparation' && (
-        <SessionChatView
-          key={scopeKey}
-          sessionId={current.sessionId}
-          stationId={canOperateStation ? current.stationId : ''}
-          driverTrain={
-            driverSelection?.sessionId === current.sessionId ? driverSelection.train : undefined
-          }
-        />
-      )}
       <div className="statusbar">
         <a
           className="status-item"
@@ -610,7 +731,9 @@ function DisPortalShell() {
         <span className="status-item">{t(profile.role)}</span>
         {hasStation && (
           <span className="status-item">
-            {t('Stanica:')} {current.stationId || t('nevybraná')}
+            {t('Stanica:')}{' '}
+            {sessionStations.find((station) => station.stationId === current.stationId)?.name ||
+              t('nevybraná')}
           </span>
         )}
         <span className="status-item">

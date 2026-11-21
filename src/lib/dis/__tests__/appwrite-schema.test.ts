@@ -69,6 +69,14 @@ test('fresh setup provisions OAuth fields, correct numeric bounds/defaults and r
       return attribute;
     },
   );
+  context.mock.method(
+    Databases.prototype,
+    'updateEnumAttribute',
+    async (params: { collectionId: string; key: string; elements: string[] }) => {
+      Object.assign(collections.get(params.collectionId)!.get(params.key)!, params);
+      return {};
+    },
+  );
   const methods = ['String', 'Integer', 'Float', 'Boolean', 'Enum'] as const;
   for (const kind of methods) {
     context.mock.method(

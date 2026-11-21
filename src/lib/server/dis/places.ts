@@ -1,5 +1,6 @@
 import { getMongoDb } from '@/lib/server/mongo';
 import { getRobloxPlaceNames } from '@/lib/server/roblox/place-names';
+import { getStationDisplayName } from '@/lib/station/display-name';
 import type { PlaceTemplateDocument } from '@/lib/station/domain';
 import { isPublicStation } from '@/lib/station/visibility';
 
@@ -59,7 +60,7 @@ export async function loadDisPlaces() {
         .filter((station) => isPublicStation(station.stationId))
         .map((station) => ({
           stationId: station.stationId,
-          name: station.stationId,
+          name: getStationDisplayName(station.stationId),
         })),
     });
   }

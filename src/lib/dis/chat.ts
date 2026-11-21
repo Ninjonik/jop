@@ -1,5 +1,6 @@
 import { sessionIdSchema, stationIdSchema } from '@/lib/station/domain';
 import { z } from 'zod';
+import type { UserRole } from './appwrite-client';
 import type { RadioCredentials, RadioEmergency, RadioTerminalState } from './radio';
 
 export const chatEndpointSchema = z.discriminatedUnion('kind', [
@@ -22,6 +23,7 @@ export const sendChatSchema = chatScopeSchema.extend({
   recipient: chatRecipientSchema,
   content: z.string().trim().min(1).max(1000),
   messageId: z.uuid(),
+  announcement: z.enum(['info', 'warning', 'alarm']).optional(),
 });
 export type ChatMessage = {
   _id: string;
@@ -30,6 +32,8 @@ export type ChatMessage = {
   recipient: ChatContact;
   senderUserId: string;
   senderName: string;
+  senderRole?: UserRole;
+  announcement?: 'info' | 'warning' | 'alarm';
   content: string;
   createdAt: string;
   clientMessageId?: string;

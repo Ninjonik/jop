@@ -115,7 +115,7 @@ export async function previewTimetable(body: unknown) {
   };
 }
 
-async function validateTimetablePlace(placeId: string, stops: string[]) {
+export async function validateTimetablePlace(placeId: string, stops: string[]) {
   const template = await getDisPlaceTemplate(placeId);
   if (!template) throw new DisError(404, 'Miesto nemá uloženú konfiguráciu staníc.');
   const stations = new Set(

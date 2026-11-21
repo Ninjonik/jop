@@ -82,7 +82,8 @@ async function ensureBooleanAttribute(params: AttributeIdentity & { xdefault?: b
 async function ensureEnumAttribute(
   params: AttributeIdentity & { elements: string[]; xdefault?: string },
 ) {
-  await ensureAttribute(params, 'string', () => databases.createEnumAttribute(params));
+  if (await ensureAttribute(params, 'string', () => databases.createEnumAttribute(params)))
+    await databases.updateEnumAttribute({ ...params, xdefault: params.xdefault ?? null });
 }
 async function ensureCollection(id: string, name: string, attributesCreator: () => Promise<void>) {
   try {
@@ -180,6 +181,14 @@ export async function initializeDisAppwrite() {
         'driver',
         'dispatcher_trainee',
         'driver_trainee',
+        'other_staff',
+        'conductor',
+        'shuntman',
+        'operations_dispatcher',
+        'vehicle_manager',
+        'conductor_manager',
+        'relations_manager',
+        'workforce_director',
       ],
       required: true,
     });

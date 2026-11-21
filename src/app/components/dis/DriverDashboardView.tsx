@@ -1,5 +1,7 @@
 'use client';
+import { useLeaseClock } from '@/lib/dis/use-lease-clock';
 import { useTranslation } from '@/lib/i18n/client';
+import { BookletTimetable } from './BookletTimetable';
 
 import { AeroAutocomplete } from '@/app/components/ui/AeroAutocomplete';
 import { AeroIcon } from '@/app/components/ui/AeroIcon';
@@ -8,7 +10,6 @@ import { useDisAuth } from '@/lib/dis/auth-context';
 import type { DriverDashboard, DriverTrain, DriverTrainInput } from '@/lib/dis/driver-train';
 import type { Timetable } from '@/lib/dis/timetable';
 import { useDisResource } from '@/lib/dis/use-dis-resource';
-import { isPublicStation } from '@/lib/station/visibility';
 import { useEffect, useState } from 'react';
 import { TrainCategoryOptions } from './TrainCategoryOptions';
 
@@ -31,6 +32,7 @@ export function DriverDashboardView({
   onTrainChange?: (train: DriverTrain | null) => void;
 }) {
   const t = useTranslation();
+  const leaseNow = useLeaseClock();
   const { canDriveTrain } = useDisAuth();
   const {
     value,
@@ -40,9 +42,11 @@ export function DriverDashboardView({
   } = useDisResource<DriverDashboard>(
     `/api/dis/driver-train?${new URLSearchParams({ sessionId })}`,
     { radio: null, train: null, timetables: [], drivers: [], stations: [] },
+    5000,
   );
   const [saved, setSaved] = useState<DriverTrain | null | undefined>();
-  const train = saved === undefined ? value.train : saved;
+  const candidate = saved === undefined ? value.train : saved;
+  const train = candidate && (candidate.expiresAt || 0) > leaseNow ? candidate : null;
   useEffect(() => {
     if (!loading) onTrainChange?.(train);
   }, [train, loading, onTrainChange]);
@@ -165,11 +169,21 @@ export function DriverDashboardView({
                 label={t('Číslo vlaku')}
                 placeholder={t('Číslo z GVD alebo vlastné…')}
                 value={draft.trainNumber}
-                options={value.timetables.map((item) => ({
-                  value: item.$id,
-                  label: item.trainNumber,
-                  description: `${item.trainType} · ${item.stops[0].station} – ${item.stops.at(-1)?.station}`,
-                }))}
+                options={value.timetables
+                  .filter(
+                    (item) =>
+                      !value.drivers.some(
+                        (driver) =>
+                          driver.userId !== train?.userId &&
+                          driver.trainNumber === item.trainNumber &&
+                          (driver.expiresAt || 0) > leaseNow,
+                      ),
+                  )
+                  .map((item) => ({
+                    value: item.$id,
+                    label: item.trainNumber,
+                    description: `${item.trainType} · ${item.stops[0].station} – ${item.stops.at(-1)?.station}`,
+                  }))}
                 onInput={(trainNumber) =>
                   setDraft({ ...draft, trainNumber: trainNumber.slice(0, 32), timetableId: null })
                 }
@@ -269,30 +283,7 @@ export function DriverDashboardView({
                 {t('Cestovný poriadok ·')} {timetable.trainType} {timetable.trainNumber}
               </strong>
               {timetable.notes && <p>{timetable.notes}</p>}
-              <table className="driver-timetable mt-2 w-full text-left">
-                <thead>
-                  <tr>
-                    <th>{t('Stanica')}</th>
-                    <th>{t('Príchod')}</th>
-                    <th>{t('Odchod')}</th>
-                    <th>{t('Koľaj')}</th>
-                    <th>{t('Poznámky')}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {timetable.stops
-                    .filter((stop) => isPublicStation(stop.station))
-                    .map((stop, index) => (
-                      <tr key={index}>
-                        <td>{stop.station}</td>
-                        <td>{stop.arrival}</td>
-                        <td>{stop.departure}</td>
-                        <td>{stop.track || '—'}</td>
-                        <td>{stop.notes || ''}</td>
-                      </tr>
-                    ))}
-                </tbody>
-              </table>
+              <BookletTimetable timetable={timetable} />
               {next && (
                 <div className="mt-3 flex flex-wrap items-center gap-2">
                   <span>

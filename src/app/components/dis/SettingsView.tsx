@@ -130,7 +130,7 @@ export function SettingsView() {
             aria-label={t('Celková hlasitosť hovorov')}
             type="range"
             min="0"
-            max="1"
+            max="2"
             step="0.01"
             value={settings.volume}
             onChange={(event) => setBrowserSettings({ volume: Number(event.target.value) })}
@@ -164,7 +164,7 @@ export function SettingsView() {
                 sound.current?.pause();
                 const next = new Audio('/sounds/telephone-ring.ogg');
                 sound.current = next;
-                next.volume = settings.volume;
+                next.volume = Math.min(1, settings.volume);
                 try {
                   if (settings.speaker) {
                     if (!('setSinkId' in next)) throw new Error();

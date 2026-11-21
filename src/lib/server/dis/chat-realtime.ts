@@ -18,9 +18,11 @@ import { sessionRepository } from '../repositories/session-repository';
 import { isRobloxSessionLive } from '../services/station-service';
 import { requireDisProfile } from './appwrite';
 import { authorizeChatScope, chatMessagesCollection, loadChat, resolveContact } from './chat';
+import { renewOperationClaims } from './claims';
 import { RadioCalls, type RadioEmit } from './radio-calls';
 import { driverRadioStation } from './radio-location';
 import { assertVoiceConfigured, radioMedia } from './radio-media';
+import { pruneSessionArtifacts } from './session-artifacts';
 
 type ChatSocketData = {
   profile: UserProfile;
@@ -93,7 +95,7 @@ export async function startChatRealtime(namespace: ChatNamespace) {
     if (ticking || stopped) return;
     ticking = true;
     void enqueueRadio(async () => {
-      await radio.tick();
+      await radio.tick(false);
       for (const command of await radioTerminalRepository.takeCommands()) {
         let failure: string | undefined;
         try {
@@ -120,6 +122,7 @@ export async function startChatRealtime(namespace: ChatNamespace) {
       if (Date.now() - lastPrune > 60000) {
         lastPrune = Date.now();
         await radioTerminalRepository.pruneCommands(lastPrune);
+        await pruneSessionArtifacts();
       }
     })
       .catch((error) => console.error('[radio] Synchronization failed:', error))
@@ -127,6 +130,7 @@ export async function startChatRealtime(namespace: ChatNamespace) {
         ticking = false;
       });
   }, 500);
+  const presenceTimer = setInterval(() => namespace.emit('radio:heartbeat-request'), 5000);
   namespace.on('connection', (socket) => {
     void enqueueRadio(() => radio.observe(socket.data.profile.userId, socket.id)).catch(() =>
       socket.disconnect(),
@@ -162,9 +166,13 @@ export async function startChatRealtime(namespace: ChatNamespace) {
       action(() => radio.release(socket.data.profile.userId, socket.id)),
     );
     socket.on('radio:heartbeat', () => {
-      void enqueueRadio(() => radio.heartbeat(socket.data.profile.userId, socket.id)).catch(
-        () => undefined,
-      );
+      void enqueueRadio(async () => {
+        if (socket.data.scope)
+          await renewOperationClaims(socket.data.scope.sessionId, socket.data.profile.userId);
+        const terminal = await radioTerminalRepository.find(socket.data.profile.userId);
+        if (terminal?.ownerSocketId === socket.id)
+          await radio.heartbeat(socket.data.profile.userId, socket.id);
+      }).catch(() => undefined);
     });
     socket.on('call:start', (recipient) =>
       action(() =>
@@ -250,6 +258,13 @@ export async function startChatRealtime(namespace: ChatNamespace) {
   async function publishChatChange(change: ChangeStreamDocument<ChatMessage | DriverTrain>) {
     if (!('ns' in change) || !('coll' in change.ns)) return;
     if (change.ns.coll === 'session_driver_trains') {
+      if (
+        change.operationType === 'update' &&
+        Object.keys(change.updateDescription.updatedFields || {}).every(
+          (key) => key === 'expiresAt',
+        )
+      )
+        return;
       // Deletes have no full document/session ID, so refresh subscribed inboxes.
       // This does not resubscribe or release an active voice terminal.
       await refreshChatSnapshots();
@@ -303,6 +318,7 @@ export async function startChatRealtime(namespace: ChatNamespace) {
   return async () => {
     stopped = true;
     clearInterval(radioTimer);
+    clearInterval(presenceTimer);
     await enqueueRadio(() => radio.stop());
     await changes?.close();
   };

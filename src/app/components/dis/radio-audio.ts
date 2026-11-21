@@ -9,9 +9,13 @@ export function attachRadioAudio(
 ) {
   const element = track.attach();
   container.appendChild(element);
+  let outputGain: GainNode | undefined;
+  let processing = false;
+  const desiredVolume = () => Math.min(2, getBrowserSettings().volume * (options.volume?.() ?? 1));
   const updateOutput = () => {
     const settings = getBrowserSettings();
-    element.volume = settings.volume * (options.volume?.() ?? 1);
+    element.volume = Math.min(1, desiredVolume());
+    if (outputGain && processing) outputGain.gain.value = Math.max(1, desiredVolume());
     if ('setSinkId' in element)
       void element.setSinkId(settings.speaker).catch(() => {
         container.dispatchEvent(new CustomEvent('audio-device-error', { bubbles: true }));
@@ -24,7 +28,6 @@ export function attachRadioAudio(
   let context: AudioContext | undefined;
   let timer: ReturnType<typeof setInterval> | undefined;
   let closed = false;
-  let processing = false;
   let silentSamples = 0;
   try {
     context = new AudioContext();
@@ -60,12 +63,18 @@ export function attachRadioAudio(
     const outputMeter = context.createAnalyser();
     outputMeter.fftSize = 512;
     const gain = context.createGain();
+    outputGain = gain;
+    const dryGain = context.createGain();
+    const filteredGain = context.createGain();
+    dryGain.gain.value = 0;
+    source.connect(dryGain).connect(outputMeter);
     gain.gain.value = 0;
     source
       .connect(highpass)
       .connect(lowpass)
       .connect(compressor)
       .connect(saturation)
+      .connect(filteredGain)
       .connect(outputMeter)
       .connect(gain)
       .connect(destination);
@@ -81,10 +90,13 @@ export function attachRadioAudio(
     };
     timer = setInterval(() => {
       if (closed) return;
-      if (options.radio === false || !getBrowserSettings().radioSimulation) {
+      const filtered = options.radio !== false && getBrowserSettings().radioSimulation;
+      if (!filtered && desiredVolume() <= 1) {
         if (processing) restoreOriginal();
         return;
       }
+      dryGain.gain.value = filtered ? 0 : 1;
+      filteredGain.gain.value = filtered ? 1 : 0;
       if (audioContext.state !== 'running') {
         if (processing) restoreOriginal();
         return;
@@ -96,7 +108,7 @@ export function attachRadioAudio(
       if (!processing && outputActive) {
         element.srcObject = destination.stream;
         void element.play().catch(() => {});
-        gain.gain.value = 1;
+        gain.gain.value = Math.max(1, desiredVolume());
         processing = true;
         silentSamples = 0;
       } else if (processing && inputActive && !outputActive) {
