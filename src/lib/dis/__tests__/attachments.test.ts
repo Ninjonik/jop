@@ -2,8 +2,8 @@ import { strToU8, zipSync } from 'fflate';
 import { Account, Databases, Storage } from 'node-appwrite';
 import assert from 'node:assert/strict';
 import { test, type TestContext } from 'node:test';
-import { GET } from '../../../app/api/dis/attachments/[fileId]/route';
-import { POST } from '../../../app/api/dis/upload/route';
+import { GET } from '../../../../apps/api/src/app/api/dis/attachments/[fileId]/route';
+import { POST } from '../../../../apps/api/src/app/api/dis/upload/route';
 
 const png = Uint8Array.from(
   Buffer.from(

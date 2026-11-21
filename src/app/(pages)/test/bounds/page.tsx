@@ -1,19 +1,10 @@
 import TileCatalogViewerClient from '@/app/components/test/bounds/TileCatalogViewerClient';
 import type { TileCatalog } from '@/app/components/tiles/tile-catalog';
-import {LocalizedText} from '@/lib/i18n/client';
-import type { Metadata } from 'next';
+import { LocalizedText } from '@/lib/i18n/client';
 // Try both import methods
 import tilesData, { tiles as namedTiles, stateGroups } from '@/app/data/tiles';
-import { getCurrentAppTitle } from '@/lib/server/git-version';
 
-export async function generateMetadata(): Promise<Metadata> {
-  return {
-    title: getCurrentAppTitle(),
-    description: 'Relay Railway Dispatcher Controller Tile Catalog Inspector',
-  };
-}
-
-export default async function TileCatalogPage() {
+export default function TileCatalogPage() {
   // Try named import first, fallback to default
   const tileCatalog: TileCatalog = namedTiles || tilesData || {};
 

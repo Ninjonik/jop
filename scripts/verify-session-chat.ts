@@ -6,11 +6,12 @@ import { createServer } from 'node:http';
 import { mock } from 'node:test';
 import { Server } from 'socket.io';
 import { io, type Socket } from 'socket.io-client';
-import { GET, POST } from '../src/app/api/dis/chat/route';
+import { GET, POST } from '../apps/api/src/app/api/dis/chat/route';
 import type { UserProfile } from '../src/lib/dis/appwrite-client';
 import type { ChatMessage, ChatSnapshot } from '../src/lib/dis/chat';
 import { databaseId, disDatabase } from '../src/lib/server/dis/appwrite';
 import { startChatRealtime, type ChatNamespace } from '../src/lib/server/dis/chat-realtime';
+import { claimStation } from '../src/lib/server/dis/claims';
 import { getMongoClient, getMongoDb } from '../src/lib/server/mongo';
 import { stationService } from '../src/lib/server/services/station-service';
 
@@ -57,11 +58,12 @@ let stopChat: (() => Promise<void>) | undefined;
 let base = '';
 
 function once<T>(socket: Socket, event: string) {
+  const timeoutError = new Error(`Timed out: ${event}`);
   return new Promise<T>((resolve, reject) => {
     const timeout = setTimeout(() => {
       socket.off(event, listener);
-      reject(new Error(`Timed out: ${event}`));
-    }, 8000);
+      reject(timeoutError);
+    }, 30000);
     function listener(value: T) {
       clearTimeout(timeout);
       resolve(value);
@@ -82,6 +84,7 @@ async function connect(
     autoConnect: false,
   });
   clients.push(socket);
+  socket.on('radio:heartbeat-request', () => socket.emit('radio:heartbeat'));
   const snapshot = once<ChatSnapshot>(socket, 'chat:snapshot');
   socket.on('connect', () => socket.emit('chat:subscribe', { sessionId, endpoint: { kind, id } }));
   socket.connect();
@@ -105,7 +108,10 @@ async function verify() {
   for (let index = 0; index < 2; index++) {
     const session = await stationService.createMockSession();
     sessions.push(session._id);
-    for (const station of ['a', 'b', 'c']) await stationService.createStation(session._id, station);
+    for (const station of ['a', 'b', 'c']) {
+      await stationService.createStation(session._id, station);
+      await claimStation({ sessionId: session._id, stationId: station }, staff[0]);
+    }
   }
   stopChat = await startChatRealtime(sockets.of('/chat') as unknown as ChatNamespace);
   await new Promise<void>((resolve) => http.listen(0, '127.0.0.1', resolve));
@@ -154,22 +160,21 @@ async function verify() {
   await post(direct);
   assert.equal((await directReceived).recipient.id, staff[1].userId);
   const replyReceived = once<ChatMessage>(a.socket, 'chat:message');
-  await mongo
-    .collection('session_driver_trains')
-    .insertOne({
-      _id: `${tag}-train` as never,
-      sessionId: sessions[0],
-      userId: staff[1].userId,
-      userName: staff[1].name,
-      trainType: 'R',
-      trainNumber: '4984',
-      timetableId: null,
-      endStation: 'b',
-      length: 150,
-      tonnage: null,
-      wagons: null,
-      updatedAt: new Date().toISOString(),
-    });
+  await mongo.collection('session_driver_trains').insertOne({
+    _id: `${tag}-train` as never,
+    sessionId: sessions[0],
+    userId: staff[1].userId,
+    userName: staff[1].name,
+    expiresAt: Date.now() + 60_000,
+    trainType: 'R',
+    trainNumber: '4984',
+    timetableId: null,
+    endStation: 'b',
+    length: 150,
+    tonnage: null,
+    wagons: null,
+    updatedAt: new Date().toISOString(),
+  });
   await post(
     {
       ...direct,
@@ -280,9 +285,11 @@ async function main() {
       'station_actions',
       'session_chat_messages',
       'session_driver_trains',
+      'session_station_claims',
     ])
       await mongo.collection(collection).deleteMany({ sessionId: { $in: sessions } });
     await mongo.collection('sessions').deleteMany({ _id: { $in: sessions } as never });
+    await mongo.collection('personnel_callsigns').deleteMany({ userId: { $in: profiles } });
     for (const id of profiles) await disDatabase().deleteDocument(databaseId, 'profiles', id);
     await (await getMongoClient()).close();
   }

@@ -1,4 +1,14 @@
 {
+  "ZSSK": ["ZSSK", "ZSSK"],
+  "Dostupná aktualizácia aplikácie.": ["Dostupná aktualizácia aplikácie.", "An application update is available."],
+  "Aktualizácia zlyhala. Skúste to znova.": ["Aktualizácia zlyhala. Skúste to znova.", "Update failed. Please try again."],
+  "Nainštalovať a reštartovať": ["Nainštalovať a reštartovať", "Install and restart"],
+  "Inštalujem…": ["Inštalujem…", "Installing…"],
+  "Neskôr": ["Neskôr", "Later"],
+  "Stiahnuť aplikáciu": ["Stiahnuť aplikáciu", "Download application"],
+  "Desktopová aplikácia DIS pre Windows a Linux.": ["Desktopová aplikácia DIS pre Windows a Linux.", "DIS desktop application for Windows and Linux."],
+  "Inštalátory zatiaľ nie sú dostupné. Skúste to neskôr.": ["Inštalátory zatiaľ nie sú dostupné. Skúste to neskôr.", "Installers are not available yet. Please try again later."],
+  "Nepodarilo sa otvoriť nástroj.": ["Nepodarilo sa otvoriť nástroj.", "Could not open the tool."],
   "Hlasový terminál je odpojený": [
     "Hlasový terminál je odpojený",
     "Voice terminal is disconnected"

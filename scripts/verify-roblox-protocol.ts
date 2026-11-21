@@ -2,12 +2,12 @@
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { mock } from 'node:test';
-import { GET as bridgeScripts } from '../src/app/api/roblox/bridge-scripts/route';
-import { POST as heartbeat } from '../src/app/api/roblox/sessions/[sessionId]/heartbeat/route';
-import { POST as occupation } from '../src/app/api/roblox/sessions/[sessionId]/occupation/route';
-import { POST as switchFeedback } from '../src/app/api/roblox/sessions/[sessionId]/switch-feedback/route';
-import { GET as updates } from '../src/app/api/roblox/sessions/[sessionId]/updates/route';
-import { POST as register } from '../src/app/api/roblox/sessions/register/route';
+import { GET as bridgeScripts } from '../apps/api/src/app/api/roblox/bridge-scripts/route';
+import { POST as heartbeat } from '../apps/api/src/app/api/roblox/sessions/[sessionId]/heartbeat/route';
+import { POST as occupation } from '../apps/api/src/app/api/roblox/sessions/[sessionId]/occupation/route';
+import { POST as switchFeedback } from '../apps/api/src/app/api/roblox/sessions/[sessionId]/switch-feedback/route';
+import { GET as updates } from '../apps/api/src/app/api/roblox/sessions/[sessionId]/updates/route';
+import { POST as register } from '../apps/api/src/app/api/roblox/sessions/register/route';
 import { stateGroups, tiles } from '../src/app/data/tiles';
 import { getMongoClient, getMongoDb } from '../src/lib/server/mongo';
 import { robloxRuntimeInterpreter } from '../src/lib/server/roblox/roblox-open-cloud-port';

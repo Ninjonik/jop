@@ -1,4 +1,5 @@
 'use client';
+import { apiOrigin } from '@/lib/api-client';
 import { canPublishAnnouncements } from '@/lib/dis/permissions';
 import { useLocaleTag, useTranslation } from '@/lib/i18n/client';
 import { EmergencyAudio } from './EmergencyAudio';
@@ -69,7 +70,7 @@ export function SessionChatView({
   useEffect(() => {
     if (!endpointId || !profile) return;
     let active = true;
-    const socket: Socket<ChatServerEvents, ChatClientEvents> = io('/chat', {
+    const socket: Socket<ChatServerEvents, ChatClientEvents> = io(`${apiOrigin}/chat`, {
       path: '/socket.io',
       transports: ['websocket'],
       auth: (callback) => {

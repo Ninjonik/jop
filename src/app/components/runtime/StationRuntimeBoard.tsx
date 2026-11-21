@@ -1,4 +1,6 @@
 'use client';
+import { apiFetch } from '@/lib/api-client';
+
 import { StationReminders } from '@/app/components/dis/StationReminders';
 import { getDisToken } from '@/lib/dis/api-client';
 import { useBrowserSettings } from '@/lib/dis/browser-settings';
@@ -160,7 +162,7 @@ export default function StationRuntimeBoard({
       setPendingActionKey(`${pieceId}:${type}`);
       onErrorChange(null);
 
-      const response = await fetch(
+      const response = await apiFetch(
         `/api/stations/${station.sessionId}/${station.stationId}/commands/lineblock-action`,
         {
           method: 'POST',
@@ -217,7 +219,7 @@ export default function StationRuntimeBoard({
       setPendingActionKey(`${pieceId}:route:${button}`);
       onErrorChange(null);
 
-      const response = await fetch(
+      const response = await apiFetch(
         `/api/stations/${station.sessionId}/${station.stationId}/commands/route-interact`,
         {
           method: 'POST',
@@ -263,7 +265,7 @@ export default function StationRuntimeBoard({
       setPendingActionKey(`${pieceId}:switch`);
       onErrorChange(null);
 
-      const response = await fetch(
+      const response = await apiFetch(
         `/api/stations/${station.sessionId}/${station.stationId}/commands/switch-set-position`,
         {
           method: 'POST',
@@ -307,7 +309,7 @@ export default function StationRuntimeBoard({
       setPendingActionKey(`${pieceId}:pn:${button}`);
       onErrorChange(null);
 
-      const response = await fetch(
+      const response = await apiFetch(
         `/api/stations/${station.sessionId}/${station.stationId}/commands/privolavacia-interact`,
         {
           method: 'POST',

@@ -1,4 +1,6 @@
 'use client';
+import { apiFetch } from '@/lib/api-client';
+
 import { useTranslation } from '@/lib/i18n/client';
 
 import { AeroIcon } from '@/app/components/ui/AeroIcon';
@@ -26,7 +28,7 @@ export function SessionControlView({
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch('/api/sessions/live', { cache: 'no-store' });
+      const res = await apiFetch('/api/sessions/live', { cache: 'no-store' });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       setLiveSessions(

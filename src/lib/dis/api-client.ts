@@ -1,4 +1,6 @@
 'use client';
+import { apiFetch } from '@/lib/api-client';
+
 import { account } from './appwrite-client';
 
 type DisToken = { jwt: string; expires: number };
@@ -54,7 +56,7 @@ export async function disRequest(url: string, init: RequestInit = {}): Promise<R
   let jwt = await getDisToken();
   const send = () => {
     headers.set('Authorization', `Bearer ${jwt}`);
-    return fetch(url, { ...init, headers, cache: 'no-store' });
+    return apiFetch(url, { ...init, headers, cache: 'no-store' });
   };
   let response = await send();
   const replayable = !(

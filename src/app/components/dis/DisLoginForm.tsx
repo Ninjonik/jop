@@ -1,13 +1,17 @@
 'use client';
 import { LanguageSelector, useTranslation } from '@/lib/i18n/client';
+import { DesktopDownloads } from './DesktopDownloads';
 
-import { useSearchParams } from 'next/navigation';
-import { Suspense } from 'react';
+import { apiUrl } from '@/lib/api-client';
+import { isTauri, startDesktopLogin } from '@/lib/desktop';
+import { useSearchParams } from '@/lib/navigation';
+import { Suspense, useState } from 'react';
 
 export default function DisLoginForm() {
   const t = useTranslation();
+  const [loginError, setLoginError] = useState('');
   return (
-    <div className="min-h-screen bg-[#cbd7e6] flex items-center justify-center font-['Segoe_UI'] p-4 select-none">
+    <div className="min-h-screen bg-[#cbd7e6] flex items-center justify-center font-sans p-4 select-none">
       {/* Windows 7 Aero Window Box */}
       <div className="w-[440px] bg-white border border-[#8fa6c4] rounded-[3px] shadow-[0_4px_16px_rgba(0,0,0,0.25)] overflow-hidden">
         {/* Caption Bar */}
@@ -27,13 +31,21 @@ export default function DisLoginForm() {
 
         {/* Content */}
         <div className="p-6 space-y-5">
-          <div className="flex justify-end">
+          <div className="flex items-center justify-between">
+            <span>
+              <DesktopDownloads />
+            </span>
             <LanguageSelector />
           </div>
           <div className="flex items-center space-x-3 pb-3 border-b border-[#e2e8f0]">
-            <div className="w-11 h-11 rounded bg-blue-600 flex items-center justify-center text-white font-bold text-lg shadow-sm">
-              ŽSR
-            </div>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/brand/zssk.svg"
+              alt={t('ZSSK')}
+              width={76}
+              height={48}
+              className="h-12 w-[76px] shrink-0 object-contain"
+            />
             <div>
               <div className="text-sm font-bold text-[#1e293b]">
                 Železničná spoločnosť Slovensko
@@ -64,8 +76,25 @@ export default function DisLoginForm() {
           </div>
 
           <div className="pt-2">
+            {loginError && (
+              <p role="alert" className="mb-2 text-xs text-red-700">
+                {loginError}
+              </p>
+            )}
             <a
-              href="/api/auth/roblox/login"
+              href={apiUrl('/api/auth/roblox/login')}
+              onClick={(event) => {
+                if (!isTauri()) return;
+                event.preventDefault();
+                setLoginError('');
+                void startDesktopLogin().catch((error: unknown) =>
+                  setLoginError(
+                    error instanceof Error
+                      ? error.message
+                      : t('Prihlásenie sa nepodarilo. Skúste to znova.'),
+                  ),
+                );
+              }}
               className="w-full h-10 px-4 bg-gradient-to-b from-[#fbfbfb] to-[#e1e4e8] hover:from-[#f3f9ff] hover:to-[#cbe3fc] active:from-[#cbe3fc] active:to-[#a2c8f0] border border-[#707070] hover:border-[#3c7fb1] rounded-[3px] shadow-[inset_0_1px_0_rgba(255,255,255,0.8),0_1px_2px_rgba(0,0,0,0.1)] flex items-center justify-center space-x-2.5 cursor-pointer transition font-semibold text-xs text-[#1e293b]"
             >
               <svg className="w-5 h-5 fill-[#222]" viewBox="0 0 24 24">

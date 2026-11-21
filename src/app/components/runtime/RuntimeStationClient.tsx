@@ -1,4 +1,6 @@
 'use client';
+import { apiFetch, apiOrigin } from '@/lib/api-client';
+
 import { useTranslation } from '@/lib/i18n/client';
 
 import { startTransition, useEffect, useState } from 'react';
@@ -56,7 +58,7 @@ export default function RuntimeStationClient({
     async function loadStation() {
       try {
         setLoading(true);
-        const response = await fetch(`/api/stations/${sessionId}/${stationId}`, {
+        const response = await apiFetch(`/api/stations/${sessionId}/${stationId}`, {
           cache: 'no-store',
         });
         const payload = (await response.json()) as
@@ -117,10 +119,13 @@ export default function RuntimeStationClient({
 
   useEffect(() => {
     let active = true;
-    const socket: Socket<StationRealtimeServerEvents, StationRealtimeClientEvents> = io({
-      path: '/socket.io',
-      transports: ['websocket'],
-    });
+    const socket: Socket<StationRealtimeServerEvents, StationRealtimeClientEvents> = io(
+      apiOrigin || undefined,
+      {
+        path: '/socket.io',
+        transports: ['websocket'],
+      },
+    );
 
     socket.on('connect', () => {
       socket.emit('station:subscribe', {

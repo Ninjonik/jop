@@ -1,0 +1,14 @@
+#!/bin/bash
+set -Eeuo pipefail
+export HOME=/tmp/jop-builder
+mkdir -p "$HOME"
+export CARGO_TARGET_DIR=/target
+export CARGO_BUILD_JOBS=4
+export NEXT_PUBLIC_API_ORIGIN=https://jop.igportals.eu
+export APPIMAGE_EXTRACT_AND_RUN=1
+export XWIN_ACCEPT_LICENSE=1
+export XDG_CACHE_HOME=/cache
+export TAURI_SIGNING_PRIVATE_KEY=/signing/updater.key
+export TAURI_SIGNING_PRIVATE_KEY_PASSWORD=''
+npm run tauri -w @jop/spa -- build --target x86_64-unknown-linux-gnu --bundles appimage,deb --config /work/desktop-release.json
+npm run tauri -w @jop/spa -- build --runner cargo-xwin --target x86_64-pc-windows-msvc --no-bundle --config /work/desktop-release.json

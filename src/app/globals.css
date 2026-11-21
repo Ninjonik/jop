@@ -1,7 +1,13 @@
 @import 'tailwindcss';
 @import '../styles/aero-theme.css';
+@source './';
+@source '../../apps/spa/src';
+
+.aero-embedded-tool .min-h-screen { min-height: 100%; }
 
 :root {
+  --font-geist-sans: 'Segoe UI', Tahoma, Arial, sans-serif;
+  --font-geist-mono: Consolas, 'Courier New', monospace;
   --background: #ffffff;
   --foreground: #171717;
 }

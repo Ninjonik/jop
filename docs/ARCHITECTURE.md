@@ -15,6 +15,28 @@ It is intentionally practical rather than exhaustive.
 
 ## 1. Project Shape
 
+The monorepo has two independently runnable applications: `apps/api` contains
+the Next API-only application and its custom Socket.IO server; `apps/spa`
+contains the Vite/React Router entry point and Tauri 2 desktop bundle. Shared
+React screens/assets live in `src/app`, reusable client/domain code in `src/lib`,
+and backend services/repositories in `src/lib/server`. No Next renderer runs in
+the browser or desktop app. `src/lib/navigation.tsx` and `src/lib/link.tsx` adapt
+the screens' navigation to React Router.
+
+`src/lib/api-client.ts` owns the optional public API origin. All browser HTTP
+commands and Socket.IO connections use this boundary. Web builds may use the
+same origin; desktop builds target the hosted API. The API custom server serves
+the built web SPA when deployed together, with a client-route fallback. Vite's
+development proxy is only for development. Configure `SPA_ORIGIN` for separate
+web OAuth returns and `CORS_ORIGINS` for additional approved clients.
+
+Desktop sign-in opens the system browser and returns through `jop-dis` with a
+short-lived login nonce and one-time Appwrite token. The frontend accepts only
+a matching unexpired locally initiated attempt. Native save dialogs preserve
+station/schema/attachment downloads, and macOS declares microphone use. Tauri
+contains the renderer only: MongoDB, delayed actions, Roblox calls, authorization
+and canonical state remain in the hosted API.
+
 The app is entered through DIS, which embeds the existing station tools:
 
 - `/`
@@ -383,7 +405,7 @@ Current creation path:
 
 Relevant files:
 
-- `src/app/api/sessions/[sessionId]/lineblock-links/route.ts`
+- `apps/api/src/app/api/sessions/[sessionId]/lineblock-links/route.ts`
 - `src/lib/server/services/station-service.ts`
 
 ## 11. Mutation Rules
@@ -474,7 +496,7 @@ Switch-button behavior:
 
 Current implementation files:
 
-- `src/app/api/stations/[sessionId]/[stationId]/commands/switch-set-position/route.ts`
+- `apps/api/src/app/api/stations/[sessionId]/[stationId]/commands/switch-set-position/route.ts`
 - `src/lib/server/services/station-service.ts`
 
 Lifecycle:
@@ -494,7 +516,7 @@ Realtime uses full snapshots over Socket.IO WebSockets.
 
 Main files:
 
-- `server.ts`
+- `apps/api/server.ts`
 - `src/lib/station/realtime.ts`
 - `src/app/components/runtime/RuntimeStationClient.tsx`
 
@@ -632,8 +654,8 @@ For mock session simulation:
 For backend state changes:
 
 - `src/lib/server/services/station-service.ts`
-- `src/app/api/stations/*`
-- `src/app/api/sessions/*`
+- `apps/api/src/app/api/stations/*`
+- `apps/api/src/app/api/sessions/*`
 
 ## 19. Common Pitfalls
 
@@ -673,7 +695,7 @@ Relevant files:
 
 - `src/lib/server/roblox/runtime-interpreter.ts`
 - `src/lib/server/roblox/roblox-open-cloud-port.ts`
-- `src/app/api/roblox/*`
+- `apps/api/src/app/api/roblox/*`
 - `src/lib/server/repositories/place-template-repository.ts`
 - `roblox/ServerScriptService/JopBridge/*`
 
@@ -714,9 +736,11 @@ Runtime station commands and snapshots retain the MongoDB ownership described ab
 The portal selects one `sessionId` / `stationId` pair for EDD, TPV, radio, and the
 station pult. `/api/dis/jop-data` loads active Mongo sessions through the shared
 Mongo client. Station identity never uses the composite Mongo document ID.
-Runtime and simulation components render directly inside DIS. The editor, map
-manager, and linker remain embedded tools; their navigation is routed by the
-portal to avoid nesting a second DIS window inside an iframe.
+Runtime, simulation, editor, map manager and linker render directly inside DIS's
+React tree. Authoring tools have a scoped navigation context for their URL
+parameters and links, so they retain the portal, theme and local downloads
+without nested iframe applications. They can also open in a separate browser
+tab or native tool window.
 
 `src/lib/dis/timetable.ts` owns clock validation, midnight unfolding, dwell, and
 conflict calculation. GVD is a recurring daily plan of less than 24 hours. It

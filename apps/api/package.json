@@ -1,0 +1,9 @@
+{
+  "name": "@jop/api",
+  "private": true,
+  "scripts": {
+    "dev": "cd ../.. && tsx watch apps/api/server.ts --dev",
+    "build": "cd ../.. && next build apps/api",
+    "start": "cd ../.. && tsx apps/api/server.ts"
+  }
+}

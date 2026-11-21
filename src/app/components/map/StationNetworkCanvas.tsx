@@ -3,13 +3,13 @@ import { useTranslation } from '@/lib/i18n/client';
 
 import { AeroIcon } from '@/app/components/ui/AeroIcon';
 
+import Link from '@/lib/link';
 import type { SessionLineblockLink, StationDocument } from '@/lib/station/domain';
 import {
   arrangeStationNetwork,
   networkCardHeight,
   networkCardWidth,
 } from '@/lib/station/network-layout';
-import Link from 'next/link';
 import { useRef, useState } from 'react';
 import StationTopologyBoard from './StationTopologyBoard';
 

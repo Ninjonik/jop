@@ -1,0 +1,17 @@
+#!/bin/bash
+# Root-owned entry point: build repository code only inside an unprivileged container.
+set -Eeuo pipefail
+exec 9>/run/lock/jop-desktop-build.lock
+flock 9
+# Also wait for a bootstrap build started before this lock was installed.
+while [[ -n "$(/usr/bin/docker ps -q --filter ancestor=jop-desktop-builder:22.04)" ]]; do sleep 5; done
+stage=$(readlink -f /var/lib/jop/current)
+[[ "$stage" == /var/lib/jop/builds/build.* && -f "$stage/desktop-release.json" ]] || exit 2
+exec /usr/bin/docker run --rm --pull never --cpus=4 --memory=12g \
+  --user "$(id -u jop):$(id -g jop)" --cap-drop ALL --security-opt no-new-privileges \
+  --mount "type=bind,src=$stage,dst=/work" \
+  --mount type=bind,src=/var/lib/jop/desktop-target,dst=/target \
+  --mount type=bind,src=/var/lib/jop/build-cache,dst=/cache \
+  --mount type=bind,src=/var/lib/jop/build-cache/cargo-registry,dst=/usr/local/cargo/registry \
+  --mount type=bind,src=/var/lib/jop/signing,dst=/signing,readonly \
+  jop-desktop-builder:22.04 bash scripts/deploy/build-desktop

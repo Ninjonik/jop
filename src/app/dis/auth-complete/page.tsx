@@ -4,7 +4,7 @@ import { useTranslation } from '@/lib/i18n/client';
 import { clearDisToken } from '@/lib/dis/api-client';
 import { account } from '@/lib/dis/appwrite-client';
 import { completeRobloxLogin } from '@/lib/dis/complete-roblox-login';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from '@/lib/navigation';
 import { Suspense, useEffect, useRef, useState } from 'react';
 
 function AuthCompleteContent() {
@@ -40,7 +40,7 @@ function AuthCompleteContent() {
   }, [userId, secret, router]);
 
   return (
-    <div className="min-h-screen bg-[#cbd7e6] flex items-center justify-center font-['Segoe_UI'] p-4 select-none">
+    <div className="min-h-screen bg-[#cbd7e6] flex items-center justify-center font-sans p-4 select-none">
       <div className="w-[420px] bg-white border border-[#8fa6c4] rounded-[3px] shadow-[0_2px_8px_rgba(0,0,0,0.2)] overflow-hidden">
         {/* Title bar */}
         <div className="h-7 bg-gradient-to-b from-[#e3efff] to-[#b5d1f1] border-b border-[#8fa6c4] px-2 flex items-center justify-between text-[#1e395b] font-semibold text-xs">
@@ -87,7 +87,7 @@ export default function AuthCompletePage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen bg-[#cbd7e6] flex items-center justify-center font-['Segoe_UI'] text-xs text-[#1e395b]">
+        <div className="min-h-screen bg-[#cbd7e6] flex items-center justify-center font-sans text-xs text-[#1e395b]">
           {' '}
           {t('Pripravujem overenie...')}{' '}
         </div>

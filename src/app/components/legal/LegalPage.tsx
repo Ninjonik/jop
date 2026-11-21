@@ -1,6 +1,6 @@
 'use client';
 import { useTranslation } from '@/lib/i18n/client';
-import Link from 'next/link';
+import Link from '@/lib/link';
 import type { ReactNode } from 'react';
 
 export default function LegalPage({ title, children }: { title: string; children: ReactNode }) {

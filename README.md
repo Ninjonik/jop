@@ -1,6 +1,12 @@
 # JOP
 
-JOP is a railway control panel built with Next.js, React, TypeScript, and MongoDB.
+JOP is a railway control panel with a React SPA, a separate Next.js API service,
+and a Tauri desktop client for Windows, Linux and macOS.
+
+The npm workspaces are `apps/api` (HTTP routes, Socket.IO and MongoDB change
+streams) and `apps/spa` (Vite, React Router and Tauri). Existing railway domain,
+server services and reusable screens remain in `src` and are shared by imports.
+The SPA never bundles server services or server credentials.
 
 Current focus:
 
@@ -27,7 +33,9 @@ Current focus:
 
 ## Tech Stack
 
-- Next.js 16 App Router
+- Next.js 16 App Router for API routes only
+- Vite + React Router for the web and desktop SPA
+- Tauri 2 for native installers, browser login and file saving
 - React 19
 - TypeScript
 - MongoDB
@@ -63,6 +71,11 @@ Run the dev server:
 npm run dev
 ```
 
+This starts the API on port 3000 and the SPA on port 1420. Open
+`http://localhost:1420`. You can start them independently with `npm run dev:api`
+and `npm run dev:spa`. The SPA development server proxies HTTP and Socket.IO to
+the API. Set `SPA_ORIGIN=http://localhost:1420` for browser OAuth to return there.
+
 Build for production:
 
 ```bash
@@ -74,6 +87,73 @@ Start production server:
 ```bash
 npm run start
 ```
+
+The production API server also serves the built SPA and falls back to its HTML
+entry point for client routes. It can instead sit behind a reverse proxy that
+serves `apps/spa/dist` separately. When the origins differ, set the public
+`NEXT_PUBLIC_API_ORIGIN` before building the SPA, and set `SPA_ORIGIN` and
+`CORS_ORIGINS` on the API. Runtime secrets belong only on the API server.
+
+## Desktop
+
+Install the [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/), then
+run `npm run desktop:dev` alongside `npm run dev:api`. Build an installer on the
+target operating system with `npm run desktop:build`. Artifacts are written to
+`apps/spa/src-tauri/target/release/bundle`. A manual GitHub Actions workflow,
+**Desktop installers**, builds Windows and Linux artifacts; repository
+variable `JOP_API_ORIGIN` selects their API server.
+
+Desktop builds require `NEXT_PUBLIC_API_ORIGIN` (for example
+`https://jop.igportals.eu`), falling back to the origin of `ROBLOX_REDIRECT_URI`.
+The backend remains a hosted service; it is not bundled into the installer.
+The Windows 7 appearance is the application theme, not a Windows 7 OS target.
+
+## VPS deployment and automatic updates
+
+The production webhook accepts authenticated pushes to `master` (the current
+default branch) and `main`. `/usr/local/sbin/deploy-jop` stages an immutable source
+snapshot, reuses the existing server `.env*` files and `/etc/jop.env`, builds both
+workspaces, switches `/var/lib/jop/current`, and restarts `jop.service`. Failed API
+health checks restore the previous snapshot. Desktop builds run afterwards in
+the Ubuntu 22.04 container defined by `scripts/deploy/Dockerfile.desktop`.
+`cargo-xwin` cross-compiles the Windows executable; the VPS's NSIS 3.11 packages
+its installer. Linux produces AppImage/deb with the media framework included.
+Only AppImage and Windows installers are advertised for automatic updates.
+Web assets use `apps/spa/dist`; desktop assets use `apps/spa/dist-desktop`, so
+native builds cannot overwrite the web application that is currently served.
+
+Nginx serves `/srv/jop-releases` at `https://jop.igportals.eu/releases/` independently
+of the API process. Installers are immutable and versioned; `latest.json` is
+published atomically only after both signed artifacts are ready. The persistent
+release counter supplies increasing `0.1.N` application versions on every deploy.
+The private updater key lives at `/var/lib/jop/signing/updater.key`; back it up
+securely because existing clients require the same signing identity. Its public
+key is embedded in the desktop configuration. API/Appwrite/Roblox/LiveKit secrets
+stay on the server and are not Vite build definitions.
+
+DIS exposes `/download` before and after sign-in. Installed applications check
+for signed updates on startup and hourly, and offer an explicit install/restart
+action so an update does not silently interrupt dispatching or unsaved editing.
+Build/deploy output appears in `journalctl -u jop-webhook.service`; the first
+bootstrap deployment uses `jop-bootstrap-deploy.service`.
+
+The train icon master is `public/brand/dis-icon.svg`; Tauri's `icon` command
+generates the platform sizes in `apps/spa/src-tauri/icons`. The official ZSSK
+artwork is bundled locally in `public/brand/zssk.svg`, with its source recorded
+in `THIRD_PARTY_NOTICES.md`.
+
+Roblox sign-in opens the default browser, uses the existing hosted OAuth
+callback, then returns via `jop-dis://auth/complete`. An expiring per-attempt nonce
+binds the callback to the initiating app; the Appwrite login token remains
+one-time. Installed builds register the scheme. On macOS, test the installed
+`.app` bundle because `cargo run` does not register custom schemes. Appwrite
+must allow the desktop localhost platform/origins as well as the web SPA host.
+The macOS bundle declares microphone access for voice calls. Release signing
+and macOS notarization need your signing credentials; unsigned local artifacts
+can still be built and tested.
+
+Run `npm run build`, `npm run typecheck -w @jop/spa`, `npm run test:dis` and
+`npm run test:i18n` for the main checks.
 
 ## Current Data Model
 

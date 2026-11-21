@@ -1,11 +1,13 @@
 'use client';
+import { apiFetch } from '@/lib/api-client';
+
 import { useTranslation } from '@/lib/i18n/client';
 
 import { AeroIcon } from '@/app/components/ui/AeroIcon';
 import { isPublicStation } from '@/lib/station/visibility';
 
-import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
+import Link from '@/lib/link';
+import { useRouter, useSearchParams } from '@/lib/navigation';
 import type { ChangeEvent } from 'react';
 import { useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
 
@@ -84,9 +86,9 @@ export default function MockControlClient({
 
   async function refreshSession(nextSessionId: string) {
     const [sessionResponse, stationsResponse, outboundResponse] = await Promise.all([
-      fetch(`/api/sessions/${nextSessionId}`, { cache: 'no-store' }),
-      fetch(`/api/sessions/${nextSessionId}/stations`, { cache: 'no-store' }),
-      fetch(`/api/mock-roblox/outbound-calls?sessionId=${nextSessionId}`, { cache: 'no-store' }),
+      apiFetch(`/api/sessions/${nextSessionId}`, { cache: 'no-store' }),
+      apiFetch(`/api/sessions/${nextSessionId}/stations`, { cache: 'no-store' }),
+      apiFetch(`/api/mock-roblox/outbound-calls?sessionId=${nextSessionId}`, { cache: 'no-store' }),
     ]);
 
     const sessionPayload = (await sessionResponse.json()) as
@@ -191,7 +193,7 @@ export default function MockControlClient({
 
     setIsBusy(true);
     try {
-      const response = await fetch(`/api/sessions/${session._id}/trains`, {
+      const response = await apiFetch(`/api/sessions/${session._id}/trains`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -224,7 +226,7 @@ export default function MockControlClient({
 
     setIsBusy(true);
     try {
-      const response = await fetch(`/api/sessions/${session._id}/trains/${trainId}/move`, {
+      const response = await apiFetch(`/api/sessions/${session._id}/trains/${trainId}/move`, {
         method: 'POST',
       });
       const payload = (await response.json()) as { error?: { message?: string } };
@@ -247,7 +249,7 @@ export default function MockControlClient({
 
     setIsBusy(true);
     try {
-      const response = await fetch(`/api/sessions/${session._id}/trains/${trainId}/reverse`, {
+      const response = await apiFetch(`/api/sessions/${session._id}/trains/${trainId}/reverse`, {
         method: 'POST',
       });
       const payload = (await response.json()) as { error?: { message?: string } };
@@ -270,7 +272,7 @@ export default function MockControlClient({
 
     setIsBusy(true);
     try {
-      const response = await fetch(`/api/sessions/${session._id}/trains/${trainId}`, {
+      const response = await apiFetch(`/api/sessions/${session._id}/trains/${trainId}`, {
         method: 'DELETE',
       });
       const payload = (await response.json()) as { error?: { message?: string } };
@@ -295,7 +297,7 @@ export default function MockControlClient({
     setIsBusy(true);
     try {
       const schema = JSON.parse(await file.text()) as SessionSchemaDocument;
-      const response = await fetch('/api/sessions/schema', {
+      const response = await apiFetch('/api/sessions/schema', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -1,10 +1,12 @@
 'use client';
+import { apiFetch } from '@/lib/api-client';
+import { downloadBlob } from '@/lib/download';
 import { useLocaleTag, useTranslation } from '@/lib/i18n/client';
 
 import { AeroIcon } from '@/app/components/ui/AeroIcon';
 
-import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
+import Link from '@/lib/link';
+import { useRouter, useSearchParams } from '@/lib/navigation';
 import type { ChangeEvent } from 'react';
 import { useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
 
@@ -78,7 +80,7 @@ export default function SessionMapClient() {
   useEffect(() => {
     let active = true;
 
-    void fetch('/api/roblox/place-templates', { cache: 'no-store' })
+    void apiFetch('/api/roblox/place-templates', { cache: 'no-store' })
       .then(async (response) => {
         const payload = (await response.json()) as
           | {
@@ -132,8 +134,8 @@ export default function SessionMapClient() {
 
   async function refreshSession(nextSessionId: string) {
     const [sessionResponse, stationsResponse] = await Promise.all([
-      fetch(`/api/sessions/${nextSessionId}`, { cache: 'no-store' }),
-      fetch(`/api/sessions/${nextSessionId}/stations`, { cache: 'no-store' }),
+      apiFetch(`/api/sessions/${nextSessionId}`, { cache: 'no-store' }),
+      apiFetch(`/api/sessions/${nextSessionId}/stations`, { cache: 'no-store' }),
     ]);
 
     const sessionPayload = (await sessionResponse.json()) as
@@ -227,7 +229,7 @@ export default function SessionMapClient() {
   async function createMockSession() {
     setIsBusy(true);
     try {
-      const response = await fetch('/api/sessions/mock', {
+      const response = await apiFetch('/api/sessions/mock', {
         method: 'POST',
       });
       const payload = (await response.json()) as
@@ -266,7 +268,7 @@ export default function SessionMapClient() {
 
     setIsBusy(true);
     try {
-      const response = await fetch('/api/stations', {
+      const response = await apiFetch('/api/stations', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -337,7 +339,7 @@ export default function SessionMapClient() {
 
     setIsBusy(true);
     try {
-      const response = await fetch(`/api/sessions/${session._id}/lineblock-links`, {
+      const response = await apiFetch(`/api/sessions/${session._id}/lineblock-links`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -381,7 +383,7 @@ export default function SessionMapClient() {
 
     setIsBusy(true);
     try {
-      const response = await fetch(`/api/sessions/${session._id}/lineblock-links/${linkId}`, {
+      const response = await apiFetch(`/api/sessions/${session._id}/lineblock-links/${linkId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ defaultFlow }),
@@ -415,7 +417,7 @@ export default function SessionMapClient() {
 
     setIsBusy(true);
     try {
-      const response = await fetch(`/api/sessions/${session._id}/lineblock-links/${link.id}`, {
+      const response = await apiFetch(`/api/sessions/${session._id}/lineblock-links/${link.id}`, {
         method: 'DELETE',
       });
       if (!response.ok) {
@@ -446,7 +448,7 @@ export default function SessionMapClient() {
 
     setIsBusy(true);
     try {
-      const response = await fetch(
+      const response = await apiFetch(
         `/api/stations/${session._id}/${encodeURIComponent(stationId)}`,
         {
           method: 'PATCH',
@@ -481,7 +483,7 @@ export default function SessionMapClient() {
 
     setIsBusy(true);
     try {
-      const response = await fetch(
+      const response = await apiFetch(
         `/api/stations/${session._id}/${encodeURIComponent(stationId)}`,
         {
           method: 'DELETE',
@@ -542,7 +544,7 @@ export default function SessionMapClient() {
 
     setIsBusy(true);
     try {
-      const response = await fetch(`/api/sessions/${session._id}/schema`, {
+      const response = await apiFetch(`/api/sessions/${session._id}/schema`, {
         cache: 'no-store',
       });
       const payload = (await response.json()) as
@@ -558,12 +560,7 @@ export default function SessionMapClient() {
       const blob = new Blob([JSON.stringify(payload.schema, null, 2)], {
         type: 'application/json',
       });
-      const href = URL.createObjectURL(blob);
-      const anchor = document.createElement('a');
-      anchor.href = href;
-      anchor.download = `${session._id}-schema.json`;
-      anchor.click();
-      URL.revokeObjectURL(href);
+      await downloadBlob(blob, `${session._id}-schema.json`);
       setError(null);
     } catch (schemaError) {
       setError(
@@ -581,7 +578,7 @@ export default function SessionMapClient() {
 
     setIsBusy(true);
     try {
-      const response = await fetch(
+      const response = await apiFetch(
         `/api/roblox/place-templates/${encodeURIComponent(placeIdDraft.trim())}`,
         {
           method: 'PUT',
@@ -623,7 +620,7 @@ export default function SessionMapClient() {
 
     setIsBusy(true);
     try {
-      const response = await fetch(
+      const response = await apiFetch(
         `/api/roblox/place-templates/${encodeURIComponent(placeId)}?universeId=${encodeURIComponent(universeId)}`,
         { cache: 'no-store' },
       );
@@ -637,7 +634,7 @@ export default function SessionMapClient() {
         );
       }
 
-      const importResponse = await fetch('/api/sessions/schema', {
+      const importResponse = await apiFetch('/api/sessions/schema', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload.template.schema),
@@ -676,7 +673,7 @@ export default function SessionMapClient() {
     setIsBusy(true);
     try {
       const schema = JSON.parse(await file.text()) as SessionSchemaDocument;
-      const response = await fetch('/api/sessions/schema', {
+      const response = await apiFetch('/api/sessions/schema', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

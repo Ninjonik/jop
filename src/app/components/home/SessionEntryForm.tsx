@@ -1,9 +1,11 @@
 'use client';
+import { apiFetch } from '@/lib/api-client';
+
 import { useLocaleTag, useTranslation } from '@/lib/i18n/client';
 
 import { isPublicStation } from '@/lib/station/visibility';
 
-import Link from 'next/link';
+import Link from '@/lib/link';
 import { useEffect, useState } from 'react';
 
 import type { LiveRobloxSessionSummary } from '@/lib/station/domain';
@@ -43,7 +45,7 @@ export default function SessionEntryForm() {
 
     async function loadLiveSessions() {
       try {
-        const response = await fetch('/api/sessions/live', { cache: 'no-store' });
+        const response = await apiFetch('/api/sessions/live', { cache: 'no-store' });
         if (!response.ok) {
           throw new Error(`Request failed with status ${response.status}.`);
         }
@@ -127,7 +129,7 @@ export default function SessionEntryForm() {
               onClick={() => {
                 setLoading(true);
                 setError(null);
-                void fetch('/api/sessions/live', { cache: 'no-store' })
+                void apiFetch('/api/sessions/live', { cache: 'no-store' })
                   .then(async (response) => {
                     if (!response.ok) {
                       throw new Error(`Request failed with status ${response.status}.`);

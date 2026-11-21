@@ -13,7 +13,8 @@ process.env.ROBLOX_INBOUND_SECRET = randomUUID();
 async function run() {
   const { getMongoClient, getMongoDb } = await import('../src/lib/server/mongo');
   const { sessionDocumentSchema } = await import('../src/lib/station/domain');
-  const { GET, POST } = await import('../src/app/api/roblox/sessions/[sessionId]/gsm-r/route');
+  const { GET, POST } =
+    await import('../apps/api/src/app/api/roblox/sessions/[sessionId]/gsm-r/route');
   const { getDisUniverseId } = await import('../src/lib/server/dis/places');
   const { RadioCalls } = await import('../src/lib/server/dis/radio-calls');
   const { driverRadioStation } = await import('../src/lib/server/dis/radio-location');

@@ -4,7 +4,7 @@ import { useTranslation } from '@/lib/i18n/client';
 import AuthoringTools from '@/app/components/authoring/AuthoringTools';
 import { AeroIcon } from '@/app/components/ui/AeroIcon';
 
-import Link from 'next/link';
+import Link from '@/lib/link';
 import type { ChangeEvent, MouseEvent } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 

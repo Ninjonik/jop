@@ -1,10 +1,7 @@
 import AdminRecoveryClient from '@/app/components/admin/AdminRecoveryClient';
+import { useParams } from '@/lib/navigation';
 
-export default async function AdminSessionPage({
-  params,
-}: {
-  params: Promise<{ sessionId: string }>;
-}) {
-  const { sessionId } = await params;
+export default function AdminSessionPage() {
+  const { sessionId = '' } = useParams();
   return <AdminRecoveryClient sessionId={sessionId} />;
 }

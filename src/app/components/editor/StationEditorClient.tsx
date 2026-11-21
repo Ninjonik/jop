@@ -1,11 +1,13 @@
 'use client';
+import { apiFetch } from '@/lib/api-client';
+import { downloadBlob } from '@/lib/download';
 import { useTranslation } from '@/lib/i18n/client';
 
 import AuthoringTools from '@/app/components/authoring/AuthoringTools';
 import { AeroIcon } from '@/app/components/ui/AeroIcon';
 
-import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
+import Link from '@/lib/link';
+import { useSearchParams } from '@/lib/navigation';
 import type { ChangeEvent, MouseEvent } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
@@ -93,9 +95,12 @@ export default function StationEditorClient({ tiles, stateGroups }: Props) {
   useEffect(() => {
     if (!sessionId || !stationId) return;
     let active = true;
-    void fetch(`/api/stations/${encodeURIComponent(sessionId)}/${encodeURIComponent(stationId)}`, {
-      cache: 'no-store',
-    })
+    void apiFetch(
+      `/api/stations/${encodeURIComponent(sessionId)}/${encodeURIComponent(stationId)}`,
+      {
+        cache: 'no-store',
+      },
+    )
       .then(async (response) => {
         const body = (await response.json()) as
           { station: StationDocument } | { error?: { message?: string } };
@@ -303,12 +308,9 @@ export default function StationEditorClient({ tiles, stateGroups }: Props) {
     const blob = new Blob([JSON.stringify(editorState, null, 2)], {
       type: 'application/json',
     });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement('a');
-    anchor.href = url;
-    anchor.download = 'station.json';
-    anchor.click();
-    URL.revokeObjectURL(url);
+    void downloadBlob(blob, 'station.json').catch((error: unknown) => {
+      setStationLoadError(error instanceof Error ? error.message : 'Could not save station.');
+    });
   };
 
   const handleImport = async (event: ChangeEvent<HTMLInputElement>) => {
@@ -510,7 +512,7 @@ export default function StationEditorClient({ tiles, stateGroups }: Props) {
     if (!sessionId || !stationId || isSaving || isStationLoading) return;
     setIsSaving(true);
     try {
-      const response = await fetch(
+      const response = await apiFetch(
         `/api/stations/${encodeURIComponent(sessionId)}/${encodeURIComponent(stationId)}`,
         {
           method: 'PUT',

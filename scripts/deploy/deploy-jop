@@ -1,0 +1,76 @@
+#!/bin/bash
+set -Eeuo pipefail
+umask 027
+exec 9>/run/lock/jop-deploy.lock
+flock 9
+export HOME=/var/lib/jop
+export CARGO_HOME=/var/lib/jop/.cargo
+export RUSTUP_HOME=/var/lib/jop/.rustup
+export CARGO_TARGET_DIR=/var/lib/jop/desktop-target
+export CARGO_BUILD_JOBS=4
+export PATH="/opt/jop-node/bin:$CARGO_HOME/bin:$PATH"
+export NEXT_PUBLIC_API_ORIGIN=https://jop.igportals.eu
+export SPA_ORIGIN=https://jop.igportals.eu
+export APPIMAGE_EXTRACT_AND_RUN=1
+export XWIN_ACCEPT_LICENSE=1
+set -a
+source /etc/jop.env
+set +a
+stage=$(mktemp -d /var/lib/jop/builds/build.XXXXXX)
+if [[ "${1:-}" == --snapshot ]]; then
+  [[ "${2:-}" == /var/lib/jop/bootstrap ]] || exit 2
+  cp -a /var/lib/jop/bootstrap/. "$stage/"
+  revision=bootstrap
+else
+  branch=${1:-master}
+  [[ "$branch" == main || "$branch" == master ]] || exit 2
+  git -C /home/services/jop fetch origin "$branch"
+  revision=$(git -C /home/services/jop rev-parse "origin/$branch")
+  git -C /home/services/jop archive "$revision" | tar -x -C "$stage"
+fi
+for envfile in .env .env.local .env.production .env.production.local; do
+  if [[ -f "/home/services/jop/$envfile" ]]; then
+    install -m 600 "/home/services/jop/$envfile" "$stage/$envfile"
+  fi
+done
+cd "$stage"
+[[ -f apps/api/server.ts ]] || { echo 'Push the API/SPA migration before deploying this revision.'; exit 1; }
+npm ci --include=dev --no-audit --no-fund
+npm run build
+node scripts/deploy/check-public-build.mjs
+previous=$(readlink -f /var/lib/jop/current)
+ln -s "$stage" /var/lib/jop/current.next
+mv -Tf /var/lib/jop/current.next /var/lib/jop/current
+healthy=false
+if sudo /usr/bin/systemctl restart jop.service; then
+  for attempt in {1..12}; do
+    if curl --fail --silent --max-time 10 http://127.0.0.1:3039/api/sessions/live >/dev/null && curl --fail --silent --max-time 5 http://127.0.0.1:3039/ >/dev/null; then healthy=true; break; fi
+    sleep 2
+  done
+fi
+if [[ "$healthy" != true ]]; then
+  ln -s "$previous" /var/lib/jop/current.next
+  mv -Tf /var/lib/jop/current.next /var/lib/jop/current
+  sudo /usr/bin/systemctl restart jop.service
+  echo 'API health check failed; previous deployment restored.'
+  exit 1
+fi
+echo "SPA and API deployed: $revision"
+node --import tsx scripts/configure-desktop-platform.ts
+counter=$(cat /var/lib/jop/release-counter 2>/dev/null || echo 0)
+counter=$((counter + 1))
+[[ "$counter" -lt 65536 ]] || { echo 'Release patch range exhausted.'; exit 1; }
+printf '%s\n' "$counter" > /var/lib/jop/release-counter
+version="0.1.$counter"
+export TAURI_SIGNING_PRIVATE_KEY=/var/lib/jop/signing/updater.key
+export TAURI_SIGNING_PRIVATE_KEY_PASSWORD=''
+export JOP_RELEASE_VERSION="$version"
+export JOP_RELEASE_REVISION="$revision"
+node scripts/deploy/release-config.mjs
+sudo /usr/local/sbin/jop-desktop-build
+# Debian's NSIS 3.11 packages the Windows binary; Ubuntu's older NSIS lacks
+# RestartManager.nsh required by the current Tauri installer template.
+export XDG_CACHE_HOME=/var/lib/jop/build-cache
+npm run tauri -w @jop/spa -- bundle --target x86_64-pc-windows-msvc --bundles nsis --config "$stage/desktop-release.json"
+node scripts/deploy/publish-release.mjs
+echo "Published signed Linux and Windows release $version"

@@ -1,6 +1,6 @@
 'use client';
 
-import { usePathname } from 'next/navigation';
+import { usePathname } from '@/lib/navigation';
 import { useCallback, useEffect, useSyncExternalStore, type ReactNode } from 'react';
 import { defaultLocale, isLocale, localeTags, translate, type Locale } from './translate';
 

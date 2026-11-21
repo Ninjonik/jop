@@ -1,5 +1,5 @@
-import {LocalizedText} from '@/lib/i18n/client';
-import Link from 'next/link';
+import { LocalizedText } from '@/lib/i18n/client';
+import Link from '@/lib/link';
 import { Suspense } from 'react';
 
 import MockControlClient from '@/app/components/mock/MockControlClient';

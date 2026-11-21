@@ -1,0 +1,7 @@
+#!/bin/sh
+set -eu
+if [ -f apps/api/server.ts ]; then
+  exec /opt/jop-node/bin/node --import tsx apps/api/server.ts
+fi
+# Permit rollback to the application that preceded the workspace split.
+exec /opt/jop-node/bin/node --import tsx server.ts

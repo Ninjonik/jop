@@ -3,8 +3,8 @@
 import { clearDisToken, disFetch, DisRequestError } from '@/lib/dis/api-client';
 import { account, type UserProfile, type UserRole } from '@/lib/dis/appwrite-client';
 import { hasDisRole } from '@/lib/dis/permissions';
+import { useRouter } from '@/lib/navigation';
 import type { Models } from 'appwrite';
-import { useRouter } from 'next/navigation';
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { restoreDisSession } from './restore-session';
 

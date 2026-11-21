@@ -1,4 +1,5 @@
 'use client';
+import { DesktopDownloads } from '@/app/components/dis/DesktopDownloads';
 import { SettingsView } from '@/app/components/dis/SettingsView';
 import { StationSelectionView } from '@/app/components/dis/StationSelectionView';
 import { disFetch } from '@/lib/dis/api-client';
@@ -29,7 +30,7 @@ import type { JopStationSummary } from '@/lib/dis/jop-bridge';
 import { singlePlaceSessionMode } from '@/lib/dis/operating-mode';
 import { isDisAdministrator } from '@/lib/dis/permissions';
 import { useDisResource } from '@/lib/dis/use-dis-resource';
-import { useRouter } from 'next/navigation';
+import { useRouter } from '@/lib/navigation';
 import { Suspense, useCallback, useEffect, useState } from 'react';
 
 type Tab =
@@ -352,6 +353,7 @@ function DisPortalShell() {
         <span>
           {profile.name} ({profile.callsign})
         </span>
+        <DesktopDownloads />
       </div>
       <nav hidden={!workingMode} className="menubar flex-wrap" aria-label={t('Moduly DIS')}>
         <button className="menu-btn" onClick={() => setWorkingMode(null)}>

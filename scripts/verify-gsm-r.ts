@@ -3,7 +3,7 @@ import { Databases } from 'node-appwrite';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { mock } from 'node:test';
-import { GET, POST } from '../src/app/api/roblox/sessions/[sessionId]/gsm-r/route';
+import { GET, POST } from '../apps/api/src/app/api/roblox/sessions/[sessionId]/gsm-r/route';
 import { getDisUniverseId } from '../src/lib/server/dis/places';
 import { getMongoClient, getMongoDb } from '../src/lib/server/mongo';
 

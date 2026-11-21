@@ -1,9 +1,11 @@
 'use client';
+import { apiFetch } from '@/lib/api-client';
+
 import { useTranslation } from '@/lib/i18n/client';
 
 import { isPublicStation } from '@/lib/station/visibility';
 
-import Link from 'next/link';
+import Link from '@/lib/link';
 import { useCallback, useEffect, useState } from 'react';
 
 import { disRequest } from '@/lib/dis/api-client';
@@ -57,8 +59,8 @@ export default function AdminRecoveryClient({ sessionId }: { sessionId: string }
 
   const refresh = useCallback(async () => {
     const [sessionResponse, stationsResponse] = await Promise.all([
-      fetch(`/api/sessions/${encodeURIComponent(sessionId)}`, { cache: 'no-store' }),
-      fetch(`/api/sessions/${encodeURIComponent(sessionId)}/stations`, { cache: 'no-store' }),
+      apiFetch(`/api/sessions/${encodeURIComponent(sessionId)}`, { cache: 'no-store' }),
+      apiFetch(`/api/sessions/${encodeURIComponent(sessionId)}/stations`, { cache: 'no-store' }),
     ]);
     if (!sessionResponse.ok || !stationsResponse.ok)
       throw new Error('Could not load the session state.');

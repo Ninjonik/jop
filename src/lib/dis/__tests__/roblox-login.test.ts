@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server';
 import { AppwriteException, Databases, Users } from 'node-appwrite';
 import assert from 'node:assert/strict';
 import { test, type TestContext } from 'node:test';
-import { GET } from '../../../app/api/auth/roblox/callback/route';
+import { GET } from '../../../../apps/api/src/app/api/auth/roblox/callback/route';
 import { mockCallsignReservations } from './callsign-fixture';
 
 function environment(context: TestContext) {

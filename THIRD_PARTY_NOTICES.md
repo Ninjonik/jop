@@ -1,5 +1,13 @@
 # Third-party assets
 
+## ZSSK identity
+
+The unmodified ZSSK logo in `public/brand/zssk.svg` was downloaded from
+[ZSSK's official website](https://www.zssk.sk/dizajn/fassets/img/logo_n.svg).
+ZSSK retains its trademark and artwork rights; use in this application is by
+permission supplied by the project owner. The DIS train app icon is separate
+project artwork based on the existing caption's train silhouette.
+
 ## Farm-Fresh Web Icons
 
 Copyright © 2009–2014 FatCow Web Hosting. Designer: Marcis Gasuns.

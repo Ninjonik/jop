@@ -1,7 +1,7 @@
 import { Account, Databases } from 'node-appwrite';
 import assert from 'node:assert/strict';
 import { test, type TestContext } from 'node:test';
-import { POST } from '../../../app/api/dis/shifts/route';
+import { POST } from '../../../../apps/api/src/app/api/dis/shifts/route';
 import { readShiftPlan } from '../../server/dis/shift-planning';
 
 function authorize(context: TestContext, role: string) {

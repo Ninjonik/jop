@@ -1,17 +1,11 @@
-import {LocalizedText} from '@/lib/i18n/client';
-import Link from 'next/link';
+import { LocalizedText } from '@/lib/i18n/client';
+import Link from '@/lib/link';
 
 import RuntimeStationClient from '@/app/components/runtime/RuntimeStationClient';
+import { useParams } from '@/lib/navigation';
 
-interface RuntimePageProps {
-  params: Promise<{
-    sessionId: string;
-    stationId: string;
-  }>;
-}
-
-export default async function RuntimePage({ params }: RuntimePageProps) {
-  const { sessionId, stationId } = await params;
+export default function RuntimePage() {
+  const { sessionId = '', stationId = '' } = useParams();
 
   return (
     <main className="min-h-screen bg-neutral-950 text-neutral-100">

@@ -187,7 +187,7 @@ Use this flow for runtime mutations:
 - `src/lib/station/switches.ts`: switch-button connections, motor mappings, and fixed-position route constraints
 - `src/lib/station/tile-state.ts`: shared tile state initialization and style resolution
 - `src/lib/station/realtime.ts`: typed Socket.IO station subscription contract
-- `server.ts`: custom Next.js server, Socket.IO transport, and MongoDB station change stream
+- `apps/api/server.ts`: custom Next.js server, Socket.IO transport, and MongoDB station change stream
 - `src/lib/server/services/station-service.ts`: backend station command and lifecycle orchestration
 - `src/lib/server/repositories/*`: MongoDB access only
 - `src/lib/server/roblox/*`: typed outbound Roblox ports and mock implementations

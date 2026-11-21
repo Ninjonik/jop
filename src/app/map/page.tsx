@@ -1,7 +1,7 @@
 import SessionMapClient from '@/app/components/map/SessionMapClient';
 import { AeroIcon } from '@/app/components/ui/AeroIcon';
-import {LocalizedText} from '@/lib/i18n/client';
-import Link from 'next/link';
+import { LocalizedText } from '@/lib/i18n/client';
+import Link from '@/lib/link';
 import { Suspense } from 'react';
 
 export default function MapPage() {

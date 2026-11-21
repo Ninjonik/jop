@@ -2,6 +2,13 @@
 
 # dependencies
 /node_modules
+**/node_modules/
+apps/spa/dist/
+apps/spa/dist-desktop/
+apps/spa/src-tauri/icons/android/
+apps/spa/src-tauri/icons/ios/
+apps/spa/src-tauri/target/
+apps/spa/src-tauri/gen/
 /.pnp
 .pnp.*
 .yarn/*
@@ -15,13 +22,18 @@
 
 # next.js
 /.next/
+apps/api/.next/
+apps/api/next-env.d.ts
 /out/
 
 # production
 /build
+desktop-release.json
 
 # misc
 .DS_Store
+._*
+**/__pycache__/
 *.pem
 
 # debug
