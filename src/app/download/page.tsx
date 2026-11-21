@@ -26,12 +26,12 @@ export default function DownloadPage() {
   }, []);
   return (
     <main className="aero-tool min-h-screen bg-[var(--aero-bg)] p-4 text-xs text-[var(--aero-text)]">
-      <section className="mx-auto max-w-xl border border-[var(--aero-window-border)] bg-[var(--aero-panel-bg)]">
-        <header className="aero-title-bar">
+      <section className="mx-auto max-w-xl overflow-hidden rounded-[3px] border border-[var(--aero-window-border)] bg-[var(--aero-panel-bg)]">
+        <header className="authoring-caption">
           <AeroIcon name="download" />
-          <h1>{t('Stiahnuť aplikáciu')}</h1>
+          <h1 className="font-semibold">{t('Stiahnuť aplikáciu')}</h1>
         </header>
-        <div className="space-y-4 p-4">
+        <div className="space-y-3 p-2.5">
           <p>{t('Desktopová aplikácia DIS pre Windows a Linux.')}</p>
           {release ? (
             <>
