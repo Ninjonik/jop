@@ -1,4 +1,4 @@
-# JOP
+# JOP - DiS
 
 JOP is a railway control panel with a React SPA, a separate Next.js API service,
 and a Tauri desktop client for Windows, Linux and macOS.
