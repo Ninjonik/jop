@@ -647,7 +647,7 @@ export default function StationRuntimeBoard({
                       aria-label={t('Mark train arrived on {0}', pieceId)}
                       disabled={isPiecePending}
                       onClick={() => void submitLineblockAction(pieceId, 'lineblock:mark-arrived')}
-                      className="pointer-events-auto absolute bottom-0 rounded-sm border border-transparent bg-transparent disabled:cursor-wait"
+                      className="pointer-events-auto absolute bottom-0 cursor-pointer rounded-sm border border-transparent bg-transparent disabled:cursor-wait"
                       style={{
                         width: tileSize * 0.8,
                         height: tileSize * 0.5,
@@ -672,7 +672,7 @@ export default function StationRuntimeBoard({
                       }}
                       onMouseUp={() => cancelAhBlockReset(pieceId)}
                       onMouseLeave={() => cancelAhBlockReset(pieceId)}
-                      className="pointer-events-auto absolute bottom-0 rounded-sm border border-transparent bg-transparent disabled:cursor-wait"
+                      className="pointer-events-auto absolute bottom-0 cursor-pointer rounded-sm border border-transparent bg-transparent disabled:cursor-wait"
                       style={{
                         width: tileSize * 0.8,
                         height: tileSize * 0.5,
@@ -690,7 +690,7 @@ export default function StationRuntimeBoard({
                         event.preventDefault();
                         void submitLineblockAction(pieceId, 'lineblock:revoke-consent');
                       }}
-                      className="pointer-events-auto absolute bottom-0 rounded-sm border border-transparent bg-transparent disabled:cursor-wait"
+                      className="pointer-events-auto absolute bottom-0 cursor-pointer rounded-sm border border-transparent bg-transparent disabled:cursor-wait"
                       style={{
                         width: tileSize * 0.8,
                         height: tileSize * 0.5,
@@ -711,7 +711,7 @@ export default function StationRuntimeBoard({
                     event.preventDefault();
                     operateSwitchButton(pieceId, 'right');
                   }}
-                  className="pointer-events-auto absolute inset-0 rounded-sm border border-transparent bg-transparent disabled:cursor-wait"
+                  className="pointer-events-auto absolute inset-0 cursor-pointer rounded-sm border border-transparent bg-transparent disabled:cursor-wait"
                 />
               ) : null}
 
@@ -727,7 +727,7 @@ export default function StationRuntimeBoard({
                     event.preventDefault();
                     void submitPrivolavaciaInteract(pieceId, 'middle');
                   }}
-                  className="pointer-events-auto absolute inset-0 rounded-sm border border-transparent bg-transparent disabled:cursor-wait"
+                  className="pointer-events-auto absolute inset-0 cursor-pointer rounded-sm border border-transparent bg-transparent disabled:cursor-wait"
                 />
               ) : null}
 
@@ -749,7 +749,7 @@ export default function StationRuntimeBoard({
                   onMouseLeave={() => {
                     setHeldInspectionButtonId((current) => (current === pieceId ? null : current));
                   }}
-                  className="pointer-events-auto absolute inset-0 rounded-sm border border-transparent bg-transparent disabled:cursor-wait"
+                  className="pointer-events-auto absolute inset-0 cursor-pointer rounded-sm border border-transparent bg-transparent disabled:cursor-wait"
                 />
               ) : null}
 
@@ -771,7 +771,7 @@ export default function StationRuntimeBoard({
                   onMouseLeave={() => {
                     setHeldInspectionButtonId((current) => (current === pieceId ? null : current));
                   }}
-                  className="pointer-events-auto absolute inset-0 rounded-sm border border-transparent bg-transparent disabled:cursor-wait"
+                  className="pointer-events-auto absolute inset-0 cursor-pointer rounded-sm border border-transparent bg-transparent disabled:cursor-wait"
                 />
               ) : null}
 
@@ -781,7 +781,7 @@ export default function StationRuntimeBoard({
                   aria-label={t('Clear selected route with {0}', pieceId)}
                   disabled={isPiecePending || !station.runtime.routeSelection}
                   onClick={() => void clearSelectedRoute()}
-                  className="pointer-events-auto absolute inset-0 rounded-sm border border-transparent bg-transparent disabled:cursor-wait"
+                  className={`pointer-events-auto absolute inset-0 cursor-pointer rounded-sm border border-transparent bg-transparent ${isPiecePending ? 'disabled:cursor-wait' : 'disabled:cursor-not-allowed'}`}
                 />
               ) : null}
 
@@ -795,7 +795,7 @@ export default function StationRuntimeBoard({
                     event.preventDefault();
                     handlePremainContextMenu(pieceId);
                   }}
-                  className="pointer-events-auto absolute inset-0 rounded-sm border border-transparent bg-transparent disabled:cursor-wait"
+                  className="pointer-events-auto absolute inset-0 cursor-pointer rounded-sm border border-transparent bg-transparent disabled:cursor-wait"
                 />
               ) : null}
 
@@ -820,7 +820,7 @@ export default function StationRuntimeBoard({
                       }
                       handleRouteContextMenu(pieceId, 'normal');
                     }}
-                    className="pointer-events-auto absolute inset-y-0 w-1/2 rounded-sm border border-transparent bg-transparent disabled:cursor-wait"
+                    className="pointer-events-auto absolute inset-y-0 w-1/2 cursor-pointer rounded-sm border border-transparent bg-transparent disabled:cursor-wait"
                     style={{ [normalControlSide]: 0 }}
                   />
                   <button
@@ -832,7 +832,7 @@ export default function StationRuntimeBoard({
                       event.preventDefault();
                       handleRouteContextMenu(pieceId, 'shunt');
                     }}
-                    className="pointer-events-auto absolute inset-y-0 w-1/2 rounded-sm border border-transparent bg-transparent disabled:cursor-wait"
+                    className="pointer-events-auto absolute inset-y-0 w-1/2 cursor-pointer rounded-sm border border-transparent bg-transparent disabled:cursor-wait"
                     style={{ [shuntControlSide]: 0 }}
                   />
                 </>
@@ -857,7 +857,7 @@ export default function StationRuntimeBoard({
                       station.runtime.routeSelection?.routeType === 'normal' ? 'normal' : 'shunt',
                     );
                   }}
-                  className="pointer-events-auto absolute inset-0 rounded-sm border border-transparent bg-transparent disabled:cursor-wait"
+                  className="pointer-events-auto absolute inset-0 cursor-pointer rounded-sm border border-transparent bg-transparent disabled:cursor-wait"
                 />
               ) : null}
 
@@ -871,7 +871,7 @@ export default function StationRuntimeBoard({
                     event.preventDefault();
                     handleRouteContextMenu(pieceId, 'shunt');
                   }}
-                  className="pointer-events-auto absolute inset-y-0 w-1/2 rounded-sm border border-transparent bg-transparent disabled:cursor-wait"
+                  className="pointer-events-auto absolute inset-y-0 w-1/2 cursor-pointer rounded-sm border border-transparent bg-transparent disabled:cursor-wait"
                   style={{ [bufferControlSide]: 0 }}
                 />
               ) : null}

@@ -2963,5 +2963,17 @@
   "Kontrola porovnáva uložené denné grafikony. Pri prejazde počíta s obsadením aspoň 1 minútu. Medzidobia, počet traťových koľají a dĺžky nástupíšť nie sú modelované; kontrola nenahrádza zabezpečovacie zariadenie.": [
     "Kontrola porovnáva uložené denné grafikony. Pri prejazde počíta s obsadením aspoň 1 minútu. Medzidobia, počet traťových koľají a dĺžky nástupíšť nie sú modelované; kontrola nenahrádza zabezpečovacie zariadenie.",
     "Checks compare saved daily timetables and allow at least one minute of occupation for passing trains. Headways, line track count and platform lengths are not modelled; this check does not replace interlocking."
+  ],
+  "Prihlásenie sa nepodarilo overiť. Skontrolujte pripojenie a skúste znova.": [
+    "Prihlásenie sa nepodarilo overiť. Skontrolujte pripojenie a skúste znova.",
+    "Could not verify your session. Check your connection and try again."
+  ],
+  "Prihlásenie sa zmenilo. Skúste znova.": [
+    "Prihlásenie sa zmenilo. Skúste znova.",
+    "Your authentication changed. Please try again."
+  ],
+  "Skúsiť znova": [
+    "Skúsiť znova",
+    "Try again"
   ]
 }

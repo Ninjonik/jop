@@ -985,3 +985,14 @@ Validation: `npm run test:dis`, `npm run test:i18n`, and
 The latter creates and removes isolated Mongo fixtures. `--offline-gvd` supplies
 an empty recurring-GVD read fixture when Appwrite is unavailable; Mongo claim,
 reminder, line and session-timetable persistence remains real.
+
+DIS session restoration retries its Appwrite account check once. Only an explicit
+401 after that retry permits the portal's login redirect; network/service errors
+show a recoverable verification screen. Profile errors do not silently revoke a
+browser session. API requests share JWT minting, honor the JWT's actual expiry
+(with a short margin), and retry an authentication rejection once with a fresh
+token. Permission failures and other errors are not replayed. Clearing login
+state also invalidates any in-flight JWT result. Tokens remain in memory; the
+existing Appwrite cookie/fallback owns persistence between tabs and reloads.
+The communication endpoint is always derived from the current station/role;
+there is no manual identity selector.

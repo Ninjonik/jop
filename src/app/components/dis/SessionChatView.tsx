@@ -35,10 +35,8 @@ export function SessionChatView({
 }) {
   const t = useTranslation();
   const localeTag = useLocaleTag();
-  const { profile, canOperateStation, canDriveTrain } = useDisAuth();
-  const [mode, setMode] = useState<'station' | 'driver'>(
-    canOperateStation && stationId ? 'station' : 'driver',
-  );
+  const { profile, canOperateStation } = useDisAuth();
+  const mode = canOperateStation && stationId ? 'station' : 'driver';
   const [expanded, setExpanded] = useState(true);
   const [announcement, setAnnouncement] = useState<'' | 'info' | 'warning' | 'alarm'>('');
   const [connected, setConnected] = useState(false);
@@ -344,34 +342,6 @@ export function SessionChatView({
               >
                 <AeroIcon name="refresh" /> {t('Znova pripojiť')}
               </button>
-            )}
-            {canOperateStation && canDriveTrain && (
-              <label>
-                {t('Komunikujem ako')}{' '}
-                <select
-                  aria-label={t('Komunikujem ako')}
-                  className="aero-select"
-                  value={mode}
-                  onChange={(event) => {
-                    setMode(event.target.value as 'station' | 'driver');
-                    seen.current.clear();
-                    setMessages([]);
-                    setContacts([globalChatContact]);
-                    setUnread({});
-                    setTabs([globalChatContact]);
-                    setDrafts({});
-                    chooseTarget(chatEndpointKey(globalChatContact));
-                    setConnected(false);
-                  }}
-                >
-                  <option value="station" disabled={!stationId}>
-                    {t('Stanica')} {stationId}
-                  </option>
-                  <option value="driver">
-                    {t('Rušňovodič')} {profile?.name}
-                  </option>
-                </select>
-              </label>
             )}
           </div>
           <div className="session-chat-tabs" role="group" aria-label={t('Rozhovory')}>

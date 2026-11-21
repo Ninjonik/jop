@@ -78,8 +78,17 @@ function DisPortalShell() {
   const t = useTranslation();
   const leaseNow = useLeaseClock();
   const localeTag = useLocaleTag();
-  const { user, profile, loading, logout, canCreateGvd, canManageStaff, canOperateStation } =
-    useDisAuth();
+  const {
+    user,
+    profile,
+    loading,
+    authError,
+    retryAuth,
+    logout,
+    canCreateGvd,
+    canManageStaff,
+    canOperateStation,
+  } = useDisAuth();
   const router = useRouter();
   const [showMore, setShowMore] = useState(false);
   const [workingMode, setWorkingMode] = useState<WorkingMode | null>(null);
@@ -196,8 +205,8 @@ function DisPortalShell() {
       .includes(sessionSearch.toLocaleLowerCase());
   });
   useEffect(() => {
-    if (!loading && !user) router.replace('/dis/login');
-  }, [loading, user, router]);
+    if (!loading && !user && !authError) router.replace('/dis/login');
+  }, [loading, user, authError, router]);
   useEffect(() => {
     const timer = setInterval(() => setClock(new Date().toLocaleTimeString(localeTag)), 1000);
     return () => clearInterval(timer);
@@ -276,6 +285,18 @@ function DisPortalShell() {
       setClaimError(error instanceof Error ? error.message : 'Stanicu sa nepodarilo prevziať.');
     }
   }
+  if (authError && !loading)
+    return (
+      <div className="dis-portal flex min-h-screen items-center justify-center bg-[var(--aero-bg)] p-4 text-[var(--aero-text)]">
+        <section className="border border-[var(--aero-panel-border)] bg-[var(--aero-panel-bg)] p-4">
+          <p role="alert">{t(authError)}</p>
+          <button className="aero-btn mt-3" onClick={() => void retryAuth()}>
+            <AeroIcon name="refresh" />
+            {t('Skúsiť znova')}
+          </button>
+        </section>
+      </div>
+    );
   if (loading || !user) return <div className="p-6">{t('Overujem prihlásenie...')}</div>;
   if (!profile)
     return (
