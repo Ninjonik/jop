@@ -350,7 +350,7 @@ function DisPortalShell() {
           <AeroIcon name="train" size={24} />
           <span>{t('ZSSK DIS — Dopravný informačný systém')}</span>
         </div>
-        <span>
+        <span className="ml-auto">
           {profile.name} ({profile.callsign})
         </span>
         <DesktopDownloads />
