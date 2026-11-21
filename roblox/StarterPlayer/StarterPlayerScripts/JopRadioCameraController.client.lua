@@ -72,8 +72,8 @@ local function inRange(radio, display)
 	local root = character and character:FindFirstChild("HumanoidRootPart")
 	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 	return radio:IsDescendantOf(Workspace) and display:IsDescendantOf(radio)
-		and root and humanoid and humanoid.Health > 0
-		and (root.Position - display.Position).Magnitude <= MAX_DISTANCE
+	and root and humanoid and humanoid.Health > 0
+	and (root.Position - display.Position).Magnitude <= MAX_DISTANCE
 end
 
 local function updateCamera()
@@ -89,8 +89,8 @@ local function updateCamera()
 	local tanHorizontal = tanVertical * viewport.X / viewport.Y
 	local distance = -math.huge
 	for _, point in ipairs(view.points) do
-		-- Fit every mesh bounding-box corner, including protruding keys. On
-		-- narrow screens fit the height too, rather than cutting off controls.
+	-- Fit every mesh bounding-box corner, including protruding keys. On
+	-- narrow screens fit the height too, rather than cutting off controls.
 		distance = math.max(distance, point.Z + math.max(
 			math.abs(point.X - view.centerX) * 1.02 / tanHorizontal,
 			math.abs(point.Y - view.centerY) * 1.02 / tanVertical,
@@ -141,15 +141,17 @@ local function enterCloseUp(radio)
 end
 
 UserInputService.InputBegan:Connect(function(input, processed)
-	-- CoreGui may consume Escape before a contextual action sees it.
+-- CoreGui may consume Escape before a contextual action sees it.
 	if active and (input.KeyCode == Enum.KeyCode.Escape or input.KeyCode == Enum.KeyCode.Backspace) then
 		exitCloseUp(); return
 	end
+	if active then return end
 	if processed or GuiService.MenuIsOpen then return end
 	if input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.UserInputType ~= Enum.UserInputType.Touch then return end
 	local camera = Workspace.CurrentCamera
 	if not camera then return end
-	local ray = camera:ScreenPointToRay(input.Position.X, input.Position.Y)
+	local point = UserInputService:GetMouseLocation()
+	local ray = camera:ViewportPointToRay(point.X, point.Y)
 	local parameters = RaycastParams.new()
 	parameters.FilterType = Enum.RaycastFilterType.Exclude
 	parameters.FilterDescendantsInstances = player.Character and { player.Character } or {}
