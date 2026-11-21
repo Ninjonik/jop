@@ -1,15 +1,70 @@
 'use client';
+import { AeroIcon } from '@/app/components/ui/AeroIcon';
 import { LanguageSelector, useTranslation } from '@/lib/i18n/client';
 import { DesktopDownloads } from './DesktopDownloads';
 
 import { apiUrl } from '@/lib/api-client';
 import { isTauri, startDesktopLogin } from '@/lib/desktop';
-import { useSearchParams } from '@/lib/navigation';
-import { Suspense, useState } from 'react';
+import { restoreDisSession } from '@/lib/dis/restore-session';
+import { useRouter, useSearchParams } from '@/lib/navigation';
+import { Suspense, useEffect, useState } from 'react';
 
 export default function DisLoginForm() {
   const t = useTranslation();
+  const router = useRouter();
+  const [sessionStatus, setSessionStatus] = useState<'checking' | 'signed-out' | 'error'>(
+    'checking',
+  );
+  const [verificationAttempt, setVerificationAttempt] = useState(0);
   const [loginError, setLoginError] = useState('');
+  useEffect(() => {
+    let cancelled = false;
+    void restoreDisSession().then(
+      (user) => {
+        if (cancelled) return;
+        if (user) router.replace('/dis');
+        else setSessionStatus('signed-out');
+      },
+      () => {
+        if (!cancelled) setSessionStatus('error');
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [router, verificationAttempt]);
+
+  if (sessionStatus !== 'signed-out') {
+    return (
+      <div className="dis-portal min-h-screen flex items-center justify-center bg-[var(--aero-bg)] p-4 text-[var(--aero-text)]">
+        <div
+          className="space-y-3 border border-[var(--aero-panel-border)] bg-[var(--aero-panel-bg)] p-4 text-sm"
+          role="status"
+        >
+          <p>
+            {t(
+              sessionStatus === 'checking'
+                ? 'Overujem prihlásenie...'
+                : 'Prihlásenie sa nepodarilo overiť. Skontrolujte pripojenie a skúste znova.',
+            )}
+          </p>
+          {sessionStatus === 'error' && (
+            <button
+              type="button"
+              className="aero-btn"
+              onClick={() => {
+                setSessionStatus('checking');
+                setVerificationAttempt((attempt) => attempt + 1);
+              }}
+            >
+              <AeroIcon name="refresh" />
+              {t('Skúsiť znova')}
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="min-h-screen bg-[#cbd7e6] flex items-center justify-center font-sans p-4 select-none">
       {/* Windows 7 Aero Window Box */}

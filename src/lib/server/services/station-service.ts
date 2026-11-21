@@ -1,6 +1,6 @@
 import type { PhysicalVehicleContact } from '@/lib/station/physical-trains';
 import { randomUUID } from 'crypto';
-import { loadPhysicalTrainLabels, refreshPhysicalTrainLabels } from '../roblox/physical-trains';
+import { refreshPhysicalTrainLabels } from '../roblox/physical-trains';
 
 import { stateGroups, tiles } from '@/app/data/tiles';
 import type {
@@ -461,8 +461,6 @@ function getActiveLevelCrossingPieceIds(station: StationDocument, session: Sessi
 }
 
 async function saveStation(station: StationDocument, options?: { skipRuntimeNotify?: boolean }) {
-  const labels = await loadPhysicalTrainLabels(station.sessionId);
-  station.runtime.physicalTrainLabels = labels[station.stationId] ?? {};
   await stationRepository.save(station);
   if (!options?.skipRuntimeNotify) {
     void notifyRuntimeInterpreter(station.sessionId, () =>
@@ -538,6 +536,7 @@ function ensureStationRuntimeState(station: StationDocument) {
     routeSelection: normalizeRouteSelection(existingRuntime.routeSelection ?? null),
     activeTrainRoutes: existingRuntime.activeTrainRoutes ?? {},
     switchAlignments: existingRuntime.switchAlignments ?? {},
+    physicalTrainLabels: existingRuntime.physicalTrainLabels ?? {},
   };
 
   Object.entries(station.runtime.switchAlignments).forEach(([pieceId, alignment]) => {
@@ -2464,7 +2463,9 @@ function createPendingAction(command: SwitchSetPositionCommand): PendingAction {
   };
 }
 
-const ROUTE_BUILD_DELAY_MS = 2000;
+// Keep the queued/running transition visible and recoverable, without making
+// route confirmation feel like a delayed UI response.
+const ROUTE_BUILD_DELAY_MS = 100;
 
 function traversalUsesSwitchControl(
   pieceType: string,
@@ -2799,7 +2800,7 @@ async function completeRouteAction(actionId: string, sessionId: string, stationI
 
     action.status = 'running';
     action.startedAt = nowIso();
-    applyRuntimeState(station);
+    applyRuntimeStateWithTrainOccupations(station, session);
     bumpRevision(station);
     await saveStation(station);
 
@@ -3059,18 +3060,44 @@ function markPassedSignal(station: StationDocument, routeId: string, signalPiece
   }
 }
 
+// Switch branch traversal states are specific directional identifiers such as
+// `blTbr`, `blTtr`, `blTmr`, `t`, `b`, or `tlTtrAblTbr`. The generic value
+// `occupied` is not a branch identifier — it is a fall-through from plain
+// track sensors or from older bridge versions that did not resolve the branch.
+// Treating it as a branch would prevent any reservation from ever matching and
+// leave the switch showing as reserved after the train clears.
+function isSwitchBranchTraversalState(traversalState: string) {
+  return traversalState !== 'occupied' && traversalState !== 'reserved';
+}
+
 function releaseRouteReservationsForClearedOccupation(
   station: StationDocument,
   pieceId: string,
   traversalState: string | null,
 ) {
+  const piece = station.layout.pieces[pieceId];
+  // A physical track sensor reports `occupied` for both its occupied and clear
+  // events, while a built route stores the visual state as `reserved`. That
+  // value is not a branch identifier, so retaining the reservation on a clear
+  // event leaves an ordinary track falsely shown as reserved. Switch sensors
+  // do use traversalState to identify one independently occupied branch, but
+  // only when that value is an actual branch name. Generic values such as
+  // `occupied` are not branch identifiers and must be treated like null so
+  // an extended switch clear event does not leave a stale reservation behind.
+  const requiresBranchMatch = Boolean(
+    piece &&
+      isPhysicalSwitchType(piece.type) &&
+      traversalState !== null &&
+      isSwitchBranchTraversalState(traversalState),
+  );
+
   Object.values(station.runtime.activeTrainRoutes).forEach((route) => {
     route.reservedOccupations = route.reservedOccupations.filter((occupation) => {
       if (occupation.pieceId !== pieceId) {
         return true;
       }
 
-      if (traversalState === null) {
+      if (!requiresBranchMatch) {
         return false;
       }
 

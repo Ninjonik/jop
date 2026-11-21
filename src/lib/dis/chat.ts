@@ -1,6 +1,8 @@
 import { sessionIdSchema, stationIdSchema } from '@/lib/station/domain';
 import { z } from 'zod';
 import type { UserRole } from './appwrite-client';
+import type { ChatSystemEvent } from './chat-system';
+import type { DriverTrain } from './driver-train';
 import type { RadioCredentials, RadioEmergency, RadioTerminalState } from './radio';
 
 export const chatEndpointSchema = z.discriminatedUnion('kind', [
@@ -13,7 +15,7 @@ export const chatRecipientSchema = z.union([
   z.object({ kind: z.literal('session'), id: z.literal('all') }),
 ]);
 export type ChatRecipient = z.infer<typeof chatRecipientSchema>;
-export type ChatContact = ChatRecipient & { name: string };
+export type ChatContact = ChatRecipient & { name: string; robloxUsername?: string };
 export const globalChatContact = { kind: 'session', id: 'all', name: 'Celá relácia' } as const;
 export const chatScopeSchema = z.object({
   sessionId: sessionIdSchema,
@@ -32,11 +34,15 @@ export type ChatMessage = {
   recipient: ChatContact;
   senderUserId: string;
   senderName: string;
+  senderRobloxUsername?: string;
   senderRole?: UserRole;
   announcement?: 'info' | 'warning' | 'alarm';
   content: string;
   createdAt: string;
   clientMessageId?: string;
+  system?: ChatSystemEvent;
+  /** Local RADIOSTOP history is visible only to these captured endpoints. */
+  audience?: ChatEndpoint[];
 };
 export type ChatSnapshot = {
   messages: ChatMessage[];
@@ -48,6 +54,26 @@ export function chatEndpointKey(endpoint: ChatRecipient) {
 }
 export function chatRoom(sessionId: string, endpoint: ChatRecipient) {
   return JSON.stringify(['chat', sessionId, endpoint.kind, endpoint.id]);
+}
+export function chatConversationKey(message: ChatMessage, self: ChatEndpoint) {
+  if (message.recipient.kind === 'session') return chatEndpointKey(globalChatContact);
+  return chatEndpointKey(
+    chatEndpointKey(message.sender) === chatEndpointKey(self) ? message.recipient : message.sender,
+  );
+}
+export function driverChatDisplayName(
+  userId: string,
+  trains: Pick<DriverTrain, 'userId' | 'trainType' | 'trainNumber' | 'expiresAt'>[],
+  fallback: string,
+  now = Date.now(),
+) {
+  const names = trains
+    .filter((train) => train.userId === userId && (train.expiresAt || 0) > now)
+    .map((train) => `${train.trainType} ${train.trainNumber}`);
+  return (
+    [...new Set(names)].sort((a, b) => a.localeCompare(b, 'sk', { numeric: true })).join(' / ') ||
+    fallback
+  );
 }
 export function mergeChatMessages<T extends ChatMessage>(current: T[], incoming: T[]): T[] {
   const messages = new Map(current.map((message) => [message._id, message]));

@@ -1,9 +1,12 @@
 import {
   chatEndpointKey,
+  globalChatContact,
   type ChatContact,
   type ChatEndpoint,
+  type ChatMessage,
   type ChatServerEvents,
 } from '@/lib/dis/chat';
+import { chatSystemText, type ChatSystemEvent } from '@/lib/dis/chat-system';
 import {
   emptyRadioTerminal,
   RADIO_HEARTBEAT_MS,
@@ -29,9 +32,12 @@ type NormalCall = {
   caller: string;
   recipients: string[];
   accepted: string | null;
-  callerContact: ChatContact;
-  recipientContact: ChatContact;
+  callerContact: ChatMessage['sender'];
+  recipientContact: ChatMessage['sender'];
   startedAt: number;
+  connectedAt: number | null;
+  callerName: string;
+  recipientName: string;
 };
 type Emergency = {
   id: string;
@@ -62,6 +68,8 @@ type Dependencies = {
   media: RadioMedia;
   resolveContact(sessionId: string, endpoint: ChatEndpoint): Promise<ChatContact>;
   currentStation(sessionId: string, userId: string): Promise<string | null>;
+  actorName(userId: string): string;
+  recordMessage(message: ChatMessage): Promise<void>;
   now?: () => number;
 };
 
@@ -78,6 +86,58 @@ export class RadioCalls {
   private now: () => number;
   constructor(private dependencies: Dependencies) {
     this.now = dependencies.now ?? Date.now;
+  }
+  private async record(
+    message: Omit<ChatMessage, '_id' | 'createdAt' | 'content'> & { system: ChatSystemEvent },
+  ) {
+    try {
+      await this.dependencies.recordMessage({
+        ...message,
+        _id: `radio:${message.system.eventId}:${message.system.kind}`,
+        createdAt: new Date(this.now()).toISOString(),
+        content: chatSystemText(message.system),
+      });
+    } catch (error) {
+      // A chat outage must not keep a microphone or a call alive during cleanup.
+      console.error('[radio] Failed to persist communication event:', error);
+    }
+  }
+  private participantName(userId: string, contact: ChatContact) {
+    const name = this.dependencies.actorName(userId);
+    return name === contact.name ? name : `${name} (${contact.name})`;
+  }
+  private async recordCall(
+    call: NormalCall,
+    kind: 'call-ringing' | 'call-started' | 'call-ended',
+    reason = '',
+  ) {
+    const participants = {
+      eventId: call.id,
+      callerName: call.callerName,
+      recipientName: call.recipientName,
+    };
+    const system: ChatSystemEvent =
+      kind === 'call-ended'
+        ? {
+            ...participants,
+            kind,
+            reason,
+            durationSeconds:
+              call.connectedAt === null
+                ? null
+                : Math.max(0, Math.floor((this.now() - call.connectedAt) / 1000)),
+          }
+        : kind === 'call-started'
+          ? { ...participants, kind }
+          : { ...participants, kind };
+    await this.record({
+      sessionId: call.sessionId,
+      sender: call.callerContact,
+      recipient: call.recipientContact,
+      senderUserId: call.caller,
+      senderName: call.callerName,
+      system,
+    });
   }
 
   async observe(userId: string, socketId: string) {
@@ -278,7 +338,10 @@ export class RadioCalls {
       (caller.scope.endpoint.kind === 'driver' && recipient.kind === 'driver')
     )
       throw new Error('Vyberte inú stanicu alebo rušňovodiča.');
-    const contact = await this.dependencies.resolveContact(caller.scope.sessionId, recipient);
+    const contact = {
+      ...recipient,
+      name: (await this.dependencies.resolveContact(caller.scope.sessionId, recipient)).name,
+    };
     const recipients = [...this.terminals.values()].filter(
       (terminal) =>
         terminal.userId !== userId &&
@@ -296,14 +359,20 @@ export class RadioCalls {
       caller: userId,
       recipients: recipients.map((terminal) => terminal.userId),
       accepted: null,
-      callerContact: await this.dependencies.resolveContact(
-        caller.scope.sessionId,
-        caller.scope.endpoint,
-      ),
+      callerContact: {
+        ...caller.scope.endpoint,
+        name: (
+          await this.dependencies.resolveContact(caller.scope.sessionId, caller.scope.endpoint)
+        ).name,
+      },
       recipientContact: contact,
       startedAt: this.now(),
+      connectedAt: null,
+      callerName: this.participantName(userId, caller.scope.endpoint),
+      recipientName: contact.name,
     };
     this.calls.set(call.id, call);
+    await this.recordCall(call, 'call-ringing');
     caller.notice = '';
     this.dependencies.emit(socketId, 'call:ringing', { id: call.id, contact, incoming: false });
     for (const target of recipients) {
@@ -337,6 +406,9 @@ export class RadioCalls {
         this.dependencies.media.credentials(call.id, socketId, true),
       ]);
       call.accepted = userId;
+      call.connectedAt = this.now();
+      call.recipientName = this.participantName(userId, call.recipientContact);
+      await this.recordCall(call, 'call-started');
       for (const target of call.recipients.filter((target) => target !== userId)) {
         const terminal = this.terminals.get(target);
         if (terminal)
@@ -363,6 +435,7 @@ export class RadioCalls {
       this.dependencies.emit(terminal.socketId, 'call:ended', { id: call.id, reason });
     }
     this.closeRoom(call.id);
+    await this.recordCall(call, 'call-ended', reason);
     await Promise.all(participants.map((user) => this.publish(user)));
   }
   async hangup(userId: string, socketId: string, id?: string) {
@@ -441,6 +514,41 @@ export class RadioCalls {
     origin.notice = '';
     try {
       await this.connectEmergency(call, origin, true);
+      await this.record({
+        sessionId: call.sessionId,
+        sender: { ...origin.scope.endpoint, name: call.origin.name },
+        recipient: globalChatContact,
+        senderUserId: userId,
+        senderName: this.dependencies.actorName(userId),
+        announcement: 'alarm',
+        ...(scope === 'station'
+          ? {
+              audience: [
+                ...new Map(
+                  [
+                    origin.scope.endpoint,
+                    { kind: 'station' as const, id: stationId! },
+                    ...recipients.map((recipient) => recipient.scope.endpoint),
+                  ].map(({ kind, id }) => [chatEndpointKey({ kind, id }), { kind, id }]),
+                ).values(),
+              ],
+            }
+          : {}),
+        system: {
+          kind: 'radiostop',
+          eventId: call.id,
+          actorName: this.participantName(userId, origin.scope.endpoint),
+          scope,
+          areaName: stationId
+            ? (
+                await this.dependencies.resolveContact(call.sessionId, {
+                  kind: 'station',
+                  id: stationId,
+                })
+              ).name
+            : globalChatContact.name,
+        },
+      });
       for (const recipient of recipients) {
         try {
           await this.connectEmergency(call, recipient, false);

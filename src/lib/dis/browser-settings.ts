@@ -8,6 +8,9 @@ export const defaultBrowserSettings = {
   microphone: '',
   speaker: '',
   volume: 1,
+  incomingMessageSounds: true,
+  outgoingMessageSounds: true,
+  messageVolume: 0.7,
   echoCancellation: true,
   noiseSuppression: true,
 };
@@ -28,6 +31,7 @@ function snapshot() {
           Object.assign(cached, { [name]: saved[name] });
       }
       cached.volume = Math.max(0, Math.min(2, cached.volume));
+  cached.messageVolume = Math.max(0, Math.min(1, cached.messageVolume));
     }
   } catch {
     /* Use defaults when storage is unavailable. */

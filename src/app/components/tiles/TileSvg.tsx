@@ -12,6 +12,7 @@ import { resolveComponentStyles } from './tile-rendering';
 
 interface TileSvgProps {
   occupationLabel?: string;
+  title?: string;
   tileKey: string;
   tile: TileData;
   stateGroups: StateGroupRegistry;
@@ -165,6 +166,7 @@ function renderOccupationLabel(container: HTMLElement, label: string | undefined
 
 export default function TileSvg({
   occupationLabel,
+  title,
   tileKey,
   tile,
   stateGroups,
@@ -225,7 +227,7 @@ export default function TileSvg({
   });
 
   return (
-    <span ref={tileContentRef} className="contents">
+    <span ref={tileContentRef} className="contents" title={title}>
       <TileComponent
         className={[getOrientationClassName(orientation), className, ...stateClasses]
           .filter(Boolean)

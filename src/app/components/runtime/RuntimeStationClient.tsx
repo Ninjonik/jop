@@ -16,6 +16,7 @@ import StationRuntimeBoard from './StationRuntimeBoard';
 
 interface RuntimeStationClientProps {
   embedded?: boolean;
+  readOnly?: boolean;
   sessionId: string;
   stationId: string;
 }
@@ -46,6 +47,7 @@ export default function RuntimeStationClient({
   sessionId,
   stationId,
   embedded = false,
+  readOnly = false,
 }: RuntimeStationClientProps) {
   const t = useTranslation();
   const [station, setStation] = useState<StationDocument | null>(null);
@@ -195,19 +197,32 @@ export default function RuntimeStationClient({
         </div>
       )}
 
-      <StationRuntimeBoard
-        station={station}
-        onErrorChange={setError}
-        onLineblockSnapshots={(localStation, remoteStation) => {
-          startTransition(() => {
-            setStation(localStation);
-            setError(null);
-          });
-          const channel = new BroadcastChannel('jop-station-snapshots');
-          channel.postMessage(remoteStation);
-          channel.close();
-        }}
-      />
+      {readOnly && (
+        <p className="px-2 py-1 text-xs text-[var(--aero-text-muted)]">
+          {t('Náhľad administrátora – ovládanie je vypnuté.')}
+        </p>
+      )}
+      <div className={readOnly ? 'pointer-events-none select-none' : undefined}>
+        <StationRuntimeBoard
+          station={station}
+          onErrorChange={setError}
+          onLineblockSnapshots={(localStation, remoteStation) => {
+            startTransition(() => {
+              setStation(localStation);
+              setError(null);
+            });
+            const channel = new BroadcastChannel('jop-station-snapshots');
+            channel.postMessage(remoteStation);
+            channel.close();
+          }}
+          onStationSnapshot={(nextStation) => {
+            startTransition(() => {
+              setStation(nextStation);
+              setError(null);
+            });
+          }}
+        />
+      </div>
     </div>
   );
 }

@@ -166,7 +166,7 @@ export function EmergencyAudio({
   }, []);
   return (
     <div
-      className="flex flex-wrap items-center gap-2 border-b border-[var(--aero-panel-border)] px-2 py-1"
+      className="radiostop-controls border-b border-[var(--aero-panel-border)] px-2 py-1"
       aria-live="polite"
     >
       <div ref={audio} />
@@ -179,7 +179,7 @@ export function EmergencyAudio({
           <AeroIcon name="close" /> {t('Ukončiť tiesňové vysielanie')}
         </button>
       ) : (
-        <>
+        <div className="radiostop-actions">
           <button
             className="aero-btn"
             disabled={!enabled}
@@ -194,7 +194,7 @@ export function EmergencyAudio({
           >
             <AeroIcon name="warning" /> {t('RADIOSTOP: miestna oblasť')}
           </button>
-        </>
+        </div>
       )}
       {terminal.emergencies.map((call) => (
         <div key={call.id} className="flex flex-wrap items-center gap-2 font-semibold">

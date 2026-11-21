@@ -32,6 +32,7 @@ interface StationRuntimeBoardProps {
   station: StationDocument;
   onErrorChange: (message: string | null) => void;
   onLineblockSnapshots: (localStation: StationDocument, remoteStation: StationDocument) => void;
+  onStationSnapshot: (station: StationDocument) => void;
 }
 
 function getLineblockActionOffset(tileWidth: number, mirrored: boolean, side: 'left' | 'right') {
@@ -108,6 +109,7 @@ export default function StationRuntimeBoard({
   station,
   onErrorChange,
   onLineblockSnapshots,
+  onStationSnapshot,
 }: StationRuntimeBoardProps) {
   const t = useTranslation();
   const renderablePieces = getRenderablePieces(station.layout);
@@ -247,9 +249,15 @@ export default function StationRuntimeBoard({
         },
       );
 
-      const payload = (await response.json()) as { error?: { message?: string } };
+      const payload = (await response.json()) as {
+        error?: { message?: string };
+        station?: StationDocument | null;
+      };
       if (!response.ok) {
         throw new Error(payload.error?.message ?? 'Failed to submit route interaction.');
+      }
+      if (payload.station) {
+        onStationSnapshot(payload.station);
       }
     } catch (submitError) {
       onErrorChange(
@@ -618,9 +626,6 @@ export default function StationRuntimeBoard({
             <div
               key={pieceId}
               className="pointer-events-none absolute"
-              title={
-                trainTooltips ? station.runtime.physicalTrainLabels?.[pieceId]?.text : undefined
-              }
               style={{
                 left: anchorX * tileSize,
                 top: anchorY * tileSize,
@@ -638,6 +643,9 @@ export default function StationRuntimeBoard({
                   rotation: piece.rotation,
                   mirrored: piece.mirrored,
                 }}
+                title={
+                  trainTooltips ? station.runtime.physicalTrainLabels?.[pieceId]?.text : undefined
+                }
                 className="pointer-events-auto h-full w-full object-contain"
               />
 

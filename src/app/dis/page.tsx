@@ -269,13 +269,19 @@ function DisPortalShell() {
       return;
     }
     if (
-      !network.sessions.some((session) => session.sessionId === target) ||
-      !network.stations.some(
-        (station) => station.sessionId === target && station.stationId === stationId,
-      )
+      !isDisAdministrator(profile?.role) &&
+      (!network.sessions.some((session) => session.sessionId === target) ||
+        !network.stations.some(
+          (station) => station.sessionId === target && station.stationId === stationId,
+        ))
     )
       return;
     setClaimError('');
+    if (isDisAdministrator(profile?.role)) {
+      setScope({ sessionId: target, stationId });
+      openTab('runtime');
+      return;
+    }
     try {
       await disFetch('/api/dis/station-claims', {
         method: 'POST',
@@ -316,7 +322,11 @@ function DisPortalShell() {
     {
       id: 'runtime',
       title: 'Staničný pult',
-      visible: hasSession && canOperateStation && workingMode === 'dispatcher',
+      visible:
+        hasSession &&
+        canOperateStation &&
+        (workingMode === 'dispatcher' ||
+          (workingMode === 'admin' && isDisAdministrator(profile.role))),
     },
     {
       id: 'edd',
@@ -612,6 +622,7 @@ function DisPortalShell() {
                     showSessionControls={!singlePlaceSessionMode}
                     onLaunchRuntime={launch}
                     canLaunchSimulator={hasSession && canOperateStation}
+                    canInspectInternalStations={isDisAdministrator(profile.role)}
                   />
                 ))}
               {activeTab === 'driver' && hasSession && (
@@ -627,7 +638,8 @@ function DisPortalShell() {
                 )}
               {activeTab === 'runtime' &&
                 current.sessionId &&
-                (current.sessionId && current.stationId && canOperateStation && ownsStation ? (
+                (current.sessionId && current.stationId &&
+                (isDisAdministrator(profile.role) || (canOperateStation && ownsStation)) ? (
                   <>
                     <div
                       className="ribbon-bar flex-wrap"
@@ -660,7 +672,12 @@ function DisPortalShell() {
                         {t('Ďalšia stanica')}
                       </button>
                     </div>
-                    <RuntimeStationClient key={scopeKey} {...current} embedded />
+                    <RuntimeStationClient
+                      key={scopeKey}
+                      {...current}
+                      embedded
+                      readOnly={isDisAdministrator(profile.role)}
+                    />
                   </>
                 ) : (
                   <StationSelectionView

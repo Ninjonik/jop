@@ -893,6 +893,29 @@ button:disabled > .aero-icon {
 .session-chat-message time {
   color: var(--aero-text-muted);
 }
+.chat-roblox-name {
+  display: block;
+  color: var(--aero-text-muted);
+  font-size: 10px;
+  font-weight: 400;
+}
+.session-chat-tab .chat-roblox-name {
+  display: inline;
+  margin-left: 4px;
+}
+.radiostop-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.radiostop-actions {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+}
 @media print {
   .dis-portal .session-chat,
   .dis-portal nav,
@@ -1001,6 +1024,10 @@ button:disabled > .aero-icon {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.session-chat-contact .chat-roblox-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .session-chat-empty {
   color: var(--aero-text-muted);

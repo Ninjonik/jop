@@ -2,30 +2,52 @@ import type { UserProfile } from '@/lib/dis/appwrite-client';
 import {
   chatEndpointKey,
   chatScopeSchema,
+  driverChatDisplayName,
   globalChatContact,
   sendChatSchema,
   type ChatContact,
+  type ChatEndpoint,
   type ChatMessage,
   type ChatRecipient,
 } from '@/lib/dis/chat';
+import type { StationClaim } from '@/lib/dis/claims';
 import type { DriverTrain } from '@/lib/dis/driver-train';
 import { canPublishAnnouncements } from '@/lib/dis/permissions';
 import { canAssignShiftRole } from '@/lib/dis/shift-plan';
 import { getStationDisplayName } from '@/lib/station/display-name';
 import { isPublicStation } from '@/lib/station/visibility';
-import { MongoServerError } from 'mongodb';
-import { AppwriteException } from 'node-appwrite';
+import { MongoServerError, type Filter } from 'mongodb';
+import { AppwriteException, type Models } from 'node-appwrite';
 import { createHash } from 'node:crypto';
 import { getMongoDb } from '../mongo';
 import { gsmRRepository } from '../repositories/gsm-r-repository';
 import { sessionRepository } from '../repositories/session-repository';
 import { stationRepository } from '../repositories/station-repository';
-import { databaseId, disDatabase, DisError } from './appwrite';
+import { databaseId, disDatabase, DisError, listDocuments } from './appwrite';
 import { requireStationClaim } from './claims';
-import { loadStaff } from './personnel';
 
 export async function chatMessagesCollection() {
   return (await getMongoDb()).collection<ChatMessage>('session_chat_messages');
+}
+export function chatHistoryFilter(sessionId: string, endpoint: ChatEndpoint): Filter<ChatMessage> {
+  return {
+    sessionId,
+    $and: [
+      {
+        $or: [
+          { audience: { $exists: false } },
+          { audience: { $elemMatch: { kind: endpoint.kind, id: endpoint.id } } },
+        ],
+      },
+      {
+        $or: [
+          { 'recipient.kind': 'session', 'recipient.id': 'all' },
+          { 'sender.kind': endpoint.kind, 'sender.id': endpoint.id },
+          { 'recipient.kind': endpoint.kind, 'recipient.id': endpoint.id },
+        ],
+      },
+    ],
+  };
 }
 
 async function requireChatSession(sessionId: string) {
@@ -35,17 +57,19 @@ async function requireChatSession(sessionId: string) {
 }
 
 async function driverChatName(sessionId: string, userId: string, fallback: string) {
+  const trains = await (
+    await getMongoDb()
+  )
+    .collection<DriverTrain>('session_driver_trains')
+    .find({ sessionId, userId, expiresAt: { $gt: Date.now() } })
+    .toArray();
+  if (trains.length) return driverChatDisplayName(userId, trains, fallback);
   const radio = (await gsmRRepository.list(sessionId)).find(
     (radio) => radio.binding?.userId === userId,
   );
   if (radio?.binding)
     return `${radio.binding.trainType} ${radio.binding.trainNumber}${radio.binding.driverCallsign ? ` (${radio.binding.driverCallsign})` : ''}`;
-  const train = await (
-    await getMongoDb()
-  )
-    .collection<DriverTrain>('session_driver_trains')
-    .findOne({ sessionId, userId, expiresAt: { $gt: Date.now() } });
-  return train ? `${train.trainType} ${train.trainNumber}` : fallback;
+  return fallback;
 }
 
 export async function resolveContact(
@@ -74,7 +98,11 @@ export async function resolveContact(
   }
   if (profile.userId !== endpoint.id || !canAssignShiftRole(profile, 'driver'))
     throw new DisError(400, 'Vybraný zamestnanec nie je rušňovodič.');
-  return { ...endpoint, name: await driverChatName(sessionId, profile.userId, profile.name) };
+  return {
+    ...endpoint,
+    name: await driverChatName(sessionId, profile.userId, profile.name),
+    robloxUsername: profile.robloxUsername,
+  };
 }
 
 export async function authorizeChatScope(body: unknown, profile: UserProfile) {
@@ -100,18 +128,11 @@ export async function authorizeChatScope(body: unknown, profile: UserProfile) {
 
 export async function loadChat(body: unknown, profile: UserProfile) {
   const scope = await authorizeChatScope(body, profile);
-  const [stations, staff, messages, selectedTrains] = await Promise.all([
+  const [stations, profiles, messages, selectedTrains, stationClaims] = await Promise.all([
     stationRepository.listBySessionId(scope.sessionId),
-    scope.endpoint.kind === 'station' ? loadStaff() : Promise.resolve({ profiles: [] }),
+    listDocuments<Models.Document & UserProfile>('profiles'),
     (await chatMessagesCollection())
-      .find({
-        sessionId: scope.sessionId,
-        $or: [
-          { 'recipient.kind': 'session', 'recipient.id': 'all' },
-          { 'sender.kind': scope.endpoint.kind, 'sender.id': scope.endpoint.id },
-          { 'recipient.kind': scope.endpoint.kind, 'recipient.id': scope.endpoint.id },
-        ],
-      })
+      .find(chatHistoryFilter(scope.sessionId, scope.endpoint))
       .sort({ createdAt: -1, _id: -1 })
       .limit(200)
       .toArray(),
@@ -121,8 +142,21 @@ export async function loadChat(body: unknown, profile: UserProfile) {
           .find({ sessionId: scope.sessionId, expiresAt: { $gt: Date.now() } })
           .toArray()
       : Promise.resolve([]),
+    (await getMongoDb())
+      .collection<StationClaim>('session_station_claims')
+      .find({ sessionId: scope.sessionId, expiresAt: { $gt: Date.now() } })
+      .toArray(),
   ]);
+  const profilesByUser = new Map(profiles.map((person) => [person.userId, person]));
+  const stationOwners = new Map(stationClaims.map((claim) => [claim.stationId, claim.userId]));
   const selectedDrivers = new Set(selectedTrains.map((train) => train.userId));
+  const conversationDrivers = new Set(
+    messages
+      .filter((message) => message.recipient.kind !== 'session')
+      .flatMap((message) => [message.sender, message.recipient])
+      .filter((endpoint) => endpoint.kind === 'driver')
+      .map((endpoint) => endpoint.id),
+  );
   const contacts: ChatContact[] = [
     globalChatContact,
     ...stations
@@ -131,12 +165,21 @@ export async function loadChat(body: unknown, profile: UserProfile) {
         kind: 'station' as const,
         id: station.stationId,
         name: getStationDisplayName(station.stationId),
+        robloxUsername: profilesByUser.get(stationOwners.get(station.stationId) || '')
+          ?.robloxUsername,
       })),
-    ...staff.profiles
+    ...profiles
       .filter(
-        (person) => canAssignShiftRole(person, 'driver') && selectedDrivers.has(person.userId),
+        (person) =>
+          canAssignShiftRole(person, 'driver') &&
+          (selectedDrivers.has(person.userId) || conversationDrivers.has(person.userId)),
       )
-      .map((person) => ({ kind: 'driver' as const, id: person.userId, name: person.name })),
+      .map((person) => ({
+        kind: 'driver' as const,
+        id: person.userId,
+        name: driverChatDisplayName(person.userId, selectedTrains, person.name),
+        robloxUsername: person.robloxUsername,
+      })),
   ].filter((contact) => chatEndpointKey(contact) !== chatEndpointKey(scope.endpoint));
   return { contacts, messages: messages.reverse(), self: scope.contact };
 }
@@ -166,6 +209,7 @@ export async function sendChat(body: unknown, profile: UserProfile) {
     recipient,
     senderUserId: profile.userId,
     senderName: profile.name,
+    senderRobloxUsername: profile.robloxUsername,
     senderRole: profile.role,
     ...(command.announcement ? { announcement: command.announcement } : {}),
     content: command.content,

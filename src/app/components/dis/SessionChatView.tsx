@@ -2,7 +2,7 @@
 import { ResizablePanel, useResizablePanel } from '@/app/components/ui/ResizablePanel';
 import { apiOrigin } from '@/lib/api-client';
 import { canPublishAnnouncements } from '@/lib/dis/permissions';
-import { useLocaleTag, useTranslation } from '@/lib/i18n/client';
+import { useTranslation } from '@/lib/i18n/client';
 import { EmergencyAudio } from './EmergencyAudio';
 import { RadioTerminalControls, useRadioTerminal } from './RadioTerminal';
 
@@ -10,6 +10,7 @@ import { AeroIcon } from '@/app/components/ui/AeroIcon';
 import { clearDisToken, disFetch, getDisToken } from '@/lib/dis/api-client';
 import { useDisAuth } from '@/lib/dis/auth-context';
 import {
+  chatConversationKey,
   chatEndpointKey,
   globalChatContact,
   mergeChatMessages,
@@ -24,7 +25,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { io, type Socket } from 'socket.io-client';
 import { VoiceCall } from './VoiceCall';
 
-type DisplayMessage = ChatMessage & { delivery?: 'sending' | 'failed' };
+import { ChatMessageView, type DisplayMessage } from './ChatMessageView';
+import { playMessageSound } from './message-sounds';
 
 export function SessionChatView({
   sessionId,
@@ -36,7 +38,6 @@ export function SessionChatView({
   driverTrain?: DriverTrain | null;
 }) {
   const t = useTranslation();
-  const localeTag = useLocaleTag();
   const { profile, canOperateStation } = useDisAuth();
   const mode = canOperateStation && stationId ? 'station' : 'driver';
   const { collapsed: panelCollapsed, expand: expandPanel } = useResizablePanel();
@@ -112,8 +113,10 @@ export function SessionChatView({
           message.recipient.kind === 'session'
             ? chatEndpointKey(globalChatContact)
             : chatEndpointKey(message.sender);
-        if (!current.current.expanded || current.current.target !== key)
+        if (!current.current.expanded || current.current.target !== key) {
           setUnread((previous) => ({ ...previous, [key]: (previous[key] || 0) + 1 }));
+          playMessageSound('incoming');
+        }
       }
     });
     socket.on('chat:error', (message) => {
@@ -154,8 +157,7 @@ export function SessionChatView({
     contacts.find((contact) => chatEndpointKey(contact) === target) ??
     tabs.find((contact) => chatEndpointKey(contact) === target);
   const conversation = messages.filter(
-    (message) =>
-      chatEndpointKey(message.sender) === target || chatEndpointKey(message.recipient) === target,
+    (message) => chatConversationKey(message, { kind: mode, id: endpointId }) === target,
   );
   useEffect(() => {
     if (follow.current && view.current) view.current.scrollTop = view.current.scrollHeight;
@@ -246,6 +248,7 @@ export function SessionChatView({
       recipient,
       senderUserId: profile.userId,
       senderName: profile.name,
+      senderRobloxUsername: profile.robloxUsername,
       senderRole: profile.role,
       ...(announcement && recipient.kind === 'session' ? { announcement } : {}),
       content: text.trim(),
@@ -255,6 +258,7 @@ export function SessionChatView({
     follow.current = true;
     setMessages((previous) => mergeChatMessages(previous, [message]));
     setDrafts((previous) => ({ ...previous, [target]: '' }));
+    playMessageSound('outgoing');
     void deliver(message);
   }
 
@@ -303,10 +307,22 @@ export function SessionChatView({
                           key={key}
                           type="button"
                           className="session-chat-contact"
+                          title={
+                            contact.robloxUsername
+                              ? t('Roblox: {0}', contact.robloxUsername)
+                              : contact.name
+                          }
                           onClick={() => openConversation(contact)}
                         >
                           <AeroIcon name={kind === 'station' ? 'network' : 'train'} />
-                          <span>{contact.name}</span>
+                          <span>
+                            {contact.name}
+                            {contact.robloxUsername && (
+                              <small className="chat-roblox-name">
+                                {t('Roblox: {0}', contact.robloxUsername)}
+                              </small>
+                            )}
+                          </span>
                           {unread[key] ? <strong>{unread[key]}</strong> : null}
                         </button>
                       );
@@ -350,9 +366,19 @@ export function SessionChatView({
                   <button
                     type="button"
                     aria-pressed={key === target}
+                    title={
+                      currentContact.robloxUsername
+                        ? t('Roblox: {0}', currentContact.robloxUsername)
+                        : name
+                    }
                     onClick={() => chooseTarget(key)}
                   >
-                    {name}
+                    <span>{name}</span>
+                    {currentContact.robloxUsername && (
+                      <small className="chat-roblox-name">
+                        {t('Roblox: {0}', currentContact.robloxUsername)}
+                      </small>
+                    )}
                     {unread[key] ? ` (${unread[key]})` : ''}
                     {activeCall && chatEndpointKey(activeCall) === key ? ' •' : ''}
                   </button>
@@ -415,58 +441,11 @@ export function SessionChatView({
               </p>
             ) : (
               conversation.map((message) => (
-                <div
+                <ChatMessageView
                   key={message._id}
-                  className="session-chat-message"
-                  data-announcement={message.announcement}
-                >
-                  <time dateTime={message.createdAt}>
-                    {new Date(message.createdAt).toLocaleTimeString(localeTag, {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}
-                  </time>{' '}
-                  <strong
-                    className="chat-role-prefix"
-                    data-role={message.senderRole || message.sender.kind}
-                  >
-                    <span className="chat-role-dot" aria-hidden="true" />
-                    {t(message.senderRole || message.sender.kind)} ·{' '}
-                    {message.sender.kind === 'station'
-                      ? getStationDisplayName(message.sender.id)
-                      : message.sender.name}
-                  </strong>
-                  {(message.sender.kind === 'station' ||
-                    message.sender.name !== message.senderName) && (
-                    <span> ({message.senderName})</span>
-                  )}
-                  :{' '}
-                  {message.announcement && (
-                    <strong>
-                      {t(
-                        message.announcement === 'info'
-                          ? 'Oznam'
-                          : message.announcement === 'warning'
-                            ? 'Upozornenie'
-                            : 'Poplach',
-                      )}{' '}
-                      ·{' '}
-                    </strong>
-                  )}
-                  <span className="whitespace-pre-wrap break-words">{message.content}</span>
-                  {message.delivery === 'sending' && (
-                    <span className="ml-2 text-[var(--aero-text-muted)]">{t('Odosielam…')}</span>
-                  )}
-                  {message.delivery === 'failed' && (
-                    <button
-                      type="button"
-                      className="aero-btn ml-2"
-                      onClick={() => void deliver(message)}
-                    >
-                      <AeroIcon name="refresh" /> {t('Odoslať znova')}{' '}
-                    </button>
-                  )}
-                </div>
+                  message={message}
+                  onRetry={() => void deliver(message)}
+                />
               ))
             )}
           </div>

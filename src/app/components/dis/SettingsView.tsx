@@ -90,6 +90,38 @@ export function SettingsView() {
       </fieldset>
       <fieldset className="space-y-3 rounded border border-[var(--aero-panel-border)] p-3">
         <legend>{t('Zvukové zariadenia')}</legend>
+        <div className="space-y-2 border-b border-[var(--aero-panel-border)] pb-3">
+          <strong>{t('Zvuky správ')}</strong>
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={settings.incomingMessageSounds}
+              onChange={(event) => setBrowserSettings({ incomingMessageSounds: event.target.checked })}
+            />
+            {t('Zvuk prichádzajúcej správy mimo otvoreného rozhovoru')}
+          </label>
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={settings.outgoingMessageSounds}
+              onChange={(event) => setBrowserSettings({ outgoingMessageSounds: event.target.checked })}
+            />
+            {t('Zvuk pri odoslaní správy')}
+          </label>
+          <label className="flex flex-wrap items-center gap-2">
+            {t('Hlasitosť zvukov správ')}
+            <input
+              aria-label={t('Hlasitosť zvukov správ')}
+              type="range"
+              min="0"
+              max="1"
+              step="0.01"
+              value={settings.messageVolume}
+              onChange={(event) => setBrowserSettings({ messageVolume: Number(event.target.value) })}
+            />
+            {Math.round(settings.messageVolume * 100)} %
+          </label>
+        </div>
         {(['microphone', 'speaker'] as const).map((kind) => (
           <label key={kind} className="flex flex-wrap items-center gap-2">
             {t(kind === 'microphone' ? 'Mikrofón' : 'Reproduktory')}

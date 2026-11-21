@@ -34,7 +34,8 @@ export async function POST(request: Request, { params }: StationRouteInteractRou
     }
 
     const result = await stationService.submitRouteInteract(command);
-    return Response.json(result, { status: 202 });
+    const station = await stationService.getStation(parsedSessionId, parsedStationId);
+    return Response.json({ ...result, station }, { status: 202 });
   } catch (error) {
     return jsonErrorResponse(error);
   }

@@ -1026,6 +1026,21 @@ existing Appwrite cookie/fallback owns persistence between tabs and reloads.
 The communication endpoint is always derived from the current station/role;
 there is no manual identity selector.
 
+Radio signalling writes server-owned system entries to `session_chat_messages`:
+ringing, acceptance and termination of private calls (duration excludes ringing),
+and RADIOSTOP activation with actor, timestamp and scope. Mongo change streams
+deliver these entries like ordinary chat. Local RADIOSTOP entries carry a frozen
+endpoint audience; both live fanout and history queries enforce it. Private call
+entries use only the two conversation endpoints. Client send schemas cannot set
+system-event or audience fields. These entries describe signalling, not recorded
+voice; unexpected process termination can leave a start entry without an end.
+Driver directory labels use active selected train categories/numbers, falling
+back to the nickname for existing conversations after release. Historical message
+and call participant names remain snapshots of their original event.
+Conversation tabs and contact buttons expose the linked Roblox username on
+hover. Station contacts resolve the current live claim owner; claim ownership
+changes refresh the directory without changing the visible station/train label.
+
 Workspace panels use `src/app/components/ui/ResizablePanel.tsx` for pointer and
 keyboard resizing and full collapse to a reopening strip. Sizes and collapse
 state are local UI preferences under `dis-panel:<userId>:<panelId>:<edge>` in

@@ -9,9 +9,12 @@ import { io, type Socket } from 'socket.io-client';
 import { GET, POST } from '../apps/api/src/app/api/dis/chat/route';
 import type { UserProfile } from '../src/lib/dis/appwrite-client';
 import type { ChatMessage, ChatSnapshot } from '../src/lib/dis/chat';
+import type { RadioTerminalState } from '../src/lib/dis/radio';
 import { databaseId, disDatabase } from '../src/lib/server/dis/appwrite';
+import { chatHistoryFilter } from '../src/lib/server/dis/chat';
 import { startChatRealtime, type ChatNamespace } from '../src/lib/server/dis/chat-realtime';
 import { claimStation } from '../src/lib/server/dis/claims';
+import { radioMedia } from '../src/lib/server/dis/radio-media';
 import { getMongoClient, getMongoDb } from '../src/lib/server/mongo';
 import { stationService } from '../src/lib/server/services/station-service';
 
@@ -19,6 +22,7 @@ const tag = `chatqa${randomUUID().replaceAll('-', '').slice(0, 12)}`;
 const staff: UserProfile[] = ['dispatcher', 'driver', 'driver'].map((role, index) => ({
   userId: `${tag}-${index}`,
   name: `${tag} ${index}`,
+  robloxUsername: `${tag}Roblox${index}`,
   role: role as UserProfile['role'],
   callsign: 'QA',
   trainingStage: 'certified',
@@ -30,6 +34,17 @@ const auth = mock.method(Account.prototype, 'get', async function (this: Account
     throw new AppwriteException('Unauthorized', 401);
   return { $id: id };
 });
+// These tests exercise signalling and persistence, without opening media rooms.
+process.env.LIVEKIT_URL ||= 'wss://example.test';
+process.env.LIVEKIT_API_KEY ||= 'test';
+process.env.LIVEKIT_API_SECRET ||= 'test';
+const credentials = mock.method(radioMedia, 'credentials', async (id: string) => ({
+  id,
+  url: 'wss://example.test',
+  token: 'test',
+}));
+const closeMedia = mock.method(radioMedia, 'close', async () => {});
+const removeMedia = mock.method(radioMedia, 'remove', async () => {});
 const clients: Socket[] = [];
 const sessions: string[] = [];
 const profiles: string[] = [];
@@ -57,7 +72,7 @@ const sockets = new Server(http, { transports: ['websocket'] });
 let stopChat: (() => Promise<void>) | undefined;
 let base = '';
 
-function once<T>(socket: Socket, event: string) {
+function once<T>(socket: Socket, event: string, accept: (value: T) => boolean = () => true) {
   const timeoutError = new Error(`Timed out: ${event}`);
   return new Promise<T>((resolve, reject) => {
     const timeout = setTimeout(() => {
@@ -65,10 +80,12 @@ function once<T>(socket: Socket, event: string) {
       reject(timeoutError);
     }, 30000);
     function listener(value: T) {
+      if (!accept(value)) return;
       clearTimeout(timeout);
+      socket.off(event, listener);
       resolve(value);
     }
-    socket.once(event, listener);
+    socket.on(event, listener);
   });
 }
 async function connect(
@@ -251,6 +268,30 @@ async function verify() {
   const driverGlobal = await driverGlobalAtA;
   assert.equal(driverGlobal.sender.id, staff[1].userId);
   assert.equal(driverGlobal.sender.name, 'Pos 90001');
+  const directoryResponse = await fetch(
+    `${base}/api/dis/chat?${new URLSearchParams({ sessionId: sessions[0], kind: 'station', id: 'a' })}`,
+    { headers: { Authorization: `Bearer ${staff[0].userId}` } },
+  );
+  assert.equal(directoryResponse.status, 200);
+  const directory: ChatSnapshot = await directoryResponse.json();
+  assert.equal(
+    directory.contacts.find(
+      (contact) => contact.kind === 'driver' && contact.id === staff[1].userId,
+    )?.robloxUsername,
+    staff[1].robloxUsername,
+  );
+  assert.equal(
+    directory.contacts.find((contact) => contact.kind === 'station' && contact.id === 'b')
+      ?.robloxUsername,
+    staff[0].robloxUsername,
+  );
+  assert.equal(
+    directory.contacts.find(
+      (contact) => contact.kind === 'driver' && contact.id === staff[1].userId,
+    )?.name,
+    'Pos 90001',
+    'Open conversation tabs receive the current train label',
+  );
   assert.equal(
     (await mongo.collection('session_chat_messages').findOne({ _id: driverReply._id as never }))
       ?.sender.name,
@@ -267,8 +308,96 @@ async function verify() {
   const deniedResult = once<Error>(denied, 'connect_error');
   denied.connect();
   assert((await deniedResult).message.includes('DIS'));
+
+  async function claimVoice(socket: Socket) {
+    const claimed = once<RadioTerminalState>(
+      socket,
+      'radio:terminal',
+      (state) => state.ownerSocketId === socket.id,
+    );
+    socket.emit('radio:claim');
+    return claimed;
+  }
+  await claimVoice(a.socket);
+  await claimVoice(reconnected.socket);
+  const privateLogs: ChatMessage[] = [];
+  const leakedLogs: ChatMessage[] = [];
+  reconnected.socket.on('chat:message', (message: ChatMessage) => {
+    if (message.system) privateLogs.push(message);
+  });
+  c.socket.on('chat:message', (message: ChatMessage) => {
+    if (message.system) leakedLogs.push(message);
+  });
+  const ringing = once<{ id: string }>(reconnected.socket, 'call:ringing');
+  a.socket.emit('call:start', { kind: 'driver', id: staff[1].userId });
+  const call = await ringing;
+  const started = once<ChatMessage>(
+    reconnected.socket,
+    'chat:message',
+    (message) => message.system?.kind === 'call-started',
+  );
+  reconnected.socket.emit('call:accept', call.id);
+  assert.equal((await started).system?.kind, 'call-started');
+  const ended = once<ChatMessage>(
+    reconnected.socket,
+    'chat:message',
+    (message) => message.system?.kind === 'call-ended',
+  );
+  reconnected.socket.emit('call:end', call.id);
+  assert.equal((await ended).system?.kind, 'call-ended');
+  assert.equal(leakedLogs.length, 0, 'Private call logs never reach other station inboxes');
+  assert.deepEqual(
+    privateLogs.map((message) => message.system?.kind),
+    ['call-ringing', 'call-started', 'call-ended'],
+  );
+
+  const globalStop = once<ChatMessage>(c.socket, 'chat:message');
+  a.socket.emit('radio:emergency-start', 'session');
+  const alert = await globalStop;
+  assert.equal(alert.system?.kind, 'radiostop');
+  assert.equal(alert.audience, undefined);
+  const stopped = once<unknown>(a.socket, 'radio:emergency-ended');
+  a.socket.emit('radio:emergency-stop');
+  await stopped;
+
+  const localStop = once<ChatMessage>(a.socket, 'chat:message');
+  const beforeLocal = leakedLogs.length;
+  a.socket.emit('radio:emergency-start', 'station');
+  const localAlert = await localStop;
+  assert.equal(localAlert.system?.kind, 'radiostop');
+  assert(
+    localAlert.audience?.some((endpoint) => endpoint.kind === 'station' && endpoint.id === 'a'),
+  );
+  assert.equal(leakedLogs.length, beforeLocal, 'Local RADIOSTOP never reaches another area');
+  const persisted = await mongo
+    .collection<ChatMessage>('session_chat_messages')
+    .find(chatHistoryFilter(sessions[0], { kind: 'station', id: 'a' }))
+    .toArray();
+  assert(persisted.some((message) => message._id === localAlert._id));
+  const outside = await mongo
+    .collection<ChatMessage>('session_chat_messages')
+    .find(chatHistoryFilter(sessions[0], { kind: 'station', id: 'c' }))
+    .toArray();
+  assert(
+    !outside.some((message) => message._id === localAlert._id),
+    'Area restrictions also apply after history reload',
+  );
+  assert(
+    !outside.some((message) => message.system?.kind === 'call-ended'),
+    'Private call history stays private',
+  );
+  assert.equal(otherMessages.length, 0, 'Radio system alerts never cross session boundaries');
+  const restored = once<ChatSnapshot>(a.socket, 'chat:snapshot', (snapshot) =>
+    snapshot.contacts.some(
+      (contact) => contact.id === staff[1].userId && contact.name === staff[1].name,
+    ),
+  );
+  await mongo
+    .collection('session_driver_trains')
+    .deleteMany({ sessionId: sessions[0], userId: staff[1].userId });
+  await restored;
   console.log(
-    'HTTP and WebSocket chat: live station/driver replies, persistence, private routing, session isolation, reconnect history, auth and idempotency passed.',
+    'HTTP and WebSocket chat: messages, radio/call system logs, area/privacy isolation, persistence, current train labels, nickname fallback, reconnect history, auth and idempotency passed.',
   );
 }
 async function main() {
@@ -279,6 +408,9 @@ async function main() {
     await stopChat?.();
     await new Promise<void>((resolve) => sockets.close(() => resolve()));
     auth.mock.restore();
+    credentials.mock.restore();
+    closeMedia.mock.restore();
+    removeMedia.mock.restore();
     const mongo = await getMongoDb();
     for (const collection of [
       'stations',
@@ -286,6 +418,7 @@ async function main() {
       'session_chat_messages',
       'session_driver_trains',
       'session_station_claims',
+      'radio_terminals',
     ])
       await mongo.collection(collection).deleteMany({ sessionId: { $in: sessions } });
     await mongo.collection('sessions').deleteMany({ _id: { $in: sessions } as never });

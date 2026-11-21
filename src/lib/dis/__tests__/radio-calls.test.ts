@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import { RadioCalls, type RadioEmit, type RadioMedia } from '../../server/dis/radio-calls';
 import { radioMedia } from '../../server/dis/radio-media';
 import type { RadioTerminalDocument } from '../../server/repositories/radio-terminal-repository';
-import type { ChatEndpoint } from '../chat';
+import type { ChatEndpoint, ChatMessage } from '../chat';
 import { RADIO_LEASE_MS, type RadioTerminalState } from '../radio';
 
 function fixture(mediaOverrides: Partial<RadioMedia> = {}) {
@@ -12,10 +12,15 @@ function fixture(mediaOverrides: Partial<RadioMedia> = {}) {
   const positions = new Map<string, string | null>();
   const events: { socket: string; event: string; payload: unknown }[] = [];
   const tokens: { id: string; socket: string; publish: boolean }[] = [];
+  const messages: ChatMessage[] = [];
   const closed: string[] = [],
     removed: string[] = [];
   const radio = new RadioCalls({
     now: () => time,
+    actorName: (userId) => userId,
+    async recordMessage(message) {
+      messages.push(structuredClone(message));
+    },
     store: {
       async find(user) {
         return states.get(user) ?? null;
@@ -80,6 +85,7 @@ function fixture(mediaOverrides: Partial<RadioMedia> = {}) {
     positions,
     events,
     tokens,
+    messages,
     closed,
     removed,
     advance(ms: number) {
@@ -87,6 +93,84 @@ function fixture(mediaOverrides: Partial<RadioMedia> = {}) {
     },
   };
 }
+
+test('accepted call history excludes ringing time and is written once for both private endpoints', async () => {
+  const f = fixture();
+  await f.claim('driver');
+  await f.claim('dispatcher', { kind: 'station', id: 'a' });
+  await f.radio.start('driver', 'driver', { kind: 'station', id: 'a' });
+  const id = f.state('driver').call!.id;
+  f.advance(3500);
+  await f.radio.accept('dispatcher', 'dispatcher', id);
+  f.advance(4100);
+  await f.radio.hangup('driver', 'driver', id);
+  await f.radio.hangup('dispatcher', 'dispatcher', id);
+  assert.deepEqual(
+    f.messages.map((message) => message.system?.kind),
+    ['call-ringing', 'call-started', 'call-ended'],
+  );
+  assert(
+    f.messages.every(
+      (message) =>
+        message.sessionId === 'session' &&
+        message.sender.id === 'driver' &&
+        message.recipient.id === 'a' &&
+        !message.audience,
+    ),
+  );
+  const ended = f.messages[2].system;
+  assert(ended?.kind === 'call-ended');
+  assert.equal(ended.durationSeconds, 4);
+  assert.equal(ended.recipientName, 'dispatcher (a)');
+  assert.equal(f.messages[2].createdAt, new Date(8600).toISOString());
+});
+
+test('unanswered dispatcher calls are logged without claiming a connected duration', async () => {
+  const f = fixture();
+  await f.claim('a', { kind: 'station', id: 'a' });
+  await f.claim('b', { kind: 'station', id: 'b' });
+  await f.radio.start('a', 'a', { kind: 'station', id: 'b' });
+  await f.radio.hangup('b', 'b', f.state('a').call!.id);
+  assert.deepEqual(
+    f.messages.map((message) => message.system?.kind),
+    ['call-ringing', 'call-ended'],
+  );
+  const ended = f.messages[1].system;
+  assert(ended?.kind === 'call-ended');
+  assert.equal(ended.durationSeconds, null);
+});
+
+test('local RADIOSTOP logs capture its station and recipient endpoints without leaking to other areas', async () => {
+  const f = fixture();
+  await f.claim('origin', { kind: 'station', id: 'a' });
+  await f.claim('local-driver');
+  await f.claim('remote-driver');
+  await f.claim('remote-station', { kind: 'station', id: 'b' });
+  f.positions.set('local-driver', 'a');
+  f.positions.set('remote-driver', 'b');
+  await f.radio.startEmergency('origin', 'origin', 'station');
+  assert.equal(f.messages.length, 1);
+  const message = f.messages[0];
+  assert.equal(message.recipient.kind, 'session');
+  assert.equal(message.announcement, 'alarm');
+  assert.deepEqual(message.audience, [
+    { kind: 'station', id: 'a' },
+    { kind: 'driver', id: 'local-driver' },
+  ]);
+  assert.equal(message.system?.kind, 'radiostop');
+  assert.match(message.content, /origin \(a\).*a/);
+});
+
+test('global RADIOSTOP is one timestamped session alert with no local audience restriction', async () => {
+  const f = fixture();
+  await f.claim('driver');
+  await f.radio.startEmergency('driver', 'driver', 'session');
+  assert.equal(f.messages.length, 1);
+  assert.equal(f.messages[0].audience, undefined);
+  assert.equal(f.messages[0].recipient.kind, 'session');
+  assert.equal(f.messages[0].createdAt, new Date(1000).toISOString());
+  assert.match(f.messages[0].content, /Celá relácia/);
+});
 
 test('one tab owns voice; observers have no credentials and cannot accept or take over', async () => {
   const f = fixture();

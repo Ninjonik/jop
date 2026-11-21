@@ -1,5 +1,5 @@
 'use client';
-import { apiFetch } from '@/lib/api-client';
+import { disFetch } from '@/lib/dis/api-client';
 
 import { useTranslation } from '@/lib/i18n/client';
 
@@ -12,11 +12,13 @@ export function SessionControlView({
   onLaunchRuntime,
   placeId,
   canLaunchSimulator = false,
+  canInspectInternalStations = false,
   showSessionControls = true,
 }: {
   onLaunchRuntime?: (sessionId: string, stationId: string) => void;
   placeId: string;
   canLaunchSimulator?: boolean;
+  canInspectInternalStations?: boolean;
   showSessionControls?: boolean;
 }) {
   const t = useTranslation();
@@ -28,9 +30,7 @@ export function SessionControlView({
     setLoading(true);
     setError(null);
     try {
-      const res = await apiFetch('/api/sessions/live', { cache: 'no-store' });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
+      const data = await disFetch<{ sessions: LiveRobloxSessionSummary[] }>('/api/sessions/live');
       setLiveSessions(
         (data.sessions || []).filter(
           (session: LiveRobloxSessionSummary) => session.placeId === placeId,
@@ -139,6 +139,9 @@ export function SessionControlView({
                             <AeroIcon name="play" />
                             <span>
                               {t('Otvoriť stanicu:')} {st.stationId}
+                              {canInspectInternalStations && st.stationId.trim().toLowerCase() === 'inter'
+                                ? ` (${t('len náhľad')})`
+                                : ''}
                             </span>
                           </button>
                         ))}

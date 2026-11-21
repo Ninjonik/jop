@@ -7,6 +7,7 @@ import {
   type ChatMessage,
   type ChatServerEvents,
 } from '@/lib/dis/chat';
+import type { StationClaim } from '@/lib/dis/claims';
 import type { DriverTrain } from '@/lib/dis/driver-train';
 import type { ChangeStream, ChangeStreamDocument } from 'mongodb';
 import type { Namespace } from 'socket.io';
@@ -55,7 +56,7 @@ export async function startChatRealtime(namespace: ChatNamespace) {
     }),
   ]);
   let stopped = false;
-  let changes: ChangeStream<ChatMessage | DriverTrain> | undefined;
+  let changes: ChangeStream<ChatMessage | DriverTrain | StationClaim> | undefined;
   let markReady!: () => void;
   const ready = new Promise<void>((resolve) => {
     markReady = resolve;
@@ -82,6 +83,12 @@ export async function startChatRealtime(namespace: ChatNamespace) {
     emit: ((id, event, ...args) => namespace.to(id).emit(event, ...args)) as RadioEmit,
     resolveContact,
     currentStation: driverRadioStation,
+    actorName: (userId) =>
+      [...namespace.sockets.values()].find((socket) => socket.data.profile.userId === userId)?.data
+        .profile.name || 'Účastník',
+    recordMessage: async (message) => {
+      await messages.insertOne(message);
+    },
   });
   let radioTail: Promise<unknown> = Promise.resolve();
   const enqueueRadio = <T>(operation: () => Promise<T>) => {
@@ -255,9 +262,11 @@ export async function startChatRealtime(namespace: ChatNamespace) {
       }
     }
   }
-  async function publishChatChange(change: ChangeStreamDocument<ChatMessage | DriverTrain>) {
+  async function publishChatChange(
+    change: ChangeStreamDocument<ChatMessage | DriverTrain | StationClaim>,
+  ) {
     if (!('ns' in change) || !('coll' in change.ns)) return;
-    if (change.ns.coll === 'session_driver_trains') {
+    if (['session_driver_trains', 'session_station_claims'].includes(change.ns.coll)) {
       if (
         change.operationType === 'update' &&
         Object.keys(change.updateDescription.updatedFields || {}).every(
@@ -271,22 +280,25 @@ export async function startChatRealtime(namespace: ChatNamespace) {
     } else if (change.operationType === 'insert' && 'sender' in change.fullDocument) {
       const message = change.fullDocument;
       namespace
-        .to(chatRoom(message.sessionId, message.sender))
-        .to(chatRoom(message.sessionId, message.recipient))
+        .to(
+          (message.audience ?? [message.sender, message.recipient]).map((endpoint) =>
+            chatRoom(message.sessionId, endpoint),
+          ),
+        )
         .emit('chat:message', message);
     }
   }
   async function watch() {
     while (!stopped) {
       try {
-        changes = (await getMongoDb()).watch<ChatMessage | DriverTrain>(
+        changes = (await getMongoDb()).watch<ChatMessage | DriverTrain | StationClaim>(
           [
             {
               $match: {
                 $or: [
                   { 'ns.coll': 'session_chat_messages', operationType: 'insert' },
                   {
-                    'ns.coll': 'session_driver_trains',
+                    'ns.coll': { $in: ['session_driver_trains', 'session_station_claims'] },
                     operationType: { $in: ['insert', 'update', 'replace', 'delete'] },
                   },
                 ],
