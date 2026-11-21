@@ -1,4 +1,5 @@
 'use client';
+import { ResizablePanel, useResizablePanel } from '@/app/components/ui/ResizablePanel';
 import { apiOrigin } from '@/lib/api-client';
 import { canPublishAnnouncements } from '@/lib/dis/permissions';
 import { useLocaleTag, useTranslation } from '@/lib/i18n/client';
@@ -38,7 +39,8 @@ export function SessionChatView({
   const localeTag = useLocaleTag();
   const { profile, canOperateStation } = useDisAuth();
   const mode = canOperateStation && stationId ? 'station' : 'driver';
-  const [expanded, setExpanded] = useState(true);
+  const { collapsed: panelCollapsed, expand: expandPanel } = useResizablePanel();
+  const expanded = !panelCollapsed;
   const [announcement, setAnnouncement] = useState<'' | 'info' | 'warning' | 'alarm'>('');
   const [connected, setConnected] = useState(false);
   const [voiceSocket, setVoiceSocket] = useState<Socket<ChatServerEvents, ChatClientEvents> | null>(
@@ -60,12 +62,12 @@ export function SessionChatView({
   const connection = useRef<Socket<ChatServerEvents, ChatClientEvents> | null>(null);
   const view = useRef<HTMLDivElement>(null);
   const follow = useRef(true);
-  const current = useRef({ expanded, target });
+  const current = useRef({ expanded: expanded && !panelCollapsed, target });
   const endpointId = mode === 'station' ? stationId : profile?.userId || '';
   const endpointKey = `${mode}:${endpointId}`;
   useEffect(() => {
-    current.current = { expanded, target };
-  }, [expanded, target]);
+    current.current = { expanded: expanded && !panelCollapsed, target };
+  }, [expanded, panelCollapsed, target]);
 
   useEffect(() => {
     if (!endpointId || !profile) return;
@@ -179,11 +181,11 @@ export function SessionChatView({
     (contact: ChatContact | null, incoming?: boolean) => {
       setActiveCall(contact);
       if (contact && incoming) {
+        expandPanel();
         openConversation(contact);
-        setExpanded(true);
       }
     },
-    [openConversation],
+    [openConversation, expandPanel],
   );
   function closeTab(key: string) {
     const remaining = tabs.filter((tab) => chatEndpointKey(tab) !== key);
@@ -259,19 +261,7 @@ export function SessionChatView({
   return (
     <section className="session-chat" aria-label={t('Komunikácia medzi stanicami a rušňovodičmi')}>
       <div className="authoring-caption">
-        <button
-          className="aero-btn"
-          aria-expanded={expanded}
-          onClick={() => {
-            setExpanded(!expanded);
-            follow.current = true;
-            if (!expanded) setUnread((previous) => ({ ...previous, [target]: 0 }));
-          }}
-        >
-          <AeroIcon name="quote" /> {t('Komunikácia')}
-          {totalUnread > 0 ? t(' ({0} nových)', totalUnread) : ''}
-          <AeroIcon name={expanded ? 'collapse' : 'expand'} />
-        </button>
+        <span>{totalUnread > 0 ? t(' ({0} nových)', totalUnread) : ''}</span>
         <span role="status">{connected ? t('Pripojené naživo') : t('Pripájam…')}</span>
         <span>
           {mode === 'station'
@@ -292,43 +282,43 @@ export function SessionChatView({
           className="aero-btn session-chat-active-call"
           onClick={() => {
             openConversation(activeCall);
-            setExpanded(true);
           }}
         >
           <AeroIcon name="phone" /> {t('Hovor: {0}', activeCall.name)}
         </button>
       )}
       <div className="session-chat-workspace" hidden={!expanded}>
-        <aside className="session-chat-contacts" aria-label={t('Kontakty')}>
-          <div className="session-chat-contacts-title">{t('Kontakty')}</div>
-          {(['station', 'driver'] as const).map((kind) => {
-            const group = contacts.filter((contact) => contact.kind === kind);
-            return (
-              <div key={kind} className="session-chat-contact-group">
-                <strong>{kind === 'station' ? t('Stanice') : t('Rušňovodiči')}</strong>
-                {group.length ? (
-                  group.map((contact) => {
-                    const key = chatEndpointKey(contact);
-                    return (
-                      <button
-                        key={key}
-                        type="button"
-                        className="session-chat-contact"
-                        onClick={() => openConversation(contact)}
-                      >
-                        <AeroIcon name={kind === 'station' ? 'network' : 'train'} />
-                        <span>{contact.name}</span>
-                        {unread[key] ? <strong>{unread[key]}</strong> : null}
-                      </button>
-                    );
-                  })
-                ) : (
-                  <span className="session-chat-empty">{t('Žiadne kontakty')}</span>
-                )}
-              </div>
-            );
-          })}
-        </aside>
+        <ResizablePanel id="chat-contacts" title={t('Kontakty')} edge="top" defaultSize={150}>
+          <div className="session-chat-contacts !basis-auto !overflow-visible">
+            {(['station', 'driver'] as const).map((kind) => {
+              const group = contacts.filter((contact) => contact.kind === kind);
+              return (
+                <div key={kind} className="session-chat-contact-group">
+                  <strong>{kind === 'station' ? t('Stanice') : t('Rušňovodiči')}</strong>
+                  {group.length ? (
+                    group.map((contact) => {
+                      const key = chatEndpointKey(contact);
+                      return (
+                        <button
+                          key={key}
+                          type="button"
+                          className="session-chat-contact"
+                          onClick={() => openConversation(contact)}
+                        >
+                          <AeroIcon name={kind === 'station' ? 'network' : 'train'} />
+                          <span>{contact.name}</span>
+                          {unread[key] ? <strong>{unread[key]}</strong> : null}
+                        </button>
+                      );
+                    })
+                  ) : (
+                    <span className="session-chat-empty">{t('Žiadne kontakty')}</span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </ResizablePanel>
         <div className="session-chat-conversations">
           <div className="session-chat-toolbar">
             {!connected && (

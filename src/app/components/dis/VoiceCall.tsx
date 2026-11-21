@@ -4,6 +4,7 @@ import type { RadioNormalCall as Call, RadioTerminalState } from '@/lib/dis/radi
 import { ChannelVolume } from './ChannelVolume';
 
 import { AeroIcon } from '@/app/components/ui/AeroIcon';
+import { reportAudioPermissionError } from '@/lib/dis/audio-permissions';
 import { type ChatClientEvents, type ChatContact, type ChatServerEvents } from '@/lib/dis/chat';
 import { useTranslation } from '@/lib/i18n/client';
 import { Room, RoomEvent, Track, type RemoteTrack } from 'livekit-client';
@@ -141,7 +142,8 @@ export function VoiceCall({
           if (room.current === voice)
             setMicrophoneTrack(microphone?.track?.mediaStreamTrack ?? null);
           else await voice.disconnect();
-        } catch {
+        } catch (error) {
+          reportAudioPermissionError(error);
           if (room.current !== voice) {
             await voice.disconnect();
             return;
@@ -208,8 +210,13 @@ export function VoiceCall({
     const container = audio.current;
     const failed = () =>
       setNotice('Výstup zvuku sa nepodarilo zmeniť. Skontrolujte vybrané reproduktory.');
+    const playbackBlocked = () => setAudioBlocked(true);
     container?.addEventListener('audio-device-error', failed);
-    return () => container?.removeEventListener('audio-device-error', failed);
+    container?.addEventListener('audio-playback-blocked', playbackBlocked);
+    return () => {
+      container?.removeEventListener('audio-device-error', failed);
+      container?.removeEventListener('audio-playback-blocked', playbackBlocked);
+    };
   }, []);
   return (
     <div className="flex flex-wrap items-center gap-2 px-2 py-1" aria-live="polite">
@@ -284,7 +291,10 @@ export function VoiceCall({
                     if (!next) setMicrophoneTrack(microphone?.track?.mediaStreamTrack ?? null);
                     setMuted(next);
                   })
-                  .catch(() => setNotice('Mikrofón sa nepodarilo zmeniť.'));
+                  .catch((error) => {
+                    reportAudioPermissionError(error);
+                    setNotice('Mikrofón sa nepodarilo zmeniť.');
+                  });
               }}
             >
               {muted ? t('Zapnúť mikrofón') : t('Stlmiť mikrofón')}

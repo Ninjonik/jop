@@ -271,7 +271,7 @@ export default function StationLinkerClient({ tiles, stateGroups }: Props) {
           <AeroIcon name="back" /> {t('Späť na sieť staníc')}{' '}
         </Link>
       </header>
-      <AuthoringTools title={t('Nástroje prepojenia')}>
+      <AuthoringTools id="linker-tools" title={t('Nástroje prepojenia')}>
         <div className="flex shrink-0 flex-wrap items-end gap-3 border-b border-[var(--aero-ribbon-border)] bg-[var(--aero-ribbon-bg)] p-3 text-xs">
           <div className="flex min-w-52 flex-col gap-1">
             <label htmlFor="station-id" className="text-xs font-semibold">

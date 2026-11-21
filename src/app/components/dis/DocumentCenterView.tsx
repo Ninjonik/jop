@@ -2,6 +2,7 @@
 import { useLocaleTag, useTranslation } from '@/lib/i18n/client';
 
 import { AeroIcon } from '@/app/components/ui/AeroIcon';
+import { ResizablePanel } from '@/app/components/ui/ResizablePanel';
 import { disFetch } from '@/lib/dis/api-client';
 import { useDisAuth } from '@/lib/dis/auth-context';
 import type { DisDocument } from '@/lib/dis/records';
@@ -77,25 +78,27 @@ export function DocumentCenterView() {
         </p>
       )}
       <div className="flex flex-1 overflow-hidden">
-        <aside className="w-44 shrink-0 overflow-auto border-r border-[var(--aero-panel-border)] bg-[var(--grid-row-alt)] p-2 md:w-64">
-          {loading ? (
-            <p>{t('Načítavam dokumenty...')}</p>
-          ) : value.documents.length === 0 ? (
-            <p>{t('Žiadne publikované dokumenty.')}</p>
-          ) : (
-            value.documents.map((document) => (
-              <button
-                disabled={!!draft}
-                key={document.$id}
-                className={`block w-full border p-2 text-left mb-1 ${active?.$id === document.$id ? 'bg-blue-50 border-blue-400' : 'bg-white'}`}
-                onClick={() => setSelectedId(document.$id)}
-              >
-                {document.title}
-                {!document.isPublished && <span> {t('(Koncept)')}</span>}
-              </button>
-            ))
-          )}
-        </aside>
+        <ResizablePanel id="documents" title={t('Dokumenty')} edge="left" defaultSize={240}>
+          <div className="bg-[var(--grid-row-alt)] p-2">
+            {loading ? (
+              <p>{t('Načítavam dokumenty...')}</p>
+            ) : value.documents.length === 0 ? (
+              <p>{t('Žiadne publikované dokumenty.')}</p>
+            ) : (
+              value.documents.map((document) => (
+                <button
+                  disabled={!!draft}
+                  key={document.$id}
+                  className={`block w-full border p-2 text-left mb-1 ${active?.$id === document.$id ? 'bg-blue-50 border-blue-400' : 'bg-white'}`}
+                  onClick={() => setSelectedId(document.$id)}
+                >
+                  {document.title}
+                  {!document.isPublished && <span> {t('(Koncept)')}</span>}
+                </button>
+              ))
+            )}
+          </div>
+        </ResizablePanel>
         <div className="flex min-w-0 flex-1 flex-col overflow-auto p-3">
           {draft ? (
             <form onSubmit={save} className="flex flex-1 flex-col gap-3">

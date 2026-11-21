@@ -9,15 +9,20 @@ export function attachRadioAudio(
 ) {
   const element = track.attach();
   container.appendChild(element);
+  let processed: HTMLMediaElement | undefined;
   let outputGain: GainNode | undefined;
   let processing = false;
   const desiredVolume = () => Math.min(2, getBrowserSettings().volume * (options.volume?.() ?? 1));
   const updateOutput = () => {
     const settings = getBrowserSettings();
-    element.volume = Math.min(1, desiredVolume());
+    element.volume = processing ? 0 : Math.min(1, desiredVolume());
+    if (processed) processed.volume = processing ? Math.min(1, desiredVolume()) : 0;
     if (outputGain && processing) outputGain.gain.value = Math.max(1, desiredVolume());
     if ('setSinkId' in element)
-      void element.setSinkId(settings.speaker).catch(() => {
+      void Promise.all([
+        element.setSinkId(settings.speaker),
+        processed?.setSinkId?.(settings.speaker),
+      ]).catch(() => {
         container.dispatchEvent(new CustomEvent('audio-device-error', { bubbles: true }));
       });
     else if (settings.speaker)
@@ -31,10 +36,16 @@ export function attachRadioAudio(
   let silentSamples = 0;
   try {
     context = new AudioContext();
-    // Route processed audio through the same element so speaker selection applies
-    // equally to filtered playback and its original-track fallback.
+    // Chromium needs an attached original stream to keep decoding remote audio.
+    // Replacing its srcObject with the filtered stream can stall that decoder.
+    // Keep it playing at zero volume while the second element plays the filter.
+    // Both are attached to LiveKit so startAudio() can unlock both after a gesture.
     const destination = context.createMediaStreamDestination();
-    const originalStream = element.srcObject;
+    processed = track.attach();
+    processed.volume = 0;
+    processed.srcObject = destination.stream;
+    container.appendChild(processed);
+    updateOutput();
     const audioContext = context;
     const source = context.createMediaStreamSource(new MediaStream([track.mediaStreamTrack]));
     const inputMeter = context.createAnalyser();
@@ -83,9 +94,8 @@ export function attachRadioAudio(
     const hasSignal = (samples: Float32Array) => samples.some((sample) => Math.abs(sample) > 0.002);
     const restoreOriginal = () => {
       gain.gain.value = 0;
-      element.srcObject = originalStream;
-      element.muted = false;
       processing = false;
+      updateOutput();
       void element.play().catch(() => {});
     };
     timer = setInterval(() => {
@@ -106,10 +116,14 @@ export function attachRadioAudio(
       const inputActive = hasSignal(inputSamples);
       const outputActive = hasSignal(outputSamples);
       if (!processing && outputActive) {
-        element.srcObject = destination.stream;
-        void element.play().catch(() => {});
         gain.gain.value = Math.max(1, desiredVolume());
         processing = true;
+        updateOutput();
+        void processed!.play().catch(() => {
+          if (closed) return;
+          restoreOriginal();
+          container.dispatchEvent(new CustomEvent('audio-playback-blocked', { bubbles: true }));
+        });
         silentSamples = 0;
       } else if (processing && inputActive && !outputActive) {
         if (++silentSamples >= 4) restoreOriginal();
@@ -122,6 +136,11 @@ export function attachRadioAudio(
     // If Web Audio is unavailable, the original LiveKit element stays audible.
     if (context && context.state !== 'closed') void context.close();
     context = undefined;
+    if (processed) {
+      track.detach(processed);
+      processed.remove();
+      processed = undefined;
+    }
   }
   return () => {
     closed = true;
@@ -129,6 +148,10 @@ export function attachRadioAudio(
     if (timer) clearInterval(timer);
     track.detach(element);
     element.remove();
+    if (processed) {
+      track.detach(processed);
+      processed.remove();
+    }
     if (context && context.state !== 'closed') void context.close();
   };
 }

@@ -940,8 +940,13 @@ Browser audio/display preferences are owned by `src/lib/dis/browser-settings.ts`
 and the DIS Settings section. They are local preferences, not railway state.
 Microphone and speaker selection, echo/noise processing, receive volume and radio
 filter changes apply to voice media; each active call/broadcast has its own local
-receive volume. Radio processing and original-track fallback share one playback
-element so both follow the chosen speaker and volume. Microphone tests stay local
+receive volume. Radio processing keeps the original LiveKit audio element
+attached and playing silently while a second element plays the processed stream;
+replacing the original stream can stall Chromium's remote audio decoder. Only
+one output is audible, and both follow the chosen speaker and volume. RADIOSTOP
+shows actual published-microphone and received-track meters; the server's
+broadcast summary alone is not evidence that the microphone is connected.
+Microphone tests stay local
 and release their tracks when stopped or when leaving Settings.
 
 ## 26. Operating workspace, lines and exclusive control
@@ -1020,3 +1025,12 @@ state also invalidates any in-flight JWT result. Tokens remain in memory; the
 existing Appwrite cookie/fallback owns persistence between tabs and reloads.
 The communication endpoint is always derived from the current station/role;
 there is no manual identity selector.
+
+Workspace panels use `src/app/components/ui/ResizablePanel.tsx` for pointer and
+keyboard resizing and full collapse to a reopening strip. Sizes and collapse
+state are local UI preferences under `dis-panel:<userId>:<panelId>:<edge>` in
+local storage; standalone tools without an authenticated context use `local`.
+The communication and network panels switch orientation at 850px and retain
+separate horizontal/vertical sizes without remounting their contents. Collapsed
+communication keeps its socket/audio mounted and counts incoming messages as
+unread. These preferences never alter persisted railway state.

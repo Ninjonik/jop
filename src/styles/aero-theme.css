@@ -265,6 +265,114 @@ button:disabled > .aero-icon {
 }
 
 /* DIS portal window and navigation */
+.aero-resizable-panel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex-grow: 0;
+  flex-shrink: 0;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  color: var(--aero-text);
+  background: var(--aero-panel-bg);
+  border: 1px solid var(--aero-panel-border);
+}
+.aero-resizable-panel:is(.is-left, .is-right) {
+  max-width: 70%;
+}
+.aero-resizable-panel:is(.is-top, .is-bottom) {
+  max-height: 70%;
+  max-width: 100%;
+  width: 100%;
+}
+.aero-panel-caption {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  min-height: 22px;
+  font-size: 12px;
+  text-align: left;
+  color: var(--aero-caption-text);
+  background: linear-gradient(var(--aero-caption-top), var(--aero-caption-bottom));
+  border-bottom: 1px solid var(--aero-panel-border);
+  cursor: pointer;
+}
+.aero-panel-caption span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.aero-panel-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+}
+.aero-panel-body[hidden] {
+  display: none;
+}
+.aero-resizable-panel.is-collapsed:is(.is-left, .is-right) .aero-panel-caption {
+  writing-mode: vertical-rl;
+  height: 100%;
+  padding: 8px 2px;
+}
+.aero-resizable-panel.is-collapsed .aero-panel-caption {
+  flex: 1;
+}
+.aero-panel-splitter {
+  position: absolute;
+  z-index: 35;
+  touch-action: none;
+  user-select: none;
+}
+.is-left > .aero-panel-splitter {
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 5px;
+  cursor: col-resize;
+}
+.is-right > .aero-panel-splitter {
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 5px;
+  cursor: col-resize;
+}
+.is-top > .aero-panel-splitter {
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 5px;
+  cursor: row-resize;
+}
+.is-bottom > .aero-panel-splitter {
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 5px;
+  cursor: row-resize;
+}
+.aero-panel-splitter:hover,
+.aero-panel-splitter:focus-visible {
+  background: var(--btn-hover-border);
+  outline: 1px solid var(--btn-hover-border);
+}
+.aero-panel-caption:focus-visible {
+  outline: 2px solid var(--btn-hover-border);
+  outline-offset: -2px;
+}
+@media print {
+  .aero-resizable-panel {
+    display: none !important;
+  }
+}
+
 .dis-portal {
   font-family: 'Segoe UI', Arial, sans-serif;
 }
@@ -555,6 +663,17 @@ button:disabled > .aero-icon {
   border: 1px solid var(--aero-panel-border);
   background: var(--grid-row-alt);
 }
+.aero-panel-body > .radio-dock {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+}
+.aero-panel-body .radio-messages {
+  flex: 1;
+  min-height: 40px;
+  max-height: none;
+}
 .radio-messages .msg-line {
   padding: 3px 0;
   overflow-wrap: anywhere;
@@ -733,6 +852,9 @@ button:disabled > .aero-icon {
   line-height: 1.5;
 }
 @media (max-width: 850px) {
+  .network-station-workspace {
+    flex-direction: column;
+  }
   .gvd-train-fields,
   .gvd-working-fields {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1065,49 +1187,32 @@ button:disabled > .aero-icon {
   display: inline-flex;
   gap: 2px;
 }
-.dis-communication-side:empty {
-  display: none;
-}
-.dis-communication-side:has(.session-chat) {
-  width: clamp(270px, 28vw, 470px);
-  min-width: 220px;
-  overflow: auto;
-  border-left: 1px solid var(--aero-panel-border);
-}
-.dis-communication-side .session-chat {
+.aero-panel-body > .session-chat {
   height: 100%;
+  min-height: 0;
+  max-height: none;
   display: flex;
   flex-direction: column;
 }
-.dis-communication-side .session-chat-workspace {
+.aero-panel-body .session-chat-workspace {
   display: flex;
   flex-direction: column;
   flex: 1;
   min-height: 0;
 }
-.dis-communication-side .session-chat-workspace[hidden] {
+.aero-panel-body .session-chat-workspace[hidden] {
   display: none;
 }
-.dis-communication-side .session-chat-contacts {
-  max-height: 150px;
-  overflow: auto;
-}
-.dis-communication-side .session-chat-conversations {
+.aero-panel-body .session-chat-conversations {
   flex: 1;
-  min-height: 180px;
+  min-height: 0;
 }
-.dis-communication-side .session-chat .authoring-caption {
+.aero-panel-body .session-chat .authoring-caption {
   flex-wrap: wrap;
 }
 @media (max-width: 850px) {
-  .workspace:has(.dis-communication-side .session-chat) {
+  .workspace:has(> .aero-resizable-panel.is-bottom) {
     flex-direction: column;
-  }
-  .dis-communication-side:has(.session-chat) {
-    width: 100%;
-    max-height: 35vh;
-    min-height: 35px;
-    border-left: 0;
   }
 }
 .reminder-tools {

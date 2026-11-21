@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { attachRadioAudio } from '../../../app/components/dis/radio-audio';
 
-test('radio playback keeps the original audio until processing works and restores it if it stops', async (context) => {
+test('radio playback keeps the remote decoder attached during filtering and restores audible fallback', async (context) => {
   const audioDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'AudioContext');
   const streamDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'MediaStream');
   const intervalDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'setInterval')!;
@@ -98,12 +98,14 @@ test('radio playback keeps the original audio until processing works and restore
     play: async () => {},
     remove: () => {},
   };
-  let detached = false;
+  const processed = { ...element, srcObject: {} };
+  let attachments = 0;
+  let detached = 0;
   const track = {
     mediaStreamTrack: {},
-    attach: () => element,
+    attach: () => (attachments++ === 0 ? element : processed),
     detach: () => {
-      detached = true;
+      detached++;
     },
   } as unknown as RemoteTrack;
   const container = { appendChild: () => {} } as unknown as HTMLElement;
@@ -121,12 +123,13 @@ test('radio playback keeps the original audio until processing works and restore
     receiveVolume = 2;
     input = output = true;
     tick();
-    assert.equal(element.volume, 1, 'the media element stays inside its legal volume range');
+    assert.equal(element.volume, 0, 'the original decoder keeps playing silently');
+    assert.equal(processed.volume, 1, 'only the filtered output is audible');
     assert.equal(gains[0].gain.value, 2, 'Web Audio supplies the 200% receive gain');
     assert.equal(
-      element.srcObject !== originalStream,
-      true,
-      'radio audio takes over after a processed signal is detected',
+      element.srcObject,
+      originalStream,
+      'filtering must never detach the remote stream from its playback element',
     );
     receiveVolume = 1;
     options.radio = false;
@@ -136,9 +139,13 @@ test('radio playback keeps the original audio until processing works and restore
       originalStream,
       'disabling the filter restores unprocessed audio',
     );
+    assert.equal(element.volume, 1);
+    assert.equal(processed.volume, 0, 'disabling the filter silences only the processed output');
     options.radio = true;
     tick();
-    assert.notEqual(element.srcObject, originalStream, 'filter can resume during the same call');
+    assert.equal(element.srcObject, originalStream);
+    assert.equal(element.volume, 0, 'filter can resume without stopping the remote decoder');
+    assert.equal(processed.volume, 1);
     output = false;
     for (let index = 0; index < 4; index++) tick();
     assert.equal(
@@ -146,9 +153,11 @@ test('radio playback keeps the original audio until processing works and restore
       originalStream,
       'original audio resumes if processing stops while input is active',
     );
+    assert.equal(element.volume, 1, 'processing failure restores audible original playback');
+    assert.equal(processed.volume, 0);
   } finally {
     cleanup();
   }
-  assert.equal(detached, true);
+  assert.equal(detached, 2, 'both playback elements are detached on hangup');
   assert.equal(contexts[0].state, 'closed');
 });

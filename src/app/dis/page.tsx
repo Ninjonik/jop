@@ -1,7 +1,9 @@
 'use client';
+import { AudioPermissions } from '@/app/components/dis/AudioPermissions';
 import { DesktopDownloads } from '@/app/components/dis/DesktopDownloads';
 import { SettingsView } from '@/app/components/dis/SettingsView';
 import { StationSelectionView } from '@/app/components/dis/StationSelectionView';
+import { ResizablePanel } from '@/app/components/ui/ResizablePanel';
 import { disFetch } from '@/lib/dis/api-client';
 import type { StationClaim } from '@/lib/dis/claims';
 import { canUseWorkingMode, type WorkingMode } from '@/lib/dis/permissions';
@@ -345,6 +347,7 @@ function DisPortalShell() {
   const activeTab = tabs.find((item) => item.id === tab)?.visible === false ? 'sessions' : tab;
   return (
     <div className="dis-portal h-screen flex flex-col overflow-hidden bg-[var(--aero-bg)] text-[var(--aero-text)] text-xs">
+      <AudioPermissions sessionId={current.sessionId} />
       <div className="aero-title-bar">
         <div className="window-title">
           <AeroIcon name="train" size={24} />
@@ -533,7 +536,7 @@ function DisPortalShell() {
         </p>
       )}
       <div className="workspace min-h-0">
-        <main className="content-panel min-w-0">
+        <main className="content-panel min-h-0 min-w-0">
           {!workingMode ? (
             <div className="working-mode-selection">
               <h1>{t('Vyberte pracovnú pozíciu')}</h1>
@@ -678,11 +681,18 @@ function DisPortalShell() {
                     placeId={placeId}
                     onSelectTrain={(train) => setRadioTarget(train)}
                   />
-                  <RadioDockView
-                    key={`${scopeKey}/${radioTarget}`}
-                    {...current}
-                    defaultTarget={radioTarget}
-                  />
+                  <ResizablePanel
+                    id="radio-log"
+                    title={t('Hlásenia a rozkazy')}
+                    edge="bottom"
+                    defaultSize={220}
+                  >
+                    <RadioDockView
+                      key={`${scopeKey}/${radioTarget}`}
+                      {...current}
+                      defaultTarget={radioTarget}
+                    />
+                  </ResizablePanel>
                 </div>
               )}
               {activeTab === 'tpv' && current.sessionId && (
@@ -726,9 +736,14 @@ function DisPortalShell() {
             </>
           )}
         </main>
-        <aside className="dis-communication-side">
-          {' '}
-          {hasSession && workingMode && activeTab !== 'preparation' && (
+        {hasSession && workingMode && activeTab !== 'preparation' && (
+          <ResizablePanel
+            id="communication"
+            title={t('Komunikácia')}
+            edge="right"
+            defaultSize={350}
+            responsive
+          >
             <SessionChatView
               key={`${current.sessionId}/${workingMode}/${workingMode === 'dispatcher' && ownsStation ? current.stationId : 'self'}`}
               sessionId={current.sessionId}
@@ -737,8 +752,8 @@ function DisPortalShell() {
                 driverSelection?.sessionId === current.sessionId ? driverSelection.train : undefined
               }
             />
-          )}
-        </aside>
+          </ResizablePanel>
+        )}
       </div>
       <div className="statusbar">
         <a

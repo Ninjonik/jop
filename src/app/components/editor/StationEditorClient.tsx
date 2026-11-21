@@ -948,7 +948,7 @@ export default function StationEditorClient({ tiles, stateGroups }: Props) {
           {t(stationLoadError)}
         </p>
       )}
-      <AuthoringTools title={t('Nástroje a prvky koľajiska')}>
+      <AuthoringTools id="editor-tools" title={t('Nástroje a prvky koľajiska')}>
         <EditorControls
           width={draftWidth}
           height={draftHeight}

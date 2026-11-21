@@ -4,6 +4,7 @@ import { downloadBlob } from '@/lib/download';
 import { useLocaleTag, useTranslation } from '@/lib/i18n/client';
 
 import { AeroIcon } from '@/app/components/ui/AeroIcon';
+import { ResizablePanel } from '@/app/components/ui/ResizablePanel';
 
 import Link from '@/lib/link';
 import { useRouter, useSearchParams } from '@/lib/navigation';
@@ -974,9 +975,14 @@ export default function SessionMapClient() {
             ))}
           </nav>
           {tab === 'stations' && (
-            <div className="grid min-h-0 flex-1 md:grid-cols-[250px_minmax(0,1fr)]">
-              <aside className="border-b border-[var(--aero-panel-border)] bg-[var(--grid-row-alt)] md:border-r md:border-b-0">
-                <div className="manager-heading">{t('Stanice v sieti')}</div>
+            <div className="network-station-workspace flex min-h-0 flex-1">
+              <ResizablePanel
+                id="network-stations"
+                title={t('Stanice v sieti')}
+                edge="left"
+                defaultSize={250}
+                responsive
+              >
                 <label className="m-2 grid gap-1">
                   {' '}
                   {t('Vyhľadať stanicu')}{' '}
@@ -1048,8 +1054,8 @@ export default function SessionMapClient() {
                     )}{' '}
                   </p>
                 </form>
-              </aside>
-              <div className="min-w-0">
+              </ResizablePanel>
+              <div className="min-w-0 flex-1 overflow-auto">
                 {selectedStation && (
                   <div className="flex flex-wrap items-center gap-2 border-b border-[var(--aero-panel-border)] p-2">
                     <strong className="mr-auto">{selectedStation.stationId}</strong>

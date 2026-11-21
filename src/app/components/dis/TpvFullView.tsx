@@ -12,6 +12,7 @@ import { getStationDisplayName } from '@/lib/station/display-name';
 import * as Dialog from '@radix-ui/react-dialog';
 import { useEffect, useState } from 'react';
 import { AeroIcon } from '../ui/AeroIcon';
+import { ResizablePanel } from '../ui/ResizablePanel';
 import { BookletTimetable } from './BookletTimetable';
 import { TimetableGraph } from './TimetableGraph';
 
@@ -47,7 +48,6 @@ export function TpvFullView({
   const [first, setFirst] = useState('');
   const [last, setLast] = useState('');
   const [hidden, setHidden] = useState<string[]>([]);
-  const [showRoutes, setShowRoutes] = useState(true);
   const [selected, setSelected] = useState<Timetable | null>(null);
   const [now, setNow] = useState<number>();
   useEffect(() => {
@@ -76,14 +76,6 @@ export function TpvFullView({
   return (
     <div className="flex flex-1 flex-col min-h-0 overflow-hidden">
       <div className="ribbon-bar flex-wrap">
-        <button
-          className="aero-btn"
-          aria-expanded={showRoutes}
-          onClick={() => setShowRoutes(!showRoutes)}
-        >
-          <AeroIcon name="network" />
-          {t('Výber trate a staníc')}
-        </button>
         <strong>{line?.name || t('Celá sieť')}</strong>
       </div>
       {(error || journalError || lineError) && (
@@ -91,8 +83,13 @@ export function TpvFullView({
           {t(error || journalError || lineError)}
         </p>
       )}
-      {showRoutes && (
-        <div className="tpv-route-selector">
+      <ResizablePanel
+        id="tpv-routes"
+        title={t('Výber trate a staníc')}
+        edge="top"
+        defaultSize={180}
+      >
+        <div className="tpv-route-selector !max-h-none">
           <div className="flex flex-wrap gap-2 items-center">
             <label>
               {t('Trať')}{' '}
@@ -159,7 +156,7 @@ export function TpvFullView({
             <p>{t('Trate môžete vytvoriť v Tvorbe GVD. Zobrazené sú stanice uložených vlakov.')}</p>
           )}
         </div>
-      )}
+      </ResizablePanel>
       {loading ? (
         <p className="p-3">{t('Načítavam grafikony...')}</p>
       ) : (

@@ -1,5 +1,6 @@
 'use client';
 import { AeroIcon } from '@/app/components/ui/AeroIcon';
+import { reportAudioPermissionError } from '@/lib/dis/audio-permissions';
 import type { ChatClientEvents, ChatServerEvents } from '@/lib/dis/chat';
 import { emptyRadioTerminal, type RadioTerminalState } from '@/lib/dis/radio';
 import { useTranslation } from '@/lib/i18n/client';
@@ -76,6 +77,7 @@ export function useRadioTerminal(socket: ChatSocket | null, ready: boolean) {
         socket.emit('radio:claim');
       } else throw new Error('Spojenie bolo prerušené.');
     } catch (error) {
+      reportAudioPermissionError(error);
       setClaiming(false);
       setNotice(error instanceof Error ? error.message : 'Povoľte mikrofón pre hlasový terminál.');
     }
