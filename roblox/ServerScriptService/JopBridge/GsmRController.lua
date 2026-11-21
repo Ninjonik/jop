@@ -72,8 +72,8 @@ local function text(parent, path, value)
 	if target and target:IsA("TextLabel") then target.Text = radioText(value) end
 end
 local function showScreen(gui, frameName)
-	-- Disabling SurfaceGui exposes the model's grey backing part. Keep an
-	-- opaque black UI surface when the LCD is off instead.
+-- Disabling SurfaceGui exposes the model's grey backing part. Keep an
+-- opaque black UI surface when the LCD is off instead.
 	gui.Enabled = true
 	for _, frame in ipairs(gui:GetChildren()) do
 		if frame:IsA("Frame") then frame.Visible = frame.Name == frameName end
@@ -157,8 +157,8 @@ local function render(vehicle)
 		if not gui then continue end
 		local screen = vehicle.screen
 		local frameName = screen == "startup" and "StartUp"
-			or (screen == "driver" or screen == "train" or screen == "dial") and "Registration_NumberEntering"
-			or screen == "hv" and "Registration_HVselection" or "MainScreen"
+		or (screen == "driver" or screen == "train" or screen == "dial") and "Registration_NumberEntering"
+		or screen == "hv" and "Registration_HVselection" or "MainScreen"
 		showScreen(gui, vehicle.powered and frameName or "JOPPoweredOff")
 		for _, frame in ipairs(gui:GetChildren()) do
 			if frame:IsA("Frame") then
@@ -174,9 +174,9 @@ local function render(vehicle)
 			text(entering, "JOPEntryPrompt", screen == "driver" and "VOLACI ZNAK\nRUSNOVODICA" or screen == "dial" and "VOLANE CISLO" or "CISLO VLAKU")
 			text(entering, "JOPEntryValue", vehicle.entry .. "_")
 			text(entering, "JOPEntryHelp", screen == "driver"
-				and "3 CISLICE Z DIS\n* POTVRDIT | DEL ZMAZAT"
-				or screen == "dial" and "1300: VYPRAVCA\n* VOLAT | NULL SPAT"
-				or "CISLO Z GVD\n* POTVRDIT | DEL ZMAZAT")
+			and "3 CISLICE Z DIS\n* POTVRDIT | DEL ZMAZAT"
+			or screen == "dial" and "1300: VYPRAVCA\n* VOLAT | NULL SPAT"
+			or "CISLO Z GVD\n* POTVRDIT | DEL ZMAZAT")
 		end
 		local main = gui:FindFirstChild("MainScreen")
 		if main then
@@ -188,19 +188,19 @@ local function render(vehicle)
 			if (communication.incomingEmergencies or 0) > 0 then status ..= " | PRIJEM TIESNE: " .. communication.incomingEmergencies end
 			text(main, "REGISTROVAN_text", vehicle.message ~= "" and vehicle.message or (communication.notice or "") ~= "" and communication.notice or status)
 			text(main, "CELEJTE_text", vehicle.busy and "CAKAJTE" or emergency and "F6 / NULL: KONIEC TIESNE"
-				or call and (call.incoming and call.phase == "ringing" and "*: ZDVIHNUT SLUCHADLO\nF6 / NULL: ODMIETNUT" or "F6 / NULL: ZAVESIT")
-				or binding and "F8: VYPRAVCA | F1: CISLO" or "")
+			or call and (call.incoming and call.phase == "ringing" and "*: ZDVIHNUT SLUCHADLO\nF6 / NULL: ODMIETNUT" or "F6 / NULL: ZAVESIT")
+			or binding and "F8: VYPRAVCA | F1: CISLO" or "")
 			text(main, "GSMRcountry", vehicle.prefix and "F: F8 funkcia / F9 vlak" or "GSM-R SK")
 			local icons = main:FindFirstChild("Icons")
 			if icons then
 				for _, icon in ipairs(icons:GetChildren()) do
 					if icon:IsA("ImageLabel") then
 						icon.Visible = icon.Name == "deregestration" and binding ~= nil
-							or icon.Name == "regrestration" and binding == nil
-							or icon.Name == "CallDispatcher"
-							or icon.Name == "CallTrafficDispatcher"
-							or icon.Name == "CallElectricalDispatcher"
-							or icon.Name == "GroupCall" and (emergency ~= nil or (communication.incomingEmergencies or 0) > 0)
+						or icon.Name == "regrestration" and binding == nil
+						or icon.Name == "CallDispatcher"
+						or icon.Name == "CallTrafficDispatcher"
+						or icon.Name == "CallElectricalDispatcher"
+						or icon.Name == "GroupCall" and (emergency ~= nil or (communication.incomingEmergencies or 0) > 0)
 					end
 				end
 			end
@@ -407,7 +407,7 @@ local function press(vehicle, radio, button, player)
 		end
 	elseif name == "Enter" and type(binding) == "table" then
 		vehicle.message = type((vehicle.communication or {}).outgoingEmergency) == "table"
-			and "F6 / NULL: KONIEC TIESNE" or "F8: VYPRAVCA | F1: CISLO"
+		and "F6 / NULL: KONIEC TIESNE" or "F8: VYPRAVCA | F1: CISLO"
 	elseif name == "Enter" and vehicle.driverId ~= "" and vehicle.trainNumber ~= "" then
 		command(vehicle, player, false)
 	elseif name == "Simplex" or name == "System" or string.match(name, "^F%d$") then
@@ -434,7 +434,7 @@ function Controller.Attach(radio)
 	end
 	local sensor = link and link:IsA("ObjectValue") and link.Value
 	if not sensor or not sensor:IsA("BasePart") or not sensor:IsDescendantOf(workspace)
-		or not string.find(string.lower(sensor.Name), "vehiclesensor", 1, true) then
+	or not string.find(string.lower(sensor.Name), "vehiclesensor", 1, true) then
 		warn("[JOP][GSM-R] Invalid VehicleSensorLink: " .. radio:GetFullName()); return
 	end
 	local vehicle = vehicles[sensor]
@@ -452,8 +452,8 @@ function Controller.Attach(radio)
 	if buttons then
 		for _, button in ipairs(buttons:GetChildren()) do
 			if button:IsA("BasePart") and button.Name ~= "SmallGrayButton" then
-				local detector = button:FindFirstChildOfClass("ClickDetector") or Instance.new("ClickDetector")
-				detector.MaxActivationDistance, detector.Parent = 12, button
+				local Click = require(game.ServerScriptService:WaitForChild("RailKit750").Modules.CustomClickDetector)
+				local detector = Click.new(button)
 				table.insert(connections, detector.MouseClick:Connect(function(player) press(vehicle, radio, button, player) end))
 			end
 		end
