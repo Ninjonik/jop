@@ -26,7 +26,22 @@ const port = Number.parseInt(process.env.PORT ?? '3000', 10);
 const httpServer = createServer();
 const nextApp = next({ dir: resolve('apps/api'), dev: development, hostname, port, httpServer });
 const requestHandler = nextApp.getRequestHandler();
-const serveSpa = sirv(resolve('apps/spa/dist'), { single: true, dev: development });
+const serveSpa = sirv(resolve('apps/spa/dist'), {
+  single: true,
+  dev: development,
+  etag: true,
+  setHeaders(response, pathname) {
+    // Every application route is served by the SPA entry document. Revalidate
+    // it on ordinary refreshes so a deployment immediately supplies the new
+    // fingerprinted asset list. Assets themselves are content-addressed.
+    response.setHeader(
+      'Cache-Control',
+      pathname.startsWith('/assets/')
+        ? 'public, max-age=31536000, immutable'
+        : 'no-cache, max-age=0, must-revalidate',
+    );
+  },
+});
 
 let stations: Collection<StationDocument>;
 let stationChanges: ChangeStream<StationDocument> | null = null;
