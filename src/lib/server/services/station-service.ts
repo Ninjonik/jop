@@ -3071,20 +3071,13 @@ function isSwitchBranchTraversalState(traversalState: string) {
   return traversalState !== 'occupied' && traversalState !== 'reserved';
 }
 
-function releaseRouteReservationsForClearedOccupation(
+function isClearedTraversalOnRoute(
   station: StationDocument,
+  route: ActiveTrainRoute,
   pieceId: string,
   traversalState: string | null,
 ) {
   const piece = station.layout.pieces[pieceId];
-  // A physical track sensor reports `occupied` for both its occupied and clear
-  // events, while a built route stores the visual state as `reserved`. That
-  // value is not a branch identifier, so retaining the reservation on a clear
-  // event leaves an ordinary track falsely shown as reserved. Switch sensors
-  // do use traversalState to identify one independently occupied branch, but
-  // only when that value is an actual branch name. Generic values such as
-  // `occupied` are not branch identifiers and must be treated like null so
-  // an extended switch clear event does not leave a stale reservation behind.
   const requiresBranchMatch = Boolean(
     piece &&
       isPhysicalSwitchType(piece.type) &&
@@ -3092,17 +3085,31 @@ function releaseRouteReservationsForClearedOccupation(
       isSwitchBranchTraversalState(traversalState),
   );
 
+  if (!requiresBranchMatch) {
+    return route.path.some((step) => step.pieceId === pieceId);
+  }
+
+  // Route reservations use the visual occupation state (`t`, `reserved`,
+  // etc.), but Roblox reports the physical branch (`blTtr`, `blTbr`, ...).
+  // Compare the clear event with the ordered route traversal, not the visual
+  // reservation state, or the clear can leave the route stuck as reserved.
+  return route.path.some(
+    (step) => step.pieceId === pieceId && step.traversalState === traversalState,
+  );
+}
+
+function releaseRouteReservationsForClearedOccupation(
+  station: StationDocument,
+  pieceId: string,
+  traversalState: string | null,
+) {
   Object.values(station.runtime.activeTrainRoutes).forEach((route) => {
+    if (!isClearedTraversalOnRoute(station, route, pieceId, traversalState)) {
+      return;
+    }
+
     route.reservedOccupations = route.reservedOccupations.filter((occupation) => {
-      if (occupation.pieceId !== pieceId) {
-        return true;
-      }
-
-      if (!requiresBranchMatch) {
-        return false;
-      }
-
-      return occupation.state !== traversalState;
+      return occupation.pieceId !== pieceId;
     });
   });
 }
@@ -3111,6 +3118,7 @@ function releasePhysicalReservationsBehindClearedSensor(
   station: StationDocument,
   session: SessionDocument,
   clearedPieceId: string,
+  traversalState: string | null,
 ) {
   const occupiedPieceIds = new Set(
     Object.values(session.runtime.physicalOccupations)
@@ -3119,6 +3127,10 @@ function releasePhysicalReservationsBehindClearedSensor(
   );
 
   Object.values(station.runtime.activeTrainRoutes).forEach((route) => {
+    if (!isClearedTraversalOnRoute(station, route, clearedPieceId, traversalState)) {
+      return;
+    }
+
     const clearedIndex = route.path.findIndex((step) => step.pieceId === clearedPieceId);
     if (clearedIndex < 0) {
       return;
@@ -4051,7 +4063,12 @@ export const stationService = {
       }
       applyRouteProgressFromOccupationEvent(station, input.pieceId, traversalState, input.occupied);
       if (!input.occupied) {
-        releasePhysicalReservationsBehindClearedSensor(station, session, input.pieceId);
+        releasePhysicalReservationsBehindClearedSensor(
+          station,
+          session,
+          input.pieceId,
+          traversalState,
+        );
       }
 
       applyRuntimeStateWithTrainOccupations(station, session);
