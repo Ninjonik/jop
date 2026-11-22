@@ -2464,9 +2464,9 @@ function createPendingAction(command: SwitchSetPositionCommand): PendingAction {
   };
 }
 
-// Keep the queued/running transition visible and recoverable, without making
-// route confirmation feel like a delayed UI response.
-const ROUTE_BUILD_DELAY_MS = 100;
+// Keep the queued route indication visible long enough for its flashing state
+// to communicate that the route is being established.
+const ROUTE_BUILD_DELAY_MS = 2_000;
 
 function traversalUsesSwitchControl(
   pieceType: string,
