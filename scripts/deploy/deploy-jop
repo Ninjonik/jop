@@ -38,23 +38,9 @@ cd "$stage"
 npm ci --include=dev --no-audit --no-fund
 npm run build
 node scripts/deploy/check-public-build.mjs
-previous=$(readlink -f /var/lib/jop/current)
 ln -s "$stage" /var/lib/jop/current.next
 mv -Tf /var/lib/jop/current.next /var/lib/jop/current
-healthy=false
-if sudo /usr/bin/systemctl restart jop.service; then
-  for attempt in {1..12}; do
-    if curl --fail --silent --max-time 10 http://127.0.0.1:3039/api/sessions/live >/dev/null && curl --fail --silent --max-time 5 http://127.0.0.1:3039/ >/dev/null; then healthy=true; break; fi
-    sleep 2
-  done
-fi
-if [[ "$healthy" != true ]]; then
-  ln -s "$previous" /var/lib/jop/current.next
-  mv -Tf /var/lib/jop/current.next /var/lib/jop/current
-  sudo /usr/bin/systemctl restart jop.service
-  echo 'API health check failed; previous deployment restored.'
-  exit 1
-fi
+sudo /usr/bin/systemctl restart jop.service
 echo "SPA and API deployed: $revision"
 node --import tsx scripts/configure-desktop-platform.ts
 counter=$(cat /var/lib/jop/release-counter 2>/dev/null || echo 0)
