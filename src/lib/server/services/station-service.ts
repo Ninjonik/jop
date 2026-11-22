@@ -3106,6 +3106,35 @@ function releaseRouteReservationsForClearedOccupation(
   });
 }
 
+function releasePhysicalReservationsBehindClearedSensor(
+  station: StationDocument,
+  session: SessionDocument,
+  clearedPieceId: string,
+) {
+  const occupiedPieceIds = new Set(
+    Object.values(session.runtime.physicalOccupations)
+      .filter((occupation) => occupation.occupied && occupation.stationId === station.stationId)
+      .map((occupation) => occupation.pieceId),
+  );
+
+  Object.values(station.runtime.activeTrainRoutes).forEach((route) => {
+    const clearedIndex = route.path.findIndex((step) => step.pieceId === clearedPieceId);
+    if (clearedIndex < 0) {
+      return;
+    }
+
+    route.reservedOccupations = route.reservedOccupations.filter((occupation) => {
+      const occupationIndex = route.path.findIndex((step) => step.pieceId === occupation.pieceId);
+      if (occupationIndex < 0 || occupationIndex > clearedIndex) {
+        return true;
+      }
+
+      return occupiedPieceIds.has(occupation.pieceId);
+    });
+    clearCompletedRouteIfFullyReleased(station, route.id);
+  });
+}
+
 function releaseReservationsBehindClearedSensor(
   stations: Map<string, StationDocument>,
   clearedSensors: MockTrain['occupiedSensors'],
@@ -4020,6 +4049,9 @@ export const stationService = {
         await saveStation(remoteStation, { skipRuntimeNotify: true });
       }
       applyRouteProgressFromOccupationEvent(station, input.pieceId, traversalState, input.occupied);
+      if (!input.occupied) {
+        releasePhysicalReservationsBehindClearedSensor(station, session, input.pieceId);
+      }
 
       applyRuntimeStateWithTrainOccupations(station, session);
       bumpRevision(station);
