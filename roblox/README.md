@@ -16,7 +16,7 @@ Before running it:
 5. Save a map template for this game's `UniverseId` and `PlaceId` from the JOP `/map` page.
 
 On the web server, create an Open Cloud API key scoped to the experience with
-`universe-messaging-service:publish`, then configure `ROBLOX_OPEN_CLOUD_API_KEY`, `ROBLOX_INBOUND_SECRET`, and
+`universe-messaging-service:publish`, then configure `ROBLOX_API_KEY`, `ROBLOX_INBOUND_SECRET`, and
 `ROBLOX_MESSAGING_TOPIC`. The topic must be no longer than 80 characters.
 
 When a Roblox server starts, `Main.server.lua` registers `game.JobId` as the

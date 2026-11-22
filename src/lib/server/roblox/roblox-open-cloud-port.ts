@@ -4,12 +4,12 @@ import { sessionRepository } from '../repositories/session-repository';
 const DEFAULT_TOPIC = 'JOPRuntime';
 
 function getOpenCloudConfiguration(universeId: string) {
-  const apiKey = process.env.ROBLOX_OPEN_CLOUD_API_KEY?.trim();
+  const apiKey = process.env.ROBLOX_API_KEY?.trim();
   const topic = process.env.ROBLOX_MESSAGING_TOPIC?.trim() || DEFAULT_TOPIC;
 
   if (!apiKey) {
     throw new Error(
-      'ROBLOX_OPEN_CLOUD_API_KEY is required for Roblox sessions.',
+      'ROBLOX_API_KEY is required for Roblox sessions.',
     );
   }
 

@@ -11,7 +11,7 @@ Copy `.env.example` to `.env.local` and supply the real values. Keep runtime
 bridge settings as well as DIS settings:
 
 - `MONGODB_URI`, `MONGODB_DB_NAME`: MongoDB with replica-set change streams.
-- `ROBLOX_UNIVERSE_ID`, `ROBLOX_OPEN_CLOUD_API_KEY`, `ROBLOX_INBOUND_SECRET`,
+- `ROBLOX_UNIVERSE_ID`, `ROBLOX_API_KEY`, `ROBLOX_INBOUND_SECRET`,
   `ROBLOX_MESSAGING_TOPIC`: the existing JOP bridge.
 - `NEXT_PUBLIC_APPWRITE_ENDPOINT`, `NEXT_PUBLIC_APPWRITE_PROJECT_ID`,
   `APPWRITE_API_KEY`, `APPWRITE_DATABASE_ID`, `APPWRITE_STORAGE_BUCKET_ID`: DIS.
