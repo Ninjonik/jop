@@ -13,6 +13,7 @@ export function StationSelectionView({
   stations,
   claims,
   userId,
+  canTakeOver,
   onSelect,
   error,
 }: {
@@ -21,6 +22,7 @@ export function StationSelectionView({
   stations: { stationId: string; name: string }[];
   claims: StationClaim[];
   userId: string;
+  canTakeOver: boolean;
   onSelect: (sessionId: string, stationId: string) => void;
   error: string;
 }) {
@@ -78,7 +80,7 @@ export function StationSelectionView({
                   <button
                     key={id}
                     className="aero-btn station-choice"
-                    disabled={!sessionId || !!busy || (!!claim && !own)}
+                    disabled={!sessionId || !!busy || (!!claim && !own && !canTakeOver)}
                     onClick={async () => {
                       setBusy(id);
                       try {
@@ -92,7 +94,7 @@ export function StationSelectionView({
                     <strong>{station.name}</strong>
                     <span>
                       {claim
-                        ? `${own ? t('Ovládate') : t('Obsadená')}: ${claim.userName}`
+                        ? `${own ? t('Ovládate') : canTakeOver ? t('Prevziať od') : t('Obsadená')}: ${claim.userName}`
                         : t('Voľná stanica')}
                     </span>
                     <span>

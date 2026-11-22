@@ -277,7 +277,7 @@ function DisPortalShell() {
     )
       return;
     setClaimError('');
-    if (isDisAdministrator(profile?.role)) {
+    if (isDisAdministrator(profile?.role) && workingMode === 'admin') {
       setScope({ sessionId: target, stationId });
       openTab('runtime');
       return;
@@ -612,6 +612,7 @@ function DisPortalShell() {
                     stations={sessionStations}
                     claims={control.claims}
                     userId={profile.userId}
+                    canTakeOver={isDisAdministrator(profile.role) && workingMode === 'dispatcher'}
                     onSelect={launch}
                     error={claimError || claimsError || ''}
                   />
@@ -686,6 +687,7 @@ function DisPortalShell() {
                     stations={sessionStations}
                     claims={control.claims}
                     userId={profile.userId}
+                    canTakeOver={isDisAdministrator(profile.role) && workingMode === 'dispatcher'}
                     onSelect={launch}
                     error={claimError || claimsError || ''}
                   />

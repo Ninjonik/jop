@@ -2,6 +2,7 @@ import type { UserProfile } from '@/lib/dis/appwrite-client';
 import { CLAIM_LEASE_MS, stationClaimSchema, type StationClaim } from '@/lib/dis/claims';
 import type { DriverTrain } from '@/lib/dis/driver-train';
 import { canAssignShiftRole } from '@/lib/dis/shift-plan';
+import { isDisAdministrator } from '@/lib/dis/permissions';
 import { sessionIdSchema } from '@/lib/station/domain';
 import { isPublicStation } from '@/lib/station/visibility';
 import { MongoServerError } from 'mongodb';
@@ -51,7 +52,9 @@ export async function claimStation(body: unknown, profile: UserProfile) {
     await (
       await claims()
     ).findOneAndUpdate(
-      { _id: claim._id, $or: [{ userId: profile.userId }, { expiresAt: { $lte: now } }] },
+      isDisAdministrator(profile.role)
+        ? { _id: claim._id }
+        : { _id: claim._id, $or: [{ userId: profile.userId }, { expiresAt: { $lte: now } }] },
       { $set: claim },
       { upsert: true },
     );
