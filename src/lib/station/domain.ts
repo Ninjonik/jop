@@ -469,6 +469,10 @@ export type PrivolavaciaInteractCommand = StationCommand<PrivolavaciaInteractPay
   type: 'privolavacia:interact';
 };
 
+export type ResetReservationsCommand = StationCommand<Record<string, never>> & {
+  type: 'route:reset-reservations';
+};
+
 export const sessionIdSchema = z
   .string()
   .trim()
@@ -951,6 +955,19 @@ export const privolavaciaInteractCommandSchema = z.object({
     pieceId: z.string().trim().min(1),
     button: z.enum(['left', 'middle', 'right']),
   }),
+});
+
+export const resetReservationsCommandSchema = z.object({
+  commandId: z.string().trim().min(1),
+  sessionId: sessionIdSchema,
+  stationId: stationIdSchema,
+  type: z.literal('route:reset-reservations'),
+  issuedAt: z.string(),
+  actor: z.object({
+    type: z.enum(['user', 'mock-roblox']),
+    id: z.string().trim().min(1),
+  }),
+  payload: z.object({}).strict(),
 });
 
 export function serializeStationLayout(layout: StationLayout): StationDocument['layout'] {

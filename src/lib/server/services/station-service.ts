@@ -11,6 +11,7 @@ import type {
   PendingAction,
   PlaceTemplateDocument,
   PrivolavaciaInteractCommand,
+  ResetReservationsCommand,
   RobloxPhysicalSnapshot,
   RobloxResolvedSignalAspect,
   RobloxResolvedSignalFamily,
@@ -5751,6 +5752,34 @@ export const stationService = {
     bumpRevision(station);
     await saveStation(station);
     return { kind: 'activated' as const, signalPieceId: controlledSignalPieceId };
+  },
+
+  async resetReservations(command: ResetReservationsCommand) {
+    const [station, rawSession] = await Promise.all([
+      stationRepository.findBySessionAndStationId(command.sessionId, command.stationId),
+      sessionRepository.findById(command.sessionId),
+    ]);
+    if (!station || !rawSession) {
+      throw new Error('Station not found.');
+    }
+
+    const session = ensureSessionRuntimeState(rawSession);
+    ensureStationRuntimeState(station);
+
+    station.runtime.activeTrainRoutes = {};
+    station.runtime.routeSelection = null;
+    Object.entries(station.runtime.pendingActions).forEach(([actionId, action]) => {
+      if (action.type.startsWith('route:')) {
+        delete station.runtime.pendingActions[actionId];
+      }
+    });
+
+    // Physical sensors remain authoritative: this recovery action clears only
+    // route reservations, then projects any actual train occupancy back on top.
+    applyRuntimeStateWithTrainOccupations(station, session);
+    bumpRevision(station);
+    await saveStation(station);
+    return station;
   },
 
   async applyMockInboundSwitchPosition(command: SwitchSetPositionCommand) {

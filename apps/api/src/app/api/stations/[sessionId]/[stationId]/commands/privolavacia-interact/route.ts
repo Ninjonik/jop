@@ -38,7 +38,8 @@ export async function POST(request: Request, { params }: StationPrivolavaciaInte
     }
 
     const result = await stationService.submitPrivolavaciaInteract(command);
-    return Response.json(result, { status: 202 });
+    const station = await stationService.getStation(parsedSessionId, parsedStationId);
+    return Response.json({ ...result, station }, { status: 202 });
   } catch (error) {
     return jsonErrorResponse(error);
   }

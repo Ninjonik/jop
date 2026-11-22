@@ -343,12 +343,66 @@ export default function StationRuntimeBoard({
         },
       );
 
-      const payload = (await response.json()) as { error?: { message?: string } };
+      const payload = (await response.json()) as {
+        error?: { message?: string };
+        station?: StationDocument | null;
+      };
       if (!response.ok) {
         throw new Error(payload.error?.message ?? 'Failed to operate PN.');
       }
+      if (payload.station) {
+        onStationSnapshot(payload.station);
+      }
     } catch (submitError) {
       onErrorChange(submitError instanceof Error ? submitError.message : 'Failed to operate PN.');
+    } finally {
+      setPendingActionKey(null);
+    }
+  }
+
+  async function resetReservations() {
+    if (
+      !window.confirm(
+        t('Reset all route reservations? Actual occupied sensors will remain occupied.'),
+      )
+    ) {
+      return;
+    }
+
+    try {
+      setPendingActionKey('station:reset-reservations');
+      onErrorChange(null);
+      const response = await apiFetch(
+        `/api/stations/${station.sessionId}/${station.stationId}/commands/reset-reservations`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${await getDisToken().catch(() => '')}`,
+          },
+          body: JSON.stringify({
+            commandId: crypto.randomUUID(),
+            sessionId: station.sessionId,
+            stationId: station.stationId,
+            type: 'route:reset-reservations',
+            issuedAt: new Date().toISOString(),
+            actor: { type: 'user', id: 'runtime-ui' },
+            payload: {},
+          }),
+        },
+      );
+      const payload = (await response.json()) as {
+        error?: { message?: string };
+        station?: StationDocument;
+      };
+      if (!response.ok || !payload.station) {
+        throw new Error(payload.error?.message ?? 'Failed to reset route reservations.');
+      }
+      onStationSnapshot(payload.station);
+    } catch (resetError) {
+      onErrorChange(
+        resetError instanceof Error ? resetError.message : 'Failed to reset route reservations.',
+      );
     } finally {
       setPendingActionKey(null);
     }
@@ -584,6 +638,14 @@ export default function StationRuntimeBoard({
         >
           <AeroIcon name="zoomIn" />
         </button>
+        <button
+          type="button"
+          disabled={pendingActionKey === 'station:reset-reservations'}
+          onClick={() => void resetReservations()}
+          className="aero-btn disabled:cursor-wait"
+        >
+          {t('Reset reservations')}
+        </button>
       </div>
       <div
         className="relative shrink-0"
@@ -730,11 +792,17 @@ export default function StationRuntimeBoard({
                   type="button"
                   aria-label={t('Operate PN counter {0}', pieceId)}
                   disabled={isPiecePending}
-                  onMouseDown={(event) => {
-                    if (event.button !== 1) {
+                  onPointerDown={(event) => {
+                    // The board uses the middle pointer button for panning. Handle
+                    // this control at pointer level so the counter owns that click
+                    // before the board can capture it. A primary click is accepted
+                    // as well; selecting a sealed PN counter has no left/right
+                    // distinction.
+                    if (event.button !== 0 && event.button !== 1) {
                       return;
                     }
                     event.preventDefault();
+                    event.stopPropagation();
                     void submitPrivolavaciaInteract(pieceId, 'middle');
                   }}
                   className="pointer-events-auto absolute inset-0 cursor-pointer rounded-sm border border-transparent bg-transparent disabled:cursor-wait"
