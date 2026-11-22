@@ -1771,6 +1771,8 @@ export function buildRouteFromSelection(
     const currentKey = `${current.pieceId}:${toOffsetKey(current.entry)}`;
     if (currentKey === targetKey) {
       const piece = station.layout.pieces[current.pieceId];
+      const isTargetShuntEndpoint =
+        routeType === 'shunt' && current.pieceId === targetPieceId;
       const targetContribution = getTargetPieceContribution(
         station,
         current.pieceId,
@@ -1779,12 +1781,14 @@ export function buildRouteFromSelection(
         tiles,
       );
       const reservedOccupationsMap = { ...current.reservedOccupations };
-      pushReservation(
-        station,
-        reservedOccupationsMap,
-        current.pieceId,
-        targetContribution.occupation,
-      );
+      if (!isTargetShuntEndpoint) {
+        pushReservation(
+          station,
+          reservedOccupationsMap,
+          current.pieceId,
+          targetContribution.occupation,
+        );
+      }
 
       let signalPieceIds = Array.from(
         new Set(
@@ -1811,8 +1815,12 @@ export function buildRouteFromSelection(
                 entry: toOffsetKey(current.entry),
                 exit: 'target',
                 traversableState: targetContribution.occupation?.state ?? 'none',
-                occupationState: targetContribution.occupation?.state ?? null,
-                occupationVariant: targetContribution.occupation?.variant ?? null,
+                occupationState: isTargetShuntEndpoint
+                  ? null
+                  : (targetContribution.occupation?.state ?? null),
+                occupationVariant: isTargetShuntEndpoint
+                  ? null
+                  : (targetContribution.occupation?.variant ?? null),
                 signalIncluded: targetContribution.includeSignal,
               },
             ]

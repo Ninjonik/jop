@@ -227,8 +227,9 @@ export default function TileSvg({
   });
 
   return (
-    <span ref={tileContentRef} className="contents" title={title}>
+    <span ref={tileContentRef} className="contents">
       <TileComponent
+        title={title}
         className={[getOrientationClassName(orientation), className, ...stateClasses]
           .filter(Boolean)
           .join(' ')}

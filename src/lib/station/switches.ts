@@ -36,7 +36,10 @@ export function isDivergingSwitchTraversal(pieceType: string, traversalState: st
     normalized === 'extendedSwitch' ||
     normalized === 'singleExtendedSwitch'
   ) {
-    return traversalState !== 'blTbr';
+    // Only the actual branch states impose a turnout speed. Do not infer a
+    // restriction from an arbitrary persisted state: `t` and `b`, for
+    // example, describe straight crossover branches in older route paths.
+    return traversalState === 'blTtr' || traversalState === 'blTmr';
   }
   if (normalized === 'crossoverSwitch') {
     return traversalState === 'blTtr';
