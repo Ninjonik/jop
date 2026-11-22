@@ -676,7 +676,7 @@ function DisPortalShell() {
                       key={scopeKey}
                       {...current}
                       embedded
-                      readOnly={isDisAdministrator(profile.role)}
+                      readOnly={workingMode === 'admin' && isDisAdministrator(profile.role)}
                     />
                   </>
                 ) : (
