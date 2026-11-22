@@ -202,12 +202,21 @@ async function start() {
     shuttingDown = true;
     await stationChanges?.close();
     await stopChat();
-    io.close();
-    httpServer.close();
+    await new Promise<void>((resolve) => io.close(() => resolve()));
+    await new Promise<void>((resolve) => {
+      if (!httpServer.listening) {
+        resolve();
+        return;
+      }
+      httpServer.close(() => resolve());
+    });
   };
 
-  process.once('SIGINT', () => void shutdown());
-  process.once('SIGTERM', () => void shutdown());
+  const stopProcess = () => {
+    void shutdown().finally(() => process.exit(0));
+  };
+  process.once('SIGINT', stopProcess);
+  process.once('SIGTERM', stopProcess);
 
   httpServer.listen(port, hostname, () => {
     console.log(`[app] Listening on http://${hostname}:${port}`);
