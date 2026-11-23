@@ -122,6 +122,7 @@ export default function StationRuntimeBoard({
   const [manualTileSize, setManualTileSize] = useState(75);
   const [pendingActionKey, setPendingActionKey] = useState<string | null>(null);
   const [heldInspectionButtonId, setHeldInspectionButtonId] = useState<string | null>(null);
+  const [hoveredTrainPieceId, setHoveredTrainPieceId] = useState<string | null>(null);
   const fittedTileSize = viewportWidth > 0 ? viewportWidth / layout.width : 75;
   const tileSize = fitWidth ? fittedTileSize : manualTileSize;
 
@@ -683,11 +684,20 @@ export default function StationRuntimeBoard({
           );
           const isPiecePending =
             (pendingActionKey?.startsWith(`${pieceId}:`) ?? false) || hasServerPendingAction;
+          const trainLabel = trainTooltips
+            ? station.runtime.physicalTrainLabels?.[pieceId]?.text
+            : undefined;
 
           return (
             <div
               key={pieceId}
               className="pointer-events-none absolute"
+              onPointerEnter={() => {
+                if (trainLabel) setHoveredTrainPieceId(pieceId);
+              }}
+              onPointerLeave={() => {
+                setHoveredTrainPieceId((current) => (current === pieceId ? null : current));
+              }}
               style={{
                 left: anchorX * tileSize,
                 top: anchorY * tileSize,
@@ -705,11 +715,17 @@ export default function StationRuntimeBoard({
                   rotation: piece.rotation,
                   mirrored: piece.mirrored,
                 }}
-                title={
-                  trainTooltips ? station.runtime.physicalTrainLabels?.[pieceId]?.text : undefined
-                }
                 className="pointer-events-auto h-full w-full object-contain"
               />
+
+              {hoveredTrainPieceId === pieceId && trainLabel ? (
+                <div
+                  role="tooltip"
+                  className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-1 max-w-[calc(100%+4rem)] -translate-x-1/2 whitespace-nowrap rounded border border-[var(--aero-panel-border)] bg-[var(--aero-panel-bg)] px-2 py-1 text-xs font-semibold text-[var(--aero-text)] shadow"
+                >
+                  {trainLabel}
+                </div>
+              ) : null}
 
               {isLineblockPieceType(piece.type) ? (
                 <>
