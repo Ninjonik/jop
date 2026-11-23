@@ -47,6 +47,52 @@ function createTestStation(): StationDocument {
   };
 }
 
+function createFinalShuntSignalStation(withFollowingFacingShuntSignal: boolean) {
+  const layout = createInitialStationLayout(8, 3, tiles, stateGroups);
+  const targetPieceId = placePieceAt(
+    layout,
+    'shuntSignalButtonBuffer',
+    3,
+    1,
+    tiles,
+    stateGroups,
+  );
+  placePieceAt(layout, 'track', 4, 1, tiles, stateGroups);
+  placePieceAt(layout, 'shuntSignal', 5, 1, tiles, stateGroups);
+  const sourcePieceId = placePieceAt(layout, 'shuntButton', 6, 1, tiles, stateGroups);
+
+  if (withFollowingFacingShuntSignal) {
+    placePieceAt(layout, 'shuntSignal', 2, 1, tiles, stateGroups, {
+      rotation: 180,
+      mirrored: false,
+    });
+  }
+
+  return {
+    station: {
+      _id: 'test-final-shunt-signal-station',
+      sessionId: 'test-session',
+      stationId: 'test-final-shunt-signal-station',
+      revision: 0,
+      layout: serializeStationLayout(layout),
+      runtime: {
+        pendingActions: {},
+        lineblockPremainLinks: {},
+        premainSignalStates: {},
+        privolavaciaSelection: null,
+        activePrivolavaciaSignals: {},
+        routeSelection: null,
+        activeTrainRoutes: {},
+        switchAlignments: {},
+      },
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    } satisfies StationDocument,
+    sourcePieceId,
+    targetPieceId,
+  };
+}
+
 test('shunting route does not reserve the ending target shunt control tile', () => {
   const station = createTestStation();
   const pieces = station.layout.pieces;
@@ -69,6 +115,59 @@ test('shunting route does not reserve the ending target shunt control tile', () 
 
   // The target shunt button btn2 should NOT be reserved
   assert.ok(!route.reservedOccupations.some((occ) => occ.pieceId === btn2));
+});
+
+test('shunting route reserves an intermediate shunt control tile', () => {
+  const station = createTestStation();
+  const pieces = station.layout.pieces;
+  const btn1 = Object.keys(pieces).find((id) => pieces[id].type === 'shuntButton' && station.layout.map[2][1].startsWith(id))!;
+  const btn2 = Object.keys(pieces).find((id) => pieces[id].type === 'shuntButton' && station.layout.map[2][4].startsWith(id))!;
+  const btn3 = Object.keys(pieces).find((id) => pieces[id].type === 'shuntButton' && station.layout.map[2][7].startsWith(id))!;
+
+  const route = buildRouteFromSelection(
+    station,
+    btn1,
+    btn3,
+    tiles,
+    'shunt',
+    true,
+    'shunt',
+  );
+
+  assert.ok(route.reservedOccupations.some((occ) => occ.pieceId === btn2));
+  assert.ok(!route.reservedOccupations.some((occ) => occ.pieceId === btn3));
+});
+
+test('shunting route does not include its final shunt signal without a following facing shunt signal', () => {
+  const { station, sourcePieceId, targetPieceId } = createFinalShuntSignalStation(false);
+
+  const route = buildRouteFromSelection(
+    station,
+    sourcePieceId,
+    targetPieceId,
+    tiles,
+    'shunt',
+    true,
+    'shunt',
+  );
+
+  assert.ok(!route.signalPieceIds.includes(targetPieceId));
+});
+
+test('shunting route includes its final shunt signal when followed by a facing shunt signal', () => {
+  const { station, sourcePieceId, targetPieceId } = createFinalShuntSignalStation(true);
+
+  const route = buildRouteFromSelection(
+    station,
+    sourcePieceId,
+    targetPieceId,
+    tiles,
+    'shunt',
+    true,
+    'shunt',
+  );
+
+  assert.ok(route.signalPieceIds.includes(targetPieceId));
 });
 
 test('shunting route can be built even if the target shunt button is occupied or has a route ending there', () => {

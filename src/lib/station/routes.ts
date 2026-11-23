@@ -593,6 +593,35 @@ function isSignalPieceType(pieceType: string) {
   );
 }
 
+function isShuntSignalPieceType(pieceType: string) {
+  return (
+    pieceType === 'shuntSignal' ||
+    pieceType === 'shuntSignalNoOcp' ||
+    pieceType === 'shuntSignalButtonBuffer'
+  );
+}
+
+function shouldIncludeFinalShuntSignal(
+  station: StationDocument,
+  pieceId: string,
+  exit: ExitPoint | null,
+  direction: RuntimeRouteDirection,
+) {
+  const piece = station.layout.pieces[pieceId];
+  if (!piece || !isShuntSignalPieceType(piece.type)) {
+    return true;
+  }
+
+  const nextTraversal = exit ? getNeighborTraversal(station, pieceId, exit) : null;
+  const nextPiece = nextTraversal ? station.layout.pieces[nextTraversal.pieceId] : null;
+
+  return Boolean(
+    nextPiece &&
+      isShuntSignalPieceType(nextPiece.type) &&
+      getSignalFacingDirection(nextPiece.type, nextPiece.rotation) === direction,
+  );
+}
+
 function isOccupiablePiece(station: StationDocument, pieceId: string, tiles: TileCatalog) {
   const piece = station.layout.pieces[pieceId];
   if (!piece) {
@@ -1789,16 +1818,24 @@ export function buildRouteFromSelection(
           targetContribution.occupation,
         );
       }
+      const includeFinalShuntSignal =
+        !isTargetShuntEndpoint ||
+        shouldIncludeFinalShuntSignal(
+          station,
+          current.pieceId,
+          targetContribution.exit,
+          direction,
+        );
 
       let signalPieceIds = Array.from(
         new Set(
-          targetContribution.includeSignal
+          targetContribution.includeSignal && includeFinalShuntSignal
             ? [...current.signalPieceIds, current.pieceId]
             : current.signalPieceIds,
         ),
       );
       const debugSteps =
-        targetContribution.occupation || targetContribution.includeSignal
+        targetContribution.occupation || (targetContribution.includeSignal && includeFinalShuntSignal)
           ? [
               ...current.debugSteps,
               {
@@ -1821,7 +1858,7 @@ export function buildRouteFromSelection(
                 occupationVariant: isTargetShuntEndpoint
                   ? null
                   : (targetContribution.occupation?.variant ?? null),
-                signalIncluded: targetContribution.includeSignal,
+                signalIncluded: targetContribution.includeSignal && includeFinalShuntSignal,
               },
             ]
           : current.debugSteps;
