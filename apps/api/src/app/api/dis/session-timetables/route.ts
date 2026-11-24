@@ -7,6 +7,7 @@ export async function GET(request: Request) {
     return {
       timetables: await loadOperatingTimetables(
         new URL(request.url).searchParams.get('sessionId') || '',
+        new URL(request.url).searchParams.get('includeInactive') === 'true',
       ),
     };
   });

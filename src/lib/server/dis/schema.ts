@@ -139,6 +139,17 @@ async function initStorageBucket() {
   }
 }
 
+/** Additive GVD migration; existing documents need no rewrite. */
+export async function ensureGvdPlanningAttribute() {
+  await ensureStringAttribute({
+    databaseId: DB_ID,
+    collectionId: 'timetables_gvd',
+    key: 'planningJson',
+    size: 30000,
+    required: false,
+  });
+}
+
 export async function initializeDisAppwrite() {
   console.log('--- Initializing Appwrite Schema for JOP DIS ---');
   await initDatabase();
@@ -499,6 +510,7 @@ export async function initializeDisAppwrite() {
       size: 20000,
       required: true,
     }); // Array of stops: [{station, arrival, departure, track, dwellMin}]
+    await ensureGvdPlanningAttribute();
     await ensureBooleanAttribute({
       databaseId: DB_ID,
       collectionId: 'timetables_gvd',

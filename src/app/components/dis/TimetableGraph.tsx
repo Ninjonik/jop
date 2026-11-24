@@ -1,4 +1,5 @@
 'use client';
+import { downloadGvd } from '@/lib/dis/gvd-tools';
 import type { EddRecord } from '@/lib/dis/records';
 import {
   alignClockMinute,
@@ -11,7 +12,7 @@ import {
   type TimetableInput,
 } from '@/lib/dis/timetable';
 import { useTranslation } from '@/lib/i18n/client';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { AeroIcon } from '../ui/AeroIcon';
 
 export function TimetableGraph({
@@ -23,6 +24,7 @@ export function TimetableGraph({
   editableId,
   onEdit,
   onSelect,
+  stationPositions,
 }: {
   trains: Timetable[];
   stations: { stationId: string; name: string }[];
@@ -32,10 +34,15 @@ export function TimetableGraph({
   editableId?: string;
   onEdit?: (train: TimetableInput) => void;
   onSelect?: (train: Timetable) => void;
+  stationPositions?: Record<string, number>;
 }) {
   const t = useTranslation();
   const [timeScale, setTimeScale] = useState(4);
   const [stationScale, setStationScale] = useState(80);
+  const [snapMinutes, setSnapMinutes] = useState(1);
+  const scroll = useRef<HTMLDivElement>(null);
+  const svg = useRef<SVGSVGElement>(null);
+  const pan = useRef<{ x: number; y: number; left: number; top: number } | null>(null);
   const [selectedStation, setSelectedStation] = useState(highlighted);
   const [drag, setDrag] = useState<{
     x: number;
@@ -57,9 +64,18 @@ export function TimetableGraph({
   const maximum = Math.max(minimum + 60, ...schedules.map((s) => s.stops.at(-1)!.departureMinute));
   const width = Math.max(900, 200 + (maximum - minimum) * timeScale);
   const height = Math.max(260, 65 + stations.length * stationScale);
+  const distances = stations.map((s) => stationPositions?.[s.stationId]);
+  const proportional =
+    stations.length >= 2 &&
+    distances.every((d) => d !== undefined && Number.isFinite(d)) &&
+    new Set(distances).size === distances.length;
+  const minDistance = Math.min(...distances.filter((d): d is number => d !== undefined));
+  const maxDistance = Math.max(...distances.filter((d): d is number => d !== undefined));
   const x = (minute: number) => 180 + (minute - minimum) * timeScale;
   const y = (id: string) =>
-    60 + stations.findIndex((s) => stationKey(s.stationId) === stationKey(id)) * stationScale;
+    proportional
+      ? 60 + ((stationPositions![id] - minDistance) / (maxDistance - minDistance)) * (height - 100)
+      : 60 + stations.findIndex((s) => stationKey(s.stationId) === stationKey(id)) * stationScale;
   const visible = (id: string) => stations.some((s) => stationKey(s.stationId) === stationKey(id));
   const actual = (train: Timetable) => records.filter((r) => r.trainNumber === train.trainNumber);
   const current =
@@ -67,11 +83,15 @@ export function TimetableGraph({
       ? currentMinute + 1440
       : currentMinute;
   function finishDrag(event: React.PointerEvent<SVGSVGElement>) {
+    if (pan.current) {
+      pan.current = null;
+      return;
+    }
     const start = drag;
     setDrag(null);
     const train = trains.find((train) => train.$id === start?.trainId);
     if (!start || !train || !onEdit) return;
-    const delta = Math.round((event.clientX - start.x) / timeScale);
+    const delta = Math.round((event.clientX - start.x) / timeScale / snapMinutes) * snapMinutes;
     if (!delta) return;
     if (start.stop === undefined) onEdit(shiftTimetable(train, delta));
     else {
@@ -100,6 +120,30 @@ export function TimetableGraph({
     <div className="timetable-graph">
       <div className="ribbon-bar flex-wrap">
         <strong>{t('Traťová poloha vlakov')}</strong>
+        <button
+          className="aero-btn"
+          onClick={() => {
+            if (!svg.current) return;
+            const copy = svg.current.cloneNode(true) as SVGSVGElement;
+            copy.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+            // Resolve theme tokens so the standalone file retains its colours.
+            const original = [svg.current, ...svg.current.querySelectorAll('*')];
+            const cloned = [copy, ...copy.querySelectorAll('*')];
+            original.forEach((element, i) => {
+              const style = getComputedStyle(element);
+              cloned[i].setAttribute(
+                'style',
+                `fill:${style.fill};stroke:${style.stroke};font-family:${style.fontFamily};font-size:${style.fontSize}`,
+              );
+            });
+            downloadGvd('gvd.svg', new XMLSerializer().serializeToString(copy), 'image/svg+xml');
+          }}
+        >
+          {t('Export SVG')}
+        </button>
+        <button className="aero-btn" onClick={() => window.print()}>
+          {t('Tlač / PDF')}
+        </button>
         <button className="aero-btn" onClick={() => setTimeScale(Math.min(20, timeScale * 1.25))}>
           <AeroIcon name="zoomIn" />
           {t('Čas +')}
@@ -127,17 +171,63 @@ export function TimetableGraph({
               : 'Bodkovaná čiara: plán. Plná čiara a body: hlásenia EDD. Kliknutím zobrazíte vlak.',
           )}
         </span>
+        <label>
+          {t('Prichytenie (min)')}{' '}
+          <select
+            className="aero-select"
+            value={snapMinutes}
+            onChange={(e) => setSnapMinutes(Number(e.target.value))}
+          >
+            {[1, 5, 10, 15].map((n) => (
+              <option key={n} value={n}>
+                {n}
+              </option>
+            ))}
+          </select>
+        </label>
+        <button
+          className="aero-btn"
+          onClick={() => {
+            const available = scroll.current?.clientWidth || 900;
+            setTimeScale(Math.max(0.2, Math.min(20, (available - 220) / (maximum - minimum))));
+          }}
+        >
+          {t('Prispôsobiť čas')}
+        </button>
+        <span>{t(proportional ? 'Vzdialenostná mierka' : 'Schematické rozstupy staníc')}</span>
       </div>
-      <div className="timetable-graph-scroll">
+      <div className="timetable-graph-scroll" ref={scroll}>
         {!schedules.length ? (
           <p className="p-3">{t('Pre zobrazenie grafu vyplňte stanice a časy vlaku.')}</p>
         ) : (
           <svg
+            ref={svg}
             width={width}
             height={height}
             aria-label={t('Časový graf vlakov podľa GVD a EDD')}
             onPointerUp={finishDrag}
+            onPointerDown={(e) => {
+              if (
+                e.button !== 0 ||
+                !scroll.current ||
+                (e.target as Element).closest('[role="button"]')
+              )
+                return;
+              pan.current = {
+                x: e.clientX,
+                y: e.clientY,
+                left: scroll.current.scrollLeft,
+                top: scroll.current.scrollTop,
+              };
+              e.currentTarget.setPointerCapture(e.pointerId);
+            }}
+            onPointerMove={(e) => {
+              if (!pan.current || !scroll.current) return;
+              scroll.current.scrollLeft = pan.current.left - (e.clientX - pan.current.x);
+              scroll.current.scrollTop = pan.current.top - (e.clientY - pan.current.y);
+            }}
             onPointerCancel={() => {
+              pan.current = null;
               setDrag(null);
             }}
           >
