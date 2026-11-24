@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { calendarsOverlap, planningSchema } from './gvd-planning';
 import { trainCategorySchema } from './train-categories';
 
 export const clockSchema = z
@@ -13,6 +14,9 @@ export const stopSchema = z.object({
   dwell: z.number().optional(),
   kilometer: z.number().min(0).max(100000).optional(),
   speedLimit: z.number().int().min(1).max(300).optional(),
+  kind: z.enum(['stop', 'pass', 'operational']).optional(),
+  lockArrival: z.boolean().optional(),
+  lockDeparture: z.boolean().optional(),
 });
 export const timetableSchema = z.object({
   trainNumber: z.string().trim().min(1).max(32),
@@ -22,9 +26,10 @@ export const timetableSchema = z.object({
   stops: z.array(stopSchema).min(2).max(100),
   nextTrainId: z.string().max(36).optional(),
   notes: z.string().trim().max(1000).optional(),
+  planning: planningSchema.optional(),
 });
 export type TimetableInput = z.infer<typeof timetableSchema>;
-export type Timetable = TimetableInput & { $id: string; $updatedAt?: string };
+export type Timetable = TimetableInput & { $id: string; $updatedAt?: string; sessionId?: string };
 export type TimedStop = z.infer<typeof stopSchema> & {
   arrivalMinute: number;
   departureMinute: number;
@@ -85,7 +90,8 @@ export function normalizeTimetable(input: unknown): TimetableInput {
   }
   return {
     ...parsed,
-    stops: stops.map((stop) => ({
+    stops: stops.map((stop, index) => ({
+      ...parsed.stops[index],
       station: stop.station,
       arrival: stop.arrival,
       departure: stop.departure,
@@ -98,11 +104,20 @@ export function normalizeTimetable(input: unknown): TimetableInput {
   };
 }
 
-function overlaps(aStart: number, aEnd: number, bStart: number, bEnd: number) {
+export function timetableWindowsOverlap(
+  aStart: number,
+  aEnd: number,
+  bStart: number,
+  bEnd: number,
+  a?: TimetableInput['planning'],
+  b?: TimetableInput['planning'],
+) {
   // Daily schedules also interact with yesterday's / tomorrow's service across midnight.
   return [-1440, 0, 1440].some(
     (offset) =>
-      aStart < Math.max(bEnd, bStart + 1) + offset && bStart + offset < Math.max(aEnd, aStart + 1),
+      aStart < Math.max(bEnd, bStart + 1) + offset &&
+      bStart + offset < Math.max(aEnd, aStart + 1) &&
+      calendarsOverlap(a, b, offset / 1440),
   );
 }
 
@@ -121,11 +136,13 @@ export function checkTimetableConflicts(
           !!stop.track &&
           !!peer.track &&
           stationKey(stop.track) === stationKey(peer.track) &&
-          overlaps(
+          timetableWindowsOverlap(
             stop.arrivalMinute,
             stop.departureMinute,
             peer.arrivalMinute,
             peer.departureMinute,
+            candidate.planning,
+            other.planning,
           )
         ) {
           result.conflicts.push({
@@ -147,11 +164,13 @@ export function checkTimetableConflicts(
           [stationKey(peerFrom.station), stationKey(peerTo.station)].sort().join('\0');
         if (
           sameSection &&
-          overlaps(
+          timetableWindowsOverlap(
             from.departureMinute,
             to.arrivalMinute,
             peerFrom.departureMinute,
             peerTo.arrivalMinute,
+            candidate.planning,
+            other.planning,
           )
         ) {
           result.warnings.push({

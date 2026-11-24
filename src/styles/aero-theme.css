@@ -755,6 +755,397 @@ button:disabled > .aero-icon {
   color: var(--aero-text);
   font-size: 12px;
 }
+
+/* GVD workbench: desktop chrome uses the same tokens as the rest of DIS. */
+.gvd-workstation {
+  height: 100%;
+  min-height: 360px;
+}
+.gvd-scope {
+  padding: 4px 10px;
+  border-bottom: 1px solid var(--aero-panel-border);
+}
+.gvd-workstation-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+.gvd-main-workspace {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+.gvd-train-browser {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  gap: 8px;
+  padding: 8px;
+}
+.gvd-train-browser > label {
+  display: grid;
+  gap: 3px;
+}
+.gvd-train-browser > label:has(input[type='checkbox']) {
+  display: flex;
+  align-items: center;
+}
+.gvd-train-list {
+  flex: 1;
+  overflow: auto;
+  min-height: 80px;
+}
+.gvd-train-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 8px;
+  border: 1px solid transparent;
+  border-bottom-color: var(--aero-panel-border);
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+.gvd-train-item > strong {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+.gvd-train-item > span {
+  display: block;
+  margin: 3px 0;
+  overflow-wrap: anywhere;
+}
+.gvd-train-item small {
+  opacity: 0.75;
+}
+.gvd-train-item:hover,
+.gvd-train-item.selected {
+  background: var(--grid-row-selected-bottom);
+  color: var(--grid-row-selected-text);
+  border-color: var(--aero-panel-border);
+}
+.gvd-document-toolbar,
+.gvd-action-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  align-items: center;
+  padding: 5px;
+}
+.gvd-document-toolbar {
+  flex-shrink: 0;
+  background: var(--aero-ribbon-bg);
+  border-bottom: 1px solid var(--aero-panel-border);
+}
+.gvd-train-header {
+  flex-shrink: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 0;
+  margin: 0;
+}
+.gvd-train-header > label {
+  display: grid;
+  gap: 3px;
+  min-width: 90px;
+  flex: 1;
+}
+.gvd-train-header input {
+  width: 100%;
+}
+.gvd-tabbar {
+  flex-shrink: 0;
+  display: flex;
+  gap: 3px;
+  flex-wrap: wrap;
+  padding: 5px 8px 0;
+  border-bottom: 1px solid var(--aero-panel-border);
+  background: var(--aero-ribbon-bg);
+}
+.gvd-tabbar [aria-selected='true'] {
+  font-weight: 700;
+  border-bottom-color: var(--aero-panel-bg);
+  background: var(--aero-panel-bg);
+}
+.gvd-tab-content {
+  flex: 1;
+  min-height: 120px;
+  min-width: 0;
+  overflow: auto;
+  padding: 8px;
+}
+.gvd-grid-scroll {
+  overflow: auto;
+  max-height: 100%;
+  min-height: 100px;
+  border: 1px solid var(--aero-panel-border);
+}
+.gvd-sheet {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+.gvd-sheet thead th {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  white-space: nowrap;
+  background: var(--aero-ribbon-bg);
+  color: var(--aero-text);
+}
+.gvd-sheet th:first-child,
+.gvd-sheet td:first-child {
+  position: sticky;
+  left: 0;
+  background: var(--aero-panel-bg);
+  min-width: 200px;
+  z-index: 2;
+}
+.gvd-sheet th:first-child {
+  z-index: 4;
+}
+.gvd-sheet td {
+  vertical-align: top;
+  padding: 4px;
+}
+.gvd-sheet td:focus-within {
+  outline: 1px solid var(--aero-panel-border);
+  outline-offset: -1px;
+}
+.gvd-sheet input[data-cell] {
+  min-width: 65px;
+  width: 100%;
+  font-variant-numeric: tabular-nums;
+}
+.gvd-sheet td:nth-child(7) input {
+  min-width: 160px;
+}
+.gvd-sheet td:nth-child(3) input {
+  min-width: 40px;
+}
+.gvd-row-number {
+  float: right;
+  opacity: 0.55;
+  font-size: 10px;
+}
+.gvd-row-actions {
+  display: flex;
+  gap: 2px;
+}
+.gvd-row-actions .aero-btn {
+  min-width: 24px;
+  padding: 3px 5px;
+}
+.gvd-time-lock {
+  color: var(--aero-text);
+  display: flex;
+  gap: 3px;
+  font-size: 10px;
+  opacity: 0.75;
+  align-items: center;
+  margin-top: 2px;
+}
+.gvd-notes-fields {
+  display: grid;
+  grid-template-columns: minmax(160px, 1fr) 2fr;
+  gap: 10px;
+  padding: 8px 0;
+  border: 0;
+}
+.gvd-notes-fields > label {
+  display: grid;
+  gap: 4px;
+}
+.gvd-diagnostics {
+  flex: 0 0 auto;
+  max-height: 35%;
+  overflow: auto;
+  border-top: 1px solid var(--aero-panel-border);
+  padding: 7px 10px;
+}
+.gvd-diagnostics > summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.gvd-problems {
+  padding-left: 18px;
+}
+.gvd-problems li {
+  margin: 4px 0;
+}
+.gvd-message {
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--aero-panel-border);
+  background: var(--aero-ribbon-bg);
+  overflow-wrap: anywhere;
+}
+.gvd-message.error {
+  border-left: 4px solid #b94330;
+}
+.gvd-statusbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 20px;
+  padding: 4px 10px;
+  border-top: 1px solid var(--aero-panel-border);
+  background: var(--aero-ribbon-bg);
+}
+.gvd-properties {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 8px 12px;
+  margin: 8px 0;
+}
+.gvd-properties > label {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.gvd-properties :is(input, select),
+.gvd-planning-panel textarea {
+  width: 100%;
+}
+.gvd-weekdays {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 6px 0;
+}
+.gvd-weekdays > label {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+.gvd-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #0006;
+  z-index: 1000;
+  padding: 16px;
+}
+.gvd-dialog {
+  width: min(1100px, 95vw);
+  max-height: 90vh;
+  overflow: auto;
+  padding: 10px;
+  border: 1px solid var(--aero-panel-border);
+  background: var(--aero-panel-bg);
+  color: var(--aero-text);
+  box-shadow: 0 8px 28px #0006;
+}
+.gvd-dialog > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px;
+  margin: -10px -10px 10px;
+  background: var(--aero-ribbon-bg);
+  border-bottom: 1px solid var(--aero-panel-border);
+}
+.gvd-tool-dialog {
+  max-width: 620px;
+}
+.gvd-tool-dialog > label {
+  display: grid;
+  gap: 8px;
+}
+.gvd-profile-section {
+  border: 1px solid var(--aero-panel-border);
+  padding: 8px;
+  margin: 10px 0;
+}
+.gvd-profile-section > summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.gvd-dialog .aero-grid input {
+  max-width: 180px;
+}
+@media (max-width: 850px) {
+  .gvd-workstation-body {
+    flex-direction: column;
+    overflow: auto;
+  }
+  .gvd-main-workspace {
+    flex-shrink: 0;
+    flex-basis: 500px;
+    min-height: 500px;
+  }
+  .gvd-train-item {
+    padding: 5px;
+  }
+  .gvd-notes-fields {
+    grid-template-columns: 1fr;
+  }
+  .gvd-document-toolbar {
+    max-height: 100px;
+    overflow: auto;
+  }
+}
+@media print {
+  body:has(.gvd-workstation) * {
+    visibility: hidden;
+  }
+  body:has(.gvd-workstation) .booklet-timetable,
+  body:has(.gvd-workstation) .booklet-timetable * {
+    visibility: visible;
+  }
+  body:has(.gvd-workstation) .timetable-graph,
+  body:has(.gvd-workstation) .timetable-graph * {
+    visibility: visible;
+  }
+  body:has(.gvd-workstation) .timetable-graph {
+    position: absolute;
+    inset: 0;
+    height: auto;
+    overflow: visible;
+    background: #fff;
+    color: #000;
+  }
+  body:has(.gvd-workstation) .timetable-graph .ribbon-bar {
+    display: none;
+  }
+  body:has(.gvd-workstation) .timetable-graph-scroll {
+    overflow: visible;
+  }
+  body:has(.gvd-workstation) .timetable-graph svg {
+    width: 100%;
+    height: auto;
+  }
+  body:has(.gvd-workstation) .booklet-timetable {
+    position: absolute;
+    inset: 0;
+    overflow: visible;
+    color: #000;
+    background: #fff;
+  }
+  .booklet-timetable tr {
+    break-inside: avoid;
+  }
+  .booklet-timetable thead {
+    display: table-header-group;
+  }
+}
+.gvd-speed-profile {
+  margin: 8px 0;
+}
+.gvd-speed-profile svg {
+  display: block;
+  width: 100%;
+  max-height: 220px;
+}
 .gvd-toolbar {
   display: flex;
   flex-wrap: wrap;
@@ -1373,6 +1764,15 @@ button:disabled > .aero-icon {
 }
 .booklet-heading strong {
   font-size: 20px;
+}
+.booklet-metadata {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  align-items: start;
+  gap: 5px 14px;
+  padding: 7px 10px;
+  font-size: 11px;
+  border-top: 1px solid var(--aero-panel-border);
 }
 .booklet-timetable table {
   width: 100%;

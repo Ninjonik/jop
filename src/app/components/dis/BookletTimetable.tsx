@@ -3,9 +3,18 @@ import type { Timetable } from '@/lib/dis/timetable';
 import { unfoldStops } from '@/lib/dis/timetable';
 import { useTranslation } from '@/lib/i18n/client';
 import { getStationDisplayName } from '@/lib/station/display-name';
-export function BookletTimetable({ timetable }: { timetable: Timetable }) {
+export function BookletTimetable({
+  timetable,
+  stationNames,
+  positions,
+}: {
+  timetable: Timetable;
+  stationNames?: Map<string, string>;
+  positions?: Record<string, number>;
+}) {
   const t = useTranslation();
   const stops = unfoldStops(timetable.stops);
+  const stationName = (id: string) => stationNames?.get(id) || getStationDisplayName(id);
   return (
     <section className="booklet-timetable" aria-label={t('Zošitový cestovný poriadok')}>
       <div className="booklet-heading">
@@ -13,14 +22,66 @@ export function BookletTimetable({ timetable }: { timetable: Timetable }) {
           {timetable.trainType} {timetable.trainNumber}
         </strong>
         <span>
-          {getStationDisplayName(stops[0]?.station || '')} –{' '}
-          {getStationDisplayName(stops.at(-1)?.station || '')}
+          {stationName(stops[0]?.station || '')} – {stationName(stops.at(-1)?.station || '')}
         </span>
         <span>
           {t('Najvyššia rýchlosť')}: {timetable.maxSpeed} {'km/h'} · {t('Dĺžka vlaku')}:{' '}
           {timetable.trainLength} m
         </span>
       </div>
+      {timetable.planning && (
+        <div className="booklet-heading booklet-metadata">
+          <span>
+            {t('Platnosť')}: {timetable.planning.validFrom} – {timetable.planning.validTo}
+          </span>
+          <span>
+            {t('Obdobie GVD')}: {timetable.planning.era}
+          </span>
+          <span>
+            {t('Dni jazdy')}:{' '}
+            {timetable.planning.weekdays
+              .map((d) => ['Po', 'Ut', 'St', 'Št', 'Pi', 'So', 'Ne'][d - 1])
+              .map((d) => t(d))
+              .join(', ')}
+          </span>
+          <span>
+            {t('Verzia záznamu')}: {timetable.$updatedAt || '—'}
+          </span>
+          <span>
+            {t('Ide tiež (dátumy oddelené čiarkou)')}:{' '}
+            {timetable.planning.includedDates.join(', ') || '—'}
+          </span>
+          <span>
+            {t('Nejde (dátumy oddelené čiarkou)')}:{' '}
+            {timetable.planning.excludedDates.join(', ') || '—'}
+          </span>
+        </div>
+      )}
+      {timetable.planning?.stock && (
+        <div className="booklet-heading booklet-metadata">
+          <span>
+            {t('Súprava')}: {timetable.planning.stock.name}
+          </span>
+          <span>
+            {t('Hmotnosť vozňov (t)')}: {timetable.planning.stock.hauledMassT}
+          </span>
+          <span>
+            {t('Zdroj a platnosť technických údajov')}:{' '}
+            {timetable.planning.stock.source || t('Odhad')}
+          </span>
+          <span>
+            {t('Brzdiace percentá')}:{' '}
+            {timetable.planning.stock.brakedWeightT
+              ? (
+                  (timetable.planning.stock.brakedWeightT /
+                    (timetable.planning.stock.hauledMassT +
+                      timetable.planning.stock.locomotiveMassT)) *
+                  100
+                ).toFixed(1)
+              : '—'}
+          </span>
+        </div>
+      )}
       <div className="overflow-auto">
         <table>
           <thead>
@@ -43,9 +104,14 @@ export function BookletTimetable({ timetable }: { timetable: Timetable }) {
             {stops.map((stop, index) => (
               <tr key={index}>
                 <td className={index === 0 || index === stops.length - 1 ? 'font-bold' : ''}>
-                  {getStationDisplayName(stop.station)}
+                  {stationName(stop.station)}
                 </td>
-                <td>{stop.kilometer ?? '—'}</td>
+                <td>
+                  {stop.kilometer ??
+                    (positions?.[stop.station] !== undefined
+                      ? (positions[stop.station] / 1000).toFixed(3)
+                      : '—')}
+                </td>
                 <td>
                   {index === 0 ? '—' : stop.arrival}
                   {index !== 0 && stop.arrivalMinute >= 1440 ? ' +1' : ''}
