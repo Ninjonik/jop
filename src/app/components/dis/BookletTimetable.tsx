@@ -1,6 +1,6 @@
 'use client';
 import type { Timetable } from '@/lib/dis/timetable';
-import { formatDwell, unfoldStops } from '@/lib/dis/timetable';
+import { formatBookletClock, formatDwell, unfoldStops } from '@/lib/dis/timetable';
 import { useTranslation } from '@/lib/i18n/client';
 import { getStationDisplayName } from '@/lib/station/display-name';
 export function BookletTimetable({
@@ -112,12 +112,22 @@ export function BookletTimetable({
                       : '—')}
                 </td>
                 <td>
-                  {index === 0 ? '—' : stop.arrival}
+                  {index === 0
+                    ? '—'
+                    : formatBookletClock(
+                        stop.arrival,
+                        index > 1 ? stops[index - 1].arrival : undefined,
+                      )}
                   {index !== 0 && stop.arrivalMinute >= 1440 ? ' +1' : ''}
                 </td>
                 <td>{stop.dwell ? formatDwell(stop.dwell) : '—'}</td>
                 <td>
-                  {index === stops.length - 1 ? '—' : stop.departure}
+                  {index === stops.length - 1
+                    ? '—'
+                    : formatBookletClock(
+                        stop.departure,
+                        index > 0 ? stops[index - 1].departure : undefined,
+                      )}
                   {index !== stops.length - 1 && stop.departureMinute >= 1440 ? ' +1' : ''}
                 </td>
                 <td>{stop.track || '—'}</td>

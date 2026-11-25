@@ -71,6 +71,12 @@ export const clockMinutes = (time: string) =>
   (time.length === 8 && time.endsWith(':30') ? 0.5 : 0);
 export const formatDwell = (minutes: number) =>
   `${Math.floor(minutes)}${minutes % 1 >= 0.5 ? '⁵' : ''}`;
+
+/** Railway booklet notation: repeat the hour only when it changes in this column. */
+export function formatBookletClock(time: string, previous?: string) {
+  const hour = time.slice(0, 2);
+  return `${!previous || previous.slice(0, 2) !== hour ? `${Number(hour)} ` : ''}${time.slice(3, 5)}${time.length === 8 ? '⁵' : ''}`;
+}
 export function alignClockMinute(time: string, reference: number) {
   const minute = clockMinutes(time);
   return minute + Math.round((reference - minute) / 1440) * 1440;
