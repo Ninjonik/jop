@@ -5,7 +5,7 @@ import { trainCategorySchema } from './train-categories';
 
 export const clockSchema = z
   .string()
-  .regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Čas musí mať formát HH:mm.');
+  .regex(/^([01]\d|2[0-3]):[0-5]\d(?::30)?$/, 'Čas musí mať formát HH:mm alebo HH:mm:30.');
 export const stopSchema = z.object({
   station: z.string().trim().min(1).max(128),
   arrival: clockSchema,
@@ -65,15 +65,26 @@ export type ConflictReport = { conflicts: Conflict[]; warnings: Conflict[] };
 
 export const stationKey = (station: string) =>
   station.trim().normalize('NFC').toLocaleLowerCase('sk');
-export const clockMinutes = (time: string) => Number(time.slice(0, 2)) * 60 + Number(time.slice(3));
+export const clockMinutes = (time: string) =>
+  Number(time.slice(0, 2)) * 60 +
+  Number(time.slice(3, 5)) +
+  (time.length === 8 && time.endsWith(':30') ? 0.5 : 0);
+export const formatDwell = (minutes: number) =>
+  `${Math.floor(minutes)}${minutes % 1 >= 0.5 ? '⁵' : ''}`;
+
+/** Railway booklet notation: repeat the hour only when it changes in this column. */
+export function formatBookletClock(time: string, previous?: string) {
+  const hour = time.slice(0, 2);
+  return `${!previous || previous.slice(0, 2) !== hour ? `${Number(hour)} ` : ''}${time.slice(3, 5)}${time.length === 8 ? '⁵' : ''}`;
+}
 export function alignClockMinute(time: string, reference: number) {
   const minute = clockMinutes(time);
   return minute + Math.round((reference - minute) / 1440) * 1440;
 }
 
 export function formatMinute(minute: number) {
-  const time = ((minute % 1440) + 1440) % 1440;
-  return `${String(Math.floor(time / 60)).padStart(2, '0')}:${String(Math.floor(time % 60)).padStart(2, '0')}`;
+  const time = (((Math.round(minute * 2) / 2) % 1440) + 1440) % 1440;
+  return `${String(Math.floor(time / 60)).padStart(2, '0')}:${String(Math.floor(time % 60)).padStart(2, '0')}${time % 1 ? ':30' : ''}`;
 }
 
 // Stops are ordered. A decreasing clock is the next day, never a reordering of stops.

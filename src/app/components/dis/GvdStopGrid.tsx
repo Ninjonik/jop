@@ -1,9 +1,57 @@
 'use client';
 import { parseCompactClock } from '@/lib/dis/gvd-running-times';
-import { clockMinutes, formatMinute, type TimetableInput } from '@/lib/dis/timetable';
+import {
+  clockMinutes,
+  clockSchema,
+  formatDwell,
+  formatMinute,
+  type TimetableInput,
+} from '@/lib/dis/timetable';
 import { useTranslation } from '@/lib/i18n/client';
 import { useRef, useState } from 'react';
 import { AeroAutocomplete } from '../ui/AeroAutocomplete';
+
+function DwellInput({
+  value,
+  disabled,
+  label,
+  cell,
+  onChange,
+}: {
+  value: number;
+  disabled: boolean;
+  label: string;
+  cell: string;
+  onChange: (minutes: number) => void;
+}) {
+  const [editing, setEditing] = useState<string | null>(null);
+  return (
+    <input
+      className="aero-input"
+      aria-label={label}
+      data-cell={cell}
+      disabled={disabled}
+      inputMode="decimal"
+      title="0⁵ = 30 s · 1⁵ = 1 min 30 s"
+      value={editing ?? formatDwell(value)}
+      onFocus={() => setEditing(String(value))}
+      onBlur={() => setEditing(null)}
+      onChange={(event) => {
+        const text = event.target.value;
+        setEditing(text);
+        const minutes = Number(text.replace(',', '.').replace('⁵', '.5'));
+        if (
+          text.trim() &&
+          Number.isFinite(minutes) &&
+          minutes >= 0 &&
+          minutes < 1440 &&
+          Number.isInteger(minutes * 2)
+        )
+          onChange(minutes);
+      }}
+    />
+  );
+}
 
 export function GvdStopGrid({
   train,
@@ -97,12 +145,17 @@ export function GvdStopGrid({
                 <td>
                   <span className="gvd-row-number">{index + 1}</span>
                   <AeroAutocomplete
+                    portal
                     disabled={disabled}
                     label={t('Stanica {0}', index + 1)}
                     value={stations.find((s) => s.stationId === stop.station)?.name || stop.station}
                     options={stations.map((s) => ({ value: s.stationId, label: s.name }))}
-                    onInput={() => {
-                      if (!disabled) update(index, { station: '' });
+                    onInput={(value) => {
+                      const match = stations.find(
+                        (s) =>
+                          s.name.toLocaleLowerCase('sk') === value.trim().toLocaleLowerCase('sk'),
+                      );
+                      if (!disabled) update(index, { station: match?.stationId || value });
                     }}
                     onSelect={(o) => {
                       if (!disabled) update(index, { station: o.value });
@@ -113,7 +166,33 @@ export function GvdStopGrid({
                   (field, col) =>
                     !showDetails && (field === 'kind' || field === 'notes') ? null : (
                       <td key={field}>
-                        {field === 'kind' ? (
+                        {field === 'dwell' ? (
+                          <DwellInput
+                            value={
+                              clockSchema.safeParse(stop.arrival).success &&
+                              clockSchema.safeParse(stop.departure).success
+                                ? (clockMinutes(stop.departure) -
+                                    clockMinutes(stop.arrival) +
+                                    1440) %
+                                  1440
+                                : 0
+                            }
+                            disabled={
+                              disabled ||
+                              index === 0 ||
+                              index === train.stops.length - 1 ||
+                              stop.kind === 'pass'
+                            }
+                            label={`${t('Pobyt')} ${index + 1}`}
+                            cell={`${index}:${col}`}
+                            onChange={(minutes) => {
+                              if (clockSchema.safeParse(stop.arrival).success)
+                                update(index, {
+                                  departure: formatMinute(clockMinutes(stop.arrival) + minutes),
+                                });
+                            }}
+                          />
+                        ) : field === 'kind' ? (
                           <select
                             className="aero-select"
                             disabled={disabled}
@@ -139,28 +218,17 @@ export function GvdStopGrid({
                               disabled ||
                               (index === 0 && field === 'arrival') ||
                               (index === train.stops.length - 1 && field === 'departure') ||
-                              ((index === 0 || index === train.stops.length - 1) &&
-                                field === 'dwell') ||
-                              (stop.kind === 'pass' &&
-                                (field === 'dwell' || (field === 'departure' && index > 0)))
+                              (stop.kind === 'pass' && field === 'departure' && index > 0)
                             }
                             data-cell={`${index}:${col}`}
-                            aria-label={`${t(field === 'dwell' ? 'Pobyt' : field)} ${index + 1}`}
+                            aria-label={`${t(field)} ${index + 1}`}
                             inputMode={field === 'track' || field === 'notes' ? 'text' : 'numeric'}
                             placeholder="—"
                             value={
                               (index === 0 && field === 'arrival') ||
                               (index === train.stops.length - 1 && field === 'departure')
                                 ? ''
-                                : field === 'dwell'
-                                  ? /^[0-2]\d:[0-5]\d$/.test(stop.arrival) &&
-                                    /^[0-2]\d:[0-5]\d$/.test(stop.departure)
-                                    ? (clockMinutes(stop.departure) -
-                                        clockMinutes(stop.arrival) +
-                                        1440) %
-                                      1440
-                                    : ''
-                                  : stop[field] || ''
+                                : stop[field] || ''
                             }
                             onBlur={(e) => {
                               if (field === 'arrival' || field === 'departure') {
@@ -175,27 +243,15 @@ export function GvdStopGrid({
                               }
                             }}
                             onChange={(e) => {
-                              if (field === 'dwell') {
-                                const minutes = Number(e.target.value);
-                                if (
-                                  Number.isFinite(minutes) &&
-                                  minutes >= 0 &&
-                                  minutes < 1440 &&
-                                  /^\d{2}:\d{2}$/.test(stop.arrival)
-                                )
-                                  update(index, {
-                                    departure: formatMinute(clockMinutes(stop.arrival) + minutes),
-                                  });
-                              } else
-                                update(index, {
-                                  [field]: e.target.value,
-                                  ...(stop.kind === 'pass' && field === 'arrival'
-                                    ? { departure: e.target.value }
-                                    : {}),
-                                });
+                              update(index, {
+                                [field]: e.target.value,
+                                ...(stop.kind === 'pass' && field === 'arrival'
+                                  ? { departure: e.target.value }
+                                  : {}),
+                              });
                             }}
                             onPaste={(e) => {
-                              if (disabled || field === 'dwell') return;
+                              if (disabled) return;
                               const text = e.clipboardData.getData('text');
                               if (!text.includes('\t') && !text.includes('\n')) return;
                               e.preventDefault();

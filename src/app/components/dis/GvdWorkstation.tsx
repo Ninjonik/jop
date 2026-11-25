@@ -23,6 +23,7 @@ import {
   type Timetable,
   type TimetableInput,
 } from '@/lib/dis/timetable';
+import { timetableTransportPoints } from '@/lib/dis/transport-points';
 import { useDisResource } from '@/lib/dis/use-dis-resource';
 import { useTranslation } from '@/lib/i18n/client';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -88,8 +89,21 @@ function persistDraft(key: string, current: Omit<DraftBackup, 'version'> & { dir
   }
 }
 
-export function GvdWorkstation({ place, sessionId = '' }: { place: Place; sessionId?: string }) {
+export function GvdWorkstation({
+  place: inputPlace,
+  sessionId = '',
+}: {
+  place: Place;
+  sessionId?: string;
+}) {
   const t = useTranslation();
+  const place = useMemo(
+    () => ({
+      ...inputPlace,
+      stations: timetableTransportPoints(inputPlace.placeId, inputPlace.stations),
+    }),
+    [inputPlace],
+  );
   const [sessionOnly, setSessionOnly] = useState(false);
   return (
     <div className="gvd-editor gvd-workstation">
@@ -790,17 +804,6 @@ function GvdWorkspace({ place, sessionId }: { place: Place; sessionId: string })
                         max="300"
                         value={draft.maxSpeed}
                         onChange={(e) => update({ maxSpeed: Number(e.target.value) })}
-                      />
-                    </label>
-                    <label>
-                      {t('Dĺžka (m)')}
-                      <input
-                        className="aero-input"
-                        type="number"
-                        min="1"
-                        max="1000"
-                        value={draft.trainLength}
-                        onChange={(e) => update({ trainLength: Number(e.target.value) })}
                       />
                     </label>
 

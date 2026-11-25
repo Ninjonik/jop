@@ -1,6 +1,12 @@
 import { newPlanning } from './gvd-planning';
 import type { RailwayLine } from './lines';
-import { clockMinutes, normalizeTimetable, shiftTimetable, type TimetableInput } from './timetable';
+import {
+  clockMinutes,
+  clockSchema,
+  normalizeTimetable,
+  shiftTimetable,
+  type TimetableInput,
+} from './timetable';
 
 /** Keep legacy metadata readable while the game editor authors daily, manual services. */
 export function dailyTimetable(train: TimetableInput): TimetableInput {
@@ -27,7 +33,7 @@ export function applyMeasuredRoute(
   line: RailwayLine,
   start: string,
 ): TimetableInput {
-  if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(start)) throw new Error('Čas musí mať formát HH:mm.');
+  clockSchema.parse(start);
   const stops = line.measuredStops;
   if (!stops) {
     // No invented travel times: an unmeasured route starts with editable equal clocks.
