@@ -118,6 +118,7 @@ export function LineEditor({
             ))}
           </ol>
           <AeroAutocomplete
+            stationGroups
             label={t('Pridať stanicu na trať')}
             value=""
             options={stations

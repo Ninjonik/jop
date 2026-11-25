@@ -13,6 +13,7 @@ import {
   lineStationPositions,
 } from '@/lib/dis/gvd-tools';
 import type { RailwayLine } from '@/lib/dis/lines';
+import { seedRailwayNetwork, type NetworkSnapshot } from '@/lib/dis/railway-network';
 import {
   formatMinute,
   normalizeTimetable,
@@ -23,7 +24,7 @@ import {
   type Timetable,
   type TimetableInput,
 } from '@/lib/dis/timetable';
-import { timetableTransportPoints } from '@/lib/dis/transport-points';
+import { timetableTransportPoints, transportPointKey } from '@/lib/dis/transport-points';
 import { useDisResource } from '@/lib/dis/use-dis-resource';
 import { useTranslation } from '@/lib/i18n/client';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -35,6 +36,7 @@ import { GvdDialog } from './GvdDialog';
 import { GvdRouteTemplates } from './GvdRouteTemplates';
 import { GvdStationList } from './GvdStationList';
 import { GvdStopGrid } from './GvdStopGrid';
+import { RailwayNetworkEditor } from './RailwayNetworkEditor';
 import { TimetableGraph } from './TimetableGraph';
 import { TrainCategoryOptions } from './TrainCategoryOptions';
 
@@ -162,7 +164,30 @@ function GvdWorkspace({ place, sessionId }: { place: Place; sessionId: string })
   const dirty = !same(draft, baseline);
   const [search, setSearch] = useState('');
   const [showInactive, setShowInactive] = useState(false);
-  const [tab, setTab] = useState<'table' | 'graph' | 'booklet' | 'station-list'>('table');
+  const [tab, setTab] = useState<'table' | 'graph' | 'booklet' | 'station-list' | 'network'>(
+    'table',
+  );
+  const {
+    value: railway,
+    loading: railwayLoading,
+    error: railwayError,
+    refresh: refreshRailway,
+  } = useDisResource<NetworkSnapshot>(
+    `/api/dis/railway-network?placeId=${encodeURIComponent(place.placeId)}`,
+    { network: seedRailwayNetwork(place.placeId), updatedAt: null },
+  );
+  const stationChoices = useMemo(() => {
+    const choices = [...place.stations];
+    for (const point of railway.network.points) {
+      const index = choices.findIndex(
+        (s) =>
+          s.stationId === point.id || transportPointKey(s.name) === transportPointKey(point.name),
+      );
+      if (index < 0) choices.push({ stationId: point.id, name: point.name });
+      else choices[index] = { stationId: choices[index].stationId, name: point.name };
+    }
+    return choices;
+  }, [place.stations, railway.network]);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
@@ -219,8 +244,8 @@ function GvdWorkspace({ place, sessionId }: { place: Place; sessionId: string })
     ? network.lines.find((l) => l.id === draft.planning?.lineId)
     : undefined;
   const names = useMemo(
-    () => new Map(place.stations.map((s) => [s.stationId, s.name])),
-    [place.stations],
+    () => new Map(stationChoices.map((s) => [s.stationId, s.name])),
+    [stationChoices],
   );
   const stationPattern = useMemo(() => {
     const choices = [...names.keys()]
@@ -760,7 +785,7 @@ function GvdWorkspace({ place, sessionId }: { place: Place; sessionId: string })
             </label>
           </fieldset>
           <div className="gvd-tabbar" role="tablist" aria-label={t('Zobrazenie GVD')}>
-            {(['table', 'graph', 'booklet', 'station-list'] as const).map((name, i) => (
+            {(['table', 'graph', 'booklet', 'station-list', 'network'] as const).map((name, i) => (
               <button
                 role="tab"
                 aria-selected={tab === name}
@@ -771,9 +796,13 @@ function GvdWorkspace({ place, sessionId }: { place: Place; sessionId: string })
                 onClick={() => setTab(name)}
               >
                 {t(
-                  ['Cestovný poriadok', 'Grafikon', 'Zošitový poriadok', 'Staničný zoznam vlakov'][
-                    i
-                  ],
+                  [
+                    'Cestovný poriadok',
+                    'Nákresný cestovný poriadok',
+                    'Zošitový poriadok',
+                    'Staničný zoznam vlakov',
+                    'Mapa a dopravné body',
+                  ][i],
                 )}
               </button>
             ))}
@@ -784,17 +813,80 @@ function GvdWorkspace({ place, sessionId }: { place: Place; sessionId: string })
             id={`gvd-panel-${tab}`}
             aria-labelledby={`gvd-tab-${tab}`}
           >
+            {railwayError && (
+              <p role="alert">
+                {t('Sieť sa nepodarilo načítať. Uložené značky zatiaľ nemusia byť aktuálne.')}{' '}
+                <button className="aero-btn" onClick={() => void refreshRailway()}>
+                  {t('Obnoviť')}
+                </button>
+              </p>
+            )}
+            <div hidden={tab !== 'network'}>
+              {railwayLoading ? (
+                <p>{t('Načítavanie…')}</p>
+              ) : (
+                <RailwayNetworkEditor
+                  key={place.placeId}
+                  placeId={place.placeId}
+                  snapshot={railway}
+                  disabled={!canCreateGvd || !!railwayError}
+                  onSaved={() => void refreshRailway()}
+                />
+              )}
+            </div>
             {tab === 'table' && (
               <>
                 <GvdStopGrid
                   train={draft}
-                  stations={place.stations}
+                  stations={stationChoices}
                   disabled={!editable || !canEditSelected}
                   onChange={change}
                 />
                 <details className="gvd-extra-tools">
                   <summary>{t('Ďalšie údaje vlaku')}</summary>
                   <fieldset disabled={!editable || !canEditSelected} className="gvd-notes-fields">
+                    {(['locomotive', 'carrier', 'note'] as const).map((field, i) => (
+                      <label key={field}>
+                        {t(['Rad HKV', 'Dopravca', 'Poznámka v záhlaví ZCP'][i])}
+                        <input
+                          className="aero-input"
+                          maxLength={field === 'note' ? 500 : 100}
+                          value={draft.planning?.booklet?.[field] || ''}
+                          onChange={(e) =>
+                            update({
+                              planning: {
+                                ...(draft.planning || newPlanning()),
+                                booklet: { ...draft.planning?.booklet, [field]: e.target.value },
+                              },
+                            })
+                          }
+                        />
+                      </label>
+                    ))}
+                    <label>
+                      {t('Režim brzdenia')}
+                      <select
+                        className="aero-select"
+                        value={draft.planning?.booklet?.brakeMode || ''}
+                        onChange={(e) =>
+                          update({
+                            planning: {
+                              ...(draft.planning || newPlanning()),
+                              booklet: {
+                                ...draft.planning?.booklet,
+                                brakeMode: (e.target.value || undefined) as
+                                  'P' | 'R' | 'R+Mg' | 'G' | undefined,
+                              },
+                            },
+                          })
+                        }
+                      >
+                        <option value="">{t('Nezadané')}</option>
+                        {['P', 'R', 'R+Mg', 'G'].map((mode) => (
+                          <option key={mode}>{mode}</option>
+                        ))}
+                      </select>
+                    </label>
                     <label>
                       {t('Rýchlosť (km/h)')}
                       <input
@@ -840,6 +932,7 @@ function GvdWorkspace({ place, sessionId }: { place: Place; sessionId: string })
             {
               <div hidden={tab !== 'graph'} className="gvd-graph-panel">
                 <TimetableGraph
+                  preferenceScope={place.placeId}
                   trains={[
                     ...value.timetables.filter(
                       (train) =>
@@ -866,16 +959,12 @@ function GvdWorkspace({ place, sessionId }: { place: Place; sessionId: string })
               </div>
             }
             {tab === 'station-list' && (
-              <GvdStationList trains={visibleTrains} stations={place.stations} />
+              <GvdStationList trains={visibleTrains} stations={stationChoices} />
             )}
             {tab === 'booklet' && (
               <>
-                <div className="gvd-action-row">
-                  <button className="aero-btn" onClick={() => window.print()}>
-                    {t('Tlač / PDF')}
-                  </button>
-                </div>
                 <BookletTimetable
+                  network={railway.network}
                   timetable={{ ...draft, $id: selectedId || 'draft' }}
                   stationNames={names}
                   positions={lineStationPositions(line)}
@@ -943,7 +1032,7 @@ function GvdWorkspace({ place, sessionId }: { place: Place; sessionId: string })
         <GvdDialog title={t('Šablóny trás')} onClose={() => setInfrastructure(false)}>
           <GvdRouteTemplates
             placeId={place.placeId}
-            stations={place.stations}
+            stations={stationChoices}
             lines={network.lines}
             train={draft}
             disabled={!editable || !canEditSelected}

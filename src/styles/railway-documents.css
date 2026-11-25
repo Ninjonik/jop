@@ -1,0 +1,258 @@
+.autocomplete-group {
+  display: block;
+  padding: 4px 0;
+  color: var(--aero-text-muted);
+  font-size: 11px;
+  border-top: 1px solid var(--aero-panel-border);
+}
+.railway-network-editor {
+  min-height: 500px;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+.network-groups {
+  display: flex;
+  gap: 6px;
+  padding: 8px;
+  flex-wrap: wrap;
+}
+.network-groups details {
+  border: 1px solid var(--aero-panel-border);
+  padding: 5px 8px;
+  background: var(--aero-panel-bg);
+}
+.network-groups button {
+  display: block;
+  margin-top: 4px;
+}
+.network-workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 310px;
+  gap: 10px;
+  min-height: 450px;
+  flex: 1;
+  min-width: 0;
+}
+.network-canvas {
+  overflow: auto;
+  border: 1px solid var(--aero-panel-border);
+  background: var(--tpv-bg);
+  max-height: 700px;
+}
+.network-canvas svg {
+  display: block;
+  color: var(--aero-text);
+}
+.network-hit {
+  stroke: transparent;
+  stroke-width: 20;
+  fill: none;
+  cursor: pointer;
+}
+.network-track {
+  stroke: var(--aero-text-muted);
+  stroke-width: 4;
+  fill: none;
+  pointer-events: none;
+}
+.network-point {
+  cursor: pointer;
+}
+.network-point rect,
+.network-point circle {
+  fill: var(--aero-panel-bg);
+  stroke: var(--aero-text-muted);
+  stroke-width: 2;
+}
+.network-point text {
+  font: 15px Tahoma;
+  fill: var(--aero-text);
+  paint-order: stroke;
+  stroke: var(--tpv-bg);
+  stroke-width: 4px;
+  stroke-linejoin: round;
+}
+.network-point.selected rect,
+.network-point.selected circle,
+.selected .network-track {
+  stroke: #d08c25;
+  stroke-width: 4;
+}
+.network-inspector {
+  border: 1px solid var(--aero-panel-border);
+  padding: 12px;
+  max-height: 700px;
+  overflow: auto;
+  min-width: 0;
+  background: var(--aero-panel-bg);
+}
+.network-inspector legend {
+  font-weight: bold;
+}
+.network-inspector > label {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 12px;
+}
+.network-inspector input:not([type='checkbox']),
+.network-inspector select {
+  width: 100%;
+}
+.network-inspector .gvd-action-row {
+  flex-wrap: nowrap;
+}
+.network-inspector .gvd-action-row input {
+  width: 100px;
+}
+.network-symbols {
+  display: grid;
+  gap: 7px;
+  margin: 10px 0;
+  max-height: 320px;
+  overflow: auto;
+}
+.network-symbols label {
+  display: flex;
+  gap: 7px;
+  align-items: start;
+  font-size: 12px;
+}
+.network-symbols input {
+  margin-top: 2px;
+}
+.network-inspector details {
+  margin-top: 15px;
+}
+.network-inspector form {
+  display: grid;
+  gap: 5px;
+}
+.zcp-document {
+  min-width: 0;
+}
+.zcp-paper {
+  background: #fff;
+  color: #000;
+  padding: 26px 24px;
+  max-width: 1250px;
+  margin: auto;
+  font-family: Arial, sans-serif;
+}
+.zcp-paper h1 {
+  font: 700 42px/1.1 Arial;
+  text-align: center;
+  margin: 0 0 6px;
+}
+.zcp-notes {
+  font: 24px/1.15 Arial;
+}
+.zcp-table-scroll {
+  overflow: auto;
+}
+.zcp-table {
+  width: 100%;
+  min-width: 950px;
+  table-layout: fixed;
+  border-collapse: collapse;
+  border-top: 4px solid #000;
+  border-bottom: 4px solid #000;
+  font: 28px/1.15 Arial;
+  color: #000;
+}
+.zcp-table th {
+  font: 24px/1.15 Arial;
+  border-bottom: 2px solid #000;
+}
+.zcp-table th,
+.zcp-table td {
+  border-right: 2px solid #000;
+  padding: 3px 5px;
+  text-align: center;
+}
+.zcp-table th:last-child,
+.zcp-table td:last-child {
+  border-right: 0;
+}
+.zcp-table td:first-child {
+  text-align: left;
+  position: relative;
+}
+.zcp-table tbody tr:nth-child(odd) {
+  background: #dedede;
+}
+.zcp-clock {
+  font-weight: bold;
+  text-align: right !important;
+}
+.zcp-station {
+  font-weight: bold;
+}
+.zcp-leader {
+  display: flex;
+  align-items: baseline;
+  white-space: nowrap;
+  gap: 2px;
+  padding-right: 5px;
+}
+.zcp-leader:after {
+  content: '';
+  flex: 1;
+  border-bottom: 2px dotted #000;
+}
+.zcp-double td:first-child:after {
+  content: '';
+  position: absolute;
+  right: 3px;
+  top: 0;
+  bottom: 0;
+  border-right: 4px solid #000;
+}
+.zcp-ab td:first-child {
+  border-left: 2px dotted #000;
+}
+.zcp-opposite {
+  position: absolute;
+  left: 0;
+  top: 0;
+  font: 10px/10px Arial;
+}
+.zcp-opposite + .zcp-leader {
+  padding-left: 10px;
+}
+.zcp-measures {
+  white-space: normal;
+}
+.zcp-symbol {
+  display: inline-block;
+  vertical-align: middle;
+  width: 17px;
+  height: 28px;
+  min-height: 0;
+}
+.zcp-symbol.speed {
+  width: 15px;
+  height: 27px;
+}
+.zcp-symbol.dispatch {
+  width: 23px;
+  height: 23px;
+}
+.zcp-legend {
+  font: 12px/1.5 Tahoma;
+  margin-top: 15px;
+  border-top: 1px solid #aaa;
+  padding-top: 8px;
+}
+@media screen and (max-width: 900px) {
+  .network-workspace {
+    grid-template-columns: 1fr;
+  }
+  .network-inspector {
+    max-height: 450px;
+  }
+  .zcp-paper {
+    padding: 18px 12px;
+  }
+}

@@ -1,4 +1,5 @@
 'use client';
+import { pointKind, pointKinds } from '@/lib/dis/railway-network';
 import type { Timetable } from '@/lib/dis/timetable';
 import { unfoldStops } from '@/lib/dis/timetable';
 import { useTranslation } from '@/lib/i18n/client';
@@ -29,10 +30,16 @@ export function GvdStationList({
             value={station}
             onChange={(e) => setStation(e.target.value)}
           >
-            {stations.map((s) => (
-              <option key={s.stationId} value={s.stationId}>
-                {s.name}
-              </option>
+            {pointKinds.map((kind) => (
+              <optgroup key={kind} label={t(kind)}>
+                {stations
+                  .filter((s) => pointKind(s.name) === kind)
+                  .map((s) => (
+                    <option key={s.stationId} value={s.stationId}>
+                      {s.name}
+                    </option>
+                  ))}
+              </optgroup>
             ))}
           </select>
         </label>

@@ -1,6 +1,7 @@
 'use client';
 import { useLocaleTag, useTranslation } from '@/lib/i18n/client';
 
+import { pointKind } from '@/lib/dis/railway-network';
 import { useId, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
@@ -17,6 +18,7 @@ export function AeroAutocomplete({
   disabled = false,
   placement = 'down',
   portal = false,
+  stationGroups = false,
 }: {
   value: string;
   options: AutocompleteOption[];
@@ -27,6 +29,7 @@ export function AeroAutocomplete({
   disabled?: boolean;
   placement?: 'up' | 'down';
   portal?: boolean;
+  stationGroups?: boolean;
 }) {
   const t = useTranslation();
   const localeTag = useLocaleTag();
@@ -70,6 +73,12 @@ export function AeroAutocomplete({
   const matches = options.filter((option) =>
     searchKey(`${option.label} ${option.description || ''}`).includes(searchKey(search || '')),
   );
+  if (stationGroups)
+    matches.sort(
+      (a, b) =>
+        pointKind(a.label).localeCompare(pointKind(b.label), 'sk') ||
+        a.label.localeCompare(b.label, 'sk'),
+    );
   function select(option: AutocompleteOption) {
     onSelect(option);
     setSearch(null);
@@ -94,6 +103,10 @@ export function AeroAutocomplete({
           onMouseDown={(event) => event.preventDefault()}
           onClick={() => select(option)}
         >
+          {stationGroups &&
+            (index === 0 || pointKind(matches[index - 1].label) !== pointKind(option.label)) && (
+              <strong className="autocomplete-group">{t(pointKind(option.label))}</strong>
+            )}
           {option.label}
           {option.description && (
             <span className="ml-2 text-[var(--aero-text-muted)]">{option.description}</span>
