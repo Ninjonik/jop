@@ -31,7 +31,7 @@ export function validateGvdPlan(
       location,
       message,
     });
-  if (!train.planning || train.planning.status === 'retired') return report;
+  if (!train.planning || train.planning.daily || train.planning.status === 'retired') return report;
   for (const stop of stops) {
     if (stop.kind === 'pass' && stop.departureMinute !== stop.arrivalMinute)
       add('conflicts', stop.station, `${stop.station}: prejazd nesmie obsahovať pobyt.`);

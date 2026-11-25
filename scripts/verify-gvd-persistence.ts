@@ -124,7 +124,18 @@ async function main() {
     const { loadTimetables, saveTimetable, retireTimetable, previewTimetable } =
       await import('../src/lib/server/dis/timetables');
     assert.equal((await loadTimetables(placeId))[0].planning, undefined);
-    const planning = { ...newPlanning(), stock: estimated750 };
+    const { saveLine, loadLines } = await import('../src/lib/server/dis/lines');
+    const measuredRoute = {
+      id: randomUUID(),
+      placeId,
+      name: 'Measured fixture',
+      stations: ['A', 'B'],
+      measuredStops: train.stops,
+    };
+    await saveLine(measuredRoute);
+    assert.deepEqual((await loadLines(placeId))[0].measuredStops, train.stops);
+    const { dailyTimetable } = await import('../src/lib/dis/gvd-simple');
+    const planning = { ...dailyTimetable(train).planning!, stock: estimated750 };
     const updated = await saveTimetable({
       placeId,
       id: legacy.$id,
@@ -254,6 +265,7 @@ async function main() {
       if (mongo) {
         await mongo.collection('roblox_place_templates').deleteMany({ universeId });
         await mongo.collection('gvd_stock_profiles').deleteMany({ universeId });
+        await mongo.collection('railway_lines').deleteMany({ universeId });
         await mongo.collection('sessions').deleteOne({ _id: sessionId as never });
         await mongo.collection('session_timetables').deleteMany({ sessionId });
         await mongo.collection('session_driver_trains').deleteMany({ sessionId });

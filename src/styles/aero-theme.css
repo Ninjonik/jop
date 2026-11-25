@@ -1840,3 +1840,257 @@ button:disabled > .aero-icon {
 .gvd-stops {
   min-width: 850px;
 }
+
+/* Daily GVD editor: compact, readable DiS document workspace. */
+.gvd-graph-conflicts { padding: 5px 8px; color: var(--aero-text); border-bottom: 1px solid var(--aero-panel-border); max-height: 100px; overflow: auto; }
+.gvd-graph-conflicts summary { cursor: pointer; }
+.gvd-grid-options {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 0 7px;
+  color: var(--aero-text-muted);
+}
+.gvd-extra-tools {
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--aero-panel-border);
+}
+.gvd-extra-tools > summary {
+  padding: 7px 10px;
+  cursor: pointer;
+  color: var(--aero-caption-text);
+  background: var(--aero-ribbon-bg);
+}
+.gvd-extra-tools[open] > summary {
+  font-weight: 600;
+}
+.gvd-simple-grid .gvd-sheet td {
+  vertical-align: middle;
+  padding: 6px 4px;
+}
+.gvd-simple-grid .gvd-sheet tbody tr:nth-child(even) td {
+  background: var(--grid-row-alt);
+}
+.gvd-simple-grid .gvd-sheet th:first-child,
+.gvd-simple-grid .gvd-sheet td:first-child {
+  min-width: 170px;
+}
+.gvd-simple-grid .gvd-sheet td:nth-child(7) input {
+  min-width: 100px;
+}
+.gvd-simple-grid .gvd-row-actions {
+  flex-wrap: wrap;
+  width: 120px;
+}
+.gvd-simple-grid .gvd-sheet input[data-cell] {
+  min-width: 55px;
+}
+.gvd-graph-panel:not([hidden]) {
+  display: flex;
+  height: 100%;
+  min-height: 330px;
+}
+.gvd-graph-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 7px 12px;
+  padding: 8px;
+  border-bottom: 1px solid var(--aero-panel-border);
+  background: var(--aero-ribbon-bg);
+  flex-shrink: 0;
+}
+.gvd-graph-controls label {
+  display: grid;
+  gap: 3px;
+  font-size: 11px;
+}
+.gvd-graph-controls label:has(input[type='checkbox']) {
+  display: flex;
+  align-items: center;
+  align-self: center;
+}
+.gvd-graph-controls input:not([type='checkbox']):not([type='color']) {
+  width: 110px;
+}
+.gvd-graph-controls input[type='color'] {
+  width: 36px;
+  height: 23px;
+  padding: 1px;
+}
+.gvd-graph-canvas {
+  min-height: 210px;
+  position: relative;
+  overscroll-behavior: contain;
+}
+.gvd-graph-canvas > div > svg {
+  position: absolute;
+  left: 0;
+  top: 0;
+  touch-action: none;
+}
+.gvd-sticky-time {
+  position: sticky;
+  top: 0;
+  height: 36px;
+  z-index: 3;
+  background: var(--aero-panel-bg);
+  border-bottom: 1px solid var(--aero-panel-border);
+  pointer-events: none;
+}
+.gvd-sticky-stations {
+  position: sticky;
+  left: 0;
+  margin-top: -36px;
+  width: 165px;
+  z-index: 4;
+  background: var(--aero-panel-bg);
+  border-right: 1px solid var(--aero-panel-border);
+  pointer-events: none;
+}
+.gvd-sticky-stations > strong {
+  display: block;
+  position: sticky;
+  top: 0;
+  height: 36px;
+  padding: 10px;
+  background: var(--aero-ribbon-bg);
+  border-bottom: 1px solid var(--aero-panel-border);
+  z-index: 1;
+}
+.gvd-station-label {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  height: 28px;
+  padding: 4px 10px;
+  text-align: left;
+  color: var(--aero-text);
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  pointer-events: auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.gvd-station-label:hover {
+  background: var(--grid-row-selected-bottom);
+}
+.gvd-graph-status {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 5px 8px;
+  min-height: 27px;
+  background: var(--status-bg);
+  color: var(--aero-text);
+  border-top: 1px solid var(--status-border);
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+.gvd-template-editor {
+  display: grid;
+  gap: 12px;
+}
+.gvd-template-editor fieldset {
+  padding: 12px;
+  margin: 0;
+  border: 1px solid var(--aero-panel-border);
+}
+.gvd-template-editor legend {
+  color: var(--aero-caption-text);
+  padding: 0 4px;
+}
+.gvd-template-editor .gvd-properties {
+  align-items: end;
+}
+.gvd-template-editor .gvd-help {
+  line-height: 1.6;
+}
+.gvd-diagnostics:empty {
+  display: none;
+}
+@media (max-width: 900px) {
+  .gvd-train-header {
+    gap: 5px;
+    padding: 6px;
+  }
+  .gvd-graph-controls {
+    gap: 5px 8px;
+  }
+  .timetable-graph > .ribbon-bar > span {
+    display: none;
+  }
+}
+@media print {
+  .gvd-graph-controls,
+  .gvd-graph-status,
+  .gvd-sticky-stations,
+  .gvd-sticky-time {
+    display: none !important;
+  }
+  .gvd-graph-canvas > div > svg {
+    position: static;
+  }
+}
+
+.gvd-graph-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+.gvd-graph-canvas {
+  min-width: 0;
+}
+.gvd-graph-inspector {
+  flex: 0 0 260px;
+  overflow: auto;
+  border-left: 1px solid var(--aero-panel-border);
+  background: var(--aero-panel-bg);
+  padding: 6px;
+}
+.gvd-graph-inspector > strong {
+  display: block;
+  padding: 6px 3px;
+}
+.gvd-graph-inspector table {
+  width: 100%;
+  font-size: 11px;
+}
+.gvd-graph-inspector .aero-grid th,
+.gvd-graph-inspector .aero-grid td {
+  color: var(--aero-text);
+  background: var(--aero-panel-bg);
+}
+.gvd-train-header > label {
+  min-width: 0;
+}
+.gvd-train-header select {
+  width: 100%;
+  min-width: 0;
+}
+.gvd-graph-inspector input {
+  width: 58px;
+  padding: 3px;
+}
+.gvd-graph-inspector td:first-child {
+  max-width: 110px;
+  overflow-wrap: anywhere;
+}
+.gvd-graph-toolbar > span {
+  font-size: 11px;
+  color: var(--aero-text-muted);
+}
+@media (max-width: 900px) {
+  .gvd-graph-inspector {
+    flex-basis: 210px;
+  }
+}
+@media print {
+  .gvd-graph-inspector {
+    display: none !important;
+  }
+}

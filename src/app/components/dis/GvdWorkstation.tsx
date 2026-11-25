@@ -1,14 +1,9 @@
 'use client';
 import { disFetch } from '@/lib/dis/api-client';
 import { useDisAuth } from '@/lib/dis/auth-context';
-import { newPlanning, operatesOn } from '@/lib/dis/gvd-planning';
-import {
-  applyRunningTimes,
-  calculateRunningTimes,
-  calculationFingerprint,
-  shiftFromStop,
-  type RunningTimeResult,
-} from '@/lib/dis/gvd-running-times';
+import { newPlanning } from '@/lib/dis/gvd-planning';
+import { shiftFromStop } from '@/lib/dis/gvd-running-times';
+import { dailyTimetable } from '@/lib/dis/gvd-simple';
 import {
   csvTimetable,
   downloadGvd,
@@ -17,7 +12,6 @@ import {
   importGvd,
   lineStationPositions,
 } from '@/lib/dis/gvd-tools';
-import { validateGvdPlan } from '@/lib/dis/gvd-validation';
 import type { RailwayLine } from '@/lib/dis/lines';
 import {
   formatMinute,
@@ -37,12 +31,9 @@ import { AeroIcon } from '../ui/AeroIcon';
 import { ResizablePanel } from '../ui/ResizablePanel';
 import { BookletTimetable } from './BookletTimetable';
 import { GvdDialog } from './GvdDialog';
-import { GvdInfrastructurePanel } from './GvdInfrastructurePanel';
-import { GvdPlanningPanel } from './GvdPlanningPanel';
-import { GvdSpeedProfile } from './GvdSpeedProfile';
+import { GvdRouteTemplates } from './GvdRouteTemplates';
 import { GvdStationList } from './GvdStationList';
 import { GvdStopGrid } from './GvdStopGrid';
-import { LineEditor } from './LineEditor';
 import { TimetableGraph } from './TimetableGraph';
 import { TrainCategoryOptions } from './TrainCategoryOptions';
 
@@ -157,18 +148,12 @@ function GvdWorkspace({ place, sessionId }: { place: Place; sessionId: string })
   const dirty = !same(draft, baseline);
   const [search, setSearch] = useState('');
   const [showInactive, setShowInactive] = useState(false);
-  const [operatingDate, setOperatingDate] = useState('');
-  const [tab, setTab] = useState<'table' | 'graph' | 'planning' | 'booklet' | 'station-list'>(
-    'table',
-  );
+  const [tab, setTab] = useState<'table' | 'graph' | 'booklet' | 'station-list'>('table');
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
   const [report, setReport] = useState<ConflictReport | null>(null);
-  const [calculation, setCalculation] = useState<RunningTimeResult | null>(null);
   const [infrastructure, setInfrastructure] = useState(false);
-  const [infrastructureDirty, setInfrastructureDirty] = useState(false);
-  const [infrastructureLineId, setInfrastructureLineId] = useState('');
   const [tool, setTool] = useState<
     'copy' | 'return' | 'repeat' | 'shift' | 'dwell' | 'import' | null
   >(null);
@@ -218,7 +203,7 @@ function GvdWorkspace({ place, sessionId }: { place: Place; sessionId: string })
   }, [storageKey]);
   const line = draft.planning?.lineId
     ? network.lines.find((l) => l.id === draft.planning?.lineId)
-    : network.lines[0];
+    : undefined;
   const names = useMemo(
     () => new Map(place.stations.map((s) => [s.stationId, s.name])),
     [place.stations],
@@ -236,19 +221,12 @@ function GvdWorkspace({ place, sessionId }: { place: Place; sessionId: string })
     const text = t(message);
     return stationPattern ? text.replace(stationPattern, (id) => names.get(id) || id) : text;
   };
-  const infrastructureLine =
-    network.lines.find((l) => l.id === infrastructureLineId) || line || network.lines[0];
-  const sections = line?.sections || [];
-  const stale =
-    !!draft.planning?.calculationFingerprint &&
-    draft.planning.calculationFingerprint !== calculationFingerprint(draft, sections);
   const editable = canCreateGvd && !busy && !loading;
   const selected = value.timetables.find((item) => item.$id === selectedId);
   const canEditSelected = !sessionOnly || !selected || selected.sessionId === sessionId;
   const visibleTrains = value.timetables.filter(
     (train) =>
       (showInactive || !train.planning || train.planning.status === 'active') &&
-      (!operatingDate || operatesOn(train.planning, operatingDate)) &&
       `${train.trainType} ${train.trainNumber} ${train.stops.map((s) => names.get(s.station) || s.station).join(' ')}`
         .toLocaleLowerCase('sk')
         .includes(search.toLocaleLowerCase('sk')),
@@ -262,7 +240,6 @@ function GvdWorkspace({ place, sessionId }: { place: Place; sessionId: string })
     );
     setReport(null);
     setNotice('');
-    setCalculation(null);
   };
   const update = (patch: Partial<TimetableInput>) => change({ ...draft, ...patch });
   const select = (train?: Timetable) => {
@@ -276,13 +253,12 @@ function GvdWorkspace({ place, sessionId }: { place: Place; sessionId: string })
         setRecovery({ version: 1, selectedId, expectedUpdatedAt, draft });
       } catch {}
     }
-    const next = train ? structuredClone(train) : emptyTrain();
+    const next = train ? dailyTimetable(structuredClone(train)) : dailyTimetable(emptyTrain());
     setHistory({ past: [], present: next, future: [] });
     setBaseline(next);
     setSelectedId(train?.$id || '');
     setExpectedUpdatedAt(train?.$updatedAt);
     setReport(null);
-    setCalculation(null);
     setError('');
     setNotice('');
   };
@@ -309,7 +285,7 @@ function GvdWorkspace({ place, sessionId }: { place: Place; sessionId: string })
     setError('');
     setNotice('');
     try {
-      const normalized = normalizeTimetable(train);
+      const normalized = normalizeTimetable(dailyTimetable(train));
       const result = await disFetch<{ timetable?: Timetable; report: ConflictReport }>(
         sessionOnly ? endpoint : preview ? `${endpoint}/check` : endpoint,
         {
@@ -341,7 +317,7 @@ function GvdWorkspace({ place, sessionId }: { place: Place; sessionId: string })
         } catch {}
         setRecovery(null);
         await refresh();
-        setNotice(t('Grafikon bol uložený.'));
+        setNotice('Grafikon bol uložený.');
       }
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : String(reason));
@@ -389,28 +365,11 @@ function GvdWorkspace({ place, sessionId }: { place: Place; sessionId: string })
       try {
         localStorage.removeItem(storageKey);
       } catch {}
-      setNotice(t('Vlak bol vyradený.'));
+      setNotice('Vlak bol vyradený.');
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : String(reason));
     } finally {
       setBusy(false);
-    }
-  }
-  function calculate() {
-    try {
-      setError('');
-      const train = normalizeTimetable(draft);
-      const result = calculateRunningTimes(train, sections);
-      setCalculation(result);
-      setReport(
-        validateGvdPlan(
-          train,
-          value.timetables.filter((t) => t.$id !== selectedId),
-          network.lines,
-        ),
-      );
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : String(reason));
     }
   }
   function applyTool() {
@@ -447,8 +406,8 @@ function GvdWorkspace({ place, sessionId }: { place: Place; sessionId: string })
             t('Zadajte číslo vlaku; pre takt aj počet 1 až 20 a číselný začiatok radu.'),
           );
         const count = tool === 'repeat' ? Math.min(20, Math.max(1, toolCount)) : 1;
-        setPending(
-          Array.from({ length: count }, (_, i) =>
+        const copies = Array.from({ length: count }, (_, i) =>
+          dailyTimetable(
             duplicateWorking(
               base,
               count === 1 ? toolNumber : String(Number(toolNumber) + i),
@@ -457,6 +416,14 @@ function GvdWorkspace({ place, sessionId }: { place: Place; sessionId: string })
             ),
           ),
         );
+        if (tool === 'repeat') setPending(copies);
+        else {
+          setSelectedId('');
+          setExpectedUpdatedAt(undefined);
+          setBaseline(emptyTrain());
+          setHistory({ past: [], present: copies[0], future: [] });
+          setTab('table');
+        }
       }
       setTool(null);
     } catch (reason) {
@@ -480,7 +447,7 @@ function GvdWorkspace({ place, sessionId }: { place: Place; sessionId: string })
         });
         saved++;
       }
-      setNotice(t('Pripravené vlaky boli uložené.'));
+      setNotice('Pripravené vlaky boli uložené.');
     } catch (reason) {
       setError(
         `${t('Uložené vlaky')}: ${saved}/${pending.length}. ${reason instanceof Error ? reason.message : String(reason)}`,
@@ -491,13 +458,12 @@ function GvdWorkspace({ place, sessionId }: { place: Place; sessionId: string })
       setBusy(false);
     }
   }
-  const validation = timetableSchema.safeParse(draft);
   return (
     <>
       <div className="gvd-toolbar">
         <strong>
           <AeroIcon name="table" />
-          {t('Pracovisko tvorby GVD')}
+          {t('Tvorba cestovných poriadkov')}
         </strong>
         <span>{place.name}</span>
         <div className="gvd-toolbar-actions">
@@ -518,7 +484,7 @@ function GvdWorkspace({ place, sessionId }: { place: Place; sessionId: string })
             disabled={!editable || !canEditSelected}
             onClick={() => void save(true)}
           >
-            {t('Prepočítať kolízie')}
+            {t('Skontrolovať časy')}
           </button>
           <button className="aero-btn" disabled={busy} onClick={() => void refresh()}>
             {t('Obnoviť')}
@@ -542,15 +508,6 @@ function GvdWorkspace({ place, sessionId }: { place: Place; sessionId: string })
               onChange={(e) => setSearch(e.target.value)}
             />
             <label>
-              {t('Prevádzkový dátum')}
-              <input
-                className="aero-input"
-                type="date"
-                value={operatingDate}
-                onChange={(e) => setOperatingDate(e.target.value)}
-              />
-            </label>
-            <label>
               <input
                 type="checkbox"
                 checked={showInactive}
@@ -568,7 +525,9 @@ function GvdWorkspace({ place, sessionId }: { place: Place; sessionId: string })
                 >
                   <strong>
                     {train.trainType} {train.trainNumber}
-                    <time>{train.stops[0].departure}</time>
+                    <time>
+                      {train.stops[0].departure} – {train.stops.at(-1)!.arrival}
+                    </time>
                   </strong>
                   <span>
                     {names.get(train.stops[0].station) || train.stops[0].station} →{' '}
@@ -608,7 +567,7 @@ function GvdWorkspace({ place, sessionId }: { place: Place; sessionId: string })
           )}
           {notice && (
             <div className="gvd-message" role="status">
-              {notice}
+              {t(notice)}
             </div>
           )}
           {recovery && (
@@ -645,7 +604,7 @@ function GvdWorkspace({ place, sessionId }: { place: Place; sessionId: string })
               {t('Tento vlak patrí dennému GVD. V tejto relácii môžete vytvoriť jeho kópiu.')}
             </p>
           )}
-          <div className="gvd-document-toolbar">
+          <div className="gvd-document-toolbar gvd-primary-tools">
             <button
               className="aero-btn"
               disabled={!editable || !history.past.length}
@@ -660,54 +619,62 @@ function GvdWorkspace({ place, sessionId }: { place: Place; sessionId: string })
             >
               {t('Znovu')}
             </button>
-            {(['copy', 'return', 'repeat', 'shift', 'dwell', 'import'] as const).map(
-              (action, i) => (
+
+            {(['copy', 'return', 'shift'] as const).map((action, i) => (
+              <button
+                key={action}
+                className="aero-btn"
+                disabled={!editable || (action === 'shift' && !canEditSelected)}
+                onClick={() => {
+                  setTool(action);
+                  setToolNumber('');
+                  setToolStart(0);
+                  setToolMinutes(action === 'shift' ? 5 : 30);
+                }}
+              >
+                {t(['Kópia vlaku', 'Spiatočný výkon', 'Posun časov'][i])}
+              </button>
+            ))}
+          </div>
+          <details className="gvd-extra-tools">
+            <summary>{t('Nástroje a export')}</summary>
+            <div className="gvd-document-toolbar">
+              {(['repeat', 'dwell', 'import'] as const).map((action, i) => (
                 <button
                   key={action}
                   className="aero-btn"
-                  disabled={
-                    !editable || ((action === 'shift' || action === 'dwell') && !canEditSelected)
-                  }
+                  disabled={!editable || (action === 'dwell' && !canEditSelected)}
                   onClick={() => {
                     setTool(action);
                     setToolNumber('');
                     setToolStart(0);
                   }}
                 >
-                  {t(
-                    [
-                      'Kópia vlaku',
-                      'Spiatočný výkon',
-                      'Taktové vlaky',
-                      'Posun časov',
-                      'Nastaviť pobyty',
-                      'Import GVD',
-                    ][i],
-                  )}
+                  {t(['Taktové vlaky', 'Nastaviť pobyty', 'Import GVD'][i])}
                 </button>
-              ),
-            )}
-            <button
-              className="aero-btn"
-              onClick={() => {
-                try {
-                  downloadGvd('gvd.json', exportGvd(value.timetables));
-                } catch (reason) {
-                  setError(String(reason));
+              ))}
+              <button
+                className="aero-btn"
+                onClick={() => {
+                  try {
+                    downloadGvd('gvd.json', exportGvd(value.timetables));
+                  } catch (reason) {
+                    setError(String(reason));
+                  }
+                }}
+              >
+                {t('Export GVD')}
+              </button>
+              <button
+                className="aero-btn"
+                onClick={() =>
+                  downloadGvd('vlak.csv', csvTimetable(draft, names), 'text/csv;charset=utf-8')
                 }
-              }}
-            >
-              {t('Export GVD')}
-            </button>
-            <button
-              className="aero-btn"
-              onClick={() =>
-                downloadGvd('vlak.csv', csvTimetable(draft, names), 'text/csv;charset=utf-8')
-              }
-            >
-              {t('Export CSV')}
-            </button>
-          </div>
+              >
+                {t('Export CSV')}
+              </button>
+            </div>
+          </details>
           <fieldset className="gvd-train-header" disabled={!editable || !canEditSelected}>
             <label>
               {t('Číslo vlaku')}
@@ -729,28 +696,6 @@ function GvdWorkspace({ place, sessionId }: { place: Place; sessionId: string })
               >
                 <TrainCategoryOptions />
               </select>
-            </label>
-            <label>
-              {t('Rýchlosť (km/h)')}
-              <input
-                className="aero-input"
-                type="number"
-                min="1"
-                max="300"
-                value={draft.maxSpeed}
-                onChange={(e) => update({ maxSpeed: Number(e.target.value) })}
-              />
-            </label>
-            <label>
-              {t('Dĺžka (m)')}
-              <input
-                className="aero-input"
-                type="number"
-                min="1"
-                max="1000"
-                value={draft.trainLength}
-                onChange={(e) => update({ trainLength: Number(e.target.value) })}
-              />
             </label>
             <label>
               {t('Trať')}
@@ -775,36 +720,33 @@ function GvdWorkspace({ place, sessionId }: { place: Place; sessionId: string })
                 ))}
               </select>
             </label>
-            <button
-              className="aero-btn"
-              disabled={!line}
-              onClick={() => {
-                if (!line) return;
-                if (
-                  draft.stops.some((s) => s.station) &&
-                  !window.confirm(t('Nahradiť trasu vlaku stanicami vybranej trate?'))
-                )
-                  return;
-                update({
-                  stops: line.stations.map((station, i) => ({
-                    station,
-                    arrival: formatMinute(480 + i * 10),
-                    departure: formatMinute(480 + i * 10),
-                    track: '',
-                  })),
-                  planning: {
-                    ...(draft.planning || newPlanning()),
-                    lineId: line.id,
-                    calculationFingerprint: undefined,
-                  },
-                });
-              }}
-            >
-              {t('Použiť trasu trate')}
+            <button className="aero-btn" onClick={() => setInfrastructure(true)}>
+              {t('Šablóny trás')}
             </button>
+            <label>
+              {t('Stav vlaku')}
+              <select
+                className="aero-select"
+                value={draft.planning?.status || 'active'}
+                onChange={(e) =>
+                  update({
+                    planning: {
+                      ...(draft.planning || newPlanning()),
+                      daily: true,
+                      mode: 'manual',
+                      status: e.target.value as 'active' | 'draft' | 'retired',
+                    },
+                  })
+                }
+              >
+                <option value="active">{t('V prevádzke')}</option>
+                <option value="draft">{t('Koncept')}</option>
+                <option value="retired">{t('Vyradený')}</option>
+              </select>
+            </label>
           </fieldset>
           <div className="gvd-tabbar" role="tablist" aria-label={t('Zobrazenie GVD')}>
-            {(['table', 'graph', 'planning', 'booklet', 'station-list'] as const).map((name, i) => (
+            {(['table', 'graph', 'booklet', 'station-list'] as const).map((name, i) => (
               <button
                 role="tab"
                 aria-selected={tab === name}
@@ -815,25 +757,12 @@ function GvdWorkspace({ place, sessionId }: { place: Place; sessionId: string })
                 onClick={() => setTab(name)}
               >
                 {t(
-                  [
-                    'Cestovný poriadok',
-                    'Grafikon',
-                    'Technické údaje',
-                    'Zošitový poriadok',
-                    'Staničný zoznam vlakov',
-                  ][i],
+                  ['Cestovný poriadok', 'Grafikon', 'Zošitový poriadok', 'Staničný zoznam vlakov'][
+                    i
+                  ],
                 )}
               </button>
             ))}
-            <button
-              className="aero-btn"
-              onClick={() => {
-                setInfrastructureLineId(line?.id || '');
-                setInfrastructure(true);
-              }}
-            >
-              {t('Príprava trate')}
-            </button>
           </div>
           <div
             className="gvd-tab-content"
@@ -849,66 +778,88 @@ function GvdWorkspace({ place, sessionId }: { place: Place; sessionId: string })
                   disabled={!editable || !canEditSelected}
                   onChange={change}
                 />
-                <fieldset disabled={!editable || !canEditSelected} className="gvd-notes-fields">
-                  <label>
-                    {t('Nadväzujúci vlak')}
-                    <select
-                      className="aero-select"
-                      value={draft.nextTrainId || ''}
-                      onChange={(e) => update({ nextTrainId: e.target.value || undefined })}
-                    >
-                      <option value="">{t('Bez nadväzujúceho vlaku')}</option>
-                      {value.timetables
-                        .filter((item) => item.$id !== selectedId)
-                        .map((item) => (
-                          <option key={item.$id} value={item.$id}>
-                            {item.trainType} {item.trainNumber}
-                          </option>
-                        ))}
-                    </select>
-                  </label>
-                  <label>
-                    {t('Poznámky k vlaku')}
-                    <input
-                      className="aero-input"
-                      value={draft.notes || ''}
-                      maxLength={1000}
-                      onChange={(e) => update({ notes: e.target.value })}
-                    />
-                  </label>
-                </fieldset>
+                <details className="gvd-extra-tools">
+                  <summary>{t('Ďalšie údaje vlaku')}</summary>
+                  <fieldset disabled={!editable || !canEditSelected} className="gvd-notes-fields">
+                    <label>
+                      {t('Rýchlosť (km/h)')}
+                      <input
+                        className="aero-input"
+                        type="number"
+                        min="1"
+                        max="300"
+                        value={draft.maxSpeed}
+                        onChange={(e) => update({ maxSpeed: Number(e.target.value) })}
+                      />
+                    </label>
+                    <label>
+                      {t('Dĺžka (m)')}
+                      <input
+                        className="aero-input"
+                        type="number"
+                        min="1"
+                        max="1000"
+                        value={draft.trainLength}
+                        onChange={(e) => update({ trainLength: Number(e.target.value) })}
+                      />
+                    </label>
+
+                    <label>
+                      {t('Nadväzujúci vlak')}
+                      <select
+                        className="aero-select"
+                        value={draft.nextTrainId || ''}
+                        onChange={(e) => update({ nextTrainId: e.target.value || undefined })}
+                      >
+                        <option value="">{t('Bez nadväzujúceho vlaku')}</option>
+                        {value.timetables
+                          .filter((item) => item.$id !== selectedId)
+                          .map((item) => (
+                            <option key={item.$id} value={item.$id}>
+                              {item.trainType} {item.trainNumber}
+                            </option>
+                          ))}
+                      </select>
+                    </label>
+                    <label>
+                      {t('Poznámky k vlaku')}
+                      <input
+                        className="aero-input"
+                        value={draft.notes || ''}
+                        maxLength={1000}
+                        onChange={(e) => update({ notes: e.target.value })}
+                      />
+                    </label>
+                  </fieldset>
+                </details>
               </>
             )}
-            {tab === 'graph' && (
-              <TimetableGraph
-                trains={[
-                  ...value.timetables.filter(
-                    (train) =>
-                      train.$id !== selectedId &&
-                      (!operatingDate || operatesOn(train.planning, operatingDate)),
-                  ),
-                  { ...draft, $id: selectedId || 'draft' },
-                ]}
-                stations={(line?.stations || place.stations.map((s) => s.stationId)).map((id) => ({
-                  stationId: id,
-                  name: names.get(id) || id,
-                }))}
-                stationPositions={lineStationPositions(line)}
-                editableId={selectedId || 'draft'}
-                onEdit={editable && canEditSelected ? change : undefined}
-                onSelect={(train) => {
-                  if (train.$id !== 'draft' && train.$id !== selectedId) select(train);
-                }}
-              />
-            )}
-            {tab === 'planning' && (
-              <GvdPlanningPanel
-                train={draft}
-                placeId={place.placeId}
-                disabled={!editable || !canEditSelected}
-                onChange={change}
-              />
-            )}
+            {
+              <div hidden={tab !== 'graph'} className="gvd-graph-panel">
+                <TimetableGraph
+                  trains={[
+                    ...value.timetables.filter(
+                      (train) =>
+                        train.$id !== selectedId &&
+                        (showInactive || !train.planning || train.planning.status === 'active'),
+                    ),
+                    { ...draft, $id: selectedId || 'draft' },
+                  ]}
+                  stations={(line?.stations || place.stations.map((s) => s.stationId)).map(
+                    (id) => ({
+                      stationId: id,
+                      name: names.get(id) || id,
+                    }),
+                  )}
+                  stationPositions={lineStationPositions(line)}
+                  editableId={selectedId || 'draft'}
+                  onEdit={editable && canEditSelected ? change : undefined}
+                  onSelect={(train) => {
+                    if (train.$id !== 'draft' && train.$id !== selectedId) select(train);
+                  }}
+                />
+              </div>
+            }
             {tab === 'station-list' && (
               <GvdStationList trains={visibleTrains} stations={place.stations} />
             )}
@@ -927,85 +878,7 @@ function GvdWorkspace({ place, sessionId }: { place: Place; sessionId: string })
               </>
             )}
           </div>
-          <details className="gvd-diagnostics" open={!!calculation || !!report || !!pending.length}>
-            <summary>
-              {t('Výpočty a kontrola plánu')}
-              {stale ? ` · ${t('Výpočet je neaktuálny')}` : ''}
-            </summary>
-            <div className="gvd-action-row">
-              <button
-                className="aero-btn"
-                disabled={!editable || !canEditSelected}
-                onClick={calculate}
-              >
-                {t('Vypočítať jazdné časy')}
-              </button>
-              {calculation && (
-                <button
-                  className="aero-btn"
-                  disabled={!editable || !canEditSelected}
-                  onClick={() => {
-                    try {
-                      change(applyRunningTimes(draft, calculation));
-                    } catch (reason) {
-                      setError(reason instanceof Error ? reason.message : String(reason));
-                    }
-                  }}
-                >
-                  {t('Použiť vypočítané časy')}
-                </button>
-              )}
-            </div>
-            {!validation.success && (
-              <ul className="gvd-problems">
-                {validation.error.issues.slice(0, 8).map((issue, i) => (
-                  <li key={i}>
-                    {issue.path.join(' · ')}: {issue.message}
-                  </li>
-                ))}
-              </ul>
-            )}
-            {calculation && (
-              <>
-                <GvdSpeedProfile result={calculation} />
-                <p>
-                  {t(
-                    calculation.quality === 'calibrated'
-                      ? 'Výpočet zo zdrojovaných profilov'
-                      : 'Odhadovaný výpočet',
-                  )}{' '}
-                  · {t('Časy sa menia až po potvrdení.')}
-                </p>
-                <table className="aero-grid">
-                  <thead>
-                    <tr>
-                      {[
-                        'Úsek',
-                        'Technický čas (s)',
-                        'Prirážka (s)',
-                        'Plánovaný čas (min)',
-                        'Najvyššia rýchlosť',
-                      ].map((s) => (
-                        <th key={s}>{t(s)}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {calculation.legs.map((leg, i) => (
-                      <tr key={i}>
-                        <td>
-                          {names.get(leg.from) || leg.from} → {names.get(leg.to) || leg.to}
-                        </td>
-                        <td>{Math.ceil(leg.technicalSeconds)}</td>
-                        <td>{Math.ceil(leg.allowanceSeconds)}</td>
-                        <td>{Math.ceil(leg.plannedSeconds / 60)}</td>
-                        <td>{leg.peakSpeedKmh.toFixed(1)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </>
-            )}
+          <div className="gvd-diagnostics">
             {report && (
               <ul className="gvd-problems">
                 {!report.conflicts.length && !report.warnings.length && (
@@ -1023,11 +896,6 @@ function GvdWorkspace({ place, sessionId }: { place: Place; sessionId: string })
                 ))}
               </ul>
             )}
-            <p className="gvd-help">
-              {t(
-                'Výpočet nenahrádza zabezpečovacie zariadenie. Nezadané parametre trate sa nesmú považovať za overené.',
-              )}
-            </p>
             {!!pending.length && (
               <div className="gvd-pending">
                 <strong>
@@ -1054,7 +922,7 @@ function GvdWorkspace({ place, sessionId }: { place: Place; sessionId: string })
                 </button>
               </div>
             )}
-          </details>
+          </div>
         </main>
       </div>
       <footer className="gvd-statusbar">
@@ -1065,64 +933,27 @@ function GvdWorkspace({ place, sessionId }: { place: Place; sessionId: string })
         <span>
           {draft.stops.length} · {t('Dopravne')}
         </span>
-        <span>
-          {t(
-            draft.planning?.mode === 'calibrated'
-              ? 'Kalibrovaný'
-              : draft.planning?.mode === 'estimated'
-                ? 'Odhadovaný'
-                : 'Ručný',
-          )}
-        </span>
       </footer>
       {infrastructure && (
-        <GvdDialog
-          title={t('Príprava trate')}
-          onClose={() => {
-            if (
-              !infrastructureDirty ||
-              window.confirm(t('Zahodiť neuložené technické údaje trate?'))
-            ) {
+        <GvdDialog title={t('Šablóny trás')} onClose={() => setInfrastructure(false)}>
+          <GvdRouteTemplates
+            placeId={place.placeId}
+            stations={place.stations}
+            lines={network.lines}
+            train={draft}
+            disabled={!editable || !canEditSelected}
+            onSaved={refreshLines}
+            onApply={(next) => {
+              if (
+                draft.stops.some((stop) => stop.station) &&
+                !window.confirm(t('Nahradiť trasu vlaku stanicami vybranej trate?'))
+              )
+                return;
+              change(next);
+              setTab('table');
               setInfrastructure(false);
-              setInfrastructureDirty(false);
-            }
-          }}
-        >
-          <LineEditor placeId={place.placeId} stations={place.stations} onChange={refreshLines} />
-          {!!network.lines.length && (
-            <label>
-              {t('Trať')}
-              <select
-                className="aero-select"
-                value={infrastructureLine?.id || ''}
-                onChange={(e) => {
-                  if (
-                    !infrastructureDirty ||
-                    window.confirm(t('Zahodiť neuložené technické údaje trate?'))
-                  ) {
-                    setInfrastructureLineId(e.target.value);
-                    setInfrastructureDirty(false);
-                  }
-                }}
-              >
-                {network.lines.map((l) => (
-                  <option key={l.id} value={l.id}>
-                    {l.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
-          {infrastructureLine && (
-            <GvdInfrastructurePanel
-              key={infrastructureLine.id}
-              line={infrastructureLine}
-              stations={place.stations}
-              onSaved={refreshLines}
-              onDirty={setInfrastructureDirty}
-              disabled={!canCreateGvd}
-            />
-          )}
+            }}
+          />
         </GvdDialog>
       )}
       {tool && (
@@ -1190,9 +1021,7 @@ function GvdWorkspace({ place, sessionId }: { place: Place; sessionId: string })
             </div>
           )}
           {tool === 'return' && (
-            <p>
-              {t('Spiatočná trasa vyžaduje kontrolu smerových profilov, koľají a času na obrat.')}
-            </p>
+            <p>{t('Skontrolujte časy a koľaje spiatočného vlaku pred uložením.')}</p>
           )}
           <p>{t('Nástroj pripraví návrh. Uloženie je samostatný krok.')}</p>
           <button className="aero-btn" onClick={applyTool}>
