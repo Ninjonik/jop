@@ -51,7 +51,7 @@ function Preview() {
             </div>
             <span className="ml-auto">Ukážka (TEST)</span>
             <DesktopDownloads />
-            <DisClock sessionId="fixture-session" canManage />
+            <DisClock sessionId="fixture-session" />
           </div>
           <GvdWorkstation
             place={{

@@ -1,4 +1,5 @@
 'use client';
+import { AccountSettingsSync } from '@/app/components/dis/AccountSettingsSync';
 import { AudioPermissions } from '@/app/components/dis/AudioPermissions';
 import { DesktopDownloads } from '@/app/components/dis/DesktopDownloads';
 import { DisClock } from '@/app/components/dis/DisClock';
@@ -9,6 +10,7 @@ import { disFetch } from '@/lib/dis/api-client';
 import type { StationClaim } from '@/lib/dis/claims';
 import { canUseWorkingMode, type WorkingMode } from '@/lib/dis/permissions';
 import { useLeaseClock } from '@/lib/dis/use-lease-clock';
+import { useUserPreference } from '@/lib/dis/use-user-preference';
 import { LanguageSelector, useLocaleTag, useTranslation } from '@/lib/i18n/client';
 
 import { DocumentCenterView } from '@/app/components/dis/DocumentCenterView';
@@ -133,7 +135,11 @@ function DisPortalShell() {
   const [tab, setTab] = useState<Tab>('sessions');
   const [scope, setScope] = useState<Scope | null>(null);
   const [tool, setTool] = useState<{ url: string; title: string } | null>(null);
-  const [dark, setDark] = useState(false);
+  const [appearance, setAppearance] = useUserPreference('appearance', { dark: false });
+  const dark = appearance.dark;
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', dark);
+  }, [dark]);
   const [radioTarget, setRadioTarget] = useState('Všetci');
   const [driverSelection, setDriverSelection] = useState<{
     sessionId: string;
@@ -329,7 +335,7 @@ function DisPortalShell() {
       visible: hasStation && ownsStation && workingMode === 'dispatcher',
       title: 'Dopravný denník',
     },
-    { id: 'tpv', title: 'TPV', visible: hasSession },
+    { id: 'tpv', title: 'NCP', visible: hasSession },
     { id: 'shifts', title: 'Šichty' },
     { id: 'staff', title: 'Personál', visible: canManageStaff && workingMode === 'admin' },
     { id: 'docs', title: 'Dokumenty' },
@@ -353,6 +359,7 @@ function DisPortalShell() {
   const activeTab = tabs.find((item) => item.id === tab)?.visible === false ? 'sessions' : tab;
   return (
     <div className="dis-portal h-screen flex flex-col overflow-hidden bg-[var(--aero-bg)] text-[var(--aero-text)] text-xs">
+      <AccountSettingsSync />
       <AudioPermissions sessionId={current.sessionId} />
       <div className="aero-title-bar dis-main-title-bar">
         <div className="window-title">
@@ -409,7 +416,7 @@ function DisPortalShell() {
             className="aero-btn"
             onClick={() => {
               document.documentElement.classList.toggle('dark', !dark);
-              setDark(!dark);
+              setAppearance({ dark: !dark });
             }}
           >
             <AeroIcon name={dark ? 'sun' : 'moon'} />

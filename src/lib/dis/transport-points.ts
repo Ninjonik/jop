@@ -1,3 +1,4 @@
+import { pointKind, seedRailwayNetwork } from './railway-network';
 /** Map reference and confirmed corrections; stops use the timetable suffix “z”. */
 export const kamenanskoTransportPoints = [
   ['kamenany', 'Kameňany'],
@@ -43,14 +44,32 @@ export function timetableTransportPoints(
 ) {
   const points = existing.map((point) => ({ ...point, name: point.name.replace(/\bz\.$/, 'z') }));
   if (placeId !== '113144512557419') return points;
-  for (const point of kamenanskoTransportPoints) {
-    const index = points.findIndex(
+  const covered = seedRailwayNetwork(placeId).points;
+  const unfinished = new Set(
+    kamenanskoTransportPoints
+      .filter((p) => !covered.some((c) => c.id === p.stationId))
+      .map((p) => p.stationId),
+  );
+  const unfinishedNames = new Set(
+    kamenanskoTransportPoints
+      .filter((p) => unfinished.has(p.stationId))
+      .map((p) => transportPointKey(p.name)),
+  );
+  const retained = points.filter(
+    (p) => !unfinished.has(p.stationId) && !unfinishedNames.has(transportPointKey(p.name)),
+  );
+  for (const point of covered.map((p) => ({ stationId: p.id, name: p.name }))) {
+    const index = retained.findIndex(
       (item) =>
         item.stationId === point.stationId ||
         transportPointKey(item.name) === transportPointKey(point.name),
     );
-    if (index < 0) points.push(point);
-    else points[index] = { ...points[index], name: point.name };
+    if (index < 0) retained.push(point);
+    else retained[index] = { ...retained[index], name: point.name };
   }
-  return points.sort((a, b) => a.name.localeCompare(b.name, 'sk'));
+  return retained.sort(
+    (a, b) =>
+      pointKind(a.name).localeCompare(pointKind(b.name), 'sk') ||
+      a.name.localeCompare(b.name, 'sk'),
+  );
 }

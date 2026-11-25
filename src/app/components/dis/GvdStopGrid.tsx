@@ -145,6 +145,7 @@ export function GvdStopGrid({
                 <td>
                   <span className="gvd-row-number">{index + 1}</span>
                   <AeroAutocomplete
+                    stationGroups
                     portal
                     disabled={disabled}
                     label={t('Stanica {0}', index + 1)}

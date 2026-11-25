@@ -9,6 +9,7 @@ import { getMongoDb } from '../mongo';
 import { databaseId, disDatabase, DisError, listDocuments } from './appwrite';
 import { loadLines } from './lines';
 import { getDisPlaceTemplate } from './places';
+import { loadRailwayNetwork } from './railway-network';
 
 const commandSchema = z.object({
   placeId: z.string().regex(/^[1-9]\d{0,31}$/),
@@ -243,6 +244,8 @@ export async function validateTimetablePlace(placeId: string, stops: string[]) {
   if (placeId === '113144512557419') {
     for (const point of kamenanskoTransportPoints) stations.add(point.stationId);
   }
+  const network = await loadRailwayNetwork(placeId);
+  for (const point of network.network.points) stations.add(point.id);
   if (stops.some((station) => !stations.has(station)))
     throw new DisError(400, 'Grafikon obsahuje stanicu mimo vybraného miesta.');
 }

@@ -16,13 +16,14 @@ import {
   type Timetable,
   type TimetableInput,
 } from '@/lib/dis/timetable';
+import { preferenceHash, useUserPreference } from '@/lib/dis/use-user-preference';
 import { useTranslation } from '@/lib/i18n/client';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { AeroIcon } from '../ui/AeroIcon';
 
 export function TimetableGraph({
   trains,
-  stations,
+  stations: incomingStations,
   records = [],
   highlighted = '',
   currentMinute,
@@ -30,6 +31,7 @@ export function TimetableGraph({
   onEdit,
   onSelect,
   stationPositions,
+  preferenceScope = 'graph',
 }: {
   trains: Timetable[];
   stations: { stationId: string; name: string }[];
@@ -40,29 +42,61 @@ export function TimetableGraph({
   onEdit?: (train: TimetableInput) => void;
   onSelect?: (train: Timetable) => void;
   stationPositions?: Record<string, number>;
+  preferenceScope?: string;
 }) {
   const t = useTranslation();
-  const [timeScale, setTimeScale] = useState(5);
+  const [preferences, setPreferences, preferenceError] = useUserPreference(
+    `ncp:${preferenceScope}:${preferenceHash(
+      incomingStations
+        .map((s) => s.stationId)
+        .sort()
+        .join('|'),
+    )}`,
+    {
+      onlySelected: false,
+      dragEnabled: false,
+      reverse: false,
+      timeScale: 5,
+      stationScale: 60,
+      snapMinutes: 1,
+      order: incomingStations.map((s) => s.stationId),
+    },
+  );
+  const orderedIds = [
+    ...preferences.order.filter((id) => incomingStations.some((s) => s.stationId === id)),
+    ...incomingStations
+      .filter((s) => !preferences.order.includes(s.stationId))
+      .map((s) => s.stationId),
+  ];
+  const stations = (preferences.reverse ? [...orderedIds].reverse() : orderedIds).map((id) =>
+    incomingStations.find((s) => s.stationId === id)!,
+  );
+  const timeScale = Math.max(0.2, Math.min(20, preferences.timeScale));
+  const setTimeScale = (timeScale: number) => setPreferences({ timeScale });
   const [inspectorOpen, setInspectorOpen] = useState(false);
   const [fullDay, setFullDay] = useState(false);
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('');
   const [direction, setDirection] = useState('');
-  const [onlySelected, setOnlySelected] = useState(false);
+  const onlySelected = preferences.onlySelected;
+  const setOnlySelected = (onlySelected: boolean) => setPreferences({ onlySelected });
   const [selectedTrainId, setSelectedTrainId] = useState(editableId || '');
   const [reference, setReference] = useState('');
   const [referenceMinute, setReferenceMinute] = useState<number>();
   const [hover, setHover] = useState('');
   const [dragDelta, setDragDelta] = useState(0);
-  const [dragEnabled, setDragEnabled] = useState(false);
+  const dragEnabled = preferences.dragEnabled;
+  const setDragEnabled = (dragEnabled: boolean) => setPreferences({ dragEnabled });
   const [colours, setColours] = useState<Record<string, string>>({});
   const activeId = editableId || selectedTrainId;
   const activeTrain = trains.find((train) => train.$id === activeId);
   const categories = [...new Set(trains.map((train) => train.trainType))];
   const stationIndex = (id: string) =>
     stations.findIndex((station) => stationKey(station.stationId) === stationKey(id));
-  const [stationScale, setStationScale] = useState(60);
-  const [snapMinutes, setSnapMinutes] = useState(1);
+  const stationScale = Math.max(40, Math.min(180, preferences.stationScale));
+  const setStationScale = (stationScale: number) => setPreferences({ stationScale });
+  const snapMinutes = Math.max(0.5, Math.min(30, preferences.snapMinutes));
+  const setSnapMinutes = (snapMinutes: number) => setPreferences({ snapMinutes });
   const scroll = useRef<HTMLDivElement>(null);
   const svg = useRef<SVGSVGElement>(null);
   const pan = useRef<{ x: number; y: number; left: number; top: number } | null>(null);
@@ -139,7 +173,12 @@ export function TimetableGraph({
   const x = (minute: number) => 180 + (minute - minimum) * timeScale;
   const y = (id: string) =>
     proportional
-      ? 60 + ((stationPositions![id] - minDistance) / (maxDistance - minDistance)) * (height - 100)
+      ? 60 +
+        ((stationPositions![stations[0].stationId] > stationPositions![stations.at(-1)!.stationId]
+          ? maxDistance - stationPositions![id]
+          : stationPositions![id] - minDistance) /
+          (maxDistance - minDistance)) *
+          (height - 100)
       : 60 + stations.findIndex((s) => stationKey(s.stationId) === stationKey(id)) * stationScale;
   const visible = (id: string) => stations.some((s) => stationKey(s.stationId) === stationKey(id));
   const actual = (train: Timetable) => records.filter((r) => r.trainNumber === train.trainNumber);
@@ -280,7 +319,14 @@ export function TimetableGraph({
   return (
     <div className="timetable-graph">
       <div className="ribbon-bar flex-wrap gvd-graph-toolbar">
-        <strong>{t('Traťová poloha vlakov')}</strong>
+        <strong>{t('Nákresný cestovný poriadok')}</strong>
+        <button
+          className="aero-btn"
+          onClick={() => setPreferences({ reverse: !preferences.reverse })}
+        >
+          {t('Obrátiť poradie dopravní')}
+        </button>
+        {preferenceError && <span role="status">{t(preferenceError)}</span>}
         <button
           className="aero-btn"
           onClick={() => {

@@ -127,6 +127,14 @@ export const planningSchema = z
     allowanceSeconds: z.number().min(0).max(3600),
     turnaroundMinutes: z.number().min(0).max(1440),
     stock: stockProfileSchema.optional(),
+    booklet: z
+      .object({
+        locomotive: z.string().max(100).optional(),
+        carrier: z.string().max(100).optional(),
+        brakeMode: z.enum(['P', 'R', 'R+Mg', 'G']).optional(),
+        note: z.string().max(500).optional(),
+      })
+      .optional(),
     calculationFingerprint: z.string().max(100).optional(),
   })
   .refine((p) => p.validFrom <= p.validTo, 'Koniec platnosti predchádza začiatku.')

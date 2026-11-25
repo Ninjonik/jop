@@ -7,13 +7,13 @@ test('Kameňansko includes all agreed points and preserves existing runtime IDs'
     { stationId: 'existing-solinky', name: 'odb. Solinky' },
     { stationId: 'kolarovo', name: 'Kolárovo' },
   ]);
-  assert.equal(points.length, 27);
-  assert.equal(new Set(points.map((point) => point.stationId)).size, 27);
+  assert.equal(points.length, 18);
+  assert.equal(new Set(points.map((point) => point.stationId)).size, 18);
   assert.equal(
     points.find((point) => point.name === 'odb. Solinky')?.stationId,
     'existing-solinky',
   );
-  for (const name of ['Milošov', 'Milošov z', 'Lubina', 'Dvorníky zastávka z'])
+  for (const name of ['Klenov','odb. Chým','AH Brekov','AH Prílesie','Dvorníky zastávka z'])
     assert.ok(points.some((point) => point.name === name));
   assert.ok(!kamenanskoTransportPoints.some((point) => point.name.endsWith('z.')));
 });

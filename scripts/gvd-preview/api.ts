@@ -1,11 +1,23 @@
 import { operatingClockParts } from '@/lib/dis/clock';
 import { newPlanning } from '@/lib/dis/gvd-planning';
 import { railwayLineSchema, type RailwayLine } from '@/lib/dis/lines';
-import { checkTimetableConflicts, normalizeTimetable, type Timetable } from '@/lib/dis/timetable';
+import {
+  railwayNetworkSchema,
+  seedRailwayNetwork,
+  type NetworkSnapshot,
+} from '@/lib/dis/railway-network';
+import {
+  checkTimetableConflicts,
+  formatMinute,
+  normalizeTimetable,
+  type Timetable,
+} from '@/lib/dis/timetable';
 
 let clockOffsetMinutes = 0;
 let clockConfigured = false;
 const placeId = '113144512557419';
+let railway: NetworkSnapshot = { network: seedRailwayNetwork(placeId), updatedAt: null };
+const preferences = new Map<string, unknown>();
 const routeId = '11111111-1111-4111-8111-111111111111';
 let trains: Timetable[] = [
   {
@@ -36,6 +48,19 @@ let trains: Timetable[] = [
     $updatedAt: '2026-11-25T10:00:00.000Z',
   },
 ];
+if (new URLSearchParams(location.search).has('printTest'))
+  trains.push({
+    ...trains[0],
+    trainNumber: '90500',
+    $id: 'fixture-long-print',
+    notes: 'Ukážkové údaje na overenie viacstranovej tlače.',
+    stops: Array.from({ length: 48 }, (_, i) => ({
+      station: i % 2 ? 'vesele' : 'kolarovo',
+      arrival: formatMinute(480 + i * 4),
+      departure: formatMinute(480 + i * 4 + 0.5),
+      track: '1',
+    })),
+  });
 let lines: RailwayLine[] = [
   {
     id: routeId,
@@ -51,7 +76,21 @@ export async function disFetch<T>(url: string, init: RequestInit = {}): Promise<
   const path = new URL(url, location.origin).pathname;
   const body = typeof init.body === 'string' ? JSON.parse(init.body) : null;
   let response: unknown;
-  if (path === '/api/dis/session-clock') {
+  if (path === '/api/dis/preferences') {
+    const key = body?.key || new URL(url, location.origin).searchParams.get('key') || '';
+    if (body) preferences.set(key, body.value);
+    response = { value: preferences.get(key) || null };
+  } else if (path === '/api/dis/railway-network') {
+    if (body) {
+      if (body.expectedUpdatedAt !== railway.updatedAt)
+        throw new Error('Sieť medzitým zmenil iný používateľ.');
+      railway = {
+        network: railwayNetworkSchema.parse(body.network),
+        updatedAt: new Date().toISOString(),
+      };
+    }
+    response = structuredClone(railway);
+  } else if (path === '/api/dis/session-clock') {
     if (init.method === 'POST') {
       if (!Number.isInteger(body.offsetMinutes) || Math.abs(body.offsetMinutes) > 1440)
         throw new Error('Neplatný posun času.');
