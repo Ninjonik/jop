@@ -1,4 +1,7 @@
+import { kamenanskoTransportPoints } from '@/lib/dis/transport-points';
+
 const stationNames: Record<string, string> = {
+  ...Object.fromEntries(kamenanskoTransportPoints.map((point) => [point.stationId, point.name])),
   kolarovo: 'Kolárovo',
   vesele: 'Veselé',
 };

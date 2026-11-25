@@ -25,8 +25,7 @@ export function BookletTimetable({
           {stationName(stops[0]?.station || '')} – {stationName(stops.at(-1)?.station || '')}
         </span>
         <span>
-          {t('Najvyššia rýchlosť')}: {timetable.maxSpeed} {'km/h'} · {t('Dĺžka vlaku')}:{' '}
-          {timetable.trainLength} m
+          {t('Najvyššia rýchlosť')}: {timetable.maxSpeed} {'km/h'}
         </span>
       </div>
       {timetable.planning && !timetable.planning.daily && (

@@ -1,7 +1,8 @@
 'use client';
 import { useLocaleTag, useTranslation } from '@/lib/i18n/client';
 
-import { useId, useState } from 'react';
+import { useId, useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 export type AutocompleteOption = { value: string; label: string; description?: string };
 
@@ -15,6 +16,7 @@ export function AeroAutocomplete({
   onSelect,
   disabled = false,
   placement = 'down',
+  portal = false,
 }: {
   value: string;
   options: AutocompleteOption[];
@@ -24,6 +26,7 @@ export function AeroAutocomplete({
   onSelect: (option: AutocompleteOption) => void;
   disabled?: boolean;
   placement?: 'up' | 'down';
+  portal?: boolean;
 }) {
   const t = useTranslation();
   const localeTag = useLocaleTag();
@@ -31,10 +34,41 @@ export function AeroAutocomplete({
   const [search, setSearch] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(-1);
+  const input = useRef<HTMLInputElement>(null);
+  const [position, setPosition] = useState<React.CSSProperties>({});
+  useLayoutEffect(() => {
+    if (!portal || !open) return;
+    const align = () => {
+      const rect = input.current?.getBoundingClientRect();
+      if (!rect) return;
+      const below = window.innerHeight - rect.bottom - 8;
+      const up = below < 160 && rect.top > below;
+      setPosition({
+        position: 'fixed',
+        left: rect.left,
+        width: rect.width,
+        right: 'auto',
+        top: up ? 'auto' : rect.bottom,
+        bottom: up ? window.innerHeight - rect.top : 'auto',
+        maxHeight: Math.max(40, Math.min(240, up ? rect.top - 8 : below)),
+        zIndex: 1000,
+      });
+    };
+    align();
+    window.addEventListener('scroll', align, true);
+    window.addEventListener('resize', align);
+    return () => {
+      window.removeEventListener('scroll', align, true);
+      window.removeEventListener('resize', align);
+    };
+  }, [portal, open]);
+  const searchKey = (text: string) =>
+    text
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLocaleLowerCase(localeTag);
   const matches = options.filter((option) =>
-    `${option.label} ${option.description || ''}`
-      .toLocaleLowerCase(localeTag)
-      .includes((search || '').toLocaleLowerCase(localeTag)),
+    searchKey(`${option.label} ${option.description || ''}`).includes(searchKey(search || '')),
   );
   function select(option: AutocompleteOption) {
     onSelect(option);
@@ -42,9 +76,37 @@ export function AeroAutocomplete({
     setOpen(false);
     setActive(-1);
   }
+  const suggestions = (
+    <ul
+      id={listId}
+      role="listbox"
+      aria-label={label}
+      style={portal ? position : undefined}
+      className={`aero-autocomplete-options ${!portal && placement === 'up' ? 'aero-autocomplete-up' : ''}`}
+    >
+      {matches.map((option, index) => (
+        <li
+          key={option.value}
+          id={`${listId}-${index}`}
+          role="option"
+          aria-selected={index === active}
+          className={index === active ? 'active' : ''}
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={() => select(option)}
+        >
+          {option.label}
+          {option.description && (
+            <span className="ml-2 text-[var(--aero-text-muted)]">{option.description}</span>
+          )}
+        </li>
+      ))}
+      {!matches.length && <li role="presentation">{t('Žiadne zodpovedajúce možnosti.')}</li>}
+    </ul>
+  );
   return (
     <div className="relative min-w-40">
       <input
+        ref={input}
         className="aero-input w-full"
         role="combobox"
         aria-label={label}
@@ -78,6 +140,10 @@ export function AeroAutocomplete({
                   matches.length
                 : -1,
             );
+            const next = matches.length
+              ? (active + (event.key === 'ArrowDown' ? 1 : -1) + matches.length) % matches.length
+              : -1;
+            document.getElementById(`${listId}-${next}`)?.scrollIntoView({ block: 'nearest' });
           } else if (event.key === 'Enter' && open) {
             const match = matches[active] || (matches.length === 1 ? matches[0] : undefined);
             if (match) {
@@ -91,32 +157,7 @@ export function AeroAutocomplete({
           }
         }}
       />
-      {open && (
-        <ul
-          id={listId}
-          role="listbox"
-          aria-label={label}
-          className={`aero-autocomplete-options ${placement === 'up' ? 'aero-autocomplete-up' : ''}`}
-        >
-          {matches.map((option, index) => (
-            <li
-              key={option.value}
-              id={`${listId}-${index}`}
-              role="option"
-              aria-selected={index === active}
-              className={index === active ? 'active' : ''}
-              onMouseDown={(event) => event.preventDefault()}
-              onClick={() => select(option)}
-            >
-              {option.label}
-              {option.description && (
-                <span className="ml-2 text-[var(--aero-text-muted)]">{option.description}</span>
-              )}
-            </li>
-          ))}
-          {!matches.length && <li role="presentation">{t('Žiadne zodpovedajúce možnosti.')}</li>}
-        </ul>
-      )}
+      {open && (portal ? createPortal(suggestions, document.body) : suggestions)}
     </div>
   );
 }

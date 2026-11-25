@@ -97,12 +97,17 @@ export function GvdStopGrid({
                 <td>
                   <span className="gvd-row-number">{index + 1}</span>
                   <AeroAutocomplete
+                    portal
                     disabled={disabled}
                     label={t('Stanica {0}', index + 1)}
                     value={stations.find((s) => s.stationId === stop.station)?.name || stop.station}
                     options={stations.map((s) => ({ value: s.stationId, label: s.name }))}
-                    onInput={() => {
-                      if (!disabled) update(index, { station: '' });
+                    onInput={(value) => {
+                      const match = stations.find(
+                        (s) =>
+                          s.name.toLocaleLowerCase('sk') === value.trim().toLocaleLowerCase('sk'),
+                      );
+                      if (!disabled) update(index, { station: match?.stationId || value });
                     }}
                     onSelect={(o) => {
                       if (!disabled) update(index, { station: o.value });

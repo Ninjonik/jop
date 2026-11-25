@@ -1935,7 +1935,42 @@ button:disabled > .aero-icon {
 }
 .gvd-simple-grid .gvd-sheet td {
   vertical-align: middle;
-  padding: 6px 4px;
+  padding: 5px 7px;
+  border-bottom: 1px solid var(--aero-panel-border);
+}
+.gvd-simple-grid .gvd-sheet th {
+  padding: 6px 7px;
+  text-align: left;
+}
+.gvd-simple-grid .gvd-sheet td:first-child {
+  width: 28%;
+}
+.gvd-simple-grid .gvd-sheet td:nth-child(2),
+.gvd-simple-grid .gvd-sheet td:nth-child(4) {
+  width: 16%;
+}
+.gvd-simple-grid .gvd-sheet td:nth-child(3),
+.gvd-simple-grid .gvd-sheet td:nth-child(5) {
+  width: 10%;
+}
+.gvd-simple-grid .gvd-sheet td:last-child {
+  width: 1%;
+}
+.gvd-simple-grid .gvd-row-number {
+  float: none;
+  display: inline-block;
+  width: 16px;
+  vertical-align: middle;
+}
+.gvd-simple-grid .gvd-sheet td:first-child > div {
+  display: inline-block;
+  width: calc(100% - 16px);
+}
+.gvd-simple-grid .gvd-sheet input[data-cell] {
+  text-align: center;
+}
+.gvd-simple-grid .gvd-sheet input:disabled {
+  opacity: 0.55;
 }
 .gvd-simple-grid .gvd-sheet tbody tr:nth-child(even) td {
   background: var(--grid-row-alt);
@@ -1948,8 +1983,8 @@ button:disabled > .aero-icon {
   min-width: 100px;
 }
 .gvd-simple-grid .gvd-row-actions {
-  flex-wrap: wrap;
-  width: 120px;
+  flex-wrap: nowrap;
+  width: max-content;
 }
 .gvd-simple-grid .gvd-sheet input[data-cell] {
   min-width: 55px;
