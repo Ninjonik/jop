@@ -1,11 +1,13 @@
 import { z } from 'zod';
 import { sectionSchema } from './gvd-planning';
+import { normalizeTimetable, stopSchema } from './timetable';
 export const railwayLineSchema = z
   .object({
     id: z.uuid(),
     placeId: z.string().regex(/^[1-9]\d{0,31}$/),
     name: z.string().trim().min(1).max(128),
     stations: z.array(z.string().trim().min(1).max(64)).min(2).max(100),
+    measuredStops: z.array(stopSchema).min(2).max(100).optional(),
     sections: z.array(sectionSchema).max(200).optional(),
     stationTracks: z
       .array(
@@ -18,6 +20,35 @@ export const railwayLineSchema = z
       )
       .max(1000)
       .optional(),
+  })
+  .superRefine((line, ctx) => {
+    if (!line.measuredStops) return;
+    if (
+      line.measuredStops.length !== line.stations.length ||
+      line.measuredStops.some((stop, i) => stop.station !== line.stations[i])
+    ) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['measuredStops'],
+        message: 'Časy šablóny musia zodpovedať poradiu staníc.',
+      });
+      return;
+    }
+    try {
+      normalizeTimetable({
+        trainNumber: 'template',
+        trainType: 'Os',
+        maxSpeed: 100,
+        trainLength: 100,
+        stops: line.measuredStops,
+      });
+    } catch {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['measuredStops'],
+        message: 'Skontrolujte poradie a časy zastavení.',
+      });
+    }
   })
   .refine(
     (line) => new Set(line.stations).size === line.stations.length,

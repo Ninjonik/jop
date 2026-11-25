@@ -113,6 +113,7 @@ export type PlanningSection = z.infer<typeof sectionSchema>;
 export const planningSchema = z
   .object({
     version: z.literal(1),
+    daily: z.boolean().optional(),
     mode: z.enum(['manual', 'estimated', 'calibrated']),
     lineId: z.uuid().optional(),
     status: z.enum(['draft', 'active', 'retired']),
@@ -175,6 +176,7 @@ export const estimated750: StockProfile = {
 };
 export function operatesOn(planning: GvdPlanning | undefined, day: string): boolean {
   if (!planning) return true;
+  if (planning.daily) return planning.status !== 'retired';
   if (planning.status === 'retired' || day < planning.validFrom || day > planning.validTo)
     return false;
   if (planning.excludedDates.includes(day)) return false;
@@ -183,6 +185,10 @@ export function operatesOn(planning: GvdPlanning | undefined, day: string): bool
   return planning.weekdays.includes(weekday);
 }
 export function calendarsOverlap(a?: GvdPlanning, b?: GvdPlanning, peerDayOffset = 0): boolean {
+  if (a?.status === 'retired' || b?.status === 'retired') return false;
+  if (a?.daily && b?.daily) return true;
+  if (a?.daily) a = undefined;
+  if (b?.daily) b = undefined;
   if (!a && !b) return true;
   if (!a || !b) {
     const calendar = (a || b)!;

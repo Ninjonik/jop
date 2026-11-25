@@ -1,6 +1,7 @@
 'use client';
 import { AudioPermissions } from '@/app/components/dis/AudioPermissions';
 import { DesktopDownloads } from '@/app/components/dis/DesktopDownloads';
+import { DisClock } from '@/app/components/dis/DisClock';
 import { SettingsView } from '@/app/components/dis/SettingsView';
 import { StationSelectionView } from '@/app/components/dis/StationSelectionView';
 import { ResizablePanel } from '@/app/components/ui/ResizablePanel';
@@ -133,7 +134,6 @@ function DisPortalShell() {
   const [scope, setScope] = useState<Scope | null>(null);
   const [tool, setTool] = useState<{ url: string; title: string } | null>(null);
   const [dark, setDark] = useState(false);
-  const [clock, setClock] = useState('');
   const [radioTarget, setRadioTarget] = useState('Všetci');
   const [driverSelection, setDriverSelection] = useState<{
     sessionId: string;
@@ -210,10 +210,6 @@ function DisPortalShell() {
   useEffect(() => {
     if (!loading && !user && !authError) router.replace('/dis/login');
   }, [loading, user, authError, router]);
-  useEffect(() => {
-    const timer = setInterval(() => setClock(new Date().toLocaleTimeString(localeTag)), 1000);
-    return () => clearInterval(timer);
-  }, [localeTag]);
   function openTab(next: Tab) {
     setTool(null);
     setTab(next);
@@ -358,7 +354,7 @@ function DisPortalShell() {
   return (
     <div className="dis-portal h-screen flex flex-col overflow-hidden bg-[var(--aero-bg)] text-[var(--aero-text)] text-xs">
       <AudioPermissions sessionId={current.sessionId} />
-      <div className="aero-title-bar">
+      <div className="aero-title-bar dis-main-title-bar">
         <div className="window-title">
           <AeroIcon name="train" size={24} />
           <span>{t('ZSSK DIS — Dopravný informačný systém')}</span>
@@ -367,6 +363,7 @@ function DisPortalShell() {
           {profile.name} ({profile.callsign})
         </span>
         <DesktopDownloads />
+        <DisClock sessionId={current.sessionId} canManage={canManageStaff} />
       </div>
       <nav hidden={!workingMode} className="menubar flex-wrap" aria-label={t('Moduly DIS')}>
         <button className="menu-btn" onClick={() => setWorkingMode(null)}>
@@ -639,7 +636,8 @@ function DisPortalShell() {
                 )}
               {activeTab === 'runtime' &&
                 current.sessionId &&
-                (current.sessionId && current.stationId &&
+                (current.sessionId &&
+                current.stationId &&
                 (isDisAdministrator(profile.role) || (canOperateStation && ownsStation)) ? (
                   <>
                     <div
@@ -796,7 +794,6 @@ function DisPortalShell() {
         <span className="status-item">
           {networkError ? t('Chyba načítania siete') : t('Stanice: {0}', network.stations.length)}
         </span>
-        <span className="status-clock">{clock}</span>
       </div>
     </div>
   );

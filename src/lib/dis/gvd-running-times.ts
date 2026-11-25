@@ -278,15 +278,7 @@ export function applyRunningTimes(
       : undefined,
   };
 }
-export function parseCompactClock(value: string): string {
-  const compact = value.trim().replace('.', ':');
-  if (/^\d{3,4}$/.test(compact)) {
-    const p = compact.padStart(4, '0');
-    return `${p.slice(0, 2)}:${p.slice(2)}`;
-  }
-  if (/^\d{1,2}:\d{2}$/.test(compact)) return compact.padStart(5, '0');
-  return value;
-}
+export { parseCompactClock } from './clock';
 export function shiftFromStop(
   train: TimetableInput,
   index: number,

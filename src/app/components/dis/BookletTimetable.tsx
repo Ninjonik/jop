@@ -29,7 +29,7 @@ export function BookletTimetable({
           {timetable.trainLength} m
         </span>
       </div>
-      {timetable.planning && (
+      {timetable.planning && !timetable.planning.daily && (
         <div className="booklet-heading booklet-metadata">
           <span>
             {t('Platnosť')}: {timetable.planning.validFrom} – {timetable.planning.validTo}
@@ -57,7 +57,7 @@ export function BookletTimetable({
           </span>
         </div>
       )}
-      {timetable.planning?.stock && (
+      {timetable.planning?.stock && !timetable.planning.daily && (
         <div className="booklet-heading booklet-metadata">
           <span>
             {t('Súprava')}: {timetable.planning.stock.name}

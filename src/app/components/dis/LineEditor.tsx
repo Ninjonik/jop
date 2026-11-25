@@ -43,7 +43,7 @@ export function LineEditor({
     }
   }
   return (
-    <details className="gvd-section">
+    <details className="gvd-section" open>
       <summary>{t('Trate a poradie staníc')}</summary>
       {(error || notice) && <p role="alert">{t(error || notice)}</p>}
       <div className="ribbon-bar flex-wrap">
@@ -85,7 +85,7 @@ export function LineEditor({
                   onClick={() => {
                     const order = [...draft.stations];
                     [order[index - 1], order[index]] = [order[index], order[index - 1]];
-                    setDraft({ ...draft, stations: order });
+                    setDraft({ ...draft, measuredStops: undefined, stations: order });
                   }}
                 >
                   {t('Vyššie')}
@@ -96,7 +96,7 @@ export function LineEditor({
                   onClick={() => {
                     const order = [...draft.stations];
                     [order[index + 1], order[index]] = [order[index], order[index + 1]];
-                    setDraft({ ...draft, stations: order });
+                    setDraft({ ...draft, measuredStops: undefined, stations: order });
                   }}
                 >
                   {t('Nižšie')}
@@ -104,7 +104,11 @@ export function LineEditor({
                 <button
                   className="aero-btn"
                   onClick={() =>
-                    setDraft({ ...draft, stations: draft.stations.filter((s) => s !== id) })
+                    setDraft({
+                      ...draft,
+                      measuredStops: undefined,
+                      stations: draft.stations.filter((s) => s !== id),
+                    })
                   }
                 >
                   <AeroIcon name="delete" />
@@ -121,7 +125,11 @@ export function LineEditor({
               .map((s) => ({ value: s.stationId, label: s.name }))}
             onInput={() => {}}
             onSelect={(option) =>
-              setDraft({ ...draft, stations: [...draft.stations, option.value] })
+              setDraft({
+                ...draft,
+                measuredStops: undefined,
+                stations: [...draft.stations, option.value],
+              })
             }
           />
           <div className="flex gap-2 flex-wrap">
@@ -137,7 +145,12 @@ export function LineEditor({
               {t('Zrušiť')}
             </button>
             {value.lines.some((l) => l.id === draft.id) && (
-              <button className="aero-btn" onClick={() => void save(true)}>
+              <button
+                className="aero-btn"
+                onClick={() => {
+                  if (window.confirm(t('Odstrániť trať?'))) void save(true);
+                }}
+              >
                 <AeroIcon name="delete" />
                 {t('Odstrániť trať')}
               </button>

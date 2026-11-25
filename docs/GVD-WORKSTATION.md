@@ -1,183 +1,171 @@
-# GVD planning workstation
+# DiS timetable editor and grafikon
 
-The GVD authoring view is a compact DiS/Aero workstation. It uses the existing
-authentication, place catalogue, train categories, Appwrite recurring timetable
-records and MongoDB session timetable endpoints. It does not send commands to
-Roblox, change station/interlocking state, or rewrite EDD actuals and shifts.
+The editor creates daily services for the Roblox map from manually measured
+journey times. It reuses the existing DiS authentication, place/station catalogue,
+train categories, Appwrite timetables, Mongo session timetables and line storage.
+Saving uses the existing integration; it does not send driving or signalling
+commands to Roblox.
 
-## Editing workflow
+## Normal workflow
 
-1. Select a place and train, or choose **Nový vlak**.
-2. Edit the timetable grid. Stations use the existing autocomplete. Compact times
-   such as `630` or `6.30` become `06:30` when leaving the field. Enter/Up/Down move
-   between time cells; Tab works normally. Paste tab-separated arrival,
-   departure, track and notes values into their matching columns.
-3. Specify stops, passing points or operating stops. Dwell changes departure;
-   passing points have no dwell. Arrival/departure locks protect times when
-   applying a calculation, not against deliberate manual edits.
-4. In **Technické údaje**, choose validity, weekdays and explicit date exceptions.
-   The year presets are 2004/2005 and 2005/2006; custom periods are also supported.
-   The operating-date filter is a GVD service date, not today's real date.
-5. Select a stock profile and directional line profile to estimate running times.
-   Inspect the speed graph and leg times before **Použiť vypočítané časy**.
-6. Review diagnostics, then save. Calculating, graph dragging and preparing tools
-   never save automatically.
+1. Choose **Nový vlak**, or select a train from the searchable list. The list shows
+   its departure, arrival, route and active/draft/retired status.
+2. Enter the train number and category. Add stations and enter arrival, departure,
+   dwell and track values. Compact clocks such as `630` or `6.30` become
+   `06:30` on blur. Optional notes and stop/pass types are behind one checkbox.
+   Enter/Up/Down move between clock cells; Tab and TSV pasting remain available.
+   The origin arrival and terminus departure show a dash and need no input.
+   Their internal values follow the visible endpoint event for API compatibility.
+3. Use **Šablóny trás** to save the current route and measured times as a reusable
+   template. Choose a template and first departure to fill another timetable:
+   measured travel and dwell durations are preserved, including across midnight.
+   An unmeasured route supplies station order with equal clocks, to be filled in
+   manually. Opposite directions can have separate templates.
+4. Choose **V prevádzke** or **Koncept**, check times, then save. Active trains
+   appear in existing game/DiS timetable consumers. There is no separate deploy
+   button or automatic Roblox runtime mutation in this editor.
+5. **Kópia vlaku** and **Spiatočný výkon** open an editable new draft. Review return
+   times and tracks. **Posun časov** shifts the current train from a chosen stop.
+   **Nástroje a export** contains repeating services, dwell tools and JSON/CSV.
+   Repeated/imported trains show a batch preview and save separately; a partial
+   failure leaves only the unsaved remainder in the queue.
 
-Undo/redo keeps up to 100 local edits. A debounced local draft is scoped to the
-user, place and recurring/session mode. Leaving a dirty document prompts and
-keeps a recovery copy. Recovery never bypasses server validation or revision
-checks. Local recovery is a convenience, not a server backup.
+Undo/redo retains 100 local edits. Debounced draft recovery is scoped to the
+user, place and recurring/session mode. Leaving a dirty draft prompts and keeps
+a recovery copy. Recovery still respects server validation and revision checks.
+Saving clears the local recovery record. Storage failure does not block editing.
 
-**Kópia vlaku**, **Spiatočný výkon**, **Taktové vlaky**, time shifts and dwell
-tools prepare drafts. Return workings clear unsafe track/lock assumptions;
-review their reverse running times and turnaround. Repeating trains are capped
-at 20 per operation. JSON imports are capped at 500 trains/5 MB. Prepared trains
-are saved individually; after a failure the unsaved remainder remains visible.
-Imports create records, rather than silently overwriting existing numbers.
-Existing `nextTrainId` references must resolve in the target GVD; review or edit
-foreign references in an imported JSON file before saving it. Imports are not
-a cross-place database restore tool.
+**Vyradiť vlak** removes it from the active offer while retaining its identity,
+EDD history and references. Enable the drafts/retired filter to reopen it and
+restore active status. Active-driver protection and revision conflict handling
+remain on the server. No timetable records are silently purged.
 
-The **Grafikon** tab shares the current draft. Drag the train line to shift it,
-or an event to change that time within neighbouring events. Time snapping,
-axis fitting, zoom and background panning are available. Station spacing uses
-metres only when the selected line has a complete forward distance profile;
-otherwise the chart explicitly says it is schematic. The graph can be exported
-as SVG or printed. The working timetable and station train list have print/PDF
-views, and the grid has CSV export. Use the browser's Save as PDF option.
+## Graph
 
-## Infrastructure and stock data
+Time runs left to right, station order runs top to bottom. The time ruler and
+station labels remain available while scrolling. Labels adapt from minutes to
+multiple hours as you zoom; next-day events include `+1`.
 
-**Príprava trate** retains the existing line topology editor and adds a separate
-line selector for technical profiles. Each direction contains ordered segments
-with length in metres, speed in km/h and gradient in per mille (positive uphill
-in that direction). Reversing a profile reverses segment order and gradient
-sign; reverse braking requirements must be supplied independently.
+- Scroll to move through time; Ctrl + scroll zooms around the pointer. Zoom
+  buttons, fit-to-trains, full-day view and go-to-time are available.
+- Drag the background to pan. Search and category/direction filters reduce the
+  displayed trains; selected-only mode isolates one service.
+- Select a train to highlight it and open its compact time editor beside the
+  chart. Edits update the shared unsaved draft. Switching tabs keeps graph
+  position and settings.
+- Enable **Upravovať ťahaním** before dragging a train line or an event. Whole
+  lines shift all times; individual events stay within neighbouring events.
+  Snapping and a drag offset preview help deliberate edits. Save remains explicit.
+- Passenger, express and freight colours distinguish services; the selected
+  train is highlighted and its display colour can be changed locally. Hover
+  shows the nearest station's arrival/departure in the graph status bar.
+- Station spacing is schematic unless a complete existing distance profile is
+  available. The graph never invents distances, acceleration or braking times.
+- SVG export contains station/time labels and resolved theme colours. The graph,
+  working timetable and station list support browser print/PDF.
 
-Optional station tracks have usable length and clearance time. Optional blocks
-have start/end distances and clearance time. Optional brake tables contain mode
-P/R/G, maximum axles, maximum speed and required braked-weight percentage. Cite
-the relevant table and its validity in the section source. Unknown values remain
-unknown; the editor does not infer real capacity from a station picture.
+The check action keeps clock/order/duplicate-number validation and the existing
+track/section overlap reports. These are advisory authoring reports, not a
+complete infrastructure or signalling simulation.
 
-Stock profiles contain locomotive/hauled mass, wheel power, tractive effort or a
-speed/effort curve, resistance coefficients, adhesion, rotating mass factor,
-traction/brake build-up and service deceleration. Optional brake mode, braked
-weight and axles support a **separate** required-percentage check. Braked weight
-is not a force and is not converted into deceleration.
+## Simplification and compatibility
 
-The reusable stock catalogue lives in MongoDB `gvd_stock_profiles`. Trains embed
-profile snapshots, so changing/deleting a catalogue profile cannot silently alter
-an existing train calculation. Increment the profile version when changing its
-technical assumptions; recorded source/version appear in the authoring data.
+The normal editor has no calendars, operating-day restrictions, traction curves,
+braking tables, physics calculations, time locks or technical preparation panels.
+New/edited services carry `planning.daily: true` and manual mode. Daily services
+ignore retained historical validity fields; retired services remain inactive.
+Legacy planning metadata stays readable. Selecting a legacy timetable prepares
+the daily/manual representation locally; it is persisted only when saved.
 
-## Running-time model and limits
+The older solver, technical schemas and catalogue API remain available for
+backward compatibility, but are not imported by the simplified editor. Daily
+plans skip technical diagnostics. Existing timetable IDs, next-working links,
+stops, notes, session scope and permission boundaries are retained.
 
-The shared solver uses SI units, spatial steps of at most 20 m, a backwards
-service-braking envelope and forward traction integration. It accounts for:
+Route templates use the optional `RailwayLine.measuredStops` field in the
+existing Mongo line record. The server validates exact station order and a
+journey shorter than 24 hours. Editing station order in the route editor clears
+the old measured snapshot to avoid applying times to different stations.
+No line schema migration is required.
 
-- train/locomotive mass and rotating mass;
-- power, effort curve, locomotive adhesion and Davis A/B/C resistance;
-- signed gradients and route/stock/section speed limits;
-- traction build-up at launch and conservative brake build-up allowance;
-- rear-of-train clearance before leaving a lower speed restriction;
-- stops versus passing points, dwell, manual time locks and allowances.
+JSON imports are create-only, limited to 500 trains/5 MB. Referenced next train
+IDs must already be valid in the target GVD; import is not a cross-place restore.
 
-The solver is bounded at 20,000 cells, with a downsampled speed plot. A fingerprint
-detects changed stock, length, route or infrastructure assumptions. Internal
-times are seconds; the existing GVD contract remains whole-minute `HH:mm` with
-midnight unfolding and a journey duration under 24 hours. Applied leg times round
-up to minutes. Per-leg percentage and fixed allowances are explicit.
+## Safe preview before merge
 
-**The supplied 750 profile is an editable estimate, not a verified 750.166
-traction-chart calibration.** Calibrated mode requires a sourced calibrated stock
-profile and section sources. Marking a source does not independently validate
-its accuracy. The engine does not model detailed driver technique, weather,
-signal approach curves, switches, wheel slip or individual pneumatic distributors.
-Brake build-up is a conservative full-delay approximation, not an air-brake
-transient simulation. Engineering calibration still requires measured route and
-stock data. Do not use this game tool for real railway operations.
+Run `npm ci`, then `npm run preview:gvd`, and open
+<http://127.0.0.1:1421/>. No environment file, account or production database is
+needed. The preview renders the actual editor and production styles with fixture
+auth and a fixture-only transport. It never calls live timetable or Roblox APIs.
+Reload resets sample saves/templates; local draft recovery can survive reload.
+Use the header controls to check Slovak/English and light/dark themes.
 
-Checks cover calendar-aware track/section overlaps (including adjacent service
-dates across midnight), directional single-track opposition, entry headways,
-track lengths/clearance, running-time feasibility, passing-point dwell,
-turnaround location/time, missing data and source-backed braking percentages.
-Same-direction block occupancy uses a linear position estimate over **scheduled**
-leg time including train length and clearance. It produces warnings, not proof
-of safe separation; it cannot certify catching-up, signal spacing or route
-release. Missing information is reported, not silently accepted as verified.
+The preview is for authoring/UI checks. Actual authentication and live Roblox
+integration require the site's normal staging acceptance.
 
-Period reference: [ŽSR ZCP 121, valid from 11 December 2005](https://www.vlaky.net/upload/images/obehy/zsr_zcp_2006/zcp121.pdf).
-This informs the period presentation and distinction between train mass and
-braking requirements; it is not a locomotive traction source or a complete
-implementation of all historical ŽSR timetable regulations. Existing train
-categories remain available for compatibility.
+## Deployment and rollback
 
-There is no service-date field in the existing live-session contract. Calendars
-currently control planning/filtering/conflict checks. Runtime menus exclude
-draft/retired records, but are not filtered by the present-day computer date.
+### Shared operating clock
 
-## Compatibility and deployment
+The top-right DIS clock shows hours, minutes, seconds and a small date. With a
+session selected, authorized managers can open **Posun času** and choose an offset
+in hours. For example, -12 h turns 18:00 real Bratislava time into 06:00 operating
+time. The offset is stored once per session/universe in Mongo `session_clocks`;
+participants read the same server-owned value. Legacy sessions default to zero.
+The date rolls with the offset; calculations use Bratislava civil time in summer
+and winter. Browser clock skew is corrected from the server sample.
 
-Recurring timetables retain their document IDs, existing fields and `stopsJson`.
-New authoring data is optional `planningJson`; legacy records without it remain
-active. New stop metadata is optional. No bulk record rewrite is required.
-Retirement replaces hard deletion to preserve IDs and historical references.
-Existing EDD rows, shift snapshots, driver claims and GSM-R bindings are not
-rewritten. Re-numbering or making an actively driven train inactive is rejected
-until its driver's lease ends, preserving its active timetable identity.
+TPV's current-time cursor and EDD automatic/default actual times use this clock.
+Planned timetable clocks are unchanged: author the 06:00 service as 06:00.
+Real shift bookings, audit timestamps, network timeouts and lease deadlines
+remain real time. Changing an offset never rewrites existing EDD actuals.
+The setting is session-specific and must be selected again for a new game server.
 
-Session-only records now use ordinary Mongo field names `id`/`updatedAt`, adapted
-to the existing public `$id`/`$updatedAt` response. Legacy dollar-prefixed fields
-are read through an aggregation projection before BSON decoding and migrated
-only when that individual record is edited. Existing session record IDs survive
-renaming. Writes compare the saved revision atomically.
+Update the JOP Bridge together with the API to synchronize Roblox Lighting.
+Registration, heartbeat and normal update polls include the clock, even when
+there are no physical deltas. Once configured, one server loop advances
+`Lighting.ClockTime` each second. Other game clocks can use workspace attributes
+`DiSClockOffsetMinutes`, `DiSOperatingDate`, `DiSClockServerUnixMs` and
+`DiSClockSecondOfDay` as a reference sample. Existing Lighting is left untouched
+until an offset is explicitly saved. **Použiť reálny čas** saves zero and
+synchronizes Lighting to real Bratislava time.
 
-Before enabling this version in production:
+Clock reads require a DIS login; writes use existing manager permissions and
+validate active session ownership/universe. Expired session clock records are
+pruned with existing session artefacts. The safe preview includes fixture-only
+clock controls. No live Roblox server was modified by authoring or preview.
 
-1. Back up the Appwrite GVD collection and follow the site's normal release process.
-2. Run the existing `npm run dis:setup` with the intended deployment environment.
-   This includes the additive optional `planningJson` string attribute (30,000
-   characters). The schema initializer is idempotent. The setup command also
-   performs the repository's existing schema/storage/access-policy setup; review
-   those existing responsibilities before running it on production.
-3. Wait for the new attribute to become `available`. Advanced saves give a clear
-   503 setup message while it is missing; they never discard the local draft.
-4. Deploy the API and SPA together. Appwrite transactions must be supported by
-   the server/API key, and MongoDB must support `$getField` (MongoDB 5.0+).
-5. Smoke-test an existing train and a new draft, preview, save, refresh, restore
-   and retirement before authoring real schedules.
+Deploy API and SPA together using the existing release process. The original
+PR adds an optional Appwrite `planningJson` string attribute (30,000 characters):
+run the reviewed existing `npm run dis:setup` on the intended environment and
+wait until it is available. That command also performs the repository's existing
+schema/storage/access-policy setup; it is not run against production by preview
+or tests. Saves fail clearly and retain drafts if the attribute is unavailable.
 
 Recurring revision-protected edits use Appwrite transactions. Session edits use
-Mongo atomic compare-and-replace with monotonically increasing revision times.
-Older clients without recurring revision tokens retain their previous API
-behaviour; avoid concurrent edits from old and new client versions. Concurrent
-creation of the same new train number retains the legacy pre-write uniqueness
-check and is not a database-wide unique-index guarantee.
+Mongo atomic compare-and-replace with monotonic revision times. Mongo 5+ supports
+the legacy-record `$getField` read path. Older clients without revision tokens
+retain legacy behaviour; avoid concurrent editing through mixed client versions.
+Train-number creation retains the existing pre-write uniqueness check.
 
-Rollback: return to the previous application version; leave the optional
-attribute and embedded metadata in place. Do not delete timetable records or
-change IDs. The old client can still read the original timetable fields; newly
-retired/draft semantics require the new API, so review those records before an
-application rollback.
+Rollback the application without deleting records or the optional metadata.
+Review inactive/draft records before reverting to an older API that does not
+understand their status.
 
 ## Verification
 
-- `npm run test:dis`: existing domain suite plus GVD physics, calendars, tools,
-  normalization and capacity tests.
-- `npm run test:dis:gvd:persistence`: requires the configured Appwrite/Mongo
-  credentials. Creates a **fresh disposable Appwrite database** and a random
-  Mongo universe/session namespace; it never runs the full production setup.
-  Rehearses the additive migration twice, legacy reads, the setup guard, stale
-  and concurrent Appwrite edits, retirement/active-driver protection, profile
-  snapshot isolation, session rename/CAS, legacy Mongo records and unauthenticated
-  route rejection. Fixture cleanup is in `finally`.
-- Full API/SPA production build, targeted ESLint and `git diff --check`.
-- Browser verification uses the actual components with fixture APIs/auth and
-  production styles, in light/dark themes, Slovak/English and a smaller viewport.
-  It must not connect the preview to shared live timetable endpoints.
+- `npm run test:dis`: domain coverage, including measured-template shifting,
+  midnight, daily operation, malformed template rejection and legacy checks.
+- `npm run test:dis:gvd:persistence`: disposable Appwrite database and unique Mongo
+  universe/session namespace. Verifies additive setup, legacy reads, stale and
+  concurrent edits, retirement/driver guard, measured route round-trip, catalogue
+  snapshots, session rename/CAS and unauthenticated rejection. Cleans its fixtures.
+- Production API/SPA build, targeted ESLint and `git diff --check`.
+- Actual-component fixture browser checks: save, compact clocks, route template
+  save/apply, copy, repeats, graph-side edits, line dragging, undo/redo, SVG export,
+  light/dark and smaller-window layouts. This is not a full live game test.
 
-The new workstation modules are under `src/app/components/dis/Gvd*`; shared
-models, solver, tools and diagnostics are under `src/lib/dis/gvd-*`. Persistence
-remains in the existing `timetables`/`session-timetables` services, with the stock
-catalogue in `src/lib/server/dis/gvd-profiles.ts`.
+Known repository baselines: standalone SPA type-check reports the existing
+`TileSvg.tsx:232` SVG `title` typing error; the UI-copy checker has three unrelated
+missing translations in StationSelectionView and StationRuntimeBoard. The
+existing main-bundle size warning is unchanged.

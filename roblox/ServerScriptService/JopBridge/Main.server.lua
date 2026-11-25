@@ -1,5 +1,28 @@
 local HttpService = game:GetService("HttpService")
 local MessagingService = game:GetService("MessagingService")
+local Lighting = game:GetService("Lighting")
+local operatingClock = nil
+local function applyOperatingClock(clock)
+	if type(clock) ~= "table" or clock.configured ~= true
+		or type(clock.secondOfDay) ~= "number" or type(clock.serverUnixMs) ~= "number" then
+		return
+	end
+	operatingClock = clock
+	workspace:SetAttribute("DiSClockOffsetMinutes", clock.offsetMinutes)
+	workspace:SetAttribute("DiSOperatingDate", clock.date)
+	workspace:SetAttribute("DiSClockServerUnixMs", clock.serverUnixMs)
+	workspace:SetAttribute("DiSClockSecondOfDay", clock.secondOfDay)
+end
+-- One shared server clock drives Lighting; clients receive ordinary replication.
+task.spawn(function()
+	while true do
+		if operatingClock then
+			local elapsed = (DateTime.now().UnixTimestampMillis - operatingClock.serverUnixMs) / 1000
+			Lighting.ClockTime = ((operatingClock.secondOfDay + elapsed) % 86400) / 3600
+		end
+		task.wait(1)
+	end
+end)
 
 local Config = require(script.Config)
 local ApiClient = require(script.ApiClient)
@@ -264,6 +287,7 @@ registry:Start()
 registry:DebugPrintLinks()
 
 local function applyInit(initPayload)
+	applyOperatingClock(initPayload and initPayload.clock)
 	assert(type(initPayload) == "table" and type(initPayload.snapshot) == "table",
 		"[JOP] Registration returned no initialization snapshot.")
 	assert(initPayload.snapshot.protocolVersion == 1, "[JOP] Unsupported backend snapshot protocol. Update the bridge scripts.")
@@ -285,6 +309,7 @@ local function applyInit(initPayload)
 end
 
 local function applyUpdates(updateBatch)
+	applyOperatingClock(updateBatch and updateBatch.clock)
 	assert(type(updateBatch) == "table" and type(updateBatch.updates) == "table"
 		and type(updateBatch.cursor) == "number", "[JOP] Invalid backend update batch.")
 	if #updateBatch.updates == 0 then
@@ -360,9 +385,12 @@ local function heartbeatLoop()
 			end)
 			if not success then
 				warn("[JOP] Heartbeat failed: " .. tostring(response))
-			elseif not confirmed then
-				confirmed = true
-				print(string.format("[JOP] Heartbeat confirmed by %s for session %s", Config.BackendBaseUrl, sessionId))
+			else
+				applyOperatingClock(response and response.clock)
+				if not confirmed then
+					confirmed = true
+					print(string.format("[JOP] Heartbeat confirmed by %s for session %s", Config.BackendBaseUrl, sessionId))
+				end
 			end
 		end
 

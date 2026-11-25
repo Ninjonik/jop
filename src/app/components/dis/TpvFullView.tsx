@@ -7,10 +7,11 @@ import type { Timetable } from '@/lib/dis/timetable';
 import { clockMinutes } from '@/lib/dis/timetable';
 import { useDisResource } from '@/lib/dis/use-dis-resource';
 import { useLeaseClock } from '@/lib/dis/use-lease-clock';
+import { useSessionClock } from '@/lib/dis/use-session-clock';
 import { useTranslation } from '@/lib/i18n/client';
 import { getStationDisplayName } from '@/lib/station/display-name';
 import * as Dialog from '@radix-ui/react-dialog';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { AeroIcon } from '../ui/AeroIcon';
 import { ResizablePanel } from '../ui/ResizablePanel';
 import { BookletTimetable } from './BookletTimetable';
@@ -49,11 +50,10 @@ export function TpvFullView({
   const [last, setLast] = useState('');
   const [hidden, setHidden] = useState<string[]>([]);
   const [selected, setSelected] = useState<Timetable | null>(null);
-  const [now, setNow] = useState<number>();
-  useEffect(() => {
-    const tick = setInterval(() => setNow(clockMinutes(currentBratislavaTime())), 1000);
-    return () => clearInterval(tick);
-  }, []);
+  const { clock, now: operatingNow } = useSessionClock(sessionId);
+  const now = clock
+    ? clockMinutes(currentBratislavaTime(clock.offsetMinutes, operatingNow))
+    : undefined;
   const line = network.lines.find((l) => l.id === lineId);
   const allStations = line?.stations || [
     ...new Set(value.timetables.flatMap((train) => train.stops.map((s) => s.station))),

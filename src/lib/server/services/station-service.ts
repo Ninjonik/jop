@@ -1,3 +1,4 @@
+import { sessionClockSnapshot } from '../dis/session-clock';
 import type { PhysicalVehicleContact } from '@/lib/station/physical-trains';
 import { randomUUID } from 'crypto';
 import { refreshPhysicalTrainLabels } from '../roblox/physical-trains';
@@ -3893,6 +3894,7 @@ export const stationService = {
       sessionId: session._id,
       lastHeartbeatAt: session.interpreter.heartbeat.lastHeartbeatAt,
       isLive: true,
+      clock: await sessionClockSnapshot(sessionId),
     };
   },
 
@@ -3910,6 +3912,7 @@ export const stationService = {
 
     return {
       snapshot,
+      clock: await sessionClockSnapshot(sessionId),
       cursor: state?.latestSequence ?? 0,
     };
   },
@@ -3932,6 +3935,7 @@ export const stationService = {
     return {
       sessionId,
       cursor,
+      clock: await sessionClockSnapshot(sessionId),
       generatedAt: nowIso(),
       updates: updates.map((update) => ({
         sequence: update.sequence,
