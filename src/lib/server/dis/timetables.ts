@@ -1,6 +1,7 @@
 import { newPlanning } from '@/lib/dis/gvd-planning';
 import { validateGvdPlan } from '@/lib/dis/gvd-validation';
 import { checkTimetableConflicts, normalizeTimetable, type Timetable } from '@/lib/dis/timetable';
+import { kamenanskoTransportPoints } from '@/lib/dis/transport-points';
 import { isPublicStation } from '@/lib/station/visibility';
 import { ID, type Models } from 'node-appwrite';
 import { z } from 'zod';
@@ -238,6 +239,10 @@ export async function validateTimetablePlace(placeId: string, stops: string[]) {
       .filter((station) => isPublicStation(station.stationId))
       .map((station) => station.stationId),
   );
+  // Timetable-only stops need not have a dispatchable runtime station layout.
+  if (placeId === '113144512557419') {
+    for (const point of kamenanskoTransportPoints) stations.add(point.stationId);
+  }
   if (stops.some((station) => !stations.has(station)))
     throw new DisError(400, 'Grafikon obsahuje stanicu mimo vybraného miesta.');
 }

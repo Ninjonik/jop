@@ -848,12 +848,14 @@ function GvdWorkspace({ place, sessionId }: { place: Place; sessionId: string })
                     ),
                     { ...draft, $id: selectedId || 'draft' },
                   ]}
-                  stations={(line?.stations || place.stations.map((s) => s.stationId)).map(
-                    (id) => ({
-                      stationId: id,
-                      name: names.get(id) || id,
-                    }),
-                  )}
+                  stations={(
+                    line?.stations || [
+                      ...new Set(draft.stops.map((stop) => stop.station).filter(Boolean)),
+                    ]
+                  ).map((id) => ({
+                    stationId: id,
+                    name: names.get(id) || id,
+                  }))}
                   stationPositions={lineStationPositions(line)}
                   editableId={selectedId || 'draft'}
                   onEdit={editable && canEditSelected ? change : undefined}
