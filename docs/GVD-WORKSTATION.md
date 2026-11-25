@@ -14,6 +14,8 @@ commands to Roblox.
    dwell and track values. Compact clocks such as `630` or `6.30` become
    `06:30` on blur. Optional notes and stop/pass types are behind one checkbox.
    Enter/Up/Down move between clock cells; Tab and TSV pasting remain available.
+   The origin arrival and terminus departure show a dash and need no input.
+   Their internal values follow the visible endpoint event for API compatibility.
 3. Use **Šablóny trás** to save the current route and measured times as a reusable
    template. Choose a template and first departure to fill another timetable:
    measured travel and dwell durations are preserved, including across midnight.
@@ -102,6 +104,36 @@ The preview is for authoring/UI checks. Actual authentication and live Roblox
 integration require the site's normal staging acceptance.
 
 ## Deployment and rollback
+
+### Shared operating clock
+
+The top-right DIS clock shows hours, minutes, seconds and a small date. With a
+session selected, authorized managers can open **Posun času** and choose an offset
+in hours. For example, -12 h turns 18:00 real Bratislava time into 06:00 operating
+time. The offset is stored once per session/universe in Mongo `session_clocks`;
+participants read the same server-owned value. Legacy sessions default to zero.
+The date rolls with the offset; calculations use Bratislava civil time in summer
+and winter. Browser clock skew is corrected from the server sample.
+
+TPV's current-time cursor and EDD automatic/default actual times use this clock.
+Planned timetable clocks are unchanged: author the 06:00 service as 06:00.
+Real shift bookings, audit timestamps, network timeouts and lease deadlines
+remain real time. Changing an offset never rewrites existing EDD actuals.
+The setting is session-specific and must be selected again for a new game server.
+
+Update the JOP Bridge together with the API to synchronize Roblox Lighting.
+Registration, heartbeat and normal update polls include the clock, even when
+there are no physical deltas. Once configured, one server loop advances
+`Lighting.ClockTime` each second. Other game clocks can use workspace attributes
+`DiSClockOffsetMinutes`, `DiSOperatingDate`, `DiSClockServerUnixMs` and
+`DiSClockSecondOfDay` as a reference sample. Existing Lighting is left untouched
+until an offset is explicitly saved. **Použiť reálny čas** saves zero and
+synchronizes Lighting to real Bratislava time.
+
+Clock reads require a DIS login; writes use existing manager permissions and
+validate active session ownership/universe. Expired session clock records are
+pruned with existing session artefacts. The safe preview includes fixture-only
+clock controls. No live Roblox server was modified by authoring or preview.
 
 Deploy API and SPA together using the existing release process. The original
 PR adds an optional Appwrite `planningJson` string attribute (30,000 characters):

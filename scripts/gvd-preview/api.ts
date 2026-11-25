@@ -1,7 +1,10 @@
+import { operatingClockParts } from '@/lib/dis/clock';
 import { newPlanning } from '@/lib/dis/gvd-planning';
 import { railwayLineSchema, type RailwayLine } from '@/lib/dis/lines';
 import { checkTimetableConflicts, normalizeTimetable, type Timetable } from '@/lib/dis/timetable';
 
+let clockOffsetMinutes = 0;
+let clockConfigured = false;
 const placeId = '113144512557419';
 const routeId = '11111111-1111-4111-8111-111111111111';
 let trains: Timetable[] = [
@@ -48,7 +51,24 @@ export async function disFetch<T>(url: string, init: RequestInit = {}): Promise<
   const path = new URL(url, location.origin).pathname;
   const body = typeof init.body === 'string' ? JSON.parse(init.body) : null;
   let response: unknown;
-  if (path === '/api/dis/lines') {
+  if (path === '/api/dis/session-clock') {
+    if (init.method === 'POST') {
+      if (!Number.isInteger(body.offsetMinutes) || Math.abs(body.offsetMinutes) > 1440)
+        throw new Error('Neplatný posun času.');
+      clockOffsetMinutes = body.offsetMinutes;
+      clockConfigured = true;
+    }
+    const serverUnixMs = Date.now();
+    response = {
+      clock: {
+        sessionId: 'fixture-session',
+        offsetMinutes: clockOffsetMinutes,
+        configured: clockConfigured,
+        serverUnixMs,
+        ...operatingClockParts(clockOffsetMinutes, serverUnixMs),
+      },
+    };
+  } else if (path === '/api/dis/lines') {
     if (body) {
       if (init.method === 'DELETE') lines = lines.filter((line) => line.id !== body.id);
       else {

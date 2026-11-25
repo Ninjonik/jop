@@ -1,4 +1,7 @@
+import { DesktopDownloads } from '@/app/components/dis/DesktopDownloads';
+import { DisClock } from '@/app/components/dis/DisClock';
 import { GvdWorkstation } from '@/app/components/dis/GvdWorkstation';
+import { AeroIcon } from '@/app/components/ui/AeroIcon';
 import '@/app/globals.css';
 import { I18nProvider, setLocale } from '@/lib/i18n/client';
 import { createRoot } from 'react-dom/client';
@@ -40,6 +43,15 @@ function Preview() {
             <button className="aero-btn" onClick={() => setLocale('sk')}>
               Slovensky
             </button>
+          </div>
+          <div className="aero-title-bar dis-main-title-bar">
+            <div className="window-title">
+              <AeroIcon name="train" size={24} />
+              <span>ZSSK DIS — Dopravný informačný systém</span>
+            </div>
+            <span className="ml-auto">Ukážka (TEST)</span>
+            <DesktopDownloads />
+            <DisClock sessionId="fixture-session" canManage />
           </div>
           <GvdWorkstation
             place={{

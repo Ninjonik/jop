@@ -59,10 +59,14 @@ async function verify() {
   assert.equal(init.snapshot.sessionId, sessionId);
   assert.equal(init.snapshot.stations[0].pieces[pieceId].type, 'singleSwitch');
   assert.equal(init.cursor, 0);
+  assert.equal(init.clock.sessionId, sessionId);
+  assert.equal(init.clock.offsetMinutes, 0);
+  assert.equal(init.clock.configured, false);
   const beat = await json(
     await heartbeat(request(`sessions/${sessionId}/heartbeat`, { serverId: sessionId }), context),
   );
   assert.equal(beat.isLive, true);
+  assert.equal(beat.clock.sessionId, sessionId);
   const persisted = await db.collection('sessions').findOne({ _id: sessionId as never });
   assert.equal(persisted?.interpreter.heartbeat.lastHeartbeatAt, beat.lastHeartbeatAt);
   await json(await register(request('sessions/register', registration)), 201);
@@ -122,6 +126,8 @@ async function verify() {
     await updates(request(`sessions/${sessionId}/updates?afterSequence=${delta.cursor}`), context),
   );
   assert.equal(acknowledged.updates.length, 0);
+  assert.equal(acknowledged.clock.sessionId, sessionId);
+  assert.equal(typeof acknowledged.clock.serverUnixMs, 'number');
   assert.equal(await db.collection('roblox_runtime_updates').countDocuments({ sessionId }), 0);
   const bundle = await json(await bridgeScripts(request('bridge-scripts')));
   assert.equal(bundle.scripts.length, 10);

@@ -10,6 +10,7 @@ export async function pruneSessionArtifacts() {
     'session_driver_trains',
     'station_reminders',
     'session_timetables',
+    'session_clocks',
   ].map((name) => db.collection(name));
   const sessionIds = new Set(
     (

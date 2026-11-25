@@ -1,4 +1,5 @@
 import type { UserProfile } from '@/lib/dis/appwrite-client';
+import { sessionClockSnapshot } from './session-clock';
 import { currentBratislavaTime } from '@/lib/dis/clock';
 import type { EddRecord } from '@/lib/dis/records';
 import { clockMinutes, clockSchema, stationKey, type Timetable } from '@/lib/dis/timetable';
@@ -158,7 +159,7 @@ export async function recordEddEvent(body: unknown, profile: UserProfile) {
       409,
       'Tento úkon už bol vykonaný alebo nezodpovedá stavu vlaku. Obnovte denník.',
     );
-  const now = command.time ?? currentBratislavaTime();
+  const now = command.time ?? currentBratislavaTime((await sessionClockSnapshot(command.sessionId)).offsetMinutes);
   const planned = arrival ? record.schedArrival : record.schedDeparture;
   const difference = planned
     ? ((clockMinutes(now) - clockMinutes(planned) + 2160) % 1440) - 720

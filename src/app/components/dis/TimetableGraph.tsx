@@ -4,9 +4,11 @@ import { downloadGvd } from '@/lib/dis/gvd-tools';
 import type { EddRecord } from '@/lib/dis/records';
 import {
   alignClockMinute,
+  changeStopTime,
   checkTimetableConflicts,
   clockMinutes,
   clockSchema,
+  completeEndpointTimes,
   formatMinute,
   shiftTimetable,
   stationKey,
@@ -75,6 +77,7 @@ export function TimetableGraph({
   const validSchedules = useMemo(
     () =>
       trains
+        .map((train) => ({ ...train, stops: completeEndpointTimes(train.stops) }))
         .filter(
           (train) =>
             train.stops.length >= 2 &&
@@ -261,24 +264,17 @@ export function TimetableGraph({
       const lower =
         field === 'arrival'
           ? (stops[start.stop - 1]?.departureMinute ?? stop.arrivalMinute - 720)
-          : stop.arrivalMinute;
+          : start.stop === 0
+            ? stop.arrivalMinute - 720
+            : stop.arrivalMinute;
       const upper =
         field === 'arrival'
-          ? stop.departureMinute
+          ? start.stop === stops.length - 1
+            ? stop.departureMinute + 720
+            : stop.departureMinute
           : (stops[start.stop + 1]?.arrivalMinute ?? stop.departureMinute + 720);
       const time = formatMinute(Math.max(lower, Math.min(upper, minute)));
-      onEdit({
-        ...train,
-        stops: train.stops.map((s, i) =>
-          i === start.stop
-            ? {
-                ...s,
-                [field]: time,
-                ...(s.kind === 'pass' ? { arrival: time, departure: time } : {}),
-              }
-            : s,
-        ),
-      });
+      onEdit(changeStopTime(train, start.stop, field, time));
     }
   }
   return (
@@ -767,6 +763,12 @@ export function TimetableGraph({
                             (['arrival', 'departure'] as const).map((field) => (
                               <circle
                                 key={`${index}/${field}`}
+                                display={
+                                  (index === 0 && field === 'arrival') ||
+                                  (index === stops.length - 1 && field === 'departure')
+                                    ? 'none'
+                                    : undefined
+                                }
                                 cx={x(
                                   field === 'arrival' ? stop.arrivalMinute : stop.departureMinute,
                                 )}
@@ -853,43 +855,25 @@ export function TimetableGraph({
                           aria-label={t(field) + ' ' + (index + 1)}
                           disabled={
                             !onEdit ||
+                            (index === 0 && field === 'arrival') ||
+                            (index === activeTrain.stops.length - 1 && field === 'departure') ||
                             activeTrain.$id !== editableId ||
-                            (stop.kind === 'pass' && field === 'departure')
+                            (stop.kind === 'pass' && field === 'departure' && index > 0)
                           }
-                          value={stop[field]}
+                          placeholder="—"
+                          value={
+                            (index === 0 && field === 'arrival') ||
+                            (index === activeTrain.stops.length - 1 && field === 'departure')
+                              ? ''
+                              : stop[field]
+                          }
                           onChange={(event) =>
-                            onEdit?.({
-                              ...activeTrain,
-                              stops: activeTrain.stops.map((s, i) =>
-                                i === index
-                                  ? {
-                                      ...s,
-                                      [field]: event.target.value,
-                                      ...(s.kind === 'pass' && field === 'arrival'
-                                        ? { departure: event.target.value }
-                                        : {}),
-                                    }
-                                  : s,
-                              ),
-                            })
+                            onEdit?.(changeStopTime(activeTrain, index, field, event.target.value))
                           }
                           onBlur={(event) => {
                             const time = parseCompactClock(event.target.value);
                             if (time !== event.target.value)
-                              onEdit?.({
-                                ...activeTrain,
-                                stops: activeTrain.stops.map((s, i) =>
-                                  i === index
-                                    ? {
-                                        ...s,
-                                        [field]: time,
-                                        ...(s.kind === 'pass' && field === 'arrival'
-                                          ? { departure: time }
-                                          : {}),
-                                      }
-                                    : s,
-                                ),
-                              });
+                              onEdit?.(changeStopTime(activeTrain, index, field, time));
                           }}
                         />
                       </td>

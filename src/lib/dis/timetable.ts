@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { parseCompactClock } from './clock';
 import { calendarsOverlap, planningSchema } from './gvd-planning';
 import { trainCategorySchema } from './train-categories';
 
@@ -18,12 +19,32 @@ export const stopSchema = z.object({
   lockArrival: z.boolean().optional(),
   lockDeparture: z.boolean().optional(),
 });
+/** Endpoint events are implicit; persisted stops still contain both clocks. */
+export function completeEndpointTimes(stops: z.infer<typeof stopSchema>[]) {
+  return stops.map((stop, index) => {
+    const arrival =
+      typeof stop.arrival === 'string' ? parseCompactClock(stop.arrival) : stop.arrival;
+    const departure =
+      typeof stop.departure === 'string' ? parseCompactClock(stop.departure) : stop.departure;
+    return {
+      ...stop,
+      arrival: index === 0 && !arrival ? departure : arrival,
+      departure: index === stops.length - 1 && !departure ? arrival : departure,
+    };
+  });
+}
 export const timetableSchema = z.object({
   trainNumber: z.string().trim().min(1).max(32),
   trainType: trainCategorySchema,
   maxSpeed: z.number().int().min(1).max(300),
   trainLength: z.number().int().min(1).max(1000),
-  stops: z.array(stopSchema).min(2).max(100),
+  stops: z.preprocess(
+    (value) =>
+      Array.isArray(value) && value.every((stop) => stop && typeof stop === 'object')
+        ? completeEndpointTimes(value as z.infer<typeof stopSchema>[])
+        : value,
+    z.array(stopSchema).min(2).max(100),
+  ),
   nextTrainId: z.string().max(36).optional(),
   notes: z.string().trim().max(1000).optional(),
   planning: planningSchema.optional(),
@@ -59,7 +80,7 @@ export function formatMinute(minute: number) {
 export function unfoldStops(stops: TimetableInput['stops']): TimedStop[] {
   let previous = -1;
   let day = 0;
-  return stops.map((stop) => {
+  return completeEndpointTimes(stops).map((stop) => {
     let arrival = clockMinutes(stop.arrival) + day;
     if (arrival < previous) {
       day += 1440;
@@ -189,10 +210,33 @@ export function checkTimetableConflicts(
 export function shiftTimetable(timetable: TimetableInput, minutes: number): TimetableInput {
   return {
     ...timetable,
-    stops: timetable.stops.map((stop) => ({
+    stops: completeEndpointTimes(timetable.stops).map((stop) => ({
       ...stop,
       arrival: formatMinute(clockMinutes(stop.arrival) + minutes),
       departure: formatMinute(clockMinutes(stop.departure) + minutes),
     })),
+  };
+}
+
+/** An origin has only departure, a terminus only arrival; pass points share a clock. */
+export function changeStopTime(
+  train: TimetableInput,
+  index: number,
+  field: 'arrival' | 'departure',
+  time: string,
+): TimetableInput {
+  return {
+    ...train,
+    stops: train.stops.map((stop, i) =>
+      i === index
+        ? {
+            ...stop,
+            [field]: time,
+            ...(index === 0 && field === 'departure' ? { arrival: time } : {}),
+            ...(index === train.stops.length - 1 && field === 'arrival' ? { departure: time } : {}),
+            ...(stop.kind === 'pass' ? { arrival: time, departure: time } : {}),
+          }
+        : stop,
+    ),
   };
 }

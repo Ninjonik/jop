@@ -237,3 +237,17 @@ Occupation reports now include stable UUIDs assigned to vehicle sensors by the
 GSM-R controller. Refresh JopBridge, HardwareDriver and GsmRController together
 for DIS train identification. Sensors still report occupied/clear without a
 radio; only registered sensors produce train labels and driver positions.
+
+## Shared operating time
+
+Refresh JopBridge with this version when deploying the DIS session-clock API.
+Managers set the session's hour offset using the top-right DIS clock. Once
+configured, the bridge uses clock samples from registration, update polling and
+heartbeat to drive Lighting.ClockTime once per second, including midnight.
+An unconfigured session retains its existing lighting behaviour. The zero-offset
+reset deliberately synchronizes to real Bratislava time.
+
+Workspace exposes DiSClockOffsetMinutes, DiSOperatingDate, DiSClockServerUnixMs
+and DiSClockSecondOfDay for other clocks. The last two form a reference sample:
+advance its seconds by elapsed real milliseconds / 1000, modulo 86400. The
+offset affects operating displays, not sensor timestamps, TTLs or protocol order.

@@ -7,6 +7,7 @@ const repo = resolve(root, '../..');
 const require = createRequire(resolve(repo, 'package.json'));
 const react = require('@vitejs/plugin-react').default;
 const config = {
+  define: { 'process.env.NEXT_PUBLIC_API_ORIGIN': '""' },
   root,
   cacheDir: resolve(repo, 'node_modules/.vite-gvd-preview'),
   publicDir: resolve(repo, 'public'),

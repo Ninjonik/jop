@@ -20,7 +20,21 @@ export function GvdStopGrid({
   const [showDetails, setShowDetails] = useState(false);
   const table = useRef<HTMLTableElement>(null);
   const update = (row: number, patch: Partial<TimetableInput['stops'][number]>) =>
-    onChange({ ...train, stops: train.stops.map((s, i) => (i === row ? { ...s, ...patch } : s)) });
+    onChange({
+      ...train,
+      stops: train.stops.map((s, i) =>
+        i === row
+          ? {
+              ...s,
+              ...patch,
+              ...(row === 0 && patch.departure !== undefined ? { arrival: patch.departure } : {}),
+              ...(row === train.stops.length - 1 && patch.arrival !== undefined
+                ? { departure: patch.arrival }
+                : {}),
+            }
+          : s,
+      ),
+    });
   const move = (index: number, delta: number) => {
     const stops = [...train.stops];
     [stops[index], stops[index + delta]] = [stops[index + delta], stops[index]];
@@ -123,21 +137,30 @@ export function GvdStopGrid({
                             className="aero-input"
                             disabled={
                               disabled ||
-                              (stop.kind === 'pass' && (field === 'dwell' || field === 'departure'))
+                              (index === 0 && field === 'arrival') ||
+                              (index === train.stops.length - 1 && field === 'departure') ||
+                              ((index === 0 || index === train.stops.length - 1) &&
+                                field === 'dwell') ||
+                              (stop.kind === 'pass' &&
+                                (field === 'dwell' || (field === 'departure' && index > 0)))
                             }
                             data-cell={`${index}:${col}`}
                             aria-label={`${t(field === 'dwell' ? 'Pobyt' : field)} ${index + 1}`}
                             inputMode={field === 'track' || field === 'notes' ? 'text' : 'numeric'}
+                            placeholder="—"
                             value={
-                              field === 'dwell'
-                                ? /^[0-2]\d:[0-5]\d$/.test(stop.arrival) &&
-                                  /^[0-2]\d:[0-5]\d$/.test(stop.departure)
-                                  ? (clockMinutes(stop.departure) -
-                                      clockMinutes(stop.arrival) +
-                                      1440) %
-                                    1440
-                                  : ''
-                                : stop[field] || ''
+                              (index === 0 && field === 'arrival') ||
+                              (index === train.stops.length - 1 && field === 'departure')
+                                ? ''
+                                : field === 'dwell'
+                                  ? /^[0-2]\d:[0-5]\d$/.test(stop.arrival) &&
+                                    /^[0-2]\d:[0-5]\d$/.test(stop.departure)
+                                    ? (clockMinutes(stop.departure) -
+                                        clockMinutes(stop.arrival) +
+                                        1440) %
+                                      1440
+                                    : ''
+                                  : stop[field] || ''
                             }
                             onBlur={(e) => {
                               if (field === 'arrival' || field === 'departure') {
@@ -193,6 +216,8 @@ export function GvdStopGrid({
                                         : value;
                                 });
                               });
+                              stops[0].arrival = stops[0].departure;
+                              stops[stops.length - 1].departure = stops[stops.length - 1].arrival;
                               onChange({ ...train, stops });
                             }}
                           />

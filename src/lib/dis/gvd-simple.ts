@@ -6,8 +6,10 @@ import { clockMinutes, normalizeTimetable, shiftTimetable, type TimetableInput }
 export function dailyTimetable(train: TimetableInput): TimetableInput {
   return {
     ...train,
-    stops: train.stops.map((stop) => ({
+    stops: train.stops.map((stop, index) => ({
       ...stop,
+      ...(index === 0 ? { arrival: stop.departure } : {}),
+      ...(index === train.stops.length - 1 ? { departure: stop.arrival } : {}),
       lockArrival: undefined,
       lockDeparture: undefined,
     })),

@@ -9,6 +9,7 @@ import { currentBratislavaTime } from '@/lib/dis/clock';
 import type { EddRecord } from '@/lib/dis/records';
 import type { Timetable } from '@/lib/dis/timetable';
 import { useDisResource } from '@/lib/dis/use-dis-resource';
+import { useSessionClock } from '@/lib/dis/use-session-clock';
 import { getStationDisplayName } from '@/lib/station/display-name';
 import { useState } from 'react';
 import { TrainCategoryOptions } from './TrainCategoryOptions';
@@ -33,6 +34,7 @@ export function EddTableView({
   onSelectTrain?: (train: string) => void;
 }) {
   const t = useTranslation();
+  const { clock, now: serverNow } = useSessionClock(sessionId);
   const { canOperateStation } = useDisAuth();
   const scope = { sessionId, stationId };
   const {
@@ -86,7 +88,11 @@ export function EddTableView({
   }
   function openRecord(record: EddRecord, event: 'arrival' | 'departure') {
     setError(null);
-    setActualTime(currentBratislavaTime());
+    if (!clock) {
+      setError('Čas relácie sa nepodarilo overiť.');
+      return;
+    }
+    setActualTime(currentBratislavaTime(clock.offsetMinutes, serverNow));
     setRecording({ record, event });
   }
   if (!sessionId || !stationId)
@@ -330,8 +336,10 @@ export function EddTableView({
             <button
               type="button"
               className="aero-btn"
-              disabled={busy}
-              onClick={() => setActualTime(currentBratislavaTime())}
+              disabled={busy || !clock}
+              onClick={() =>
+                setActualTime(currentBratislavaTime(clock?.offsetMinutes || 0, serverNow))
+              }
             >
               <AeroIcon name="refresh" /> {t('Aktuálny čas')}{' '}
             </button>

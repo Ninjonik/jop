@@ -86,6 +86,14 @@ local function scenario(options)
     now = untilTime
   end
   local callbacks = {}
+  local lighting = { ClockTime = 7 }
+  local attributes = {}
+  local world = { SetAttribute = function(_, name, value) attributes[name] = value end }
+  local function clockPayload()
+    if not options.clockStart then return nil end
+    return { configured = true, offsetMinutes = -720, date = "2026-11-25",
+      serverUnixMs = now * 1000, secondOfDay = (options.clockStart + now) % 86400 }
+  end
   local registry = {}
   function registry:Start() end
   function registry:DebugPrintLinks() end
@@ -101,12 +109,12 @@ local function scenario(options)
   function apiMock:Register()
     counts.register += 1
     if options.missingTemplate then error("No Roblox map template is configured for UniverseId 123 and PlaceId 456.") end
-    return { snapshot = { protocolVersion = 1, stations = {} }, cursor = 0 }
+    return { snapshot = { protocolVersion = 1, stations = {} }, cursor = 0, clock = clockPayload() }
   end
-  function apiMock:Heartbeat() counts.heartbeat += 1; return { isLive = true } end
+  function apiMock:Heartbeat() counts.heartbeat += 1; return { isLive = true, clock = clockPayload() } end
   function apiMock:FetchUpdates(_, cursor)
     counts.updates += 1
-    return { updates = { { sequence = cursor + 1 } }, cursor = cursor + 1 }
+    return { updates = options.emptyUpdates and {} or { { sequence = cursor + 1 } }, cursor = cursor + 1, clock = clockPayload() }
   end
   local function report(batch)
     table.insert(attempted, batch)
@@ -122,14 +130,15 @@ local function scenario(options)
   function apiMock:ReportSwitchFeedbackBatch(_, batch) report(batch) end
   local modules = { GsmRController = { Start = function() end }, Config = config, ApiClient = { new = function() return apiMock end }, HardwareDriver = {},
     InstanceRegistry = { new = function(_, _, occupation, feedback) callbacks.occupation = occupation; callbacks.feedback = feedback; return registry end } }
-  local services = { HttpService = { GenerateGUID = function() event += 1; return tostring(event) end },
+  local services = { Lighting = lighting, HttpService = { GenerateGUID = function() event += 1; return tostring(event) end },
     MessagingService = { SubscribeAsync = function() error("subscription unavailable") end } }
   load(mainSource, { game = { JobId = "job", PlaceId = 456, GameId = 123, GetService = function(_, name) return services[name] end },
     script = { GsmRController = "GsmRController", Config = "Config", ApiClient = "ApiClient", HardwareDriver = "HardwareDriver", InstanceRegistry = "InstanceRegistry" },
     require = function(name) return modules[name] end, task = taskMock,
-    DateTime = { now = function() return { ToIsoDate = function() return "2026-11-07T00:00:00Z" end } end },
+    workspace = world,
+    DateTime = { now = function() return { UnixTimestampMillis = now * 1000, ToIsoDate = function() return "2026-11-07T00:00:00Z" end } end },
     print = function(message) table.insert(logs, message) end, warn = function(message) table.insert(logs, message) end })
-  return { advance = advance, counts = counts, callbacks = callbacks, attempted = attempted, logs = logs, maximum = function() return maximum end }
+  return { advance = advance, counts = counts, callbacks = callbacks, attempted = attempted, logs = logs, maximum = function() return maximum end, lighting = lighting, attributes = attributes }
 end
 
 local normal = scenario({ failApply = true })
@@ -156,7 +165,15 @@ for _, channel in ipairs({ "occupation", "feedback" }) do
   if channel == "occupation" then assert(batch.attempted[2][1].occupied == false, "Older retry overwrote a newer occupation")
   else assert(batch.attempted[2][1].position == "right", "Older retry overwrote newer switch feedback") end
 end
-print("Bridge request contracts, heartbeat, missed notifications, initialization recovery and ordered sensor retry checks passed.")
+local clocked = scenario({ clockStart = 21600, emptyUpdates = true })
+clocked.advance(61)
+assert(math.abs(clocked.lighting.ClockTime - (21600 + 61) / 3600) < 2 / 3600, "Operating clock did not advance")
+assert(clocked.attributes.DiSClockOffsetMinutes == -720, "Clock offset was not exposed to game scripts")
+assert(normal.lighting.ClockTime == 7, "Unconfigured sessions changed existing lighting")
+local midnight = scenario({ clockStart = 86390, emptyUpdates = true })
+midnight.advance(21)
+assert(math.abs(midnight.lighting.ClockTime - 11 / 3600) < 2 / 3600, "Roblox clock failed midnight rollover")
+print("Operating clock, midnight rollover, bridge request contracts, heartbeat, missed notifications, initialization recovery and ordered sensor retry checks passed.")
 `;
 
 const directory = mkdtempSync(path.join(tmpdir(), 'jop-bridge-test-'));

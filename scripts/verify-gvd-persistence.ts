@@ -205,6 +205,27 @@ async function main() {
         heartbeat: { lastHeartbeatAt: new Date().toISOString() },
       },
     });
+    const { getSessionClock, setSessionClock } =
+      await import('../src/lib/server/dis/session-clock');
+    const initialClock = await getSessionClock(sessionId);
+    assert.equal(initialClock.clock.offsetMinutes, 0);
+    assert.equal(initialClock.clock.configured, false);
+    await setSessionClock({ sessionId, offsetMinutes: -720 });
+    assert.equal((await getSessionClock(sessionId)).clock.offsetMinutes, -720);
+    assert.equal((await getSessionClock(sessionId)).clock.configured, true);
+    await assert.rejects(() => setSessionClock({ sessionId, offsetMinutes: 99999 }));
+    await assert.rejects(() => getSessionClock('missing-session'));
+    const { GET: getClock, POST: postClock } =
+      await import('../apps/api/src/app/api/dis/session-clock/route');
+    for (const handler of [getClock, postClock])
+      assert.equal(
+        (
+          await handler(
+            new Request('http://localhost/api/dis/session-clock?sessionId=' + sessionId),
+          )
+        ).status,
+        401,
+      );
     const { saveSessionTimetable, loadOperatingTimetables } =
       await import('../src/lib/server/dis/session-timetables');
     const first = await saveSessionTimetable({
@@ -266,6 +287,7 @@ async function main() {
         await mongo.collection('roblox_place_templates').deleteMany({ universeId });
         await mongo.collection('gvd_stock_profiles').deleteMany({ universeId });
         await mongo.collection('railway_lines').deleteMany({ universeId });
+        await mongo.collection('session_clocks').deleteMany({ universeId });
         await mongo.collection('sessions').deleteOne({ _id: sessionId as never });
         await mongo.collection('session_timetables').deleteMany({ sessionId });
         await mongo.collection('session_driver_trains').deleteMany({ sessionId });
