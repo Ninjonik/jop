@@ -1,6 +1,6 @@
 'use client';
 import type { Timetable } from '@/lib/dis/timetable';
-import { unfoldStops } from '@/lib/dis/timetable';
+import { formatDwell, unfoldStops } from '@/lib/dis/timetable';
 import { useTranslation } from '@/lib/i18n/client';
 import { getStationDisplayName } from '@/lib/station/display-name';
 export function BookletTimetable({
@@ -115,7 +115,7 @@ export function BookletTimetable({
                   {index === 0 ? '—' : stop.arrival}
                   {index !== 0 && stop.arrivalMinute >= 1440 ? ' +1' : ''}
                 </td>
-                <td>{stop.dwell || '—'}</td>
+                <td>{stop.dwell ? formatDwell(stop.dwell) : '—'}</td>
                 <td>
                   {index === stops.length - 1 ? '—' : stop.departure}
                   {index !== stops.length - 1 && stop.departureMinute >= 1440 ? ' +1' : ''}
