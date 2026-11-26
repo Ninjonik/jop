@@ -12,32 +12,37 @@ test('public group roles use the actual configured group and rank', async (conte
     json({
       data: [
         { group: { id: 12 }, role: { name: 'Owner', rank: 255 } },
-        { group: { id: 34 }, role: { name: 'Dispatcher', rank: 4 } },
+        { group: { id: 34 }, role: { name: 'Dispatcher', rank: 7 } },
       ],
     }),
   );
   const role = await getRobloxUserGroupRole('56', '34');
-  assert.deepEqual(role, { roleName: 'Dispatcher', rank: 4 });
+  assert.deepEqual(role, { roleName: 'Dispatcher', rank: 7 });
   assert.equal(mapRobloxRoleToDis(role!.roleName, role!.rank)?.role, 'dispatcher');
 });
 test('only explicitly mapped Roblox roles receive the intended DIS role', () => {
   const cases = [
-    ['Driver', 2, 'driver'],
-    ['Other Staff', 18, 'other_staff'],
-    ['Signaller', 4, 'dispatcher'],
-    ['Operations Dispatcher', 50, 'operations_dispatcher'],
-    ['Vehicle Manager', 51, 'vehicle_manager'],
-    ['Relations Manager', 150, 'relations_manager'],
-    ['Workforce Director', 200, 'workforce_director'],
-    ['Dispatcher', 4, 'dispatcher'],
-    ['Trainee Driver', 8, 'driver_trainee'],
-    ['Trainee Dispatcher', 9, 'dispatcher_trainee'],
-    ['Driver Trainer', 28, 'driver_instructor'],
-    ['Dispatcher Trainer', 30, 'dispatcher_instructor'],
-    ['Head Of Conductors', 199, 'admin'],
-    ['Head Of Drivers', 201, 'driver_manager'],
-    ['Head Of Dispatchers', 203, 'dispatcher_manager'],
-    ['Contributor', 235, 'admin'],
+    ['Driver', 5, 'driver'],
+    ['Dispatcher', 7, 'dispatcher'],
+    ['Other Staff', 2, 'other_staff'],
+    ['Shunter', 3, 'shuntman'],
+    ['Railworker', 4, 'other_staff'],
+    ['Trainee Driver', 6, 'driver_trainee'],
+    ['Trainee Dispatcher', 8, 'dispatcher_trainee'],
+    ['Driver Trainer', 20, 'driver_instructor'],
+    ['Dispatcher Trainer', 21, 'dispatcher_instructor'],
+    ['Conductor', 250, 'conductor'],
+    ['Trainee Conductor', 251, 'conductor'],
+    ['Conductor Trainer', 252, 'conductor'],
+    ['Head Of Infrastructure', 30, 'admin'],
+    ['Head Of Conductors', 31, 'conductor_manager'],
+    ['Head Of Drivers', 32, 'driver_manager'],
+    ['Head Of Signallers', 33, 'dispatcher_manager'],
+    ['Contributor', 40, 'admin'],
+    ['Relations Manager', 51, 'relations_manager'],
+    ['Operations Dispatcher', 52, 'operations_dispatcher'],
+    ['Rolling Stock Manager', 53, 'vehicle_manager'],
+    ['Workforce Director', 253, 'workforce_director'],
     ['Board of Executives', 254, 'admin'],
     ['Executive Director', 255, 'admin'],
   ] as const;
@@ -130,12 +135,12 @@ test('Contributor does not mask Head Of Dispatchers in a multi-role membership',
         ],
       });
     return url.pathname.endsWith('/22')
-      ? json({ displayName: 'Head Of Dispatchers', rank: 203 })
+      ? json({ displayName: 'Head Of Signallers', rank: 33 })
       : json({ displayName: 'Contributor', rank: 250 });
   });
   assert.deepEqual(await getRobloxUserGroupRole('56', '34'), {
-    roleName: 'Head Of Dispatchers',
-    rank: 203,
+    roleName: 'Head Of Signallers',
+    rank: 33,
   });
 });
 
@@ -178,11 +183,11 @@ test('login uses its OAuth token instead of the configured group API key', async
     assert.equal(headers.has('x-api-key'), false);
     if (url.pathname.endsWith('/memberships'))
       return json({ groupMemberships: [{ user: 'users/56', roles: ['groups/34/roles/22'] }] });
-    return json({ displayName: 'Head Of Dispatchers', rank: 203 });
+    return json({ displayName: 'Head Of Signallers', rank: 33 });
   });
   assert.deepEqual(await getRobloxUserGroupRole('56', '34', 'login-token'), {
-    roleName: 'Head Of Dispatchers',
-    rank: 203,
+    roleName: 'Head Of Signallers',
+    rank: 33,
   });
 });
 
@@ -190,7 +195,7 @@ test('Contributor admin access is resolved even when the public API reports a lo
   context.mock.method(globalThis, 'fetch', async (input: string | URL) => {
     const url = new URL(String(input));
     if (url.hostname === 'groups.roblox.com')
-      return json({ data: [{ group: { id: 34 }, role: { name: 'Dispatcher', rank: 4 } }] });
+      return json({ data: [{ group: { id: 34 }, role: { name: 'Dispatcher', rank: 7 } }] });
     if (url.pathname.endsWith('/memberships'))
       return json({
         groupMemberships: [
@@ -198,10 +203,10 @@ test('Contributor admin access is resolved even when the public API reports a lo
         ],
       });
     return url.pathname.endsWith('/22')
-      ? json({ displayName: 'Contributor', rank: 235 })
-      : json({ displayName: 'Dispatcher', rank: 4 });
+      ? json({ displayName: 'Contributor', rank: 40 })
+      : json({ displayName: 'Dispatcher', rank: 7 });
   });
   const role = await getRobloxUserGroupRole('56', '34', 'login-token');
-  assert.deepEqual(role, { roleName: 'Contributor', rank: 235 });
+  assert.deepEqual(role, { roleName: 'Contributor', rank: 40 });
   assert.equal(mapRobloxRoleToDis(role!.roleName, role!.rank)?.role, 'admin');
 });

@@ -1049,3 +1049,11 @@ The communication and network panels switch orientation at 850px and retain
 separate horizontal/vertical sizes without remounting their contents. Collapsed
 communication keeps its socket/audio mounted and counts incoming messages as
 unread. These preferences never alter persisted railway state.
+
+### Revisioned EDD diary
+
+The dispatcher diary retains Appwrite EDD seeds and reads new actuals/history through the
+Mongo `edd_diary_entries` projection. Both EDD and TPV must use that projection. Station-scoped
+structured messages share `session_chat_messages` and the existing station conversations; delivery and acknowledgment are distinct. EDD reads and writes require a live station claim.
+All writes require the existing live station claim, use explicit commands and preserve the
+pult/signalling boundaries. See `docs/EDD.md` for compatibility, source references and preview.

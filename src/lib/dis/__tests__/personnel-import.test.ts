@@ -12,8 +12,8 @@ function roster(context: TestContext) {
       return Response.json({
         groupId: 34,
         roles: [
-          { id: 1, name: 'Head Of Dispatchers', rank: 203 },
-          { id: 2, name: 'Dispatcher', rank: 4 },
+          { id: 1, name: 'Head Of Signallers', rank: 33 },
+          { id: 2, name: 'Dispatcher', rank: 7 },
           { id: 3, name: 'Unused role', rank: 18 },
         ],
       });

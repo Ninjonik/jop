@@ -184,7 +184,11 @@ export async function loadChat(body: unknown, profile: UserProfile) {
   return { contacts, messages: messages.reverse(), self: scope.contact };
 }
 
-export async function sendChat(body: unknown, profile: UserProfile) {
+export async function sendChat(
+  body: unknown,
+  profile: UserProfile,
+  operating?: Pick<ChatMessage, 'edd' | 'eddDigest' | 'eddResponseTo'>,
+) {
   const command = sendChatSchema.parse(body);
   const scope = await authorizeChatScope(command, profile);
   if (
@@ -215,6 +219,7 @@ export async function sendChat(body: unknown, profile: UserProfile) {
     content: command.content,
     createdAt: new Date().toISOString(),
     clientMessageId: command.messageId,
+    ...operating,
   };
   const collection = await chatMessagesCollection();
   try {
@@ -226,6 +231,7 @@ export async function sendChat(body: unknown, profile: UserProfile) {
       !existing ||
       existing.sessionId !== message.sessionId ||
       existing.content !== message.content ||
+      existing.eddDigest !== message.eddDigest ||
       existing.announcement !== message.announcement ||
       chatEndpointKey(existing.sender) !== chatEndpointKey(message.sender) ||
       chatEndpointKey(existing.recipient) !== chatEndpointKey(message.recipient)

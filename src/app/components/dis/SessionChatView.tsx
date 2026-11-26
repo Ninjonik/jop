@@ -20,6 +20,7 @@ import {
   type ChatServerEvents,
 } from '@/lib/dis/chat';
 import type { DriverTrain } from '@/lib/dis/driver-train';
+import type { EddReply } from '@/lib/dis/edd';
 import { getStationDisplayName } from '@/lib/station/display-name';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { io, type Socket } from 'socket.io-client';
@@ -32,10 +33,14 @@ export function SessionChatView({
   sessionId,
   stationId,
   driverTrain,
+  contactToOpen,
+  onEddReply,
 }: {
   sessionId: string;
   stationId: string;
   driverTrain?: DriverTrain | null;
+  contactToOpen?: { stationId: string; request: number };
+  onEddReply?: (reply: EddReply) => void;
 }) {
   const t = useTranslation();
   const { profile, canOperateStation } = useDisAuth();
@@ -101,10 +106,11 @@ export function SessionChatView({
     });
     socket.on('chat:message', (message) => {
       if (!active || message.sessionId !== sessionId) return;
-      if (seen.current.has(message._id)) return;
+      const alreadySeen = seen.current.has(message._id);
       seen.current.add(message._id);
       if (message.clientMessageId) confirmed.current.add(message.clientMessageId);
       setMessages((previous) => mergeChatMessages(previous, [message]));
+      if (alreadySeen) return;
       if (
         message.senderUserId !== profile.userId &&
         (chatEndpointKey(message.recipient) === endpointKey || message.recipient.kind === 'session')
@@ -179,6 +185,64 @@ export function SessionChatView({
     },
     [chooseTarget],
   );
+  const openedRequest = useRef<number | undefined>(undefined);
+  useEffect(() => {
+    if (!contactToOpen || mode !== 'station' || openedRequest.current === contactToOpen.request)
+      return;
+    let live = true;
+    const contact = contacts.find(
+      (item) => item.kind === 'station' && item.id === contactToOpen.stationId,
+    );
+    if (contact)
+      void Promise.resolve().then(() => {
+        if (!live) return;
+        openedRequest.current = contactToOpen.request;
+        openConversation(contact);
+        expandPanel();
+      });
+    return () => {
+      live = false;
+    };
+  }, [contactToOpen, contacts, mode, openConversation, expandPanel]);
+  const receipts = useRef(new Set<string>());
+  useEffect(() => {
+    if (mode !== 'station' || !expanded) return;
+    for (const item of conversation) {
+      const message = item.edd;
+      if (
+        !message ||
+        message.toStation !== stationId ||
+        message.deliveredAt ||
+        receipts.current.has(message.id)
+      )
+        continue;
+      receipts.current.add(message.id);
+      void disFetch('/api/dis/edd', {
+        method: 'POST',
+        body: JSON.stringify({
+          sessionId,
+          stationId,
+          command: 'receive',
+          id: message.id,
+        }),
+      }).catch(() => receipts.current.delete(message.id));
+    }
+  }, [conversation, mode, expanded, sessionId, stationId]);
+  async function acknowledge(id: string) {
+    try {
+      const result = await disFetch<{ message: NonNullable<ChatMessage['edd']> }>('/api/dis/edd', {
+        method: 'POST',
+        body: JSON.stringify({ sessionId, stationId, command: 'receive', id, acknowledge: true }),
+      });
+      setMessages((previous) =>
+        previous.map((message) =>
+          message.edd?.id === id ? { ...message, edd: result.message } : message,
+        ),
+      );
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Úkon zlyhal.');
+    }
+  }
   const onCallChange = useCallback(
     (contact: ChatContact | null, incoming?: boolean) => {
       setActiveCall(contact);
@@ -445,6 +509,14 @@ export function SessionChatView({
                   key={message._id}
                   message={message}
                   onRetry={() => void deliver(message)}
+                  stationId={mode === 'station' ? stationId : undefined}
+                  onAcknowledge={(id) => void acknowledge(id)}
+                  onEddReply={onEddReply}
+                  offerAnswered={messages.some(
+                    (reply) =>
+                      reply.edd?.replyToId === message.edd?.id &&
+                      ['accept', 'wait', 'cancel'].includes(reply.edd?.kind || ''),
+                  )}
                 />
               ))
             )}

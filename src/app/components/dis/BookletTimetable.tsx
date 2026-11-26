@@ -68,7 +68,7 @@ export function BookletTimetable({
         >
           {t('Tlač / PDF')}
         </button>
-        <span>{t('Tlačí sa rovnaká tabuľka, rovnomerne zmenšená na A4.')}</span>
+        <span>{t('A4 · mierka 100 % · pre sivé riadky zapnite grafiku na pozadí.')}</span>
         <button
           className="aero-btn"
           disabled={!timetable.trainNumber || stops.some((stop) => !stop.station)}
@@ -173,7 +173,13 @@ export function BookletTimetable({
                           )
                         : ''}
                     </td>
-                    <td>{speed}</td>
+                    <td>
+                      {speed && (
+                        <>
+                          <strong>{speed.split('/')[0]}</strong>/{speed.split('/')[1]}
+                        </>
+                      )}
+                    </td>
                   </tr>
                 );
               })}

@@ -3,6 +3,7 @@ import { z } from 'zod';
 import type { UserRole } from './appwrite-client';
 import type { ChatSystemEvent } from './chat-system';
 import type { DriverTrain } from './driver-train';
+import type { EddMessage } from './edd';
 import type { RadioCredentials, RadioEmergency, RadioTerminalState } from './radio';
 
 export const chatEndpointSchema = z.discriminatedUnion('kind', [
@@ -41,6 +42,10 @@ export type ChatMessage = {
   createdAt: string;
   clientMessageId?: string;
   system?: ChatSystemEvent;
+  /** Structured operating message in the ordinary station conversation. */
+  edd?: EddMessage;
+  eddDigest?: string;
+  eddResponseTo?: string;
   /** Local RADIOSTOP history is visible only to these captured endpoints. */
   audience?: ChatEndpoint[];
 };

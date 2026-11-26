@@ -19,7 +19,6 @@ import { EddTableView } from '@/app/components/dis/EddTableView';
 import { GvdEditorView } from '@/app/components/dis/GvdEditorView';
 import { JopEmbeddedView } from '@/app/components/dis/JopEmbeddedView';
 import { NetworkPreparationView } from '@/app/components/dis/NetworkPreparationView';
-import { RadioDockView } from '@/app/components/dis/RadioDockView';
 import { RecoveryView } from '@/app/components/dis/RecoveryView';
 import { SessionChatView } from '@/app/components/dis/SessionChatView';
 import { SessionControlView } from '@/app/components/dis/SessionControlView';
@@ -31,6 +30,7 @@ import RuntimeStationClient from '@/app/components/runtime/RuntimeStationClient'
 import { AeroIcon, type AeroIconName } from '@/app/components/ui/AeroIcon';
 import { DisAuthProvider, useDisAuth } from '@/lib/dis/auth-context';
 import type { DriverTrain } from '@/lib/dis/driver-train';
+import type { EddReply } from '@/lib/dis/edd';
 import type { JopStationSummary } from '@/lib/dis/jop-bridge';
 import { singlePlaceSessionMode } from '@/lib/dis/operating-mode';
 import { isDisAdministrator } from '@/lib/dis/permissions';
@@ -140,7 +140,8 @@ function DisPortalShell() {
   useEffect(() => {
     document.documentElement.classList.toggle('dark', dark);
   }, [dark]);
-  const [radioTarget, setRadioTarget] = useState('Všetci');
+  const [chatToOpen, setChatToOpen] = useState<{ stationId: string; request: number }>();
+  const [eddReply, setEddReply] = useState<EddReply>();
   const [driverSelection, setDriverSelection] = useState<{
     sessionId: string;
     train: DriverTrain | null;
@@ -514,17 +515,23 @@ function DisPortalShell() {
                     aria-label={t('Aktívna stanica')}
                     className="aero-select"
                     disabled={!selectedPlace || !current.sessionId}
-                    value={current.stationId}
+                    value={workingMode === 'dispatcher' && !ownsStation ? '' : current.stationId}
                     onChange={(event) =>
                       setScope({ sessionId: current.sessionId, stationId: event.target.value })
                     }
                   >
                     <option value="">{t('Vybrať stanicu')}</option>
-                    {sessionStations.map((station) => (
-                      <option key={station.stationId} value={station.stationId}>
-                        {station.name}
-                      </option>
-                    ))}
+                    {sessionStations
+                      .filter(
+                        (station) =>
+                          workingMode !== 'dispatcher' ||
+                          ownClaims.some((claim) => claim.stationId === station.stationId),
+                      )
+                      .map((station) => (
+                        <option key={station.stationId} value={station.stationId}>
+                          {station.name}
+                        </option>
+                      ))}
                   </select>
                 </label>
               )}
@@ -697,28 +704,21 @@ function DisPortalShell() {
                     error={claimError || claimsError || ''}
                   />
                 ))}
-              {activeTab === 'edd' && current.sessionId && (
-                <div className="flex flex-1 flex-col overflow-hidden">
+              {activeTab === 'edd' &&
+                current.sessionId &&
+                (ownsStation ? (
                   <EddTableView
                     key={scopeKey}
                     {...current}
                     placeId={placeId}
-                    onSelectTrain={(train) => setRadioTarget(train)}
+                    reply={eddReply}
+                    onOpenChat={(stationId) => setChatToOpen({ stationId, request: Date.now() })}
                   />
-                  <ResizablePanel
-                    id="radio-log"
-                    title={t('Hlásenia a rozkazy')}
-                    edge="bottom"
-                    defaultSize={220}
-                  >
-                    <RadioDockView
-                      key={`${scopeKey}/${radioTarget}`}
-                      {...current}
-                      defaultTarget={radioTarget}
-                    />
-                  </ResizablePanel>
-                </div>
-              )}
+                ) : (
+                  <p className="p-3">
+                    {t('Pre prístup k EDD najprv prevezmite stanicu v riadení dopravy.')}
+                  </p>
+                ))}
               {activeTab === 'tpv' && current.sessionId && (
                 <TpvFullView key={scopeKey} {...current} placeId={placeId} />
               )}
@@ -772,6 +772,11 @@ function DisPortalShell() {
               key={`${current.sessionId}/${workingMode}/${workingMode === 'dispatcher' && ownsStation ? current.stationId : 'self'}`}
               sessionId={current.sessionId}
               stationId={workingMode === 'dispatcher' && ownsStation ? current.stationId : ''}
+              contactToOpen={chatToOpen}
+              onEddReply={(reply) => {
+                setEddReply(reply);
+                setTab('edd');
+              }}
               driverTrain={
                 driverSelection?.sessionId === current.sessionId ? driverSelection.train : undefined
               }

@@ -90,7 +90,7 @@ export function printBooklet(
   });
   const style = document.createElement('style');
   style.className = 'zcp-print-style';
-  style.textContent = `.zcp-print-page{display:none}@media print{@page{size:A4 portrait;margin:14mm}html,body{margin:0!important;padding:0!important;background:#fff!important;overflow:visible!important}body>*:not(.zcp-print-page){display:none!important}body>.zcp-print-page{display:block!important;position:relative;width:182mm;height:267mm;margin:0!important;padding:0!important;background:#fff;color:#000;font:11pt Arial;overflow:visible}.zcp-print-page header{text-align:center;margin:0 0 4mm}.zcp-print-page h1{font:700 20pt Arial;margin:0 0 2mm}.zcp-print-page h2{font:bold 11pt Arial;margin:0 0 3mm}.zcp-print-page p{font:11pt/1.5 Arial;white-space:pre-line;margin:0}.zcp-print-notes{font:11pt/1.4 Arial}.zcp-print-table{position:relative;overflow:visible;width:100%}.zcp-print-page footer{position:absolute;bottom:3mm;left:0;right:0;display:flex;justify-content:space-between;font:10pt/1.5 Arial;color:#808080;white-space:pre-line}.zcp-print-page *{print-color-adjust:exact;-webkit-print-color-adjust:exact}}`;
+  style.textContent = `.zcp-print-page{display:none}@media print{@page{size:A4 portrait;margin:0}html,body{margin:0!important;padding:0!important;background:#fff!important;overflow:visible!important}body>*:not(.zcp-print-page){display:none!important}body>.zcp-print-page{display:block!important;position:relative;box-sizing:border-box!important;width:210mm;height:297mm;margin:0!important;padding:14mm!important;background:#fff;color:#000;font:11pt Arial;overflow:visible}.zcp-print-page header{text-align:center;margin:0 0 4mm}.zcp-print-page h1{font:700 20pt Arial;margin:0 0 2mm}.zcp-print-page h2{font:bold 11pt Arial;margin:0 0 3mm}.zcp-print-page p{font:11pt/1.5 Arial;white-space:pre-line;margin:0}.zcp-print-notes{font:11pt/1.4 Arial}.zcp-print-table{position:relative;overflow:visible;width:100%}.zcp-print-page footer{position:absolute;bottom:18mm;left:14mm;right:14mm;display:flex;justify-content:space-between;font:10pt/1.5 Arial;color:#808080;white-space:pre-line}.zcp-print-page,.zcp-print-page *{visibility:visible!important;print-color-adjust:exact;-webkit-print-color-adjust:exact}}`;
   document.head.append(style);
   style.textContent +=
     '@media print{.zcp-print-page{break-after:page}.zcp-print-page:last-of-type{break-after:auto}}';
@@ -117,7 +117,10 @@ export function printBooklet(
     const print = document.createElement('button');
     print.textContent = 'Tlač / PDF';
     print.onclick = () => window.print();
-    controls.append(back, print);
+    const hint = document.createElement('span');
+    hint.textContent = 'A4 · 100 % · Grafika na pozadí / Background graphics';
+    hint.style.cssText = 'align-self:center;font:12px Tahoma;color:#222';
+    controls.append(back, print, hint);
     document.body.insertBefore(controls, pages[0]);
     window.addEventListener('afterprint', () => controls.remove(), { once: true });
   } else window.print();

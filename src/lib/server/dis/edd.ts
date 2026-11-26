@@ -1,9 +1,10 @@
 import type { UserProfile } from '@/lib/dis/appwrite-client';
-import { sessionClockSnapshot } from './session-clock';
-import { currentBratislavaTime } from '@/lib/dis/clock';
+import { inferMovement, type EddMovement } from '@/lib/dis/edd';
 import type { EddRecord } from '@/lib/dis/records';
-import { clockMinutes, clockSchema, stationKey, type Timetable } from '@/lib/dis/timetable';
+import { clockSchema, stationKey, type Timetable } from '@/lib/dis/timetable';
 import { trainCategorySchema } from '@/lib/dis/train-categories';
+import { getStationDisplayName } from '@/lib/station/display-name';
+import { isPublicStation } from '@/lib/station/visibility';
 import { AppwriteException, ID, Query, type Models } from 'node-appwrite';
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
@@ -11,6 +12,7 @@ import { sessionRepository } from '../repositories/session-repository';
 import { stationRepository } from '../repositories/station-repository';
 import { databaseId, disDatabase, DisError, listDocuments } from './appwrite';
 import { requireStationClaim } from './claims';
+import { editDiary, projectDiary } from './edd-diary';
 import { getDisUniverseId } from './places';
 import { loadOperatingTimetables } from './session-timetables';
 
@@ -31,17 +33,54 @@ export async function listEdd(scope: DisScope) {
   const records = await listStoredEdd(scope);
   const existingIds = new Set(records.map((record) => record.$id));
   let imported = 0;
+  const onward = new Map<string, { nextTransportPoint?: string; nextControlledArea?: string }>();
+  const controlledAreas = await stationRepository.listBySessionId(scope.sessionId);
+  const hints = new Map<string, { movement: EddMovement; timetableId: string }>();
   const session = await sessionRepository.findById(scope.sessionId);
   if (
     session?.interpreter.kind === 'roblox' &&
     session.interpreter.universeId === getDisUniverseId()
   ) {
     const timetables = await loadOperatingTimetables(scope.sessionId);
-    for (const timetable of timetables)
+    for (const timetable of timetables) {
       imported += (await persistTimetableStops(scope, timetable, 'system:gvd', existingIds))
         .imported;
+      timetable.stops.forEach((stop, index) => {
+        if (stationKey(stop.station) === stationKey(scope.stationId)) {
+          const following = timetable.stops.slice(index + 1);
+          const area = following
+            .map((point) =>
+              controlledAreas.find(
+                (area) =>
+                  area.stationId !== scope.stationId &&
+                  isPublicStation(area.stationId) &&
+                  [area.stationId, getStationDisplayName(area.stationId)].some(
+                    (name) => stationKey(name) === stationKey(point.station),
+                  ),
+              ),
+            )
+            .find(Boolean);
+          onward.set(timetableEntryId(scope, timetable.$id, index), {
+            nextTransportPoint: following[0]?.station,
+            nextControlledArea: area ? getStationDisplayName(area.stationId) : undefined,
+          });
+          hints.set(timetableEntryId(scope, timetable.$id, index), {
+            movement: inferMovement(stop, index, timetable.stops.length),
+            timetableId: timetable.$id,
+          });
+        }
+      });
+    }
   }
-  return imported ? listStoredEdd(scope) : records;
+  return (await projectDiary(imported ? await listStoredEdd(scope) : records, hints)).map(
+    (record) => ({ ...record, ...onward.get(record.$id) }),
+  );
+}
+function timetableEntryId(scope: DisScope, timetableId: string, index: number) {
+  return createHash('sha256')
+    .update(JSON.stringify([scope.sessionId, scope.stationId, timetableId, index]))
+    .digest('hex')
+    .slice(0, 36);
 }
 function listStoredEdd(scope: DisScope) {
   return listDocuments<Models.Document & EddRecord>('edd_records', [
@@ -53,15 +92,17 @@ function listStoredEdd(scope: DisScope) {
 const createSchema = scopeSchema.extend({
   trainNumber: z.string().trim().min(1).max(32),
   trainType: trainCategorySchema,
-  schedArrival: clockSchema,
-  schedDeparture: clockSchema,
-  track: z.string().trim().min(1).max(16),
+  schedArrival: z.union([clockSchema, z.literal('')]),
+  schedDeparture: z.union([clockSchema, z.literal('')]),
+  track: z.string().trim().max(16),
   direction: z.string().trim().max(128).default(''),
 });
 export async function createEdd(body: unknown, profile: UserProfile) {
   const command = createSchema.parse(body);
   await requireStationClaim(command.sessionId, command.stationId, profile);
   await requireStation(command);
+  if (!command.schedArrival && !command.schedDeparture)
+    throw new DisError(400, 'Zadajte aspoň jeden plánovaný čas.');
   return {
     record: await disDatabase().createDocument(databaseId, 'edd_records', ID.unique(), {
       ...command,
@@ -104,10 +145,7 @@ async function persistTimetableStops(
     .filter(({ stop }) => stationKey(stop.station) === stationKey(scope.stationId));
   let imported = 0;
   for (const { stop, index } of stops) {
-    const id = createHash('sha256')
-      .update(JSON.stringify([scope.sessionId, scope.stationId, timetable.$id, index]))
-      .digest('hex')
-      .slice(0, 36);
+    const id = timetableEntryId(scope, timetable.$id, index);
     if (existingIds?.has(id)) continue;
     try {
       await disDatabase().createDocument(databaseId, 'edd_records', id, {
@@ -137,38 +175,19 @@ async function persistTimetableStops(
 }
 export async function recordEddEvent(body: unknown, profile: UserProfile) {
   const command = scopeSchema
-    .extend({ id: identity, event: z.enum(['arrival', 'departure']), time: clockSchema.optional() })
+    .extend({
+      id: identity,
+      event: z.enum(['arrival', 'departure', 'passage']),
+      time: z.string().optional(),
+      date: z.string().optional(),
+      expectedRevision: z.number().int().nonnegative().optional(),
+    })
     .parse(body);
   await requireStationClaim(command.sessionId, command.stationId, profile);
-  await requireStation(command);
-  const db = disDatabase();
-  const record = await db.getDocument<Models.Document & EddRecord>(
-    databaseId,
-    'edd_records',
-    command.id,
+  const record = (await listEdd(command)).find((r) => r.$id === command.id);
+  if (!record) throw new DisError(404, 'Záznam nepatrí vybranej stanici.');
+  return editDiary(
+    { ...command, action: 'record', expectedRevision: command.expectedRevision ?? record.revision },
+    profile,
   );
-  if (record.sessionId !== command.sessionId || record.stationId !== command.stationId)
-    throw new DisError(404, 'Záznam nepatrí vybranej stanici.');
-  const arrival = command.event === 'arrival';
-  if (
-    arrival
-      ? record.status !== 'scheduled' && record.status !== 'approaching'
-      : record.status !== 'arrived'
-  )
-    throw new DisError(
-      409,
-      'Tento úkon už bol vykonaný alebo nezodpovedá stavu vlaku. Obnovte denník.',
-    );
-  const now = command.time ?? currentBratislavaTime((await sessionClockSnapshot(command.sessionId)).offsetMinutes);
-  const planned = arrival ? record.schedArrival : record.schedDeparture;
-  const difference = planned
-    ? ((clockMinutes(now) - clockMinutes(planned) + 2160) % 1440) - 720
-    : 0;
-  const updated = await db.updateDocument(databaseId, 'edd_records', command.id, {
-    [arrival ? 'actualArrival' : 'actualDeparture']: now,
-    status: arrival ? 'arrived' : 'departed',
-    delayMinutes: Math.max(0, difference),
-    reportedBy: profile.userId,
-  });
-  return { record: updated };
 }

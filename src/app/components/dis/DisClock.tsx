@@ -89,7 +89,7 @@ export function DisClock({
               type="number"
               min={-24}
               max={24}
-              step={1}
+              step={0.5}
               value={hours}
               onChange={(event) => setHours(Number(event.target.value))}
               disabled={busy}

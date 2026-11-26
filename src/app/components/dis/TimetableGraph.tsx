@@ -1,4 +1,5 @@
 'use client';
+import { recordedEddTimeSchema } from '@/lib/dis/edd';
 import { parseCompactClock } from '@/lib/dis/gvd-running-times';
 import { downloadGvd } from '@/lib/dis/gvd-tools';
 import type { EddRecord } from '@/lib/dis/records';
@@ -692,7 +693,7 @@ export function TimetableGraph({
                           { time: r.actualArrival, reference: stop.arrivalMinute },
                           { time: r.actualDeparture, reference: stop.departureMinute },
                         ]
-                          .filter((e) => clockSchema.safeParse(e.time).success)
+                          .filter((e) => recordedEddTimeSchema.safeParse(e.time).success)
                           .map((e) => ({
                             minute: alignClockMinute(e.time, e.reference),
                             station: stop.station,
