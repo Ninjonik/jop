@@ -688,3 +688,95 @@
 .edd-entry-movement {
   min-height: 104px;
 }
+
+/* Train identity leads; movement controls remain a quiet, readable work area. */
+.edd-table > tbody > tr > td:first-child {
+  min-width: 185px;
+  padding: 12px 14px;
+  border-left: 3px solid transparent;
+}
+.edd-table .edd-train {
+  display: block;
+  font-size: 17px;
+  line-height: 1.35;
+  font-weight: 700;
+  text-decoration: none;
+  letter-spacing: 0.15px;
+}
+.edd-table .edd-train:hover {
+  text-decoration: underline;
+}
+.edd-table > tbody > tr > td:first-child > small {
+  font-size: 12px;
+  line-height: 1.5;
+  margin-top: 5px;
+  max-width: 260px;
+}
+.edd-table .edd-copy-train {
+  margin: 3px 0 0;
+  padding: 1px 0;
+  border: 1px solid transparent;
+  background: transparent;
+  box-shadow: none;
+  color: var(--aero-text-muted);
+  font-size: 11px;
+}
+.edd-table .edd-copy-train:hover,
+.edd-table .edd-copy-train:focus-visible {
+  color: var(--aero-text);
+  text-decoration: underline;
+}
+.edd-entry-movement {
+  border: 0;
+  border-radius: 0;
+  padding: 6px 8px;
+  min-height: 100px;
+}
+.edd-entry-movement + .edd-entry-movement {
+  border-left: 1px solid color-mix(in srgb, var(--aero-panel-border) 35%, transparent);
+}
+.edd-entry-movement legend {
+  color: var(--aero-text-muted);
+  font-size: 12px;
+  font-weight: 400;
+  padding: 0;
+}
+.edd-entry-movement .edd-time-summary,
+.edd-entry-movement summary {
+  color: var(--aero-text-muted);
+  font-size: 11px;
+}
+.edd-entry-movement .edd-time-summary strong {
+  font-weight: 500;
+}
+.edd-entry-movement .edd-time-fields > label {
+  color: var(--aero-text-muted);
+  font-size: 11px;
+}
+.edd-entry-movement:disabled {
+  opacity: 0.45;
+}
+.edd-table .edd-track-label {
+  border-color: transparent;
+  background: transparent;
+  font-size: 13px;
+}
+.edd-table > tbody > tr:focus-within > td:first-child,
+.edd-table > tbody > tr.edd-selected > td:first-child {
+  border-left-color: var(--btn-hover-border);
+}
+.edd-table > tbody > tr:focus-within .edd-train,
+.edd-table > tbody > tr.edd-selected .edd-train {
+  text-decoration: underline;
+}
+.edd-train-entry {
+  gap: 8px;
+}
+.edd-train-save .aero-btn {
+  font-size: 11px;
+}
+@media print {
+  .edd-table > tbody > tr > td:first-child {
+    border-left-color: transparent;
+  }
+}

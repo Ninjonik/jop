@@ -359,7 +359,10 @@ export function EddWorkstation({
                 </thead>
                 <tbody>
                   {records.map((record, index) => (
-                    <tr key={record.$id} className={index % 2 ? 'edd-pair-alt' : ''}>
+                    <tr
+                      key={record.$id}
+                      className={`${index % 2 ? 'edd-pair-alt' : ''} ${selectedId === record.$id ? 'edd-selected' : ''}`}
+                    >
                       <td>
                         <button className="edd-train" onClick={() => choose(record)}>
                           {record.trainType} {record.trainNumber}
