@@ -3468,5 +3468,6 @@
   "Ďalší riadený obvod": ["Ďalší riadený obvod","Next controlled area"],
   "Ďalší dopravný bod": ["Ďalší dopravný bod","Next transport point"],
   "Ďalší riadený dopravný bod": ["Ďalší riadený dopravný bod","Next dispatcher-controlled transport point"],
-  "Náskok": ["Náskok","Early running"]
+  "Náskok": ["Náskok","Early running"],
+  "A4 · mierka 100 % · pre sivé riadky zapnite grafiku na pozadí.": ["A4 · mierka 100 % · pre sivé riadky zapnite grafiku na pozadí.","A4 · 100% scale · enable background graphics for grey rows."]
 }
