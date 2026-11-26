@@ -25,7 +25,9 @@
     "preview:gvd": "vite --config scripts/gvd-preview/vite.config.mjs",
     "test:i18n": "node scripts/check-i18n.mjs && node --import tsx --test src/lib/i18n/translate.test.ts",
     "test:dis:services": "node --env-file=.env.local --import tsx scripts/verify-dis-services.ts",
-    "test:dis:http": "node --env-file=.env.local --import tsx scripts/verify-dis.ts"
+    "test:dis:http": "node --env-file=.env.local --import tsx scripts/verify-dis.ts",
+    "preview:edd": "vite --config scripts/edd-preview/vite.config.mjs",
+    "test:dis:edd": "node --env-file=.env.local --import tsx scripts/verify-edd-persistence.ts"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.3.1",

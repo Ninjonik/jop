@@ -68,7 +68,7 @@ export const stationKey = (station: string) =>
 export const clockMinutes = (time: string) =>
   Number(time.slice(0, 2)) * 60 +
   Number(time.slice(3, 5)) +
-  (time.length === 8 && time.endsWith(':30') ? 0.5 : 0);
+  (time.length === 8 ? Number(time.slice(6, 8)) / 60 : 0);
 export const formatDwell = (minutes: number) =>
   `${Math.floor(minutes)}${minutes % 1 >= 0.5 ? '⁵' : ''}`;
 

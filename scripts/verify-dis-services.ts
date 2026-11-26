@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import type { UserProfile } from '../src/lib/dis/appwrite-client';
 import { databaseId, disDatabase } from '../src/lib/server/dis/appwrite';
+import { claimStation } from '../src/lib/server/dis/claims';
 import {
   loadDisDocuments,
   loadRadio,
@@ -12,6 +13,7 @@ import {
   sendRadio,
 } from '../src/lib/server/dis/content';
 import { createEdd, importTimetable, listEdd, recordEddEvent } from '../src/lib/server/dis/edd';
+import { editDiary } from '../src/lib/server/dis/edd-diary';
 import {
   assessStaff,
   changeShiftStatus,
@@ -86,6 +88,7 @@ async function verify() {
     },
   );
   const scope = { sessionId, stationId };
+  await claimStation(scope, manager);
   const timetable = {
     trainNumber: `${tag}-1`,
     trainType: 'Os',
@@ -144,16 +147,26 @@ async function verify() {
     0,
   );
   const [edd] = await listEdd(scope);
+  await editDiary(
+    { ...scope, id: edd.$id, expectedRevision: edd.revision, action: 'details', movement: 'stop' },
+    manager,
+  );
   await assert.rejects(
     recordEddEvent({ ...scope, id: edd.$id, event: 'departure' }, manager),
     /nebol|nezodpovedá|vykonaný/,
   );
-  await recordEddEvent({ ...scope, id: edd.$id, event: 'arrival', time: '23:59' }, manager);
-  assert.equal((await db.getDocument(databaseId, 'edd_records', edd.$id)).status, 'arrived');
-  assert.equal((await db.getDocument(databaseId, 'edd_records', edd.$id)).actualArrival, '23:59');
-  await recordEddEvent({ ...scope, id: edd.$id, event: 'departure', time: '00:12' }, manager);
-  assert.equal((await db.getDocument(databaseId, 'edd_records', edd.$id)).status, 'departed');
-  assert.equal((await db.getDocument(databaseId, 'edd_records', edd.$id)).actualDeparture, '00:12');
+  await recordEddEvent(
+    { ...scope, id: edd.$id, event: 'arrival', time: '23:59', date: '2005-06-01' },
+    manager,
+  );
+  assert.equal((await listEdd(scope)).find((r) => r.$id === edd.$id)!.status, 'arrived');
+  assert.equal((await listEdd(scope)).find((r) => r.$id === edd.$id)!.actualArrival, '23:59');
+  await recordEddEvent(
+    { ...scope, id: edd.$id, event: 'departure', time: '00:12', date: '2005-06-02' },
+    manager,
+  );
+  assert.equal((await listEdd(scope)).find((r) => r.$id === edd.$id)!.status, 'departed');
+  assert.equal((await listEdd(scope)).find((r) => r.$id === edd.$id)!.actualDeparture, '00:12');
   const reloadedEdd = await listEdd(scope);
   assert.equal(reloadedEdd.length, 2, 'Automatic GVD loading is idempotent');
   assert.equal(
@@ -264,7 +277,14 @@ async function cleanup() {
         await attempt(() => db.deleteDocument(databaseId, collection, document.$id));
     }
     const mongo = await getMongoDb();
-    for (const collection of ['stations', 'station_actions', 'sessions'])
+    for (const collection of [
+      'stations',
+      'station_actions',
+      'sessions',
+      'edd_diary_entries',
+      'edd_diary_messages',
+      'session_station_claims',
+    ])
       await attempt(() =>
         mongo
           .collection(collection)

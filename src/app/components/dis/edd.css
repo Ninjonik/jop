@@ -1,0 +1,463 @@
+.edd-workstation {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--aero-panel-bg);
+  color: var(--aero-text);
+  font-size: 12px;
+}
+.edd-toolbar {
+  color: var(--aero-text);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--aero-panel-border);
+  background: var(--aero-ribbon-bg);
+}
+.edd-toolbar strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.edd-clock {
+  margin-left: auto;
+  font-size: 20px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+.edd-clock small {
+  font-size: 11px;
+  font-weight: 400;
+}
+.edd-muted,
+.edd-planned {
+  color: var(--aero-text-muted);
+}
+.edd-notice,
+.edd-error {
+  padding: 5px 8px;
+  margin: 0;
+}
+.edd-error {
+  border-left: 3px solid #c54c3c;
+}
+.edd-notice {
+  border-left: 3px solid #43865d;
+}
+.edd-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(290px, 350px);
+  flex: 1;
+  min-height: 0;
+}
+.edd-body-single {
+  grid-template-columns: minmax(0, 1fr);
+}
+.edd-diary {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+}
+.edd-table-scroll {
+  flex: 1;
+  overflow: auto;
+}
+.edd-table {
+  width: 100%;
+  white-space: nowrap;
+}
+.edd-table thead {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+.edd-table th {
+  background: var(--aero-ribbon-bg);
+}
+.edd-table small {
+  display: block;
+  font-size: 10px;
+  white-space: normal;
+  max-width: 220px;
+  color: var(--aero-text-muted);
+}
+.edd-table td {
+  padding: 5px 7px;
+}
+.edd-table .edd-pair-start td {
+  border-top: 1px solid var(--aero-panel-border);
+}
+.edd-table .edd-selected td {
+  background: var(--aero-ribbon-bg);
+}
+.edd-actual {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.edd-train {
+  font-weight: 700;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.edd-detail {
+  max-height: 45%;
+  overflow: auto;
+  border-top: 1px solid var(--aero-panel-border);
+}
+.edd-detail summary {
+  cursor: pointer;
+  padding: 5px 8px;
+}
+.edd-detail pre {
+  white-space: pre-wrap;
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+.edd-track {
+  width: 60px;
+}
+.edd-time {
+  width: 100px;
+}
+.edd-note-input {
+  min-width: 140px;
+  flex: 1;
+}
+.edd-history {
+  padding: 6px 18px;
+}
+.edd-history li {
+  padding: 4px 0;
+  border-bottom: 1px solid var(--aero-panel-border);
+}
+.edd-communication {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  border-left: 1px solid var(--aero-panel-border);
+}
+.edd-messages {
+  flex: 1;
+  min-height: 100px;
+  overflow: auto;
+  padding: 7px;
+}
+.edd-messages article {
+  padding: 7px;
+  margin-bottom: 6px;
+  border: 1px solid var(--aero-panel-border);
+}
+.edd-messages header {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+.edd-messages small {
+  font-size: 10px;
+  color: var(--aero-text-muted);
+}
+.edd-messages p {
+  margin: 5px 0;
+  overflow-wrap: anywhere;
+}
+.edd-messages .edd-unread {
+  border-left: 3px solid var(--aero-caption-text);
+}
+.edd-messages .edd-toolbar {
+  padding: 4px 0;
+  background: transparent;
+  border: 0;
+}
+.edd-composer {
+  padding: 8px;
+  border-top: 1px solid var(--aero-panel-border);
+  max-height: 55%;
+  overflow: auto;
+}
+.edd-composer-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+.edd-composer-fields label {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.edd-composer input,
+.edd-composer select {
+  min-width: 0;
+  width: 100%;
+}
+.edd-composer input[type='checkbox'] {
+  width: auto;
+}
+.edd-composer textarea {
+  width: 100%;
+  height: 44px;
+  margin-top: 6px;
+}
+.edd-message-preview {
+  padding: 7px;
+  background: var(--aero-ribbon-bg);
+  border: 1px solid var(--aero-panel-border);
+  margin: 6px 0;
+  overflow-wrap: anywhere;
+}
+.edd-composer small {
+  display: block;
+  margin: 4px 0;
+}
+.edd-footer {
+  padding: 5px 8px;
+  border-top: 1px solid var(--aero-panel-border);
+  font-size: 10px;
+  color: var(--aero-text-muted);
+}
+@media (max-width: 850px) {
+  .edd-body {
+    display: flex;
+    flex-direction: column;
+    overflow: auto;
+  }
+  .edd-diary {
+    min-height: 320px;
+    flex: none;
+  }
+  .edd-table-scroll {
+    max-height: 55vh;
+  }
+  .edd-communication {
+    min-height: 450px;
+    border-left: 0;
+    border-top: 1px solid var(--aero-panel-border);
+    flex: none;
+  }
+  .edd-messages {
+    max-height: 300px;
+  }
+  .edd-composer {
+    max-height: none;
+  }
+  .edd-clock {
+    margin-left: 0;
+  }
+}
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .edd-workstation,
+  .edd-workstation * {
+    visibility: visible;
+  }
+  .edd-workstation {
+    position: absolute;
+    inset: 0;
+    overflow: visible;
+    height: auto;
+    color: #000;
+    background: #fff;
+  }
+  .edd-workstation .edd-toolbar,
+  .edd-communication,
+  .edd-detail,
+  .edd-footer,
+  .edd-error,
+  .edd-notice {
+    display: none;
+  }
+  .edd-body,
+  .edd-diary,
+  .edd-table-scroll {
+    display: block;
+    overflow: visible;
+  }
+  .edd-table {
+    font-size: 10px;
+    white-space: normal;
+  }
+  .edd-table th:last-child,
+  .edd-table td:last-child {
+    display: none;
+  }
+  .edd-table thead {
+    position: static;
+  }
+  .edd-table tbody tr {
+    break-inside: avoid;
+  }
+  .edd-table th,
+  .edd-table td {
+    color: #000;
+    background: #fff;
+  }
+}
+
+/* Compact railway desk hierarchy, using the existing Aero palette in both themes. */
+.edd-workstation {
+  --edd-accent: #245b88;
+  --edd-positive: #286548;
+  --edd-warning: #825c13;
+}
+.dark .edd-workstation {
+  --edd-accent: #acd6fb;
+  --edd-positive: #b4dfc2;
+  --edd-warning: #f1d493;
+}
+.edd-caption {
+  min-height: 46px;
+  padding: 8px 12px;
+  background: linear-gradient(var(--aero-caption-top), var(--aero-caption-bottom));
+  color: var(--aero-caption-text);
+  border-bottom: 1px solid var(--aero-window-border);
+}
+.edd-caption > strong {
+  font-size: 13px;
+}
+.edd-caption .edd-clock {
+  margin-right: 8px;
+}
+.edd-clock small {
+  margin-left: 4px;
+  opacity: 0.8;
+}
+.edd-table th {
+  text-align: left;
+  padding: 7px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  border-bottom: 1px solid var(--aero-panel-border);
+  background: linear-gradient(var(--aero-caption-top), var(--aero-ribbon-bg));
+}
+.edd-table td {
+  padding: 6px 10px;
+}
+.edd-table .edd-pair-alt td {
+  background: color-mix(in srgb, var(--aero-ribbon-bg) 35%, var(--aero-panel-bg));
+}
+.edd-table .edd-selected td {
+  background: color-mix(in srgb, var(--aero-caption-bottom) 45%, var(--aero-panel-bg));
+}
+.edd-selected.edd-pair-start td:first-child {
+  box-shadow: inset 3px 0 var(--edd-accent);
+}
+.edd-train {
+  color: var(--edd-accent);
+  font-size: 13px;
+  text-decoration: none;
+}
+.edd-train:hover {
+  text-decoration: underline;
+}
+.edd-table small {
+  margin-top: 3px;
+}
+.edd-actual {
+  font-size: 13px;
+  color: var(--edd-accent);
+}
+.edd-planned {
+  font-variant-numeric: tabular-nums;
+}
+.edd-track-label {
+  display: inline-block;
+  min-width: 24px;
+  text-align: center;
+  padding: 2px 5px;
+  border: 1px solid var(--aero-panel-border);
+  background: var(--aero-panel-bg);
+  border-radius: 2px;
+}
+.edd-status {
+  display: inline-block;
+  padding: 2px 5px;
+  border: 1px solid var(--aero-panel-border);
+  border-radius: 2px;
+  font-size: 10px;
+  background: var(--aero-ribbon-bg);
+}
+.edd-status-arrived {
+  color: var(--edd-positive);
+  background: color-mix(in srgb, #77ad8a 16%, var(--aero-panel-bg));
+}
+.edd-status-approaching {
+  color: var(--edd-accent);
+}
+.edd-status-cancelled {
+  color: var(--edd-warning);
+}
+.edd-communication > .edd-toolbar:first-child {
+  background: linear-gradient(var(--aero-caption-top), var(--aero-ribbon-bg));
+  min-height: 34px;
+}
+.edd-messages {
+  background: color-mix(in srgb, var(--aero-ribbon-bg) 25%, var(--aero-panel-bg));
+  padding: 10px;
+}
+.edd-messages article {
+  background: var(--aero-panel-bg);
+  border-radius: 2px;
+  margin-bottom: 9px;
+  padding: 9px;
+}
+.edd-messages article header {
+  margin: -9px -9px 6px;
+  padding: 5px 8px;
+  border-bottom: 1px solid var(--aero-panel-border);
+  background: var(--aero-ribbon-bg);
+  font-size: 11px;
+}
+.edd-messages article.edd-message-outgoing {
+  border-left: 3px solid color-mix(in srgb, var(--edd-accent) 60%, var(--aero-panel-border));
+}
+.edd-messages article.edd-unread {
+  border-left: 3px solid var(--edd-warning);
+}
+.edd-message-preview {
+  border-left: 3px solid var(--edd-accent);
+  line-height: 1.5;
+}
+.edd-composer {
+  background: color-mix(in srgb, var(--aero-ribbon-bg) 20%, var(--aero-panel-bg));
+  padding: 10px;
+}
+.edd-composer-fields label {
+  font-size: 11px;
+}
+.edd-history dl > div {
+  display: flex;
+  gap: 10px;
+}
+.edd-history dt {
+  min-width: 70px;
+  color: var(--aero-text-muted);
+}
+.edd-history dd {
+  margin: 0;
+}
+.edd-footer {
+  padding: 7px 10px;
+}
+@media print {
+  .edd-table td,
+  .edd-table th,
+  .edd-table .edd-pair-alt td,
+  .edd-table .edd-selected td {
+    background: white;
+    color: black;
+  }
+  .edd-status,
+  .edd-track-label {
+    border: 0;
+    background: none;
+    color: black;
+  }
+}
