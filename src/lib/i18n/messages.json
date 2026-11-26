@@ -3465,5 +3465,8 @@
   "Potvrdený čas už nemožno meniť.": ["Potvrdený čas už nemožno meniť.","A confirmed time can no longer be changed."],
   "Pobyt vyžaduje príchod a pokračovanie vlaku.": ["Pobyt vyžaduje príchod a pokračovanie vlaku.","Dwell requires an arrival and an onward journey."],
   "Ďalší bod": ["Ďalší bod","Next transport point"],
-  "Ďalší riadený obvod": ["Ďalší riadený obvod","Next controlled area"]
+  "Ďalší riadený obvod": ["Ďalší riadený obvod","Next controlled area"],
+  "Ďalší dopravný bod": ["Ďalší dopravný bod","Next transport point"],
+  "Ďalší riadený dopravný bod": ["Ďalší riadený dopravný bod","Next dispatcher-controlled transport point"],
+  "Náskok": ["Náskok","Early running"]
 }

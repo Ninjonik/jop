@@ -28,7 +28,7 @@ function callback(state = 'test-state') {
     { headers: { Cookie: 'roblox_oauth_state=test-state' } },
   );
 }
-function mockRoblox(context: TestContext, member = true, role = { name: 'Dispatcher', rank: 4 }) {
+function mockRoblox(context: TestContext, member = true, role = { name: 'Dispatcher', rank: 7 }) {
   context.mock.method(globalThis, 'fetch', async (input: string | URL) => {
     const url = String(input);
     if (url.endsWith('/oauth/v1/token'))
@@ -80,7 +80,7 @@ test('OAuth callback creates a first account/profile with the verified group rol
   assert.equal(location.searchParams.get('userId'), 'rbx_56');
   assert.equal(createdProfile.callsign, 'ZSSK-001');
   assert.equal(createdProfile.role, 'dispatcher');
-  assert.equal(createdProfile.robloxRank, 4);
+  assert.equal(createdProfile.robloxRank, 7);
   assert.equal(userCreation.mock.callCount(), 1);
   assert.match(response.headers.get('set-cookie') || '', /roblox_oauth_state=/);
 });

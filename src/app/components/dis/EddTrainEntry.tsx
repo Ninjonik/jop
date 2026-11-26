@@ -44,6 +44,17 @@ export function EddTrainEntry({
       dwell,
     });
   }
+  const delayPlan =
+    record.movement === 'terminus'
+      ? record.schedArrival
+      : record.schedDeparture || record.schedArrival;
+  const delayActual = record.movement === 'terminus' ? arrival : shownDeparture;
+  const delay =
+    delayPlan && /^\d{2}:\d{2}$/.test(delayActual)
+      ? Math.round(
+          (((timeSeconds(delayActual) - timeSeconds(delayPlan) + 129600) % 86400) - 43200) / 60,
+        )
+      : 0;
   return (
     <div className="edd-train-entry">
       {(['arrival', 'departure'] as const).map((event) => {
@@ -137,6 +148,12 @@ export function EddTrainEntry({
         );
       })}
       <div className="edd-train-save">
+        {!!delay && (
+          <span className={delay > 0 ? 'edd-delay' : 'edd-early'}>
+            {t(delay > 0 ? 'Meškanie' : 'Náskok')}
+            <strong>{Math.abs(delay)} min</strong>
+          </span>
+        )}
         <button className="aero-btn" disabled={busy} onClick={() => void save(false)}>
           <AeroIcon name="confirm" />
           {t('Zapísať')}

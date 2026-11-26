@@ -9,56 +9,171 @@ type DisRoleAssignment = {
 // Both the role name and rank must match: an unrelated or newly-created group role
 // must not inherit operational or administrator rights from a numerical range.
 const groupRoles: Record<string, { rank: number; assignment: DisRoleAssignment }> = {
-  driver: { rank: 2, assignment: { role: 'driver', trainingStage: 'certified' } },
-  dispatcher: { rank: 4, assignment: { role: 'dispatcher', trainingStage: 'certified' } },
-  'trainee driver': { rank: 8, assignment: { role: 'driver_trainee', trainingStage: 'simulator' } },
+  'other staff': {
+    rank: 2,
+    assignment: {
+      role: 'other_staff',
+      trainingStage: 'certified',
+    },
+  },
+  shunter: {
+    rank: 3,
+    assignment: {
+      role: 'shuntman',
+      trainingStage: 'certified',
+    },
+  },
+  railworker: {
+    rank: 4,
+    assignment: {
+      role: 'other_staff',
+      trainingStage: 'certified',
+    },
+  },
+  driver: {
+    rank: 5,
+    assignment: {
+      role: 'driver',
+      trainingStage: 'certified',
+    },
+  },
+  'trainee driver': {
+    rank: 6,
+    assignment: {
+      role: 'driver_trainee',
+      trainingStage: 'simulator',
+    },
+  },
+  dispatcher: {
+    rank: 7,
+    assignment: {
+      role: 'dispatcher',
+      trainingStage: 'certified',
+    },
+  },
   'trainee dispatcher': {
-    rank: 9,
-    assignment: { role: 'dispatcher_trainee', trainingStage: 'simulator' },
+    rank: 8,
+    assignment: {
+      role: 'dispatcher_trainee',
+      trainingStage: 'simulator',
+    },
   },
   'driver trainer': {
-    rank: 28,
-    assignment: { role: 'driver_instructor', trainingStage: 'certified' },
+    rank: 20,
+    assignment: {
+      role: 'driver_instructor',
+      trainingStage: 'certified',
+    },
   },
   'dispatcher trainer': {
+    rank: 21,
+    assignment: {
+      role: 'dispatcher_instructor',
+      trainingStage: 'certified',
+    },
+  },
+  'head of infrastructure': {
     rank: 30,
-    assignment: { role: 'dispatcher_instructor', trainingStage: 'certified' },
+    assignment: {
+      role: 'admin',
+      trainingStage: 'certified',
+    },
   },
   'head of conductors': {
-    rank: 199,
-    assignment: { role: 'admin', trainingStage: 'certified' },
+    rank: 31,
+    assignment: {
+      role: 'conductor_manager',
+      trainingStage: 'certified',
+    },
   },
   'head of drivers': {
-    rank: 201,
-    assignment: { role: 'driver_manager', trainingStage: 'certified' },
+    rank: 32,
+    assignment: {
+      role: 'driver_manager',
+      trainingStage: 'certified',
+    },
   },
-  'head of dispatchers': {
-    rank: 203,
-    assignment: { role: 'dispatcher_manager', trainingStage: 'certified' },
+  'head of signallers': {
+    rank: 33,
+    assignment: {
+      role: 'dispatcher_manager',
+      trainingStage: 'certified',
+    },
   },
-  contributor: { rank: 235, assignment: { role: 'admin', trainingStage: 'certified' } },
-  'board of executives': { rank: 254, assignment: { role: 'admin', trainingStage: 'certified' } },
-  'executive director': { rank: 255, assignment: { role: 'admin', trainingStage: 'certified' } },
+  contributor: {
+    rank: 40,
+    assignment: {
+      role: 'admin',
+      trainingStage: 'certified',
+    },
+  },
+  'relations manager': {
+    rank: 51,
+    assignment: {
+      role: 'relations_manager',
+      trainingStage: 'certified',
+    },
+  },
+  'operations dispatcher': {
+    rank: 52,
+    assignment: {
+      role: 'operations_dispatcher',
+      trainingStage: 'certified',
+    },
+  },
+  'rolling stock manager': {
+    rank: 53,
+    assignment: {
+      role: 'vehicle_manager',
+      trainingStage: 'certified',
+    },
+  },
+  conductor: {
+    rank: 250,
+    assignment: {
+      role: 'conductor',
+      trainingStage: 'certified',
+    },
+  },
+  'trainee conductor': {
+    rank: 251,
+    assignment: {
+      role: 'conductor',
+      trainingStage: 'simulator',
+    },
+  },
+  'conductor trainer': {
+    rank: 252,
+    assignment: {
+      role: 'conductor',
+      trainingStage: 'certified',
+    },
+  },
+  'workforce director': {
+    rank: 253,
+    assignment: {
+      role: 'workforce_director',
+      trainingStage: 'certified',
+    },
+  },
+  'board of executives': {
+    rank: 254,
+    assignment: {
+      role: 'admin',
+      trainingStage: 'certified',
+    },
+  },
+  'executive director': {
+    rank: 255,
+    assignment: {
+      role: 'admin',
+      trainingStage: 'certified',
+    },
+  },
 };
 
 export function mapRobloxRoleToDis(roleName: string, rank: number): DisRoleAssignment | null {
-  const name = roleName.trim().toLowerCase();
-  // v6.5 names are explicit; numerical ranks for these additions were not supplied.
-  const additions: Record<string, UserRole> = {
-    'other staff': 'other_staff',
-    conductor: 'conductor',
-    shuntman: 'shuntman',
-    signaller: 'dispatcher',
-    'operations dispatcher': 'operations_dispatcher',
-    'vehicle manager': 'vehicle_manager',
-    'head of signallers': 'dispatcher_manager',
-    'relations manager': 'relations_manager',
-    'workforce director': 'workforce_director',
-    'board of executive directors': 'admin',
-  };
-  if (Number.isInteger(rank) && rank > 0 && rank <= 255 && additions[name])
-    return { role: additions[name], trainingStage: 'certified' };
-  const entry = groupRoles[name];
+  const entry = groupRoles[roleName.trim().toLowerCase()];
   return entry?.rank === rank ? entry.assignment : null;
 }
 

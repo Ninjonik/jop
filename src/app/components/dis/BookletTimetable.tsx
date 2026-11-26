@@ -173,7 +173,13 @@ export function BookletTimetable({
                           )
                         : ''}
                     </td>
-                    <td>{speed}</td>
+                    <td>
+                      {speed && (
+                        <>
+                          <strong>{speed.split('/')[0]}</strong>/{speed.split('/')[1]}
+                        </>
+                      )}
+                    </td>
                   </tr>
                 );
               })}

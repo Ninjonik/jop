@@ -384,12 +384,12 @@ export function EddWorkstation({
                         <small>{record.direction}</small>
                         {record.nextTransportPoint && (
                           <small className="edd-onward">
-                            {t('Ďalší bod')}: <b>{record.nextTransportPoint}</b>
+                            {t('Ďalší dopravný bod')}: <b>{record.nextTransportPoint}</b>
                           </small>
                         )}
                         {record.nextControlledArea && (
                           <small className="edd-onward">
-                            {t('Ďalší riadený obvod')}: <b>{record.nextControlledArea}</b>
+                            {t('Ďalší riadený dopravný bod')}: <b>{record.nextControlledArea}</b>
                           </small>
                         )}
                       </td>
@@ -667,13 +667,24 @@ export function EddWorkstation({
                   </label>
                   <label>
                     {t('Čas hláseného pohybu')}
-                    <input
-                      className="aero-input"
-                      placeholder={current.minuteTime}
-                      value={messageTime}
-                      disabled={kind === 'accept'}
-                      onChange={(e) => setMessageTime(e.target.value)}
-                    />
+                    <span className="edd-message-time">
+                      <input
+                        className="aero-input"
+                        placeholder={current.minuteTime}
+                        value={messageTime}
+                        disabled={kind === 'accept'}
+                        onChange={(e) => setMessageTime(e.target.value)}
+                      />
+                      <button
+                        type="button"
+                        className="aero-btn"
+                        disabled={kind === 'accept'}
+                        onClick={() => setMessageTime(current.minuteTime)}
+                      >
+                        <AeroIcon name="refresh" />
+                        {t('Teraz')}
+                      </button>
+                    </span>
                   </label>
                   <label>
                     {t('Posun (min)')}
@@ -700,15 +711,6 @@ export function EddWorkstation({
                       }}
                     />
                   </label>
-                  <button
-                    type="button"
-                    className="aero-btn"
-                    disabled={kind === 'accept'}
-                    onClick={() => setMessageTime(current.minuteTime)}
-                  >
-                    <AeroIcon name="refresh" />
-                    {t('Teraz')}
-                  </button>
                 </div>
                 {replyToId && (
                   <p>

@@ -787,3 +787,77 @@
 .edd-onward b {
   font-weight: 600;
 }
+
+.edd-presets .edd-composer-fields {
+  align-items: end;
+}
+.edd-presets .edd-composer-fields > .aero-btn {
+  align-self: end;
+  height: 26px;
+  margin-bottom: 0;
+}
+.edd-table > tbody > tr + tr > td {
+  border-top: 1px solid color-mix(in srgb, var(--aero-panel-border) 45%, transparent);
+}
+.edd-table > tbody > tr > td:first-child {
+  padding: 10px 14px;
+}
+.edd-table .edd-train {
+  display: inline-block;
+  vertical-align: middle;
+}
+.edd-table .edd-copy-train {
+  margin: 0 0 0 8px;
+  vertical-align: middle;
+}
+.edd-table > tbody > tr > td:first-child > small {
+  line-height: 1.4;
+  margin-top: 3px;
+}
+.edd-table .edd-onward b {
+  color: var(--aero-text);
+}
+.edd-train-save .edd-delay,
+.edd-train-save .edd-early {
+  display: flex;
+  flex-direction: column;
+  font-size: 11px;
+  padding: 3px 6px;
+  border-left: 3px solid currentColor;
+  margin-bottom: 3px;
+}
+.edd-delay {
+  color: #a74424;
+}
+.edd-early {
+  color: #236891;
+}
+.dark .edd-delay {
+  color: #ffb193;
+}
+.dark .edd-early {
+  color: #83cbff;
+}
+.edd-train-save strong {
+  font-size: 13px;
+}
+.edd-message-time {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.edd-presets .edd-composer-fields .edd-message-time input {
+  min-width: 70px;
+  flex: 1;
+  width: 80px;
+}
+.edd-message-time .aero-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  height: 24px;
+  flex: none;
+}
+.edd-presets .edd-composer-fields label:has(.edd-message-time) {
+  flex-basis: 180px;
+}
