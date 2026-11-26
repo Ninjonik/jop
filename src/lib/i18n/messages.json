@@ -3459,5 +3459,9 @@
   "Výsledný čas": ["Výsledný čas","Resulting time"],
   "Kopírovať číslo vlaku {0}": ["Kopírovať číslo vlaku {0}","Copy train number {0}"],
   "Číslo vlaku skopírované.": ["Číslo vlaku skopírované.","Train number copied."],
-  "Číslo vlaku sa nepodarilo skopírovať. Označte ho a skopírujte ručne.": ["Číslo vlaku sa nepodarilo skopírovať. Označte ho a skopírujte ručne.","Could not copy the train number. Select it and copy it manually."]
+  "Číslo vlaku sa nepodarilo skopírovať. Označte ho a skopírujte ručne.": ["Číslo vlaku sa nepodarilo skopírovať. Označte ho a skopírujte ručne.","Could not copy the train number. Select it and copy it manually."],
+  "Príchod / odchod": ["Príchod / odchod","Arrival / departure"],
+  "Zapísať s pobytom": ["Zapísať s pobytom","Save with dwell"],
+  "Potvrdený čas už nemožno meniť.": ["Potvrdený čas už nemožno meniť.","A confirmed time can no longer be changed."],
+  "Pobyt vyžaduje príchod a pokračovanie vlaku.": ["Pobyt vyžaduje príchod a pokračovanie vlaku.","Dwell requires an arrival and an onward journey."]
 }

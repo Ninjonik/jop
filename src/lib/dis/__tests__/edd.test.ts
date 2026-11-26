@@ -54,11 +54,11 @@ test('origin and terminus do not require fictional endpoint events', () => {
   assert(canRecord({ ...entry, movement: 'terminus' }, 'arrival'));
   assert(!canRecord({ ...entry, movement: 'terminus' }, 'departure'));
 });
-test('stopping trains require arrival; passage is one distinct event', () => {
+test('stopping and passing trains support separate movements and legacy passage', () => {
   assert(!canRecord(entry, 'departure'));
   assert(canRecord({ ...entry, actualArrival: '23:59', status: 'arrived' }, 'departure'));
   assert(canRecord({ ...entry, movement: 'pass' }, 'passage'));
-  assert(!canRecord({ ...entry, movement: 'pass' }, 'arrival'));
+  assert(canRecord({ ...entry, movement: 'pass' }, 'arrival'));
   const passed = { ...entry, ...movementPatch({ ...entry, movement: 'pass' }, 'passage', '00:02') };
   assert.equal(passed.status, 'passed');
   assert.equal(passed.actualDeparture, '00:02');

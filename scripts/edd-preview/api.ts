@@ -148,7 +148,29 @@ export async function disFetch<T>(url: string, init: RequestInit = {}): Promise<
       status: r.status,
     });
     const action = c.action || 'record';
-    if (['record', 'correct'].includes(action)) {
+    if (action === 'train') {
+      const next = structuredClone(r);
+      for (const event of ['arrival', 'departure'] as const) {
+        if (!c[event]) continue;
+        const field = event === 'arrival' ? 'actualArrival' : 'actualDeparture';
+        const eventDate = c[event + 'Date'] || clock().date;
+        if (next[field] === c[event] && next.eventDates[event] === eventDate) continue;
+        if (next.lockedEvents?.[event]) throw new Error('Potvrdený čas už nemožno meniť.');
+        Object.assign(
+          next,
+          movementPatch(next, event, eddTimeSchema.parse(c[event]), !!next[field]),
+        );
+        next.eventDates[event] = eventDate;
+      }
+      if (
+        next.actualArrival &&
+        next.actualDeparture &&
+        next.eventDates.arrival! + 'T' + next.actualArrival >
+          next.eventDates.departure! + 'T' + next.actualDeparture
+      )
+        throw new Error('Odchod je pred príchodom. Skontrolujte dátum a čas.');
+      Object.assign(r, next, { dwell: c.dwell });
+    } else if (['record', 'correct'].includes(action)) {
       if (action === 'record' && !canRecord(r, c.event))
         throw new Error('Úkon nezodpovedá stavu vlaku. Obnovte denník.');
       if (action === 'correct' && !c.reason) throw new Error('Uveďte dôvod opravy.');
@@ -222,6 +244,20 @@ export async function disFetch<T>(url: string, init: RequestInit = {}): Promise<
     if (c.acknowledge) {
       m.acknowledgedAt ||= new Date().toISOString();
       m.acknowledgedBy = stationId === 'kolarovo' ? 'Novák' : 'Kováč';
+    }
+    if (c.acknowledge && ['arrival', 'departure'].includes(m.kind)) {
+      const event = m.kind as 'arrival' | 'departure';
+      const record = rows.find(
+        (r) =>
+          r.stationId === m.fromStation &&
+          r.trainNumber === m.trainNumber &&
+          (event === 'arrival' ? r.actualArrival : r.actualDeparture) === m.time &&
+          r.eventDates[event] === m.date,
+      );
+      if (record) {
+        record.lockedEvents = { ...record.lockedEvents, [event]: m.id };
+        record.revision++;
+      }
     }
     return { message: m } as T;
   }

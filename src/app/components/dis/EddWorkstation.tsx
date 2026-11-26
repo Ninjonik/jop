@@ -8,9 +8,9 @@ import {
   formatEddMessage,
   messageKinds,
   messageLabels,
+  offsetEddTime,
   stationForms,
   type EddEntry,
-  type EddEvent,
   type EddMessage,
   type EddMessageKind,
   type EddMovement,
@@ -21,8 +21,8 @@ import { useSessionClock } from '@/lib/dis/use-session-clock';
 import { useUserPreference } from '@/lib/dis/use-user-preference';
 import { useLocale, useTranslation } from '@/lib/i18n/client';
 import { getStationDisplayName } from '@/lib/station/display-name';
-import { Fragment, useEffect, useRef, useState } from 'react';
-import { EddMovementAction } from './EddMovementAction';
+import { useEffect, useRef, useState } from 'react';
+import { EddTrainEntry } from './EddTrainEntry';
 import { TrainCategoryOptions } from './TrainCategoryOptions';
 import './edd.css';
 
@@ -55,12 +55,6 @@ const movementNames: Record<EddMovement, string> = {
   terminus: 'Končiaci',
   pass: 'Prechádzajúci',
 };
-const eventNames: Record<EddEvent, string> = {
-  arrival: 'Príchod',
-  departure: 'Odchod',
-  passage: 'Prechod',
-};
-
 export function EddWorkstation({
   sessionId,
   stationId,
@@ -358,101 +352,63 @@ export function EddWorkstation({
               <table className="aero-grid edd-table">
                 <thead>
                   <tr>
-                    {['Vlak / smer', 'Pohyb', 'Plán', 'Skutočnosť', 'Koľaj', 'Stav', 'Úkony'].map(
-                      (h) => (
-                        <th key={h}>{t(h)}</th>
-                      ),
-                    )}
+                    {['Vlak / smer', 'Koľaj', 'Stav', 'Príchod / odchod'].map((h) => (
+                      <th key={h}>{t(h)}</th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {records.map((record, pairIndex) => (
-                    <Fragment key={record.$id}>
-                      {(['arrival', 'departure'] as const).map((row, index) => {
-                        const passage = record.movement === 'pass',
-                          evt: EddEvent = passage ? 'passage' : row;
-                        const excluded =
-                          (passage && index === 0) ||
-                          (record.movement === 'origin' && index === 0) ||
-                          (record.movement === 'terminus' && index === 1);
-                        const actual =
-                          row === 'arrival' ? record.actualArrival : record.actualDeparture;
-                        if (excluded) return null;
-                        const firstRow = index === 0 || passage || record.movement === 'origin';
-                        return (
-                          <tr
-                            key={row}
-                            className={`${firstRow ? 'edd-pair-start' : ''} ${pairIndex % 2 ? 'edd-pair-alt' : ''} ${selectedId === record.$id ? 'edd-selected' : ''}`}
-                          >
-                            {firstRow && (
-                              <td rowSpan={record.movement === 'stop' ? 2 : 1}>
-                                <button className="edd-train" onClick={() => choose(record)}>
-                                  {record.trainType} {record.trainNumber}
-                                </button>
-                                <button
-                                  className="aero-btn edd-copy-train"
-                                  title={t('Kopírovať číslo vlaku {0}', record.trainNumber)}
-                                  aria-label={t('Kopírovať číslo vlaku {0}', record.trainNumber)}
-                                  onClick={async () => {
-                                    try {
-                                      await navigator.clipboard.writeText(record.trainNumber);
-                                      setNotice('Číslo vlaku skopírované.');
-                                    } catch {
-                                      setError(
-                                        'Číslo vlaku sa nepodarilo skopírovať. Označte ho a skopírujte ručne.',
-                                      );
-                                    }
-                                  }}
-                                >
-                                  {t('Kopírovať')}
-                                </button>
-                                <small>{record.direction}</small>
-                              </td>
-                            )}
-                            <td>{excluded ? '—' : t(eventNames[evt])}</td>
-                            <td className="edd-planned">
-                              {excluded
-                                ? '—'
-                                : eddClock(
-                                    row === 'arrival' ? record.schedArrival : record.schedDeparture,
-                                  )}
-                            </td>
-                            <td className="edd-actual">{excluded ? '—' : eddClock(actual)}</td>
-                            {firstRow && (
-                              <>
-                                <td rowSpan={record.movement === 'stop' ? 2 : 1}>
-                                  <span className="edd-track-label">
-                                    {record.track?.trim() || '–'}
-                                  </span>
-                                </td>
-                                <td rowSpan={record.movement === 'stop' ? 2 : 1}>
-                                  <span className={`edd-status edd-status-${record.status}`}>
-                                    {t(statusNames[record.status])}
-                                  </span>
-                                  <small>
-                                    {record.delayMinutes ? `+${record.delayMinutes} min` : '—'}
-                                  </small>
-                                </td>
-                              </>
-                            )}
-                            <td>
-                              {!excluded && writable && record.status !== 'cancelled' && (
-                                <EddMovementAction
-                                  key={record.$id + evt + record.revision}
-                                  record={record}
-                                  event={evt}
-                                  date={current.date}
-                                  now={current.minuteTime}
-                                  busy={busy}
-                                  clockReady={!!clock && !clockError}
-                                  onCommand={command}
-                                />
-                              )}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </Fragment>
+                  {records.map((record, index) => (
+                    <tr key={record.$id} className={index % 2 ? 'edd-pair-alt' : ''}>
+                      <td>
+                        <button className="edd-train" onClick={() => choose(record)}>
+                          {record.trainType} {record.trainNumber}
+                        </button>
+                        <button
+                          className="aero-btn edd-copy-train"
+                          onClick={() =>
+                            void navigator.clipboard
+                              .writeText(record.trainNumber)
+                              .catch(() =>
+                                setError(
+                                  'Číslo vlaku sa nepodarilo skopírovať. Označte ho a skopírujte ručne.',
+                                ),
+                              )
+                          }
+                        >
+                          {t('Kopírovať')}
+                        </button>
+                        <small>{record.direction}</small>
+                      </td>
+                      <td>
+                        <span className="edd-track-label">{record.track?.trim() || '–'}</span>
+                      </td>
+                      <td>
+                        <span className={'edd-status edd-status-' + record.status}>
+                          {t(record.dwell ? 'Pobyt' : statusNames[record.status])}
+                        </span>
+                        <small>
+                          {t('Príchod')}: {eddClock(record.actualArrival)} · {t('Odchod')}:{' '}
+                          {eddClock(record.actualDeparture)}
+                        </small>
+                      </td>
+                      <td>
+                        {writable && record.status !== 'cancelled' ? (
+                          <EddTrainEntry
+                            key={record.$id + record.revision}
+                            record={record}
+                            date={current.date}
+                            now={current.minuteTime}
+                            busy={busy || !clock || !!clockError}
+                            onCommand={command}
+                          />
+                        ) : (
+                          <span>
+                            {eddClock(record.actualArrival)} / {eddClock(record.actualDeparture)}
+                          </span>
+                        )}
+                      </td>
+                    </tr>
                   ))}
                 </tbody>
               </table>
@@ -572,7 +528,7 @@ export function EddWorkstation({
                         )[h.action.split(':')[0]] || h.action,
                       )}
                       {h.action.includes(':')
-                        ? ` / ${t(eventNames[h.action.split(':')[1] as EddEvent])}`
+                        ? ` / ${t(h.action.split(':')[1] === 'arrival' ? 'Príchod' : 'Odchod')}`
                         : ''}
                       {h.reason ? ` — ${h.reason}` : ''}
                       <details>
@@ -706,6 +662,40 @@ export function EddWorkstation({
                       onChange={(e) => setMessageTime(e.target.value)}
                     />
                   </label>
+                  <label>
+                    {t('Posun (min)')}
+                    <input
+                      className="aero-input edd-offset"
+                      type="number"
+                      defaultValue="0"
+                      disabled={kind === 'accept'}
+                      onChange={(e) => {
+                        try {
+                          setMessageTime(
+                            offsetEddTime(
+                              (kind === 'arrival'
+                                ? selected?.actualArrival || selected?.schedArrival
+                                : selected?.actualDeparture || selected?.schedDeparture) ||
+                                current.minuteTime,
+                              current.date,
+                              Number(e.target.value),
+                            ).time,
+                          );
+                        } catch (err) {
+                          setError((err as Error).message);
+                        }
+                      }}
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    className="aero-btn"
+                    disabled={kind === 'accept'}
+                    onClick={() => setMessageTime(current.minuteTime)}
+                  >
+                    <AeroIcon name="refresh" />
+                    {t('Teraz')}
+                  </button>
                 </div>
                 {replyToId && (
                   <p>

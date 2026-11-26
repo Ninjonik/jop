@@ -99,7 +99,12 @@ export async function projectDiary(
 export const editDiarySchema = scope.extend({
   id: identity,
   expectedRevision: z.number().int().nonnegative(),
-  action: z.enum(['record', 'correct', 'details', 'cancel', 'restore']),
+  action: z.enum(['record', 'correct', 'details', 'cancel', 'restore', 'train']),
+  arrival: eddTimeSchema.optional(),
+  departure: eddTimeSchema.optional(),
+  arrivalDate: date.optional(),
+  departureDate: date.optional(),
+  dwell: z.boolean().optional(),
   event: z.enum(['arrival', 'departure', 'passage']).optional(),
   time: eddTimeSchema.optional(),
   date: date.optional(),
@@ -128,7 +133,48 @@ export async function editDiary(input: unknown, profile: UserProfile) {
     dates: entry.eventDates,
   });
   let patch: Partial<EddEntry> = {};
-  if (c.action === 'record' || c.action === 'correct') {
+  if (c.action === 'train') {
+    let next = { ...entry, eventDates: { ...entry.eventDates } };
+    for (const event of ['arrival', 'departure'] as const) {
+      const time = c[event];
+      if (!time) continue;
+      const field = event === 'arrival' ? 'actualArrival' : 'actualDeparture';
+      const eventDate = (event === 'arrival' ? c.arrivalDate : c.departureDate) || clock.date;
+      if (next[field] === time && next.eventDates[event] === eventDate) continue;
+      if (next.lockedEvents?.[event]) throw new DisError(409, 'Potvrdený čas už nemožno meniť.');
+      try {
+        next = {
+          ...next,
+          ...movementPatch(next, event, time, !!next[field]),
+          eventDates: { ...next.eventDates, [event]: eventDate },
+        };
+      } catch (error) {
+        throw new DisError(409, (error as Error).message);
+      }
+    }
+    if (
+      c.dwell &&
+      ((!next.actualArrival && next.movement !== 'origin') || next.movement === 'terminus')
+    )
+      throw new DisError(400, 'Pobyt vyžaduje príchod a pokračovanie vlaku.');
+    if (
+      next.actualArrival &&
+      next.actualDeparture &&
+      next.eventDates.arrival + 'T' + next.actualArrival >
+        next.eventDates.departure + 'T' + next.actualDeparture
+    )
+      throw new DisError(400, 'Odchod je pred príchodom. Skontrolujte dátum a čas.');
+    patch = {
+      actualArrival: next.actualArrival,
+      actualDeparture: next.actualDeparture,
+      eventDates: next.eventDates,
+      status: next.status,
+      delayMinutes: next.delayMinutes,
+      dwell: c.dwell ?? false,
+    };
+  } else if (c.action === 'record' || c.action === 'correct') {
+    if (entry.lockedEvents?.[c.event as 'arrival' | 'departure'])
+      throw new DisError(409, 'Potvrdený čas už nemožno meniť.');
     if (!c.event) throw new DisError(400, 'Vyberte druh pohybu.');
     const correction = c.action === 'correct';
     if (correction && !c.reason) throw new DisError(400, 'Uveďte dôvod opravy.');
@@ -382,5 +428,22 @@ export async function receiveDiaryMessage(input: unknown, profile: UserProfile) 
     );
   const message = await collection.findOne(filter);
   if (!message) throw new DisError(404, 'Správa nepatrí vybranej stanici.');
+  if (c.acknowledge && message.edd && ['arrival', 'departure'].includes(message.edd.kind)) {
+    const event = message.edd.kind as 'arrival' | 'departure';
+    const field = event === 'arrival' ? 'actualArrival' : 'actualDeparture';
+    await (
+      await diaryEntries()
+    ).updateMany(
+      {
+        sessionId: c.sessionId,
+        stationId: message.edd.fromStation,
+        trainNumber: message.edd.trainNumber,
+        [field]: message.edd.time,
+        ['eventDates.' + event]: message.edd.date,
+        ['lockedEvents.' + event]: { $exists: false },
+      },
+      { $set: { ['lockedEvents.' + event]: message.edd.id }, $inc: { revision: 1 } },
+    );
+  }
   return { message: message.edd! };
 }

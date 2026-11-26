@@ -279,6 +279,78 @@ async function main() {
       'Quick entries must never include seconds',
     );
     assert.equal((await (await diaryEntries()).find({ sessionId }).toArray()).length, 2);
+    const passSeed = { ...legacy, $id: 'passing-new' };
+    await projectDiary(
+      [passSeed],
+      new Map([['passing-new', { movement: 'pass' as const, timetableId: 'fixture' }]]),
+    );
+    await editDiary(
+      {
+        ...scope,
+        id: passSeed.$id,
+        expectedRevision: 0,
+        action: 'train',
+        arrival: '15:00',
+        arrivalDate: '2005-06-01',
+        dwell: true,
+      },
+      a,
+    );
+    let pass = (await projectDiary([passSeed]))[0];
+    assert(pass.dwell);
+    assert.equal(pass.actualDeparture, '');
+    await editDiary(
+      {
+        ...scope,
+        id: passSeed.$id,
+        expectedRevision: 1,
+        action: 'train',
+        arrival: '15:00',
+        arrivalDate: '2005-06-01',
+        departure: '15:02',
+        departureDate: '2005-06-01',
+        dwell: false,
+      },
+      a,
+    );
+    const report = (
+      await sendDiaryMessage(
+        { ...offer, requestId: randomUUID(), kind: 'arrival', time: '15:00', date: '2005-06-01' },
+        a,
+      )
+    ).message;
+    await receiveDiaryMessage(
+      { sessionId, stationId: 'vesele', id: report.id, acknowledge: true },
+      b,
+    );
+    pass = (await projectDiary([passSeed]))[0];
+    assert(pass.lockedEvents?.arrival);
+    assert(!pass.lockedEvents?.departure);
+    await assert.rejects(
+      editDiary(
+        {
+          ...scope,
+          id: passSeed.$id,
+          expectedRevision: pass.revision,
+          action: 'train',
+          arrival: '15:01',
+          arrivalDate: '2005-06-01',
+        },
+        a,
+      ),
+      /Potvrdený/,
+    );
+    await editDiary(
+      {
+        ...scope,
+        id: passSeed.$id,
+        expectedRevision: pass.revision,
+        action: 'train',
+        departure: '15:03',
+        departureDate: '2005-06-01',
+      },
+      a,
+    );
     console.log(
       'PASS: isolated EDD persistence, concurrent edits, midnight, corrections, offset preservation, idempotent messages, ownership, receipt vs acknowledgment, reply race and odhlaska prerequisites.',
     );

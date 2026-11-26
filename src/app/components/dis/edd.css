@@ -629,3 +629,62 @@
     display: none;
   }
 }
+.edd-train-entry {
+  display: grid;
+  grid-template-columns: minmax(230px, 1fr) minmax(230px, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  font-size: 12px;
+}
+.edd-entry-movement {
+  min-width: 0;
+  padding: 6px 8px;
+  border: 1px solid var(--aero-panel-border);
+  border-radius: 3px;
+}
+.edd-entry-movement legend {
+  font-weight: 600;
+  padding: 0 4px;
+  font-size: 13px;
+}
+.edd-entry-movement .edd-time-fields {
+  flex-wrap: nowrap;
+  align-items: end;
+}
+.edd-entry-movement .aero-btn,
+.edd-train-save .aero-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 7px;
+}
+.edd-train-save {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+}
+.edd-train-entry input {
+  font-size: 13px;
+}
+.edd-table td {
+  vertical-align: middle;
+}
+.edd-entry-movement:disabled {
+  opacity: 0.6;
+}
+@media (max-width: 1100px) {
+  .edd-train-entry {
+    grid-template-columns: 230px 230px 140px;
+  }
+}
+
+.edd-presets .edd-composer-fields label:has(.edd-offset) {
+  flex: 0 0 85px;
+}
+.edd-presets .edd-composer-fields .edd-offset {
+  width: 85px;
+}
+.edd-entry-movement {
+  min-height: 104px;
+}

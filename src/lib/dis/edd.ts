@@ -31,15 +31,18 @@ export type EddEntry = EddRecord & {
   history: EddAudit[];
   eventDates: Partial<Record<EddEvent, string>>;
   timetableId?: string;
+  dwell?: boolean;
+  lockedEvents?: Partial<Record<'arrival' | 'departure', string>>;
 };
 export function canRecord(entry: EddEntry, event: EddEvent) {
   if (['cancelled', 'departed', 'passed'].includes(entry.status)) return false;
   if (event === 'arrival')
-    return !entry.actualArrival && ['stop', 'terminus'].includes(entry.movement);
+    return !entry.actualArrival && ['stop', 'terminus', 'pass'].includes(entry.movement);
   if (event === 'passage') return entry.movement === 'pass';
   return (
     !entry.actualDeparture &&
-    (entry.movement === 'origin' || (entry.movement === 'stop' && !!entry.actualArrival))
+    (entry.movement === 'origin' ||
+      (['stop', 'pass'].includes(entry.movement) && !!entry.actualArrival))
   );
 }
 export function timeSeconds(time: string) {
@@ -50,8 +53,8 @@ export function movementPatch(entry: EddEntry, event: EddEvent, time: string, co
   if (!correction && !canRecord(entry, event))
     throw new Error('Úkon nezodpovedá stavu vlaku. Obnovte denník.');
   if (
-    (event === 'arrival' && !['stop', 'terminus'].includes(entry.movement)) ||
-    (event === 'departure' && !['stop', 'origin'].includes(entry.movement)) ||
+    (event === 'arrival' && !['stop', 'terminus', 'pass'].includes(entry.movement)) ||
+    (event === 'departure' && !['stop', 'origin', 'pass'].includes(entry.movement)) ||
     (event === 'passage' && entry.movement !== 'pass')
   )
     throw new Error('Tento druh pohybu nepatrí vlaku.');

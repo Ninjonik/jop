@@ -98,3 +98,5 @@ SPA typing issues and UI-copy-checker findings are reported in the pull request.
 
 Arrival/departure/passage entries and operating messages use HH:mm only. Seconds remain on the
 live clock and internal audit timestamps. Legacy records are readable without being rewritten.
+
+Train rows now present arrival and departure horizontally, including passing trains. Passing trains default to equal movement times until departure is edited. Endpoints disable only the inapplicable movement. A single train command atomically records both times; Save with dwell records arrival (or waiting at an origin) without recording a departure. Dwell is persisted as a flag; the proposed departure and delay follow the session clock in the UI without per-minute database writes, until manually overridden or saved. Only exact dated movement reports acknowledged by the receiving station lock their matching recorded movement. Other events remain editable; revision checks cover concurrent acknowledgments.
