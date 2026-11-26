@@ -3455,5 +3455,9 @@
   "Teraz": ["Teraz","Now"],
   "Dôvod opravy": ["Dôvod opravy","Correction reason"],
   "Zadajte posun od −1440 do 1440 minút.": ["Zadajte posun od −1440 do 1440 minút.","Enter an offset from −1440 to 1440 minutes."],
-  "Skontrolujte dátum pohybu.": ["Skontrolujte dátum pohybu.","Check the movement date."]
+  "Skontrolujte dátum pohybu.": ["Skontrolujte dátum pohybu.","Check the movement date."],
+  "Výsledný čas": ["Výsledný čas","Resulting time"],
+  "Kopírovať číslo vlaku {0}": ["Kopírovať číslo vlaku {0}","Copy train number {0}"],
+  "Číslo vlaku skopírované.": ["Číslo vlaku skopírované.","Train number copied."],
+  "Číslo vlaku sa nepodarilo skopírovať. Označte ho a skopírujte ručne.": ["Číslo vlaku sa nepodarilo skopírovať. Označte ho a skopírujte ručne.","Could not copy the train number. Select it and copy it manually."]
 }

@@ -30,7 +30,7 @@ for (const stationId of ['kolarovo', 'vesele'])
       schedDeparture,
       actualArrival: '',
       actualDeparture: '',
-      track: '1',
+      track: trainNumber === '90001' ? '' : '1',
       status: 'scheduled',
       direction: 'Kolárovo → Veselé',
       delayMinutes: 0,

@@ -22,7 +22,7 @@ takeover/release remains in the existing station-selection workflow rather than 
 - The diary keeps its order while editing. Active/completed/all filters, train search and
   preset-composer display preferences use the existing account-preference service.
 
-Manual movement controls sit directly beside each row action. Enter HH:mm or a whole-minute offset from the planned time, review actual/planned time and date, then save. Negative offsets and midnight date changes are supported. This offset belongs to that movement and never changes the session clock. Existing times require a correction reason.
+Manual movement controls remain visible directly beside each row action, including a planned → resulting time preview and individual arrival/departure offsets. Train numbers can be copied; unspecified tracks display “–”. Unused endpoint rows are omitted. Enter HH:mm or a whole-minute offset from the planned time, review actual/planned time and date, then save. Negative offsets and midnight date changes are supported. This offset belongs to that movement and never changes the session clock. Existing times require a correction reason.
 
 ## Preset communication
 

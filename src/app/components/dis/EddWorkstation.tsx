@@ -4,7 +4,6 @@ import { disFetch } from '@/lib/dis/api-client';
 import { useDisAuth } from '@/lib/dis/auth-context';
 import { operatingClockParts } from '@/lib/dis/clock';
 import {
-  canRecord,
   eddClock,
   formatEddMessage,
   messageKinds,
@@ -378,15 +377,34 @@ export function EddWorkstation({
                           (record.movement === 'terminus' && index === 1);
                         const actual =
                           row === 'arrival' ? record.actualArrival : record.actualDeparture;
+                        if (excluded) return null;
+                        const firstRow = index === 0 || passage || record.movement === 'origin';
                         return (
                           <tr
                             key={row}
-                            className={`${index === 0 ? 'edd-pair-start' : ''} ${pairIndex % 2 ? 'edd-pair-alt' : ''} ${selectedId === record.$id ? 'edd-selected' : ''}`}
+                            className={`${firstRow ? 'edd-pair-start' : ''} ${pairIndex % 2 ? 'edd-pair-alt' : ''} ${selectedId === record.$id ? 'edd-selected' : ''}`}
                           >
-                            {index === 0 && (
-                              <td rowSpan={2}>
+                            {firstRow && (
+                              <td rowSpan={record.movement === 'stop' ? 2 : 1}>
                                 <button className="edd-train" onClick={() => choose(record)}>
                                   {record.trainType} {record.trainNumber}
+                                </button>
+                                <button
+                                  className="aero-btn edd-copy-train"
+                                  title={t('Kopírovať číslo vlaku {0}', record.trainNumber)}
+                                  aria-label={t('Kopírovať číslo vlaku {0}', record.trainNumber)}
+                                  onClick={async () => {
+                                    try {
+                                      await navigator.clipboard.writeText(record.trainNumber);
+                                      setNotice('Číslo vlaku skopírované.');
+                                    } catch {
+                                      setError(
+                                        'Číslo vlaku sa nepodarilo skopírovať. Označte ho a skopírujte ručne.',
+                                      );
+                                    }
+                                  }}
+                                >
+                                  {t('Kopírovať')}
                                 </button>
                                 <small>{record.direction}</small>
                               </td>
@@ -400,12 +418,14 @@ export function EddWorkstation({
                                   )}
                             </td>
                             <td className="edd-actual">{excluded ? '—' : eddClock(actual)}</td>
-                            {index === 0 && (
+                            {firstRow && (
                               <>
-                                <td rowSpan={2}>
-                                  <span className="edd-track-label">{record.track || '—'}</span>
+                                <td rowSpan={record.movement === 'stop' ? 2 : 1}>
+                                  <span className="edd-track-label">
+                                    {record.track?.trim() || '–'}
+                                  </span>
                                 </td>
-                                <td rowSpan={2}>
+                                <td rowSpan={record.movement === 'stop' ? 2 : 1}>
                                   <span className={`edd-status edd-status-${record.status}`}>
                                     {t(statusNames[record.status])}
                                   </span>
@@ -416,9 +436,9 @@ export function EddWorkstation({
                               </>
                             )}
                             <td>
-                              {!excluded && writable && (canRecord(record, evt) || !!actual) && (
+                              {!excluded && writable && record.status !== 'cancelled' && (
                                 <EddMovementAction
-                                  key={record.$id + evt}
+                                  key={record.$id + evt + record.revision}
                                   record={record}
                                   event={evt}
                                   date={current.date}
