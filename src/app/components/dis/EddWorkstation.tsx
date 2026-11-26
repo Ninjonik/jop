@@ -382,6 +382,16 @@ export function EddWorkstation({
                           {t('Kopírovať')}
                         </button>
                         <small>{record.direction}</small>
+                        {record.nextTransportPoint && (
+                          <small className="edd-onward">
+                            {t('Ďalší bod')}: <b>{record.nextTransportPoint}</b>
+                          </small>
+                        )}
+                        {record.nextControlledArea && (
+                          <small className="edd-onward">
+                            {t('Ďalší riadený obvod')}: <b>{record.nextControlledArea}</b>
+                          </small>
+                        )}
                       </td>
                       <td>
                         <span className="edd-track-label">{record.track?.trim() || '–'}</span>

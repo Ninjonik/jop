@@ -3,6 +3,8 @@ import { inferMovement, type EddMovement } from '@/lib/dis/edd';
 import type { EddRecord } from '@/lib/dis/records';
 import { clockSchema, stationKey, type Timetable } from '@/lib/dis/timetable';
 import { trainCategorySchema } from '@/lib/dis/train-categories';
+import { getStationDisplayName } from '@/lib/station/display-name';
+import { isPublicStation } from '@/lib/station/visibility';
 import { AppwriteException, ID, Query, type Models } from 'node-appwrite';
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
@@ -31,6 +33,8 @@ export async function listEdd(scope: DisScope) {
   const records = await listStoredEdd(scope);
   const existingIds = new Set(records.map((record) => record.$id));
   let imported = 0;
+  const onward = new Map<string, { nextTransportPoint?: string; nextControlledArea?: string }>();
+  const controlledAreas = await stationRepository.listBySessionId(scope.sessionId);
   const hints = new Map<string, { movement: EddMovement; timetableId: string }>();
   const session = await sessionRepository.findById(scope.sessionId);
   if (
@@ -42,15 +46,35 @@ export async function listEdd(scope: DisScope) {
       imported += (await persistTimetableStops(scope, timetable, 'system:gvd', existingIds))
         .imported;
       timetable.stops.forEach((stop, index) => {
-        if (stationKey(stop.station) === stationKey(scope.stationId))
+        if (stationKey(stop.station) === stationKey(scope.stationId)) {
+          const following = timetable.stops.slice(index + 1);
+          const area = following
+            .map((point) =>
+              controlledAreas.find(
+                (area) =>
+                  area.stationId !== scope.stationId &&
+                  isPublicStation(area.stationId) &&
+                  [area.stationId, getStationDisplayName(area.stationId)].some(
+                    (name) => stationKey(name) === stationKey(point.station),
+                  ),
+              ),
+            )
+            .find(Boolean);
+          onward.set(timetableEntryId(scope, timetable.$id, index), {
+            nextTransportPoint: following[0]?.station,
+            nextControlledArea: area ? getStationDisplayName(area.stationId) : undefined,
+          });
           hints.set(timetableEntryId(scope, timetable.$id, index), {
             movement: inferMovement(stop, index, timetable.stops.length),
             timetableId: timetable.$id,
           });
+        }
       });
     }
   }
-  return projectDiary(imported ? await listStoredEdd(scope) : records, hints);
+  return (await projectDiary(imported ? await listStoredEdd(scope) : records, hints)).map(
+    (record) => ({ ...record, ...onward.get(record.$id) }),
+  );
 }
 function timetableEntryId(scope: DisScope, timetableId: string, index: number) {
   return createHash('sha256')

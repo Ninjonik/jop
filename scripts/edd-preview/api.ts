@@ -33,6 +33,10 @@ for (const stationId of ['kolarovo', 'vesele'])
       track: trainNumber === '90001' ? '' : '1',
       status: 'scheduled',
       direction: 'Kolárovo → Veselé',
+      nextTransportPoint:
+        movement === 'terminus' ? undefined : stationId === 'kolarovo' ? 'Štefanovo z' : 'Kolárovo',
+      nextControlledArea:
+        movement === 'terminus' ? undefined : stationId === 'kolarovo' ? 'Veselé' : 'Kolárovo',
       delayMinutes: 0,
       revision: 0,
       notes: '',

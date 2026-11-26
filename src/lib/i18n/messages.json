@@ -3463,5 +3463,7 @@
   "Príchod / odchod": ["Príchod / odchod","Arrival / departure"],
   "Zapísať s pobytom": ["Zapísať s pobytom","Save with dwell"],
   "Potvrdený čas už nemožno meniť.": ["Potvrdený čas už nemožno meniť.","A confirmed time can no longer be changed."],
-  "Pobyt vyžaduje príchod a pokračovanie vlaku.": ["Pobyt vyžaduje príchod a pokračovanie vlaku.","Dwell requires an arrival and an onward journey."]
+  "Pobyt vyžaduje príchod a pokračovanie vlaku.": ["Pobyt vyžaduje príchod a pokračovanie vlaku.","Dwell requires an arrival and an onward journey."],
+  "Ďalší bod": ["Ďalší bod","Next transport point"],
+  "Ďalší riadený obvod": ["Ďalší riadený obvod","Next controlled area"]
 }

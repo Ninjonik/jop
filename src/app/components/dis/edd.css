@@ -780,3 +780,10 @@
     border-left-color: transparent;
   }
 }
+.edd-table > tbody > tr > td:first-child > .edd-onward {
+  margin-top: 2px;
+  font-size: 11px;
+}
+.edd-onward b {
+  font-weight: 600;
+}

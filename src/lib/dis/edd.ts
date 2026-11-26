@@ -31,6 +31,8 @@ export type EddEntry = EddRecord & {
   history: EddAudit[];
   eventDates: Partial<Record<EddEvent, string>>;
   timetableId?: string;
+  nextTransportPoint?: string;
+  nextControlledArea?: string;
   dwell?: boolean;
   lockedEvents?: Partial<Record<'arrival' | 'departure', string>>;
 };
