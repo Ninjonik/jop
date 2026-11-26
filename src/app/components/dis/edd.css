@@ -861,3 +861,15 @@
 .edd-presets .edd-composer-fields label:has(.edd-message-time) {
   flex-basis: 180px;
 }
+/* Saved records remain in the diary; a quiet tint confirms that times were applied. */
+.edd-table > tbody > tr.edd-recorded > td {
+  background: color-mix(in srgb, var(--aero-panel-bg) 96%, #32955a 4%);
+}
+.edd-table > tbody > tr.edd-recorded > td:first-child {
+  border-left-color: color-mix(in srgb, var(--aero-panel-border) 65%, #32955a 35%);
+}
+@media print {
+  .edd-table > tbody > tr.edd-recorded > td {
+    background: white;
+  }
+}

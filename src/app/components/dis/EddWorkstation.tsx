@@ -212,7 +212,8 @@ export function EddWorkstation({
       ['departed', 'passed', 'cancelled'].includes(record.status) ||
       (record.movement === 'terminus' && !!record.actualArrival);
     return (
-      (preferences.filter === 'all' || (preferences.filter === 'completed' ? done : !done)) &&
+      (preferences.filter === 'all' ||
+        (preferences.filter === 'completed' ? done : record.status !== 'cancelled')) &&
       `${record.trainType} ${record.trainNumber} ${record.direction}`
         .toLocaleLowerCase()
         .includes(search.toLocaleLowerCase())
@@ -361,7 +362,7 @@ export function EddWorkstation({
                   {records.map((record, index) => (
                     <tr
                       key={record.$id}
-                      className={`${index % 2 ? 'edd-pair-alt' : ''} ${selectedId === record.$id ? 'edd-selected' : ''}`}
+                      className={`${index % 2 ? 'edd-pair-alt' : ''} ${selectedId === record.$id ? 'edd-selected' : ''} ${record.actualArrival || record.actualDeparture ? 'edd-recorded' : ''}`}
                     >
                       <td>
                         <button className="edd-train" onClick={() => choose(record)}>

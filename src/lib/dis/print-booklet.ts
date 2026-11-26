@@ -21,6 +21,27 @@ export function printBooklet(
       );
     copies[i].removeAttribute('id');
   });
+  // SVG is foreground artwork: browser "background graphics" settings must not erase striping.
+  [...table.tBodies[0].rows].forEach((row, rowIndex) => {
+    const fill = getComputedStyle(row).backgroundColor;
+    if (['transparent', 'rgba(0, 0, 0, 0)', 'rgb(255, 255, 255)'].includes(fill)) return;
+    for (const cell of clone.tBodies[0].rows[rowIndex].cells) {
+      cell.style.setProperty('position', 'relative', 'important');
+      cell.style.setProperty('isolation', 'isolate', 'important');
+      const stripe = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      stripe.setAttribute('aria-hidden', 'true');
+      stripe.setAttribute('viewBox', '0 0 1 1');
+      stripe.setAttribute('preserveAspectRatio', 'none');
+      stripe.style.cssText =
+        'position:absolute!important;inset:0!important;width:100%!important;height:100%!important;z-index:-1!important;pointer-events:none!important;';
+      const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      rect.setAttribute('width', '1');
+      rect.setAttribute('height', '1');
+      rect.setAttribute('fill', fill);
+      stripe.append(rect);
+      cell.prepend(stripe);
+    }
+  });
   const scale = Math.min(1, (182 * 96) / 25.4 / width);
   const rowHeights = [...table.tBodies[0].rows].map(
     (row) => row.getBoundingClientRect().height * scale,
