@@ -3444,5 +3444,16 @@
   "passed": ["passed","Passed"],
   "HH:mm": ["HH:mm","HH:mm"],
   "Vyberte pôvodnú ponuku vlaku.": ["Vyberte pôvodnú ponuku vlaku.","Select the original train offer."],
-  "Ponuka bola zrušená. Vyžiadajte novú ponuku.": ["Ponuka bola zrušená. Vyžiadajte novú ponuku.","The offer was cancelled. Request a new offer."]
+  "Ponuka bola zrušená. Vyžiadajte novú ponuku.": ["Ponuka bola zrušená. Vyžiadajte novú ponuku.","The offer was cancelled. Request a new offer."],
+  "Pre prístup k EDD najprv prevezmite stanicu v riadení dopravy.": ["Pre prístup k EDD najprv prevezmite stanicu v riadení dopravy.","To access EDD, first take control of a station in traffic control."],
+  "Správy sa odosielajú do existujúcej staničnej komunikácie.": ["Správy sa odosielajú do existujúcej staničnej komunikácie.","Messages go to the existing station conversation."],
+  "Otvoriť rozhovor": ["Otvoriť rozhovor","Open conversation"],
+  "Čas / posun": ["Čas / posun","Time / offset"],
+  "Opraviť čas": ["Opraviť čas","Correct time"],
+  "Skutočný čas": ["Skutočný čas","Actual time"],
+  "Posun (min)": ["Posun (min)","Offset (min)"],
+  "Teraz": ["Teraz","Now"],
+  "Dôvod opravy": ["Dôvod opravy","Correction reason"],
+  "Zadajte posun od −1440 do 1440 minút.": ["Zadajte posun od −1440 do 1440 minút.","Enter an offset from −1440 to 1440 minutes."],
+  "Skontrolujte dátum pohybu.": ["Skontrolujte dátum pohybu.","Check the movement date."]
 }

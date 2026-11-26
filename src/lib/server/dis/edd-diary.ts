@@ -1,6 +1,7 @@
 import type { UserProfile } from '@/lib/dis/appwrite-client';
 import {
   eddTimeSchema,
+  formatEddMessage,
   messageKinds,
   movementPatch,
   stationForms,
@@ -11,12 +12,13 @@ import {
 import type { EddRecord } from '@/lib/dis/records';
 import { getStationDisplayName } from '@/lib/station/display-name';
 import { isPublicStation } from '@/lib/station/visibility';
-import { createHash, randomUUID } from 'node:crypto';
+import { createHash } from 'node:crypto';
 import { z } from 'zod';
 import { getMongoDb } from '../mongo';
 import { sessionRepository } from '../repositories/session-repository';
 import { stationRepository } from '../repositories/station-repository';
 import { DisError } from './appwrite';
+import { chatMessagesCollection, sendChat } from './chat';
 import { requireStationClaim } from './claims';
 import { sessionClockSnapshot } from './session-clock';
 
@@ -31,22 +33,18 @@ const entryKey = (r: Pick<EddRecord, 'sessionId' | 'stationId' | '$id'>) =>
 export async function diaryEntries() {
   return (await getMongoDb()).collection<EddEntry & { _id: string }>('edd_diary_entries');
 }
-type StoredMessage = EddMessage & { _id: string; requestDigest: string; responseTo?: string };
 let messageIndexes: Promise<unknown> | undefined;
 async function messages() {
-  const collection = (await getMongoDb()).collection<StoredMessage>('edd_diary_messages');
-  messageIndexes ??= Promise.all([
-    collection.createIndex({ sessionId: 1, fromStation: 1, createdAt: -1 }),
-    collection.createIndex({ sessionId: 1, toStation: 1, createdAt: -1 }),
-    collection.createIndex({ sessionId: 1, replyToId: 1 }),
-    collection.createIndex(
-      { sessionId: 1, responseTo: 1 },
-      { unique: true, partialFilterExpression: { responseTo: { $type: 'string' } } },
-    ),
-  ]).catch((e) => {
-    messageIndexes = undefined;
-    throw e;
-  });
+  const collection = await chatMessagesCollection();
+  messageIndexes ??= collection
+    .createIndex(
+      { sessionId: 1, eddResponseTo: 1 },
+      { unique: true, partialFilterExpression: { eddResponseTo: { $type: 'string' } } },
+    )
+    .catch((error) => {
+      messageIndexes = undefined;
+      throw error;
+    });
   await messageIndexes;
   return collection;
 }
@@ -220,11 +218,21 @@ export async function diaryContacts(sessionId: string, stationId: string) {
     );
 }
 export async function listDiaryMessages(sessionId: string, stationId: string) {
-  return (await messages())
-    .find({ sessionId, $or: [{ fromStation: stationId }, { toStation: stationId }] })
+  const history = await (
+    await messages()
+  )
+    .find({
+      sessionId,
+      edd: { $exists: true },
+      $or: [
+        { 'sender.kind': 'station', 'sender.id': stationId },
+        { 'recipient.kind': 'station', 'recipient.id': stationId },
+      ],
+    })
     .sort({ createdAt: -1, _id: -1 })
     .limit(150)
     .toArray();
+  return history.map((message) => message.edd!);
 }
 export const sendDiarySchema = scope.extend({
   requestId: z.string().uuid(),
@@ -253,21 +261,22 @@ export async function sendDiaryMessage(input: unknown, profile: UserProfile) {
     throw new DisError(400, 'Doplňte text alebo dôvod správy.');
   const collection = await messages();
   const _id = createHash('sha256')
-    .update(JSON.stringify([c.sessionId, c.stationId, profile.userId, c.requestId]))
+    .update(JSON.stringify([profile.userId, c.requestId]))
     .digest('hex');
   const requestDigest = createHash('sha256').update(JSON.stringify(c)).digest('hex');
   const previous = await collection.findOne({ _id });
   if (previous) {
-    if (previous.requestDigest !== requestDigest)
+    if (previous.eddDigest !== requestDigest)
       throw new DisError(
         409,
         'Predchádzajúca správa už bola odoslaná. Obnovte denník pred ďalšou správou.',
       );
-    return { message: previous };
+    return { message: previous.edd! };
   }
   let original: EddMessage | null = null;
   if (c.replyToId) {
-    original = await collection.findOne({ sessionId: c.sessionId, id: c.replyToId });
+    original =
+      (await collection.findOne({ sessionId: c.sessionId, 'edd.id': c.replyToId }))?.edd || null;
     const reply = ['accept', 'wait'].includes(c.kind);
     if (
       !original ||
@@ -283,7 +292,11 @@ export async function sendDiaryMessage(input: unknown, profile: UserProfile) {
       throw new DisError(400, 'Vyberte pôvodnú ponuku vlaku.');
     if (
       reply &&
-      (await collection.findOne({ sessionId: c.sessionId, replyToId: original.id, kind: 'cancel' }))
+      (await collection.findOne({
+        sessionId: c.sessionId,
+        'edd.replyToId': original.id,
+        'edd.kind': 'cancel',
+      }))
     )
       throw new DisError(409, 'Ponuka bola zrušená. Vyžiadajte novú ponuku.');
   } else if (['accept', 'wait', 'cancel', 'correction'].includes(c.kind))
@@ -299,7 +312,7 @@ export async function sendDiaryMessage(input: unknown, profile: UserProfile) {
     throw new DisError(400, 'Doplňte skloňovaný názov stanice.');
   const acceptedOffer = c.kind === 'accept' ? original : null;
   const message: EddMessage = {
-    id: randomUUID(),
+    id: _id,
     sessionId: c.sessionId,
     fromStation: c.stationId,
     toStation: c.toStation,
@@ -321,55 +334,53 @@ export async function sendDiaryMessage(input: unknown, profile: UserProfile) {
     text: c.text,
     ...(c.replyToId && { replyToId: c.replyToId }),
   };
-  // A deterministic request key makes network retries safe across multiple API instances.
   try {
-    await collection.updateOne(
-      { _id },
+    const saved = await sendChat(
       {
-        $setOnInsert: {
-          ...message,
-          requestDigest,
-          ...(['accept', 'wait'].includes(c.kind) && { responseTo: c.replyToId }),
-        },
+        sessionId: c.sessionId,
+        endpoint: { kind: 'station', id: c.stationId },
+        recipient: { kind: 'station', id: c.toStation },
+        content: formatEddMessage(message, 'sk'),
+        messageId: c.requestId,
       },
-      { upsert: true },
+      profile,
+      {
+        edd: message,
+        eddDigest: requestDigest,
+        ...(['accept', 'wait'].includes(c.kind) && { eddResponseTo: c.replyToId }),
+      },
     );
-  } catch (e) {
-    if ((e as { code?: number }).code === 11000)
+    return { message: saved.message.edd! };
+  } catch (error) {
+    if ((error as { code?: number }).code === 11000)
       throw new DisError(409, 'Na túto ponuku už bola odoslaná odpoveď. Obnovte denník.');
-    throw e;
+    throw error;
   }
-  const saved = await collection.findOne({ _id });
-  if (saved?.requestDigest !== requestDigest)
-    throw new DisError(
-      409,
-      'Predchádzajúca správa už bola odoslaná. Obnovte denník pred ďalšou správou.',
-    );
-  return { message: saved };
 }
+
 export async function receiveDiaryMessage(input: unknown, profile: UserProfile) {
   const c = scope.extend({ id: identity, acknowledge: z.boolean().default(false) }).parse(input);
   await requireStationClaim(c.sessionId, c.stationId, profile);
   const collection = await messages();
-  const filter = { sessionId: c.sessionId, toStation: c.stationId, id: c.id };
+  const filter = { sessionId: c.sessionId, 'edd.toStation': c.stationId, 'edd.id': c.id };
   const now = new Date().toISOString();
   const clock = await sessionClockSnapshot(c.sessionId);
   await collection.updateOne(
-    { ...filter, deliveredAt: { $exists: false } },
-    { $set: { deliveredAt: now, deliveredOperatingTime: clock.time.slice(0, 5) } },
+    { ...filter, 'edd.deliveredAt': { $exists: false } },
+    { $set: { 'edd.deliveredAt': now, 'edd.deliveredOperatingTime': clock.time.slice(0, 5) } },
   );
   if (c.acknowledge)
     await collection.updateOne(
-      { ...filter, acknowledgedAt: { $exists: false } },
+      { ...filter, 'edd.acknowledgedAt': { $exists: false } },
       {
         $set: {
-          acknowledgedAt: now,
-          acknowledgedBy: profile.name,
-          acknowledgedOperatingTime: clock.time.slice(0, 5),
+          'edd.acknowledgedAt': now,
+          'edd.acknowledgedBy': profile.name,
+          'edd.acknowledgedOperatingTime': clock.time.slice(0, 5),
         },
       },
     );
   const message = await collection.findOne(filter);
   if (!message) throw new DisError(404, 'Správa nepatrí vybranej stanici.');
-  return { message };
+  return { message: message.edd! };
 }

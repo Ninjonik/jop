@@ -1,8 +1,10 @@
 import type { EddSnapshot } from '@/app/components/dis/EddWorkstation';
+import type { ChatMessage } from '@/lib/dis/chat';
 import { operatingClockParts } from '@/lib/dis/clock';
 import {
   canRecord,
   eddTimeSchema,
+  formatEddMessage,
   movementPatch,
   stationForms,
   type EddEntry,
@@ -38,6 +40,42 @@ for (const stationId of ['kolarovo', 'vesele'])
       eventDates: {},
     });
 const messages: EddMessage[] = [];
+const plainMessages: ChatMessage[] = [];
+export function previewChatHistory(stationId: string, target: string): ChatMessage[] {
+  return [
+    ...plainMessages,
+    ...messages.map((edd) => ({
+      _id: edd.id,
+      sessionId,
+      sender: { kind: 'station' as const, id: edd.fromStation, name: edd.fromStation },
+      recipient: { kind: 'station' as const, id: edd.toStation, name: edd.toStation },
+      senderUserId: edd.userId,
+      senderName: edd.operator,
+      senderRole: 'dispatcher' as const,
+      content: formatEddMessage(edd, 'sk'),
+      createdAt: edd.createdAt,
+      edd,
+    })),
+  ]
+    .filter(
+      (message) =>
+        (message.sender.id === stationId && message.recipient.id === target) ||
+        (message.sender.id === target && message.recipient.id === stationId),
+    )
+    .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+}
+export function previewPlainMessage(stationId: string, target: string, content: string) {
+  plainMessages.push({
+    _id: crypto.randomUUID(),
+    sessionId,
+    sender: { kind: 'station', id: stationId, name: stationId },
+    recipient: { kind: 'station', id: target, name: target },
+    senderName: stationId === 'kolarovo' ? 'Novák' : 'Kováč',
+    senderUserId: stationId,
+    content,
+    createdAt: new Date().toISOString(),
+  });
+}
 const requests = new Map<string, EddMessage>();
 const preferences = new Map<string, unknown>();
 export let failNext = false;
@@ -71,6 +109,8 @@ export async function disFetch<T>(url: string, init: RequestInit = {}): Promise<
   const stationId = c?.stationId || parsed.searchParams.get('stationId')!;
   if (!c)
     return structuredClone({
+      canWrite: true,
+      operator: stationId === 'kolarovo' ? 'Novák' : 'Kováč',
       records: rows.filter((r) => r.stationId === stationId),
       messages: messages
         .filter((m) => m.fromStation === stationId || m.toStation === stationId)
@@ -160,7 +200,7 @@ export async function disFetch<T>(url: string, init: RequestInit = {}): Promise<
       fromStation: stationId,
       createdAt: new Date().toISOString(),
       date: clock().date,
-      time: c.time || clock().minuteTime,
+      time: eddTimeSchema.parse(c.time || clock().minuteTime),
       operator: stationId === 'kolarovo' ? 'Novák' : 'Kováč',
       userId: stationId,
       ...forms,
@@ -175,6 +215,7 @@ export async function disFetch<T>(url: string, init: RequestInit = {}): Promise<
     };
     requests.set(c.requestId, m);
     messages.push(m);
+    return { message: m } as T;
   } else if (c.command === 'receive') {
     const m = messages.find((m) => m.id === c.id && m.toStation === stationId)!;
     m.deliveredAt ||= new Date().toISOString();
@@ -182,6 +223,7 @@ export async function disFetch<T>(url: string, init: RequestInit = {}): Promise<
       m.acknowledgedAt ||= new Date().toISOString();
       m.acknowledgedBy = stationId === 'kolarovo' ? 'Novák' : 'Kováč';
     }
+    return { message: m } as T;
   }
   return {} as T;
 }

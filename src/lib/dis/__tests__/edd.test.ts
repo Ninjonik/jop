@@ -7,6 +7,7 @@ import {
   inferMovement,
   messageKinds,
   movementPatch,
+  offsetEddTime,
   stationForms,
   type EddEntry,
   type EddMessage,
@@ -134,4 +135,16 @@ test('EDD API rejects unauthenticated diary reads and all writes', async () => {
       401,
     );
   }
+});
+
+test('manual minute offsets retain the correct date and never add seconds', () => {
+  assert.deepEqual(offsetEddTime('15:34', '2005-06-01', 4), { time: '15:38', date: '2005-06-01' });
+  assert.deepEqual(offsetEddTime('23:58', '2005-06-01', 4), { time: '00:02', date: '2005-06-02' });
+  assert.deepEqual(offsetEddTime('00:02', '2005-06-01', -4), { time: '23:58', date: '2005-05-31' });
+  assert.deepEqual(offsetEddTime('15:34:30', '2005-06-01', 0), {
+    time: '15:34',
+    date: '2005-06-01',
+  });
+  for (const offset of [NaN, Infinity, 1.5, 1441, -1441])
+    assert.throws(() => offsetEddTime('15:34', '2005-06-01', offset));
 });

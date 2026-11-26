@@ -461,3 +461,114 @@
     color: black;
   }
 }
+
+/* Compact EDD: one diary, direct movement controls, no second conversation log. */
+.edd-body {
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
+}
+.edd-diary {
+  flex: 1;
+  min-height: 220px;
+}
+.edd-table-scroll {
+  flex: 1;
+  min-height: 160px;
+}
+.edd-table td {
+  padding: 3px 7px;
+}
+.edd-action-buttons,
+.edd-time-fields,
+.chat-operating-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+}
+.edd-time-entry {
+  display: grid;
+  gap: 5px;
+  padding: 7px;
+  margin-top: 4px;
+  border: 1px solid var(--aero-panel-border);
+  background: var(--aero-panel-bg);
+}
+.edd-time-fields label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.edd-time-fields .edd-time {
+  width: 76px;
+}
+.edd-offset {
+  width: 64px;
+}
+.edd-time-summary {
+  color: var(--aero-text-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: normal;
+}
+.edd-time-summary strong {
+  color: var(--aero-text);
+}
+.edd-presets {
+  flex: none;
+  border-top: 1px solid var(--aero-panel-border);
+}
+.edd-presets .edd-composer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 7px;
+  padding: 7px 8px;
+}
+.edd-presets .edd-composer-fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  flex: 1 1 620px;
+}
+.edd-presets .edd-composer-fields label {
+  flex: 1 1 130px;
+}
+.edd-presets .edd-composer-fields input,
+.edd-presets .edd-composer-fields select {
+  width: 100%;
+}
+.edd-presets textarea {
+  flex: 1 1 220px;
+  min-height: 26px;
+}
+.edd-presets .edd-message-preview {
+  flex-basis: 100%;
+  margin: 0;
+  padding: 6px 8px;
+}
+.edd-presets .edd-composer > small {
+  flex: 1 1 240px;
+}
+.chat-operating-actions {
+  margin: 4px 0 3px;
+  font-size: 11px;
+}
+.chat-operating-actions small {
+  flex-basis: 100%;
+  color: var(--aero-text-muted);
+}
+@media print {
+  .edd-presets,
+  .edd-movement-action {
+    display: none;
+  }
+}
+
+.edd-presets .edd-composer {
+  max-height: none;
+  overflow: visible;
+}
+.edd-presets textarea {
+  height: 26px;
+}

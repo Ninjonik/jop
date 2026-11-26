@@ -2,7 +2,8 @@
 import { AeroIcon } from '@/app/components/ui/AeroIcon';
 import type { ChatMessage } from '@/lib/dis/chat';
 import { chatSystemText } from '@/lib/dis/chat-system';
-import { useLocaleTag, useTranslation } from '@/lib/i18n/client';
+import { formatEddMessage, type EddReply } from '@/lib/dis/edd';
+import { useLocale, useLocaleTag, useTranslation } from '@/lib/i18n/client';
 import { getStationDisplayName } from '@/lib/station/display-name';
 
 export type DisplayMessage = ChatMessage & { delivery?: 'sending' | 'failed' };
@@ -10,23 +11,35 @@ export type DisplayMessage = ChatMessage & { delivery?: 'sending' | 'failed' };
 export function ChatMessageView({
   message,
   onRetry,
+  stationId,
+  onAcknowledge,
+  onEddReply,
+  offerAnswered,
 }: {
   message: DisplayMessage;
   onRetry?: () => void;
+  stationId?: string;
+  onAcknowledge?: (id: string) => void;
+  onEddReply?: (reply: EddReply) => void;
+  offerAnswered?: boolean;
 }) {
   const t = useTranslation();
   const localeTag = useLocaleTag();
+  const locale = useLocale();
+  const edd = message.edd;
   return (
     <div className="session-chat-message" data-announcement={message.announcement}>
       <time
         dateTime={message.createdAt}
         title={new Date(message.createdAt).toLocaleString(localeTag)}
       >
-        {new Date(message.createdAt).toLocaleTimeString(localeTag, {
-          hour: '2-digit',
-          minute: '2-digit',
-          ...(message.system ? { second: '2-digit' } : {}),
-        })}
+        {edd
+          ? (edd.sentOperatingTime || edd.time).slice(0, 5)
+          : new Date(message.createdAt).toLocaleTimeString(localeTag, {
+              hour: '2-digit',
+              minute: '2-digit',
+              ...(message.system ? { second: '2-digit' } : {}),
+            })}
       </time>{' '}
       {message.system ? (
         <strong className="inline-flex items-center gap-1">
@@ -49,7 +62,9 @@ export function ChatMessageView({
             <span> ({message.senderName})</span>
           )}
           {message.senderRobloxUsername && (
-            <small className="chat-roblox-name">{t('Roblox: {0}', message.senderRobloxUsername)}</small>
+            <small className="chat-roblox-name">
+              {t('Roblox: {0}', message.senderRobloxUsername)}
+            </small>
           )}
         </>
       )}
@@ -67,8 +82,88 @@ export function ChatMessageView({
         </strong>
       )}
       <span className="whitespace-pre-wrap break-words">
-        {message.system ? chatSystemText(message.system, t) : message.content}
+        {message.system
+          ? chatSystemText(message.system, t)
+          : edd
+            ? formatEddMessage(edd, locale)
+            : message.content}
       </span>
+      {edd && (
+        <div className="chat-operating-actions">
+          <small>
+            {t(edd.acknowledgedAt ? 'Potvrdené' : edd.deliveredAt ? 'Doručené' : 'Odoslané')}
+            {edd.acknowledgedBy ? ' · ' + edd.acknowledgedBy : ''}
+          </small>
+          {edd.acknowledgedAt && <small>{formatEddMessage(edd, locale, true)}</small>}
+          {stationId === edd.toStation && !edd.acknowledgedAt && onAcknowledge && (
+            <button className="aero-btn" onClick={() => onAcknowledge(edd.id)}>
+              {t('Potvrdiť príjem')}
+            </button>
+          )}
+          {stationId === edd.toStation && edd.kind === 'offer' && !offerAnswered && onEddReply && (
+            <>
+              <button
+                className="aero-btn"
+                onClick={() =>
+                  onEddReply({
+                    stationId: stationId!,
+                    message: edd,
+                    kind: 'accept',
+                    request: Date.now(),
+                  })
+                }
+              >
+                {t('Prijať vlak')}
+              </button>
+              <button
+                className="aero-btn"
+                onClick={() =>
+                  onEddReply({
+                    stationId: stationId!,
+                    message: edd,
+                    kind: 'wait',
+                    request: Date.now(),
+                  })
+                }
+              >
+                {t('Čakajte')}
+              </button>
+            </>
+          )}
+          {stationId === edd.fromStation && onEddReply && (
+            <>
+              <button
+                className="aero-btn"
+                onClick={() =>
+                  onEddReply({
+                    stationId: stationId!,
+                    message: edd,
+                    kind: 'correction',
+                    request: Date.now(),
+                  })
+                }
+              >
+                {t('Opraviť správu')}
+              </button>
+              {edd.kind === 'offer' && (
+                <button
+                  className="aero-btn"
+                  onClick={() =>
+                    onEddReply({
+                      stationId: stationId!,
+                      message: edd,
+                      kind: 'cancel',
+                      request: Date.now(),
+                    })
+                  }
+                >
+                  {t('Zrušiť prijatie')}
+                </button>
+              )}
+            </>
+          )}
+        </div>
+      )}
       {message.delivery === 'sending' && (
         <span className="ml-2 text-[var(--aero-text-muted)]">{t('Odosielam…')}</span>
       )}

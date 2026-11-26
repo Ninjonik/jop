@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import type { UserProfile } from '../src/lib/dis/appwrite-client';
 import type { EddRecord } from '../src/lib/dis/records';
-import { claimStation } from '../src/lib/server/dis/claims';
+import { chatHistoryFilter, chatMessagesCollection, sendChat } from '../src/lib/server/dis/chat';
+import { claimStation, requireStationClaim } from '../src/lib/server/dis/claims';
 import {
   diaryEntries,
   editDiary,
@@ -157,6 +158,44 @@ async function main() {
       'Retries must be idempotent',
     );
     await assert.rejects(sendDiaryMessage({ ...offer, time: '15:01' }, a), /už bola/);
+    const chat = await chatMessagesCollection();
+    const ordinary = (
+      await sendChat(
+        {
+          sessionId,
+          endpoint: { kind: 'station', id: stationId },
+          recipient: { kind: 'station', id: 'vesele' },
+          messageId: randomUUID(),
+          content: 'Existing station conversation',
+        },
+        a,
+      )
+    ).message;
+    const inbox = await chat
+      .find(chatHistoryFilter(sessionId, { kind: 'station', id: 'vesele' }))
+      .toArray();
+    assert(inbox.some((message) => message._id === ordinary._id));
+    assert.equal(
+      inbox.filter((message) => message.edd?.id === sent.id).length,
+      1,
+      'EDD preset must appear once in the existing station chat',
+    );
+    assert.equal(
+      (await chat.find(chatHistoryFilter(sessionId, { kind: 'station', id: 'other' })).toArray())
+        .length,
+      0,
+    );
+    assert(!ordinary.edd, 'Ordinary messages remain ordinary messages');
+    assert.equal(
+      await mongo.collection('edd_diary_messages').countDocuments({ sessionId }),
+      0,
+      'No second EDD conversation collection',
+    );
+    await assert.rejects(requireStationClaim(sessionId, 'other', a), /ovládanie/);
+    await claimStation({ sessionId, stationId: 'other' }, a);
+    await requireStationClaim(sessionId, 'other', a);
+    await requireStationClaim(sessionId, stationId, a);
+
     assert.equal((await listDiaryMessages(sessionId, 'other')).length, 0);
     await assert.rejects(
       receiveDiaryMessage({ ...scope, id: sent.id, acknowledge: true }, a),
@@ -173,6 +212,11 @@ async function main() {
       )
     ).message;
     assert.equal(ack.acknowledgedBy, b.name);
+    assert.equal(
+      (await chat.findOne({ _id: sent.id }))?.edd?.acknowledgedBy,
+      b.name,
+      'Acknowledgment updates the same shared message',
+    );
     const responses = await Promise.allSettled(
       ['accept', 'wait'].map((kind) =>
         sendDiaryMessage(
@@ -229,7 +273,11 @@ async function main() {
       new Map([['origin', { movement: 'terminus' as const, timetableId: 'fixture' }]]),
     );
     assert.equal(preserved.movement, 'origin', 'GVD refresh must preserve an operated entry');
-    assert.match(preserved.actualDeparture, /^\d{2}:\d{2}$/, 'Quick entries must never include seconds');
+    assert.match(
+      preserved.actualDeparture,
+      /^\d{2}:\d{2}$/,
+      'Quick entries must never include seconds',
+    );
     assert.equal((await (await diaryEntries()).find({ sessionId }).toArray()).length, 2);
     console.log(
       'PASS: isolated EDD persistence, concurrent edits, midnight, corrections, offset preservation, idempotent messages, ownership, receipt vs acknowledgment, reply race and odhlaska prerequisites.',
@@ -237,7 +285,7 @@ async function main() {
   } finally {
     for (const name of [
       'edd_diary_entries',
-      'edd_diary_messages',
+      'session_chat_messages',
       'session_station_claims',
       'session_clocks',
       'stations',

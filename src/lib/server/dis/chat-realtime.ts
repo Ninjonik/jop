@@ -277,7 +277,12 @@ export async function startChatRealtime(namespace: ChatNamespace) {
       // Deletes have no full document/session ID, so refresh subscribed inboxes.
       // This does not resubscribe or release an active voice terminal.
       await refreshChatSnapshots();
-    } else if (change.operationType === 'insert' && 'sender' in change.fullDocument) {
+    } else if (
+      ['insert', 'update', 'replace'].includes(change.operationType) &&
+      'fullDocument' in change &&
+      change.fullDocument &&
+      'sender' in change.fullDocument
+    ) {
       const message = change.fullDocument;
       namespace
         .to(
@@ -296,7 +301,10 @@ export async function startChatRealtime(namespace: ChatNamespace) {
             {
               $match: {
                 $or: [
-                  { 'ns.coll': 'session_chat_messages', operationType: 'insert' },
+                  {
+                    'ns.coll': 'session_chat_messages',
+                    operationType: { $in: ['insert', 'update', 'replace'] },
+                  },
                   {
                     'ns.coll': { $in: ['session_driver_trains', 'session_station_claims'] },
                     operationType: { $in: ['insert', 'update', 'replace', 'delete'] },
@@ -305,7 +313,7 @@ export async function startChatRealtime(namespace: ChatNamespace) {
               },
             },
           ],
-          { maxAwaitTimeMS: 1000 },
+          { maxAwaitTimeMS: 1000, fullDocument: 'updateLookup' },
         );
         // Open the cursor before accepting messages or restoring subscriber history.
         const first = await changes.tryNext();

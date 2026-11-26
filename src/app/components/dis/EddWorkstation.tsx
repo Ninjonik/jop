@@ -15,6 +15,7 @@ import {
   type EddMessage,
   type EddMessageKind,
   type EddMovement,
+  type EddReply,
 } from '@/lib/dis/edd';
 import { useDisResource } from '@/lib/dis/use-dis-resource';
 import { useSessionClock } from '@/lib/dis/use-session-clock';
@@ -22,6 +23,7 @@ import { useUserPreference } from '@/lib/dis/use-user-preference';
 import { useLocale, useTranslation } from '@/lib/i18n/client';
 import { getStationDisplayName } from '@/lib/station/display-name';
 import { Fragment, useEffect, useRef, useState } from 'react';
+import { EddMovementAction } from './EddMovementAction';
 import { TrainCategoryOptions } from './TrainCategoryOptions';
 import './edd.css';
 
@@ -30,6 +32,8 @@ export type EddProps = {
   stationId: string;
   placeId: string;
   onSelectTrain?: (train: string) => void;
+  onOpenChat?: (stationId: string) => void;
+  reply?: EddReply;
 };
 export type EddSnapshot = {
   canWrite?: boolean;
@@ -57,13 +61,14 @@ const eventNames: Record<EddEvent, string> = {
   departure: 'Odchod',
   passage: 'Prechod',
 };
-const quickNames: Record<EddEvent, string> = {
-  arrival: 'Príchod teraz',
-  departure: 'Odchod teraz',
-  passage: 'Prechod teraz',
-};
 
-export function EddWorkstation({ sessionId, stationId, onSelectTrain }: EddProps) {
+export function EddWorkstation({
+  sessionId,
+  stationId,
+  onSelectTrain,
+  onOpenChat,
+  reply: incomingReply,
+}: EddProps) {
   const t = useTranslation(),
     locale = useLocale();
   const { profile, canOperateStation } = useDisAuth();
@@ -83,9 +88,8 @@ export function EddWorkstation({ sessionId, stationId, onSelectTrain }: EddProps
   const writable = canOperateStation && value.canWrite !== false;
   const [preferences, setPreferences, preferenceError] = useUserPreference<{
     communication: boolean;
-    secondaryLanguage: boolean;
     filter: string;
-  }>('edd-workstation', { communication: true, secondaryLanguage: false, filter: 'active' });
+  }>('edd-workstation', { communication: true, filter: 'active' });
   const [search, setSearch] = useState(''),
     [selectedId, setSelectedId] = useState('');
   const [editRevision, setEditRevision] = useState(0);
@@ -103,10 +107,7 @@ export function EddWorkstation({ sessionId, stationId, onSelectTrain }: EddProps
     track: '',
   });
   const [details, setDetails] = useState({ track: '', notes: '', movement: 'stop' as EddMovement });
-  const [event, setEvent] = useState<EddEvent>('arrival');
-  const [actualTime, setActualTime] = useState(''),
-    [actualDate, setActualDate] = useState(''),
-    [reason, setReason] = useState('');
+  const [reason, setReason] = useState('');
   const [toStation, setToStation] = useState(''),
     [kind, setKind] = useState<EddMessageKind>('offer');
   const [trainNumber, setTrainNumber] = useState(''),
@@ -119,7 +120,7 @@ export function EddWorkstation({ sessionId, stationId, onSelectTrain }: EddProps
   const [locative, setLocative] = useState(ownForms.stationLocative),
     [genitive, setGenitive] = useState(ownForms.stationGenitive);
   const requestId = useRef(crypto.randomUUID());
-  const deliveries = useRef(new Set<string>());
+
   useEffect(() => {
     requestId.current = crypto.randomUUID();
   }, [
@@ -160,25 +161,6 @@ export function EddWorkstation({ sessionId, stationId, onSelectTrain }: EddProps
       setBusy(false);
     }
   }
-  // Receipt requires the receiving operator's live station claim; acknowledgment is always explicit.
-  useEffect(() => {
-    if (!writable || !preferences.communication) return;
-    for (const message of value.messages || []) {
-      if (
-        message.toStation !== stationId ||
-        message.deliveredAt ||
-        deliveries.current.has(message.id)
-      )
-        continue;
-      deliveries.current.add(message.id);
-      disFetch('/api/dis/edd', {
-        method: 'POST',
-        body: JSON.stringify({ sessionId, stationId, command: 'receive', id: message.id }),
-      })
-        .then(() => refresh())
-        .catch(() => deliveries.current.delete(message.id));
-    }
-  }, [value.messages, writable, preferences.communication, sessionId, stationId, refresh]);
   function choose(record: EddEntry) {
     setSelectedId(record.$id);
     setEditRevision(record.revision);
@@ -192,27 +174,28 @@ export function EddWorkstation({ sessionId, stationId, onSelectTrain }: EddProps
           : record.schedDeparture || ''
       ).slice(0, 5),
     );
-    setActualTime(current.minuteTime);
-    setActualDate(current.date);
+
     setReason('');
-    setEvent(
-      record.movement === 'pass'
-        ? 'passage'
-        : canRecord(record, 'departure')
-          ? 'departure'
-          : 'arrival',
-    );
     onSelectTrain?.(`${record.trainType} ${record.trainNumber}`);
   }
-  function reply(message: EddMessage, nextKind: EddMessageKind) {
-    setKind(nextKind);
-    setToStation(message.fromStation === stationId ? message.toStation : message.fromStation);
-    setTrainNumber(message.trainNumber);
-    setMessageTime(message.time.slice(0, 5));
-    setReplyToId(message.id);
-    setText('');
-    requestId.current = crypto.randomUUID();
+  const [appliedReply, setAppliedReply] = useState<EddReply>();
+  if (incomingReply && incomingReply !== appliedReply) {
+    setAppliedReply(incomingReply);
+    const { message, kind } = incomingReply;
+    if (
+      incomingReply.stationId === stationId &&
+      message.sessionId === sessionId &&
+      [message.fromStation, message.toStation].includes(stationId)
+    ) {
+      setKind(kind);
+      setToStation(message.fromStation === stationId ? message.toStation : message.fromStation);
+      setTrainNumber(message.trainNumber);
+      setMessageTime(message.time.slice(0, 5));
+      setReplyToId(message.id);
+      setText('');
+    }
   }
+  const showCommunication = preferences.communication || !!replyToId;
   const original = value.messages?.find((m) => m.id === replyToId);
   const preview: EddMessage = {
     id: '',
@@ -365,7 +348,7 @@ export function EddWorkstation({ sessionId, stationId, onSelectTrain }: EddProps
           </button>
         </form>
       )}
-      <div className={`edd-body ${preferences.communication ? '' : 'edd-body-single'}`}>
+      <div className="edd-body edd-body-single">
         <main className="edd-diary">
           <div className="edd-table-scroll">
             {loading && <p className="p-3">{t('Načítavam denník...')}</p>}
@@ -433,21 +416,17 @@ export function EddWorkstation({ sessionId, stationId, onSelectTrain }: EddProps
                               </>
                             )}
                             <td>
-                              {!excluded && writable && canRecord(record, evt) && (
-                                <button
-                                  className="aero-btn"
-                                  disabled={busy || !clock || !!clockError}
-                                  onClick={() =>
-                                    void command({
-                                      command: 'record',
-                                      id: record.$id,
-                                      expectedRevision: record.revision,
-                                      event: evt,
-                                    })
-                                  }
-                                >
-                                  {t(quickNames[evt])}
-                                </button>
+                              {!excluded && writable && (canRecord(record, evt) || !!actual) && (
+                                <EddMovementAction
+                                  key={record.$id + evt}
+                                  record={record}
+                                  event={evt}
+                                  date={current.date}
+                                  now={current.minuteTime}
+                                  busy={busy}
+                                  clockReady={!!clock && !clockError}
+                                  onCommand={command}
+                                />
                               )}
                             </td>
                           </tr>
@@ -521,65 +500,8 @@ export function EddWorkstation({ sessionId, stationId, onSelectTrain }: EddProps
                       {t('Uložiť údaje')}
                     </button>
                   </form>
-                  <details>
-                    <summary>{t('Ručný zápis a opravy')}</summary>
-                    <form
-                      className="edd-toolbar"
-                      onSubmit={(e) => {
-                        e.preventDefault();
-                        const existing =
-                          event === 'arrival' ? selected.actualArrival : selected.actualDeparture;
-                        void command({
-                          command: 'edit',
-                          action: existing ? 'correct' : 'record',
-                          id: selected.$id,
-                          expectedRevision: editRevision,
-                          event,
-                          time: actualTime,
-                          date: actualDate,
-                          reason,
-                        });
-                      }}
-                    >
-                      <select
-                        className="aero-select"
-                        aria-label={t('Druh zápisu')}
-                        value={event}
-                        onChange={(e) => setEvent(e.target.value as EddEvent)}
-                      >
-                        {Object.entries(eventNames).map(([key, label]) => (
-                          <option key={key} value={key}>
-                            {t(label)}
-                          </option>
-                        ))}
-                      </select>
-                      <input
-                        className="aero-input"
-                        required
-                        type="date"
-                        aria-label={t('Dátum pohybu')}
-                        value={actualDate}
-                        onChange={(e) => setActualDate(e.target.value)}
-                      />
-                      <input
-                        className="aero-input edd-time"
-                        required
-                        aria-label={t('Čas zápisu')}
-                        placeholder={t('HH:mm')}
-                        value={actualTime}
-                        onChange={(e) => setActualTime(e.target.value)}
-                      />
-                      <button
-                        type="button"
-                        className="aero-btn"
-                        disabled={!clock || !!clockError}
-                        onClick={() => {
-                          setActualDate(current.date);
-                          setActualTime(current.minuteTime);
-                        }}
-                      >
-                        {t('Aktuálny čas')}
-                      </button>
+                  {!selected.actualArrival && !selected.actualDeparture && (
+                    <div className="edd-toolbar">
                       <input
                         className="aero-input edd-note-input"
                         aria-label={t('Dôvod opravy alebo zrušenia')}
@@ -588,29 +510,23 @@ export function EddWorkstation({ sessionId, stationId, onSelectTrain }: EddProps
                         maxLength={500}
                         onChange={(e) => setReason(e.target.value)}
                       />
-                      <button className="aero-btn" disabled={busy}>
-                        {t('Zapísať')}
+                      <button
+                        className="aero-btn"
+                        disabled={busy || !reason.trim()}
+                        onClick={() =>
+                          void command({
+                            command: 'edit',
+                            action: selected.status === 'cancelled' ? 'restore' : 'cancel',
+                            id: selected.$id,
+                            expectedRevision: editRevision,
+                            reason,
+                          })
+                        }
+                      >
+                        {t(selected.status === 'cancelled' ? 'Obnoviť vlak' : 'Zrušiť vlak')}
                       </button>
-                      {!selected.actualArrival && !selected.actualDeparture && (
-                        <button
-                          type="button"
-                          className="aero-btn"
-                          disabled={busy || !reason.trim()}
-                          onClick={() =>
-                            void command({
-                              command: 'edit',
-                              action: selected.status === 'cancelled' ? 'restore' : 'cancel',
-                              id: selected.$id,
-                              expectedRevision: editRevision,
-                              reason,
-                            })
-                          }
-                        >
-                          {t(selected.status === 'cancelled' ? 'Obnoviť vlak' : 'Zrušiť vlak')}
-                        </button>
-                      )}
-                    </form>
-                  </details>
+                    </div>
+                  )}
                 </>
               )}
               <details>
@@ -650,101 +566,18 @@ export function EddWorkstation({ sessionId, stationId, onSelectTrain }: EddProps
             </section>
           )}
         </main>
-        {preferences.communication && (
-          <aside className="edd-communication">
+        {showCommunication && (
+          <section className="edd-presets">
             <div className="edd-toolbar">
               <strong>{t('Dopravné správy')}</strong>
-              <label>
-                <input
-                  type="checkbox"
-                  checked={preferences.secondaryLanguage}
-                  onChange={(e) => setPreferences({ secondaryLanguage: e.target.checked })}
-                />{' '}
-                {t('Aj druhý jazyk')}
-              </label>
-            </div>
-            <div className="edd-messages" aria-live="polite">
-              {!(value.messages || []).length && (
-                <p className="edd-muted">{t('Zatiaľ žiadne správy.')}</p>
+              <span className="edd-muted">
+                {t('Správy sa odosielajú do existujúcej staničnej komunikácie.')}
+              </span>
+              {toStation && (
+                <button className="aero-btn" onClick={() => onOpenChat?.(toStation)}>
+                  {t('Otvoriť rozhovor')}
+                </button>
               )}
-              {(value.messages || []).map((message) => (
-                <article
-                  key={message.id}
-                  className={`edd-message-${message.fromStation === stationId ? 'outgoing' : 'incoming'} ${message.toStation === stationId && !message.acknowledgedAt ? 'edd-unread' : ''}`}
-                >
-                  <header>
-                    <strong>{t(messageLabels[message.kind])}</strong>
-                    <span>{eddClock(message.sentOperatingTime || message.time)}</span>
-                  </header>
-                  <small>
-                    {getStationDisplayName(message.fromStation)} →{' '}
-                    {getStationDisplayName(message.toStation)} · {message.date}{' '}
-                    {eddClock(message.time)}
-                  </small>
-                  <p>{formatEddMessage(message, locale)}</p>
-                  {preferences.secondaryLanguage && (
-                    <p className="edd-muted">
-                      {formatEddMessage(message, locale === 'sk' ? 'en' : 'sk')}
-                    </p>
-                  )}
-                  <small>
-                    {t(
-                      message.acknowledgedAt
-                        ? 'Potvrdené'
-                        : message.deliveredAt
-                          ? 'Doručené'
-                          : 'Odoslané',
-                    )}
-                    {message.acknowledgedBy ? ` · ${message.acknowledgedBy}` : ''}
-                  </small>
-                  {message.acknowledgedAt && (
-                    <p className="edd-muted">{formatEddMessage(message, locale, true)}</p>
-                  )}
-                  {writable && (
-                    <div className="edd-toolbar">
-                      {message.toStation === stationId && !message.acknowledgedAt && (
-                        <button
-                          className="aero-btn"
-                          disabled={busy}
-                          onClick={() =>
-                            void command({ command: 'receive', id: message.id, acknowledge: true })
-                          }
-                        >
-                          {t('Potvrdiť príjem')}
-                        </button>
-                      )}
-                      {message.toStation === stationId &&
-                        message.kind === 'offer' &&
-                        !value.messages.some(
-                          (reply) =>
-                            reply.replyToId === message.id &&
-                            ['accept', 'wait', 'cancel'].includes(reply.kind),
-                        ) && (
-                          <>
-                            <button className="aero-btn" onClick={() => reply(message, 'accept')}>
-                              {t('Prijať vlak')}
-                            </button>
-                            <button className="aero-btn" onClick={() => reply(message, 'wait')}>
-                              {t('Čakajte')}
-                            </button>
-                          </>
-                        )}
-                      {message.fromStation === stationId && (
-                        <>
-                          <button className="aero-btn" onClick={() => reply(message, 'correction')}>
-                            {t('Opraviť správu')}
-                          </button>
-                          {message.kind === 'offer' && (
-                            <button className="aero-btn" onClick={() => reply(message, 'cancel')}>
-                              {t('Zrušiť prijatie')}
-                            </button>
-                          )}
-                        </>
-                      )}
-                    </div>
-                  )}
-                </article>
-              ))}
             </div>
             {writable && (
               <form
@@ -771,6 +604,7 @@ export function EddWorkstation({ sessionId, stationId, onSelectTrain }: EddProps
                     setWholeTrainConfirmed(false);
                     setReplyToId('');
                     setKind('offer');
+                    onOpenChat?.(toStation);
                   }
                 }}
               >
@@ -892,6 +726,7 @@ export function EddWorkstation({ sessionId, stationId, onSelectTrain }: EddProps
                   </details>
                 )}
                 <textarea
+                  rows={1}
                   className="aero-input"
                   aria-label={t('Doplňujúci text alebo dôvod')}
                   placeholder={t('Doplňujúci text alebo dôvod')}
@@ -927,7 +762,7 @@ export function EddWorkstation({ sessionId, stationId, onSelectTrain }: EddProps
                 </button>
               </form>
             )}
-          </aside>
+          </section>
         )}
       </div>
       <footer className="edd-footer">

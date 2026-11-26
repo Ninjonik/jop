@@ -1,5 +1,5 @@
 import { dispatchers, requireDisProfile } from '@/lib/server/dis/appwrite';
-import { listStationClaims } from '@/lib/server/dis/claims';
+import { listStationClaims, requireStationClaim } from '@/lib/server/dis/claims';
 import {
   createEdd,
   importTimetable,
@@ -18,8 +18,9 @@ import { disResponse } from '@/lib/server/dis/http';
 import { z } from 'zod';
 export async function GET(request: Request) {
   return disResponse(async () => {
-    const profile = await requireDisProfile(request);
+    const profile = await requireDisProfile(request, dispatchers);
     const scope = scopeSchema.parse(Object.fromEntries(new URL(request.url).searchParams));
+    await requireStationClaim(scope.sessionId, scope.stationId, profile);
     const [records, messages, contacts, claims] = await Promise.all([
       listEdd(scope),
       listDiaryMessages(scope.sessionId, scope.stationId),

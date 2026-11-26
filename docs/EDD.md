@@ -2,7 +2,7 @@
 
 The EDD uses the existing DiS station/session selection and station ownership lease. It retains
 the Aero light/dark themes and the Slovak/English language selector. The station owner can
-record arrivals, departures and passages; readers do not receive write permission. Service
+read and record arrivals, departures and passages only for their currently claimed stations. The top dispatcher selector contains only those claims; direct EDD API access also requires a live claim. Service
 takeover/release remains in the existing station-selection workflow rather than a second EDD lease.
 
 ## Workflow
@@ -20,7 +20,9 @@ takeover/release remains in the existing station-selection workflow rather than 
   advance that revision and overwrite another operator's changes. Re-select a train after a
   conflict. Records are not optimistically changed before the server accepts a command.
 - The diary keeps its order while editing. Active/completed/all filters, train search and
-  communication/bilingual display preferences use the existing account-preference service.
+  preset-composer display preferences use the existing account-preference service.
+
+Manual movement controls sit directly beside each row action. Enter HH:mm or a whole-minute offset from the planned time, review actual/planned time and date, then save. Negative offsets and midnight date changes are supported. This offset belongs to that movement and never changes the session clock. Existing times require a correction reason.
 
 ## Preset communication
 
@@ -42,7 +44,7 @@ of a particular commercial EDD release or a complete amended 2005 D 2 edition. Z
 postdate 2005; the original Z 1 PDF link was unavailable during research, so indexed clauses
 and published training material were used as cross-references.
 
-Delivery means a station owner opened the message panel; acknowledgment is a separate action.
+Delivery means a station owner opened the existing conversation; acknowledgment is a separate action.
 The sender cannot acknowledge for the recipient. Offers can receive one acceptance/wait reply;
 waiting requires a new offer before acceptance. Linked corrections/cancellations preserve the
 original message. Request IDs make retries idempotent. Station ownership and recipient scope
@@ -69,11 +71,10 @@ inspection alone no longer represents the latest actuals after an EDD edit. Do n
 old EDD/TPV server over this version without accounting for the overlay. Legacy records have
 no fabricated audit trail; history begins with changes made through the new diary.
 
-`edd_diary_messages` stores structured exchanges, with sender/recipient indexes and a unique
-offer-response index. No new Appwrite attributes, browser collection permissions or credentials
+`session_chat_messages` stores both ordinary chat and structured EDD exchanges in the same station conversation, with a unique offer-response index. There is no separate EDD message history or legacy radio-log panel. The existing chat transport delivers presets and receipt/acknowledgment updates; English users see the translated structured message. No new Appwrite attributes, browser collection permissions or credentials
 are required. The API's existing Mongo credentials create the additive collections/indexes.
 The screen polls every five seconds, reusing the existing authenticated request/resource layer;
-only 150 recent messages are sent to the work screen. Historical records remain in Mongo.
+only 150 recent structured messages are sent to the work screen for linked replies. Historical records remain in Mongo.
 
 ## Preview and checks
 

@@ -210,3 +210,21 @@ export function inferMovement(stop: { kind?: string }, index: number, length: nu
         ? 'pass'
         : 'stop';
 }
+
+export type EddReply = {
+  stationId: string;
+  message: EddMessage;
+  kind: EddMessageKind;
+  request: number;
+};
+
+/** Minute offset from a planned movement, retaining the operating date across midnight. */
+export function offsetEddTime(planned: string, date: string, offsetMinutes: number) {
+  const time = eddTimeSchema.parse(planned.slice(0, 5));
+  if (!Number.isInteger(offsetMinutes) || Math.abs(offsetMinutes) > 1440)
+    throw new Error('Zadajte posun od −1440 do 1440 minút.');
+  const stamp = new Date(date + 'T' + time + ':00Z');
+  if (!Number.isFinite(stamp.getTime())) throw new Error('Skontrolujte dátum pohybu.');
+  stamp.setUTCMinutes(stamp.getUTCMinutes() + offsetMinutes);
+  return { time: stamp.toISOString().slice(11, 16), date: stamp.toISOString().slice(0, 10) };
+}
