@@ -272,3 +272,29 @@ test('cancellation is scoped to its timetable and does not erase historical actu
   assert.equal(trainCancellation({ ...train, $id: 'other' }, [record]), undefined);
   assert.equal(trainProgress(train, [record])[0].departureRecorded, true);
 });
+
+test('an unconfirmed section stays half-solid after its estimated arrival has passed', () => {
+  const reports = [report('a', { actualDeparture: '08:06' })];
+  const expected = [
+    [
+      { station: 'a', minute: 486 },
+      { station: 'a', toward: 'b', minute: 491, fraction: 0.5 },
+    ],
+  ];
+  assert.deepEqual(recordedTrainSegments(train, reports, 600), expected);
+  assert.deepEqual(recordedTrainSegments(train, reports), expected);
+  const arrived = [...reports, report('b', { actualArrival: '08:17' })];
+  assert.deepEqual(recordedTrainSegments(train, arrived, 600), [
+    [
+      { station: 'a', minute: 486 },
+      { station: 'b', minute: 497 },
+    ],
+  ]);
+});
+test('a completed origin layover stays solid after departure and keeps its stored start', () => {
+  const reports = [report('a', { dwellStartedTime: '07:58', actualDeparture: '08:02' })];
+  assert.deepEqual(recordedTrainSegments(train, reports, 600)[0], [
+    { station: 'a', minute: 478 },
+    { station: 'a', minute: 482 },
+  ]);
+});

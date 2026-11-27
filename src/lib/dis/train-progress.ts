@@ -173,24 +173,25 @@ export function recordedTrainSegments(
       segments.push(path);
       return;
     }
-    if (nowMinute === undefined) return;
-    const now = nowMinute + Math.round((stop.departure - nowMinute) / 1440) * 1440;
-    const completed: RecordedGraphPoint[] = [];
-    for (let i = 0; i < path.length; i++) {
-      const point = path[i];
-      if (point.minute <= now) {
-        completed.push(point);
-        continue;
-      }
-      const previous = path[i - 1];
-      if (previous && now > previous.minute)
-        completed.push({
-          station: previous.station,
-          toward: point.station,
-          minute: now,
-          fraction: (now - previous.minute) / (point.minute - previous.minute),
-        });
-      break;
+    // A departure confirms only the first half of the controlled section. Advancing
+    // the clock must never substitute for the next dispatcher's arrival report.
+    const middle = (index + nextIndex) / 2;
+    const beforeMiddle = Math.floor(middle);
+    const completed: RecordedGraphPoint[] = [{ station: stop.station, minute: stop.departure }];
+    for (let i = index + 1; i <= beforeMiddle; i++) {
+      completed.push({ station: progress[i].station, minute: progress[i].arrival });
+      if (i < middle)
+        completed.push({ station: progress[i].station, minute: progress[i].departure });
+    }
+    if (middle > beforeMiddle) {
+      const from = progress[beforeMiddle],
+        to = progress[beforeMiddle + 1];
+      completed.push({
+        station: from.station,
+        toward: to.station,
+        minute: (from.departure + to.arrival) / 2,
+        fraction: 0.5,
+      });
     }
     if (completed.length > 1) segments.push(completed);
   });
