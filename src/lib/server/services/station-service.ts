@@ -1018,7 +1018,7 @@ function buildResolvedRobloxSignalAspects(station: StationDocument) {
     }
 
     const current = resolved.get(startSignalId);
-    if (!current) {
+    if (!current || (current.aspect !== 'proceed' && current.aspect !== 'caution')) {
       return;
     }
 
@@ -1035,6 +1035,13 @@ function buildResolvedRobloxSignalAspects(station: StationDocument) {
 
   const signalPlans = buildSignalRoutePlans(station, normalRoutes, tiles);
   signalPlans.forEach((plan, pieceId) => {
+    // A retained route can outlive its cleared signal (train passage or
+    // cancellation). Only announce speed when the next main actually permits
+    // movement; a stop signal must continue to be announced as caution.
+    const nextAspect = plan.nextSignalPieceId
+      ? resolved.get(plan.nextSignalPieceId)?.aspect
+      : null;
+    if (!nextAspect || nextAspect === 'danger' || nextAspect === 'callOn') return;
     const nextSpeed = plan.nextSignalPieceId
       ? locallyRestrictedSignals.get(plan.nextSignalPieceId)
       : null;

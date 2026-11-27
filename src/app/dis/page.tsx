@@ -388,6 +388,7 @@ function DisPortalShell() {
         <span className="ml-auto">
           {profile.name} ({profile.callsign})
         </span>
+        <DisClock sessionId={current.sessionId} canManage={canManageStaff} />
       </div>
       <nav hidden={!workingMode} className="menubar flex-wrap" aria-label={t('Moduly DIS')}>
         <button className="menu-btn" onClick={() => setWorkingMode(null)}>
@@ -645,11 +646,6 @@ function DisPortalShell() {
                 >
                   {visitedViews.sessions && (
                     <WorkspaceView active={activeTab === 'sessions'}>
-                      {canManageStaff && (
-                        <div className="ribbon-bar">
-                          <DisClock sessionId={current.sessionId} canManage />
-                        </div>
-                      )}
                       {workingMode === 'dispatcher' ? (
                         <StationSelectionView
                           placeId={placeId}

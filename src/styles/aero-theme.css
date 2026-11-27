@@ -1859,6 +1859,9 @@ button:disabled > .aero-icon {
 .dis-main-title-bar > .dis-operating-clock {
   flex-shrink: 0;
 }
+.dis-main-title-bar > .dis-operating-clock {
+  margin-left: 0;
+}
 .dis-main-title-bar .window-title span {
   overflow: hidden;
   text-overflow: ellipsis;
