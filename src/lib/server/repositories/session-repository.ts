@@ -1,4 +1,5 @@
 import type { Collection } from 'mongodb';
+import { recordSessionActivity } from '../session-activity';
 
 import type { SessionDocument } from '@/lib/station/domain';
 
@@ -14,7 +15,10 @@ async function getCollection(): Promise<Collection<SessionDocument>> {
     initialized = true;
     await Promise.all([
       collection.createIndex({ status: 1, 'interpreter.kind': 1 }),
-      collection.createIndex({ 'interpreter.kind': 1, 'interpreter.heartbeat.lastHeartbeatAt': -1 }),
+      collection.createIndex({
+        'interpreter.kind': 1,
+        'interpreter.heartbeat.lastHeartbeatAt': -1,
+      }),
     ]);
   }
 
@@ -25,6 +29,13 @@ export const sessionRepository = {
   async create(session: SessionDocument) {
     const collection = await getCollection();
     await collection.insertOne(session);
+    recordSessionActivity({
+      sessionId: session._id,
+      source: 'server',
+      event: 'session.created',
+      level: 'info',
+      details: { interpreter: session.interpreter.kind },
+    });
     return session;
   },
 

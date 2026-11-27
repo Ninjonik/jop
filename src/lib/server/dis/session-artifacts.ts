@@ -3,7 +3,7 @@ import { sessionRepository } from '../repositories/session-repository';
 import { isRobloxSessionLive } from '../services/station-service';
 
 /** Session artefacts have no meaning after the Roblox server ends. */
-export async function pruneSessionArtifacts() {
+export async function pruneSessionArtifacts(onlySessionId?: string) {
   const db = await getMongoDb();
   const collections = [
     'session_station_claims',
@@ -11,12 +11,17 @@ export async function pruneSessionArtifacts() {
     'station_reminders',
     'session_timetables',
     'session_clocks',
+    'session_activity',
   ].map((name) => db.collection(name));
-  const sessionIds = new Set(
-    (
-      await Promise.all(collections.map((collection) => collection.distinct<string>('sessionId')))
-    ).flat(),
-  );
+  const sessionIds = onlySessionId
+    ? new Set([onlySessionId])
+    : new Set(
+        (
+          await Promise.all(
+            collections.map((collection) => collection.distinct<string>('sessionId')),
+          )
+        ).flat(),
+      );
   for (const sessionId of sessionIds) {
     const session = await sessionRepository.findById(sessionId);
     if (
@@ -30,6 +35,11 @@ export async function pruneSessionArtifacts() {
   await Promise.all(
     collections
       .slice(0, 2)
-      .map((collection) => collection.deleteMany({ expiresAt: { $lte: now } })),
+      .map((collection) =>
+        collection.deleteMany({
+          ...(onlySessionId ? { sessionId: onlySessionId } : {}),
+          expiresAt: { $lte: now },
+        }),
+      ),
   );
 }

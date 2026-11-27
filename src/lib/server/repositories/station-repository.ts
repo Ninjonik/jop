@@ -1,9 +1,20 @@
 import type { PhysicalTrainLabels } from '@/lib/station/physical-trains';
 import type { Collection } from 'mongodb';
+import { recordSessionActivity } from '../session-activity';
 
 import type { StationDocument } from '@/lib/station/domain';
 
 import { getMongoDb } from '../mongo';
+
+const observedStates = new WeakMap<StationDocument, Map<string, string>>();
+function pieceStates(station: StationDocument) {
+  return new Map(
+    Object.entries(station.layout.pieces).map(([id, piece]) => [
+      id,
+      JSON.stringify(piece.state.groups),
+    ]),
+  );
+}
 
 let initialized = false;
 
@@ -31,7 +42,9 @@ export const stationRepository = {
 
   async findBySessionAndStationId(sessionId: string, stationId: string) {
     const collection = await getCollection();
-    return collection.findOne({ sessionId, stationId });
+    const station = await collection.findOne({ sessionId, stationId });
+    if (station) observedStates.set(station, pieceStates(station));
+    return station;
   },
 
   async listBySessionId(sessionId: string) {
@@ -61,6 +74,36 @@ export const stationRepository = {
   async save(station: StationDocument) {
     const collection = await getCollection();
     await collection.replaceOne({ _id: station._id }, station, { upsert: false });
+    const previous = observedStates.get(station);
+    const current = pieceStates(station);
+    const changed = [...current].filter(([id, state]) => previous?.get(id) !== state);
+    observedStates.set(station, current);
+    recordSessionActivity({
+      sessionId: station.sessionId,
+      stationId: station.stationId,
+      source: 'server',
+      event: 'station.persisted',
+      level: 'info',
+      revision: station.revision,
+      details: {
+        comparedWithPreviousRead: !!previous,
+        changedPieceCount: changed.length,
+        changedPieces: changed
+          .slice(0, 40)
+          .map(([pieceId, groups]) => ({ pieceId, groups: JSON.parse(groups) })),
+        selection: station.runtime.routeSelection?.sourcePieceId ?? null,
+        selectionCommandId: station.runtime.routeSelection?.commandId ?? null,
+        actions: Object.values(station.runtime.pendingActions)
+          .slice(0, 40)
+          .map((action) => ({
+            id: action.id,
+            type: action.type,
+            status: action.status,
+            dueAt: action.dueAt,
+          })),
+        activeRoutes: Object.keys(station.runtime.activeTrainRoutes).slice(0, 40),
+      },
+    });
     return station;
   },
 

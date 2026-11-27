@@ -1,3 +1,4 @@
+import { withSessionActivity } from '@/lib/server/session-activity-http';
 import { jsonErrorResponse, parseJsonRequest } from '@/lib/server/http';
 import { assertRobloxRequestAuthorized } from '@/lib/server/roblox/roblox-auth';
 import { stationService } from '@/lib/server/services/station-service';
@@ -9,7 +10,7 @@ interface RobloxHeartbeatRouteProps {
   params: Promise<{ sessionId: string }>;
 }
 
-export async function POST(request: Request, { params }: RobloxHeartbeatRouteProps) {
+async function handlePOST(request: Request, { params }: RobloxHeartbeatRouteProps) {
   try {
     assertRobloxRequestAuthorized(request);
     const { sessionId } = await params;
@@ -21,3 +22,5 @@ export async function POST(request: Request, { params }: RobloxHeartbeatRoutePro
     return jsonErrorResponse(error);
   }
 }
+
+export const POST = withSessionActivity('roblox', 'heartbeat', handlePOST);

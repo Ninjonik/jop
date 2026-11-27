@@ -3,7 +3,7 @@ import { apiFetch, apiOrigin } from '@/lib/api-client';
 
 import { useTranslation } from '@/lib/i18n/client';
 
-import { startTransition, useEffect, useState } from 'react';
+import { startTransition, useEffect, useRef, useState } from 'react';
 import { io, type Socket } from 'socket.io-client';
 
 import type { StationDocument } from '@/lib/station/domain';
@@ -50,6 +50,12 @@ export default function RuntimeStationClient({
   readOnly = false,
 }: RuntimeStationClientProps) {
   const t = useTranslation();
+  const realtimeSocket = useRef<Socket<
+    StationRealtimeServerEvents,
+    StationRealtimeClientEvents
+  > | null>(null);
+  const connections = useRef(0);
+  const reconnectAttempts = useRef(0);
   const [station, setStation] = useState<StationDocument | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -133,7 +139,12 @@ export default function RuntimeStationClient({
       },
     );
 
+    realtimeSocket.current = socket;
+    socket.io.on('reconnect_attempt', () => {
+      reconnectAttempts.current++;
+    });
     socket.on('connect', () => {
+      connections.current++;
       socket.emit('station:subscribe', {
         type: 'subscribe',
         sessionId,
@@ -167,9 +178,21 @@ export default function RuntimeStationClient({
 
     return () => {
       active = false;
+      realtimeSocket.current = null;
       socket.disconnect();
     };
   }, [sessionId, stationId]);
+
+  useEffect(() => {
+    if (station && !loading && realtimeSocket.current?.connected) {
+      realtimeSocket.current.emit('station:rendered', {
+        revision: station.revision,
+        clientAt: new Date().toISOString(),
+        reconnectCount: Math.max(0, connections.current - 1),
+        reconnectAttempts: reconnectAttempts.current,
+      });
+    }
+  }, [station, loading]);
 
   if (loading) {
     return <p className="text-sm text-neutral-500">{t('Loading station snapshot...')}</p>;
@@ -211,7 +234,13 @@ export default function RuntimeStationClient({
       <div className={readOnly ? 'pointer-events-none select-none' : undefined}>
         <StationRuntimeBoard
           station={station}
-          onErrorChange={setError}
+          onErrorChange={(message) => {
+            setError(message);
+            if (message)
+              realtimeSocket.current?.emit('station:client-error', {
+                clientAt: new Date().toISOString(),
+              });
+          }}
           onLineblockSnapshots={(localStation, remoteStation) => {
             startTransition(() => {
               setStation((current) =>

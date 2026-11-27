@@ -1,13 +1,11 @@
-import type {
-  RobloxPhysicalSnapshot,
-  SessionDocument,
-} from '@/lib/station/domain';
 import { buildRobloxUpdateDebugLine } from '@/lib/station/debug';
+import type { RobloxPhysicalSnapshot, SessionDocument } from '@/lib/station/domain';
+import { recordSessionActivity } from '../session-activity';
 
+import { printDebugBlock } from '../debug-log';
 import { robloxRuntimeStateRepository } from '../repositories/roblox-runtime-state-repository';
 import { robloxRuntimeUpdateRepository } from '../repositories/roblox-runtime-update-repository';
 import { sessionRepository } from '../repositories/session-repository';
-import { printDebugBlock } from '../debug-log';
 import { mockRuntimeInterpreter } from './mock-roblox-port';
 import { robloxRuntimeInterpreter } from './roblox-open-cloud-port';
 
@@ -104,10 +102,31 @@ async function synchronizeRobloxRuntimeState(
     return;
   }
 
+  recordSessionActivity({
+    sessionId,
+    source: 'server',
+    event: 'roblox.updates.prepared',
+    level: 'info',
+    details: {
+      updateCount: updates.length,
+      firstSequence: previousSequence + 1,
+      latestSequence: nextSequence,
+      pieces: updates
+        .slice(0, 40)
+        .map((update) => ({
+          stationId: update.stationId,
+          pieceId: update.pieceId,
+          sequence: update.sequence,
+        })),
+    },
+  });
+
   printDebugBlock(
     'roblox-debug',
     `publishing ${updates.length} physical updates for ${sessionId}`,
-    updates.map((update) => buildRobloxUpdateDebugLine(update.stationId, update.pieceId, update.piece)),
+    updates.map((update) =>
+      buildRobloxUpdateDebugLine(update.stationId, update.pieceId, update.piece),
+    ),
   );
 
   const session = await sessionRepository.findById(sessionId);

@@ -3,6 +3,7 @@ import { authorizeStationCommand } from '@/lib/server/dis/station-command';
 import { jsonErrorResponse, parseJsonRequest } from '@/lib/server/http';
 import { waitForRouteSelection } from '@/lib/server/services/route-selection-wait';
 import { stationService } from '@/lib/server/services/station-service';
+import { withSessionActivity } from '@/lib/server/session-activity-http';
 import { routeInteractCommandSchema, sessionIdSchema, stationIdSchema } from '@/lib/station/domain';
 
 export const runtime = 'nodejs';
@@ -14,7 +15,7 @@ interface StationRouteInteractRouteProps {
   }>;
 }
 
-export async function POST(request: Request, { params }: StationRouteInteractRouteProps) {
+async function handlePOST(request: Request, { params }: StationRouteInteractRouteProps) {
   try {
     const { sessionId, stationId } = await params;
     const parsedSessionId = sessionIdSchema.parse(sessionId);
@@ -49,3 +50,5 @@ export async function POST(request: Request, { params }: StationRouteInteractRou
     return jsonErrorResponse(error);
   }
 }
+
+export const POST = withSessionActivity('command', 'route-interact', handlePOST);

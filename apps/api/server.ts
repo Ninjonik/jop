@@ -1,4 +1,5 @@
 import { allowedClientOrigin, handleCors } from '@/lib/server/cors';
+import { flushSessionActivity, recordSessionActivity } from '@/lib/server/session-activity';
 import { createServer } from 'node:http';
 import { resolve } from 'node:path';
 import sirv from 'sirv';
@@ -19,7 +20,8 @@ import {
 } from '@/lib/station/realtime';
 
 const development = process.argv.includes('--dev');
-if (!process.env.NODE_ENV) Object.assign(process.env, { NODE_ENV: development ? 'development' : 'production' });
+if (!process.env.NODE_ENV)
+  Object.assign(process.env, { NODE_ENV: development ? 'development' : 'production' });
 loadEnvConfig(process.cwd(), development);
 const hostname = process.env.HOSTNAME ?? '0.0.0.0';
 const port = Number.parseInt(process.env.PORT ?? '3000', 10);
@@ -98,6 +100,72 @@ async function start() {
   const stopChat = await startChatRealtime(io.of('/chat') as unknown as ChatNamespace);
 
   io.on('connection', (socket) => {
+    socket.on('station:rendered', (receipt) => {
+      if (
+        !socket.data.stationRoom ||
+        !receipt ||
+        !Number.isSafeInteger(receipt.revision) ||
+        receipt.revision < 0 ||
+        receipt.revision <= (socket.data.lastRenderedRevision ?? -1) ||
+        Date.now() - (socket.data.lastActivityAt ?? 0) < 100 ||
+        typeof receipt.clientAt !== 'string' ||
+        receipt.clientAt.length > 40 ||
+        !Number.isSafeInteger(receipt.reconnectCount) ||
+        !Number.isSafeInteger(receipt.reconnectAttempts) ||
+        receipt.reconnectAttempts < 0
+      )
+        return;
+      const [sessionId, stationId] = JSON.parse(socket.data.stationRoom) as [string, string];
+      socket.data.lastRenderedRevision = receipt.revision;
+      socket.data.lastActivityAt = Date.now();
+      recordSessionActivity({
+        sessionId,
+        stationId,
+        source: 'client',
+        event: 'snapshot.rendered',
+        level: 'info',
+        revision: receipt.revision,
+        details: {
+          connectionId: socket.id,
+          clientAt: receipt.clientAt,
+          reconnectCount: receipt.reconnectCount,
+          reconnectAttempts: receipt.reconnectAttempts,
+          clientReported: true,
+        },
+      });
+    });
+    socket.on('station:client-error', (report) => {
+      if (
+        !socket.data.stationRoom ||
+        !report ||
+        typeof report.clientAt !== 'string' ||
+        report.clientAt.length > 40 ||
+        Date.now() - (socket.data.lastClientErrorAt ?? 0) < 1000
+      )
+        return;
+      socket.data.lastClientErrorAt = Date.now();
+      const [sessionId, stationId] = JSON.parse(socket.data.stationRoom) as [string, string];
+      recordSessionActivity({
+        sessionId,
+        stationId,
+        source: 'client',
+        event: 'command.error-displayed',
+        level: 'warning',
+        details: { connectionId: socket.id, clientAt: report.clientAt, clientReported: true },
+      });
+    });
+    socket.on('disconnect', (reason) => {
+      if (!socket.data.stationRoom) return;
+      const [sessionId, stationId] = JSON.parse(socket.data.stationRoom) as [string, string];
+      recordSessionActivity({
+        sessionId,
+        stationId,
+        source: 'server',
+        event: 'client.disconnected',
+        level: 'warning',
+        details: { connectionId: socket.id, reason },
+      });
+    });
     socket.on('station:subscribe', (rawSubscription) => {
       void (async () => {
         const parsedSubscription = stationRealtimeSubscribeSchema.safeParse(rawSubscription);
@@ -114,6 +182,15 @@ async function start() {
 
         await socket.join(room);
         socket.data.stationRoom = room;
+        socket.data.lastRenderedRevision = undefined;
+        recordSessionActivity({
+          sessionId,
+          stationId,
+          source: 'server',
+          event: 'client.subscribed',
+          level: 'info',
+          details: { connectionId: socket.id },
+        });
 
         const station = parseStation(await stations.findOne({ sessionId, stationId }));
         if (!station) {
@@ -180,12 +257,33 @@ async function start() {
 
           const room = getStationSubscriptionKey(station.sessionId, station.stationId);
           io.to(room).emit('station:snapshot', station);
+          recordSessionActivity({
+            sessionId: station.sessionId,
+            stationId: station.stationId,
+            source: 'server',
+            event: 'snapshot.broadcast',
+            level: 'info',
+            revision: station.revision,
+            details: { subscribers: io.sockets.adapter.rooms.get(room)?.size ?? 0 },
+          });
         }
       } catch (error) {
         if (shuttingDown) {
           return;
         }
 
+        for (const socket of io.sockets.sockets.values()) {
+          if (!socket.data.stationRoom) continue;
+          const [sessionId, stationId] = JSON.parse(socket.data.stationRoom) as [string, string];
+          recordSessionActivity({
+            sessionId,
+            stationId,
+            source: 'server',
+            event: 'realtime.retry',
+            level: 'warning',
+            details: { retryAfterMs: 1000 },
+          });
+        }
         console.error('[realtime] MongoDB change stream disconnected:', error);
         await new Promise((resolve) => setTimeout(resolve, 1000));
       } finally {
@@ -210,6 +308,7 @@ async function start() {
       }
       httpServer.close(() => resolve());
     });
+    await flushSessionActivity();
   };
 
   const stopProcess = () => {

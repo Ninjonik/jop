@@ -12,6 +12,13 @@ export const stationRealtimeSubscribeSchema = z.object({
 export type StationRealtimeSubscribeMessage = z.infer<typeof stationRealtimeSubscribeSchema>;
 
 export interface StationRealtimeClientEvents {
+  'station:rendered': (receipt: {
+    revision: number;
+    clientAt: string;
+    reconnectCount: number;
+    reconnectAttempts: number;
+  }) => void;
+  'station:client-error': (report: { clientAt: string }) => void;
   'station:subscribe': (subscription: StationRealtimeSubscribeMessage) => void;
 }
 
@@ -22,6 +29,9 @@ export interface StationRealtimeServerEvents {
 
 export interface StationRealtimeSocketData {
   stationRoom?: string;
+  lastRenderedRevision?: number;
+  lastActivityAt?: number;
+  lastClientErrorAt?: number;
 }
 
 export function getStationSubscriptionKey(sessionId: string, stationId: string) {

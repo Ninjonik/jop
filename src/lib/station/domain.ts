@@ -221,6 +221,7 @@ export type ActiveTrainRoute = {
   targetPieceId: string;
   sourceControl?: 'normal' | 'shunt';
   targetControl?: 'normal' | 'shunt';
+  cancelledSuffixFromPieceId?: string;
   reservedOccupations: ActiveTrainRouteOccupation[];
   signalPieceIds: string[];
   targetPlatformDepartureSignalPieceId: string | null;
@@ -445,6 +446,7 @@ export type RouteInteractPayload = {
   control: RuntimeRouteType;
   emergencyCancel?: boolean;
   expectedSelectionId?: string;
+  partialCancelRouteId?: string;
 };
 
 export type RouteInteractCommand = StationCommand<RouteInteractPayload> & {
@@ -603,6 +605,7 @@ export const stationDocumentSchema = z.object({
         targetPieceId: z.string().trim().min(1),
         sourceControl: z.enum(['normal', 'shunt']).optional(),
         targetControl: z.enum(['normal', 'shunt']).optional(),
+        cancelledSuffixFromPieceId: z.string().trim().min(1).optional(),
         reservedOccupations: z.array(
           z.object({
             pieceId: z.string().trim().min(1),
@@ -942,6 +945,7 @@ export const routeInteractCommandSchema = z.object({
     control: z.enum(['normal', 'shunt']),
     emergencyCancel: z.boolean().optional().default(false),
     expectedSelectionId: z.string().trim().min(1).optional(),
+    partialCancelRouteId: z.string().trim().min(1).optional(),
   }),
 });
 

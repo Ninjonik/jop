@@ -1,3 +1,4 @@
+import { withSessionActivity } from '@/lib/server/session-activity-http';
 import { jsonErrorResponse } from '@/lib/server/http';
 import { assertRobloxRequestAuthorized } from '@/lib/server/roblox/roblox-auth';
 import { queueRobloxSessionMutation } from '@/lib/server/roblox/session-mutation-queue';
@@ -14,7 +15,7 @@ interface OccupationRouteProps {
   params: Promise<{ sessionId: string }>;
 }
 
-export async function POST(request: Request, { params }: OccupationRouteProps) {
+async function handlePOST(request: Request, { params }: OccupationRouteProps) {
   try {
     assertRobloxRequestAuthorized(request);
     const { sessionId } = await params;
@@ -42,3 +43,5 @@ export async function POST(request: Request, { params }: OccupationRouteProps) {
     return jsonErrorResponse(error);
   }
 }
+
+export const POST = withSessionActivity('roblox', 'occupation', handlePOST);

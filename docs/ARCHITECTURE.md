@@ -1069,3 +1069,37 @@ action result. Dependent clicks reuse the request's authenticated profile and re
 the live claim after waiting, without repeating Appwrite identity/profile requests.
 Set server `JOP_RUNTIME_DEBUG=true` to enable detailed station and route diagnostics;
 the default skips diagnostic station cloning and lazy log formatting.
+
+### Session activity timeline
+
+`session_activity` is a session-scoped diagnostic timeline, independent of
+`JOP_RUNTIME_DEBUG`. Administrators view its paginated latest/older entries under
+Recovery (`/api/sessions/[sessionId]/activity`). Server timestamps, request IDs,
+command/event IDs, revisions and durations link incoming station/Roblox requests,
+persisted piece-state changes, delayed action outcomes, outbound Roblox notifications,
+Socket.IO broadcasts, client-reported snapshot commits/errors and reconnect counts.
+Entries summarize known fields (at most 40 changes/events); no credentials, raw
+request bodies or upstream error bodies are retained. Browser timestamps and
+acknowledgements are untrusted diagnostic reports, not railway state or paint timing.
+Repeated command/event IDs can be used to identify repeated HTTP submissions.
+
+`session-activity.ts` batches diagnostic writes every 250 ms with a 2,000-entry
+in-memory bound. Logging failures never fail a railway command; storage outages,
+buffer overflow or abrupt process termination can lose diagnostic entries. Graceful
+server shutdown flushes its buffer. This is not a durable command queue or audit log.
+The existing periodic session-artifact cleanup deletes logs for closed, absent or
+dead Roblox sessions. Batch insertion rejects late events for inactive sessions;
+cleanup is periodic, not an instantaneous deletion on heartbeat expiry.
+Run `npm run test:session-activity` for isolated Mongo persistence, pagination,
+redaction and cleanup checks; its fixtures are removed on completion.
+
+Interior white shunt controls support double right-click plus confirmation for partial
+emergency cancellation. The server validates the saved ordered traversal and every
+remaining reservation/occupation in the suffix before shortening the active route.
+The prefix retains its existing reservations, source and physical switch alignment;
+the clicked control becomes its new target, excluded from its retained path. Optional
+`cancelledSuffixFromPieceId` records this boundary for legacy-compatible normalization
+and prevents mock tail-clearance extensions beyond it. Scheduled mock steps recheck
+the shortened boundary under the same session mutation lock. Later source cancellation
+uses the retained route. Verify with
+`node --env-file=.env.local --import tsx scripts/verify-partial-route-cancellation.ts`.

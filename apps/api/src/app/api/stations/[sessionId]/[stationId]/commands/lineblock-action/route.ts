@@ -1,3 +1,4 @@
+import { withSessionActivity } from '@/lib/server/session-activity-http';
 import { authorizeStationCommand } from '@/lib/server/dis/station-command';
 import { jsonErrorResponse, parseJsonRequest } from '@/lib/server/http';
 import { stationService } from '@/lib/server/services/station-service';
@@ -16,7 +17,7 @@ interface StationLineblockActionRouteProps {
   }>;
 }
 
-export async function POST(request: Request, { params }: StationLineblockActionRouteProps) {
+async function handlePOST(request: Request, { params }: StationLineblockActionRouteProps) {
   try {
     const { sessionId, stationId } = await params;
     const parsedSessionId = sessionIdSchema.parse(sessionId);
@@ -43,3 +44,5 @@ export async function POST(request: Request, { params }: StationLineblockActionR
     return jsonErrorResponse(error);
   }
 }
+
+export const POST = withSessionActivity('command', 'lineblock-action', handlePOST);

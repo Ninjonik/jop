@@ -1,4 +1,5 @@
 import type { Collection } from 'mongodb';
+import { recordSessionActivity } from '../session-activity';
 
 import type { StationActionLogDocument } from '@/lib/station/domain';
 
@@ -25,6 +26,19 @@ export const stationActionLogRepository = {
   async create(actionLog: StationActionLogDocument) {
     const collection = await getCollection();
     await collection.insertOne(actionLog);
+    recordSessionActivity({
+      sessionId: actionLog.sessionId,
+      stationId: actionLog.stationId,
+      source: 'server',
+      event: `action.${actionLog.status}`,
+      level: actionLog.status === 'failed' ? 'error' : 'info',
+      correlationId: actionLog.actionId,
+      details: {
+        actionType: actionLog.type,
+        finishedAt: actionLog.finishedAt,
+        errorCode: actionLog.error?.code,
+      },
+    });
     return actionLog;
   },
 

@@ -21,6 +21,7 @@ import {
   isLineblockPieceType,
   parseCellRef,
 } from '@/lib/station/layout';
+import { getButtonVisualState } from '@/lib/station/route-button-state';
 import { buildRouteFromSelection } from '@/lib/station/routes';
 import {
   getConnectedSwitchControl,
@@ -122,12 +123,19 @@ export default function StationRuntimeBoard({
   const [manualTileSize, setManualTileSize] = useState(75);
   const [pendingActionKey, setPendingActionKey] = useState<string | null>(null);
   const [optimisticSwitch, setOptimisticSwitch] = useState<Record<string, SwitchPosition>>({});
-  const [optimisticRoute, setOptimisticRoute] = useState<{
-    pieceId: string;
-    control: 'normal' | 'shunt';
-  } | null>(null);
+  const [optimisticRoutes, setOptimisticRoutes] = useState<
+    Record<
+      string,
+      {
+        commandId: string;
+        state: string;
+        confirmedRevision?: number;
+      }
+    >
+  >({});
   const routeRequestInFlight = useRef<{
     id: string;
+    sourcePieceId: string;
     control: 'normal' | 'shunt';
     targetSubmitted: boolean;
   } | null>(null);
@@ -141,6 +149,7 @@ export default function StationRuntimeBoard({
       routeRequestInFlight.current = null;
     }
   }, [station.runtime.routeSelection]);
+  const partialCancelClick = useRef<{ pieceId: string; routeId: string; at: number } | null>(null);
   const [heldInspectionButtonId, setHeldInspectionButtonId] = useState<string | null>(null);
   const [hoveredTrainPieceId, setHoveredTrainPieceId] = useState<string | null>(null);
   const fittedTileSize = viewportWidth > 0 ? viewportWidth / layout.width : 75;
@@ -238,6 +247,7 @@ export default function StationRuntimeBoard({
     button: 'left' | 'right',
     control: 'normal' | 'shunt',
     emergencyCancel = false,
+    partialCancelRouteId?: string,
   ) {
     const pending = routeRequestInFlight.current;
     if (pending?.targetSubmitted) {
@@ -258,10 +268,39 @@ export default function StationRuntimeBoard({
     const startsSelection =
       !pending && button === 'left' && !station.runtime.routeSelection && canStart;
     if (startsSelection) {
-      routeRequestInFlight.current = { id: commandId, control, targetSubmitted: false };
-      if (piece.state.groups.button) setOptimisticRoute({ pieceId, control });
+      routeRequestInFlight.current = {
+        id: commandId,
+        sourcePieceId: pieceId,
+        control,
+        targetSubmitted: false,
+      };
     } else if (pending) {
       pending.targetSubmitted = true;
+    }
+    const selection = station.runtime.routeSelection;
+    const sourcePieceId = pending?.sourcePieceId ?? selection?.sourcePieceId;
+    const routeType = pending?.control ?? selection?.routeType ?? control;
+    // Own both previews with the second command so the first response cannot clear them.
+    if (startsSelection || sourcePieceId) {
+      setOptimisticRoutes((current) => {
+        const next = { ...current };
+        const endpoints = [
+          {
+            id: sourcePieceId ?? pieceId,
+            control: pending?.control ?? selection?.sourceControl ?? control,
+          },
+          { id: pieceId, control },
+        ];
+        for (const endpoint of endpoints) {
+          const endpointPiece = station.layout.pieces[endpoint.id];
+          if (!endpointPiece?.state.groups.button) continue;
+          next[endpoint.id] = {
+            commandId,
+            state: getButtonVisualState(endpointPiece.type, routeType, endpoint.control),
+          };
+        }
+        return next;
+      });
     }
     try {
       setPendingActionKey(`${pieceId}:route:${button}`);
@@ -291,6 +330,7 @@ export default function StationRuntimeBoard({
               button,
               control,
               emergencyCancel,
+              partialCancelRouteId,
               ...(pending ? { expectedSelectionId: pending.id } : {}),
             },
           }),
@@ -305,9 +345,29 @@ export default function StationRuntimeBoard({
         throw new Error(payload.error?.message ?? 'Failed to submit route interaction.');
       }
       if (payload.station) {
+        const confirmedRevision = payload.station.revision;
+        setOptimisticRoutes((current) =>
+          Object.fromEntries(
+            Object.entries(current).map(([id, preview]) => [
+              id,
+              preview.commandId === commandId ? { ...preview, confirmedRevision } : preview,
+            ]),
+          ),
+        );
         onStationSnapshot(payload.station);
+      } else {
+        setOptimisticRoutes((current) =>
+          Object.fromEntries(
+            Object.entries(current).filter(([, preview]) => preview.commandId !== commandId),
+          ),
+        );
       }
     } catch (submitError) {
+      setOptimisticRoutes((current) =>
+        Object.fromEntries(
+          Object.entries(current).filter(([, preview]) => preview.commandId !== commandId),
+        ),
+      );
       if (startsSelection && routeRequestInFlight.current?.id === commandId)
         routeRequestInFlight.current = null;
       onErrorChange(
@@ -315,7 +375,6 @@ export default function StationRuntimeBoard({
       );
     } finally {
       if (pending && routeRequestInFlight.current === pending) routeRequestInFlight.current = null;
-      setOptimisticRoute(null);
       setPendingActionKey(null);
     }
   }
@@ -503,7 +562,41 @@ export default function StationRuntimeBoard({
     return !!(signalPieceId && station.runtime.activePrivolavaciaSignals[signalPieceId]);
   }
 
-  function handleRouteContextMenu(pieceId: string, control: 'normal' | 'shunt') {
+  function handleRouteContextMenu(pieceId: string, control: 'normal' | 'shunt', clickedAt = 0) {
+    const piece = station.layout.pieces[pieceId];
+    if (piece?.type === 'shuntButton' || piece?.type === 'shuntButtonNoOcp') {
+      const interiorRoutes = Object.values(station.runtime.activeTrainRoutes).filter(
+        (route) =>
+          route.sourcePieceId !== pieceId &&
+          route.targetPieceId !== pieceId &&
+          route.path.some((step) => step.pieceId === pieceId) &&
+          route.reservedOccupations.some((reservation) => reservation.pieceId === pieceId),
+      );
+      if (interiorRoutes.length === 1) {
+        const route = interiorRoutes[0];
+        const previous = partialCancelClick.current;
+        partialCancelClick.current = { pieceId, routeId: route.id, at: clickedAt };
+        if (
+          previous?.pieceId === pieceId &&
+          previous.routeId === route.id &&
+          clickedAt - previous.at <= 1000
+        ) {
+          partialCancelClick.current = null;
+          if (
+            window.confirm(
+              t(
+                'Núdzovo zrušiť cestu od tohto tlačidla po cieľ? Predchádzajúca časť zostane nezmenená.',
+              ),
+            )
+          ) {
+            void submitRouteInteract(pieceId, 'right', route.routeType, true, route.id);
+          }
+        }
+        return;
+      }
+    }
+    partialCancelClick.current = null;
+
     const pendingCancellation = Object.values(station.runtime.pendingActions).find(
       (action) =>
         action.type === (control === 'shunt' ? 'route:cancel-shunt' : 'route:cancel-normal') &&
@@ -748,6 +841,17 @@ export default function StationRuntimeBoard({
           );
           const isPiecePending =
             (pendingActionKey?.startsWith(`${pieceId}:`) ?? false) || hasServerPendingAction;
+          const routePreview = optimisticRoutes[pieceId];
+          const previewObserved =
+            routePreview &&
+            (station.runtime.routeSelection?.commandId === routePreview.commandId ||
+              !!station.runtime.pendingActions[routePreview.commandId] ||
+              !!station.runtime.activeTrainRoutes[routePreview.commandId]);
+          const showRoutePreview =
+            routePreview &&
+            !previewObserved &&
+            (routePreview.confirmedRevision === undefined ||
+              station.revision < routePreview.confirmedRevision);
           const trainLabel = trainTooltips
             ? station.runtime.physicalTrainLabels?.[pieceId]?.text
             : undefined;
@@ -775,18 +879,10 @@ export default function StationRuntimeBoard({
                 stateGroups={stateGroups}
                 selections={
                   getHeldInspectionSelections(pieceId) ??
-                  (optimisticRoute?.pieceId === pieceId
+                  (showRoutePreview
                     ? {
                         ...piece.state.groups,
-                        button: {
-                          state:
-                            piece.type === 'shuntButton' ||
-                            piece.type === 'shuntButtonNoOcp' ||
-                            optimisticRoute.control === 'shunt'
-                              ? 'shunt'
-                              : 'departure',
-                          variant: 'blinking',
-                        },
+                        button: { state: routePreview.state, variant: 'blinking' },
                       }
                     : optimisticSwitch[pieceId]
                       ? {
@@ -1048,6 +1144,7 @@ export default function StationRuntimeBoard({
                         routeRequestInFlight.current?.control) === 'normal'
                         ? 'normal'
                         : 'shunt',
+                      event.timeStamp,
                     );
                   }}
                   className="pointer-events-auto absolute inset-0 cursor-pointer rounded-sm border border-transparent bg-transparent disabled:cursor-wait"

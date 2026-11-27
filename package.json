@@ -27,6 +27,7 @@
     "test:dis:services": "node --env-file=.env.local --import tsx scripts/verify-dis-services.ts",
     "test:dis:http": "node --env-file=.env.local --import tsx scripts/verify-dis.ts",
     "preview:edd": "vite --config scripts/edd-preview/vite.config.mjs",
+    "test:session-activity": "node --env-file=.env.local --import tsx scripts/verify-session-activity.ts",
     "test:dis:edd": "node --env-file=.env.local --import tsx scripts/verify-edd-persistence.ts"
   },
   "dependencies": {

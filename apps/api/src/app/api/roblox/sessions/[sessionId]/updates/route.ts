@@ -1,3 +1,4 @@
+import { withSessionActivity } from '@/lib/server/session-activity-http';
 import { jsonErrorResponse } from '@/lib/server/http';
 import { assertRobloxRequestAuthorized } from '@/lib/server/roblox/roblox-auth';
 import { stationService } from '@/lib/server/services/station-service';
@@ -9,7 +10,7 @@ interface RobloxUpdatesRouteProps {
   params: Promise<{ sessionId: string }>;
 }
 
-export async function GET(request: Request, { params }: RobloxUpdatesRouteProps) {
+async function handleGET(request: Request, { params }: RobloxUpdatesRouteProps) {
   try {
     assertRobloxRequestAuthorized(request);
     const { sessionId } = await params;
@@ -27,3 +28,5 @@ export async function GET(request: Request, { params }: RobloxUpdatesRouteProps)
     return jsonErrorResponse(error);
   }
 }
+
+export const GET = withSessionActivity('roblox', 'updates', handleGET);

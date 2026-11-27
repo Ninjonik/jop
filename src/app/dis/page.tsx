@@ -388,8 +388,6 @@ function DisPortalShell() {
         <span className="ml-auto">
           {profile.name} ({profile.callsign})
         </span>
-        <DesktopDownloads />
-        <DisClock sessionId={current.sessionId} canManage={canManageStaff} />
       </div>
       <nav hidden={!workingMode} className="menubar flex-wrap" aria-label={t('Moduly DIS')}>
         <button className="menu-btn" onClick={() => setWorkingMode(null)}>
@@ -430,6 +428,7 @@ function DisPortalShell() {
             </button>
           ))}
         <div className="ml-auto flex gap-2">
+          <DesktopDownloads />
           <LanguageSelector />
           <button
             className="aero-btn"
@@ -646,6 +645,11 @@ function DisPortalShell() {
                 >
                   {visitedViews.sessions && (
                     <WorkspaceView active={activeTab === 'sessions'}>
+                      {canManageStaff && (
+                        <div className="ribbon-bar">
+                          <DisClock sessionId={current.sessionId} canManage />
+                        </div>
+                      )}
                       {workingMode === 'dispatcher' ? (
                         <StationSelectionView
                           placeId={placeId}

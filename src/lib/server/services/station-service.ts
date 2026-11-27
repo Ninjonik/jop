@@ -1,4 +1,7 @@
+import { truncateReservedRoute } from '@/lib/station/partial-route-cancellation';
 import type { PhysicalVehicleContact } from '@/lib/station/physical-trains';
+import { getButtonVisualState } from '@/lib/station/route-button-state';
+import { isInteriorShuntRouteTarget } from '@/lib/station/routes';
 import { randomUUID } from 'crypto';
 import { sessionClockSnapshot } from '../dis/session-clock';
 import { refreshPhysicalTrainLabels } from '../roblox/physical-trains';
@@ -690,25 +693,6 @@ function applyPendingRouteVisualState(station: StationDocument, action: PendingA
   });
 }
 
-function getButtonVisualState(
-  pieceType: string,
-  routeType: RuntimeRouteType,
-  explicitControl: 'normal' | 'shunt' | null,
-) {
-  if (pieceType === 'departureButton') {
-    if (explicitControl) {
-      return explicitControl === 'shunt' ? 'shunt' : 'departure';
-    }
-    return routeType === 'shunt' ? 'shunt' : 'departure';
-  }
-
-  if (pieceType === 'shuntButton' || pieceType === 'shuntButtonNoOcp') {
-    return 'shunt';
-  }
-
-  return routeType === 'shunt' ? 'shunt' : 'departure';
-}
-
 function applyPendingSwitchVisualState(station: StationDocument, action: PendingAction) {
   const buttonPieceId = typeof action.payload.pieceId === 'string' ? action.payload.pieceId : null;
   const position = typeof action.payload.position === 'string' ? action.payload.position : null;
@@ -1038,15 +1022,15 @@ function buildResolvedRobloxSignalAspects(station: StationDocument) {
       return;
     }
 
+    const previousSpeed = locallyRestrictedSignals.get(startSignalId);
+    const effectiveSpeed = previousSpeed
+      ? (Math.min(previousSpeed, speed) as 40 | 60 | 80 | 100)
+      : speed;
     resolved.set(startSignalId, {
       ...current,
-      aspect: applySpeedRestrictionToResolvedAspect(current.family, current.aspect, speed),
+      aspect: applySpeedRestrictionToResolvedAspect(current.family, current.aspect, effectiveSpeed),
     });
-    const existingSpeed = locallyRestrictedSignals.get(startSignalId);
-    locallyRestrictedSignals.set(
-      startSignalId,
-      existingSpeed ? (Math.min(existingSpeed, speed) as 40 | 60 | 80 | 100) : speed,
-    );
+    locallyRestrictedSignals.set(startSignalId, effectiveSpeed);
   });
 
   const signalPlans = buildSignalRoutePlans(station, normalRoutes, tiles);
@@ -1063,18 +1047,22 @@ function buildResolvedRobloxSignalAspects(station: StationDocument) {
       return;
     }
 
+    const localSpeed = locallyRestrictedSignals.get(pieceId);
+    const combinedSpeed = localSpeed
+      ? (Math.min(localSpeed, nextSpeed) as 40 | 60 | 80 | 100)
+      : nextSpeed;
     resolved.set(pieceId, {
       ...current,
       aspect:
-        locallyRestrictedSignals.has(pieceId) && hasLocalSpeedRestriction(current.aspect)
-          ? nextSpeed === 40
+        localSpeed && hasLocalSpeedRestriction(current.aspect)
+          ? combinedSpeed === 40
             ? 'proceed40Expect40'
-            : current.aspect
-          : nextSpeed === 40
+            : applySpeedRestrictionToResolvedAspect(current.family, current.aspect, combinedSpeed)
+          : combinedSpeed === 40
             ? 'expect40'
-            : nextSpeed === 60
+            : combinedSpeed === 60
               ? 'expect60'
-              : nextSpeed === 80
+              : combinedSpeed === 80
                 ? 'expect80'
                 : 'expect100',
     });
@@ -1735,7 +1723,11 @@ function appendShuntButtonTailClearanceSteps(
   steps: TrainMovementStep[],
   trainLength: number,
 ) {
-  if (!hasOppositeSideStoppingSignal(station, route) || trainLength <= 1) {
+  if (
+    route.cancelledSuffixFromPieceId ||
+    !hasOppositeSideStoppingSignal(station, route) ||
+    trainLength <= 1
+  ) {
     return steps;
   }
 
@@ -3595,99 +3587,112 @@ function updatePhysicalLineblockArrivalEligibility(
 }
 
 async function advanceTrainMovement(sessionId: string, trainId: string) {
-  const rawSession = await sessionRepository.findById(sessionId);
-  if (!rawSession) {
-    return;
-  }
-  const session = ensureSessionRuntimeState(rawSession);
-  const train = session.runtime.trains[trainId];
-  const movement = train?.movement;
-  if (!train || !movement) {
-    return;
-  }
-
-  if (new Date(movement.dueAt).getTime() > Date.now()) {
-    scheduleTrainMovement(sessionId, train);
-    return;
-  }
-
-  const stationList = await stationRepository.listBySessionId(sessionId);
-  const stations = new Map(
-    stationList.map((station) => [station.stationId, ensureStationRuntimeState(station)]),
-  );
-  const step = movement.steps[movement.nextStepIndex];
-  if (!step) {
-    train.status = 'idle';
-    train.movement = null;
-    train.updatedAt = nowIso();
-    session.updatedAt = nowIso();
-    await saveSession(session);
-    return;
-  }
-
-  const previousStep =
-    movement.nextStepIndex > 0 ? movement.steps[movement.nextStepIndex - 1] : null;
-  const affectedStationIds = new Set(train.occupiedSensors.map((sensor) => sensor.stationId));
-  affectedStationIds.add(step.stationId);
-
-  const previousSensors = [...train.occupiedSensors];
-  const occupiedState = getOccupiedState(step);
-  if (occupiedState) {
-    train.occupiedSensors = [
-      {
-        stationId: step.stationId,
-        pieceId: step.pieceId,
-        occupationState: occupiedState,
-        routeId: step.routeId,
-      },
-      ...train.occupiedSensors.filter(
-        (sensor) => sensor.stationId !== step.stationId || sensor.pieceId !== step.pieceId,
-      ),
-    ].slice(0, train.length);
-  }
-  const retainedSensorKeys = new Set(
-    train.occupiedSensors.map((sensor) => `${sensor.stationId}:${sensor.pieceId}`),
-  );
-  const clearedSensors = previousSensors.filter(
-    (sensor) => !retainedSensorKeys.has(`${sensor.stationId}:${sensor.pieceId}`),
-  );
-  applyRouteProgressFromMockSensors(stations, clearedSensors, false);
-  if (occupiedState) {
-    const stepStation = stations.get(step.stationId);
-    if (stepStation) {
-      applyRouteProgressFromOccupationEvent(stepStation, step.pieceId, occupiedState, true);
+  return serializeSessionMutation(sessionId, async () => {
+    const rawSession = await sessionRepository.findById(sessionId);
+    if (!rawSession) {
+      return;
     }
-  }
-  releaseReservationsBehindClearedSensor(stations, clearedSensors, train.occupiedSensors);
-  finalizeReleasedRoutes(stations, clearedSensors);
+    const session = ensureSessionRuntimeState(rawSession);
+    const train = session.runtime.trains[trainId];
+    const movement = train?.movement;
+    if (!train || !movement) {
+      return;
+    }
 
-  train.location = {
-    stationId: step.stationId,
-    pieceId: step.pieceId,
-    routeId: step.routeId,
-    routeStepIndex: step.routeStepIndex,
-  };
-  if (previousStep?.signalPieceId) {
-    affectedStationIds.add(previousStep.stationId);
-  }
+    if (new Date(movement.dueAt).getTime() > Date.now()) {
+      scheduleTrainMovement(sessionId, train);
+      return;
+    }
 
-  movement.nextStepIndex += 1;
-  updateLineblockArrivalEligibility(session, train, stations);
-  train.updatedAt = nowIso();
-  if (movement.nextStepIndex >= movement.steps.length) {
-    train.status = 'idle';
-    train.movement = null;
-  } else {
-    movement.dueAt = new Date(Date.now() + 2000).toISOString();
-  }
-  session.updatedAt = nowIso();
-  stations.forEach((candidateStation) => getActiveLevelCrossingPieceIds(candidateStation, session));
-  await saveSession(session);
-  await saveTrainStationSnapshots(session, stations, affectedStationIds);
+    const stationList = await stationRepository.listBySessionId(sessionId);
+    const stations = new Map(
+      stationList.map((station) => [station.stationId, ensureStationRuntimeState(station)]),
+    );
+    const step = movement.steps[movement.nextStepIndex];
+    if (!step) {
+      train.status = 'idle';
+      train.movement = null;
+      train.updatedAt = nowIso();
+      session.updatedAt = nowIso();
+      await saveSession(session);
+      return;
+    }
 
-  if (train.movement) {
-    scheduleTrainMovement(sessionId, train);
-  }
+    const stepRoute = stations.get(step.stationId)?.runtime.activeTrainRoutes[step.routeId];
+    if (stepRoute?.cancelledSuffixFromPieceId && step.routeStepIndex >= stepRoute.path.length) {
+      train.status = 'idle';
+      train.movement = null;
+      train.updatedAt = nowIso();
+      await saveSession(session);
+      return;
+    }
+
+    const previousStep =
+      movement.nextStepIndex > 0 ? movement.steps[movement.nextStepIndex - 1] : null;
+    const affectedStationIds = new Set(train.occupiedSensors.map((sensor) => sensor.stationId));
+    affectedStationIds.add(step.stationId);
+
+    const previousSensors = [...train.occupiedSensors];
+    const occupiedState = getOccupiedState(step);
+    if (occupiedState) {
+      train.occupiedSensors = [
+        {
+          stationId: step.stationId,
+          pieceId: step.pieceId,
+          occupationState: occupiedState,
+          routeId: step.routeId,
+        },
+        ...train.occupiedSensors.filter(
+          (sensor) => sensor.stationId !== step.stationId || sensor.pieceId !== step.pieceId,
+        ),
+      ].slice(0, train.length);
+    }
+    const retainedSensorKeys = new Set(
+      train.occupiedSensors.map((sensor) => `${sensor.stationId}:${sensor.pieceId}`),
+    );
+    const clearedSensors = previousSensors.filter(
+      (sensor) => !retainedSensorKeys.has(`${sensor.stationId}:${sensor.pieceId}`),
+    );
+    applyRouteProgressFromMockSensors(stations, clearedSensors, false);
+    if (occupiedState) {
+      const stepStation = stations.get(step.stationId);
+      if (stepStation) {
+        applyRouteProgressFromOccupationEvent(stepStation, step.pieceId, occupiedState, true);
+      }
+    }
+    releaseReservationsBehindClearedSensor(stations, clearedSensors, train.occupiedSensors);
+    finalizeReleasedRoutes(stations, clearedSensors);
+
+    train.location = {
+      stationId: step.stationId,
+      pieceId: step.pieceId,
+      routeId: step.routeId,
+      routeStepIndex: step.routeStepIndex,
+    };
+    if (previousStep?.signalPieceId) {
+      affectedStationIds.add(previousStep.stationId);
+    }
+
+    movement.nextStepIndex += 1;
+    updateLineblockArrivalEligibility(session, train, stations);
+    train.updatedAt = nowIso();
+    if (movement.nextStepIndex >= movement.steps.length) {
+      train.status = 'idle';
+      train.movement = null;
+    } else {
+      movement.dueAt = new Date(Date.now() + 2000).toISOString();
+    }
+    session.updatedAt = nowIso();
+    stations.forEach((candidateStation) =>
+      getActiveLevelCrossingPieceIds(candidateStation, session),
+    );
+    await saveSession(session);
+    await saveTrainStationSnapshots(session, stations, affectedStationIds);
+
+    if (train.movement) {
+      scheduleTrainMovement(sessionId, train);
+    }
+  });
 }
 
 export const stationService = {
@@ -5421,7 +5426,78 @@ export const stationService = {
     return action;
   },
 
+  async cancelRouteSuffix(command: RouteInteractCommand) {
+    return serializeSessionMutation(command.sessionId, async () => {
+      const [station, rawSession] = await Promise.all([
+        stationRepository.findBySessionAndStationId(command.sessionId, command.stationId),
+        sessionRepository.findById(command.sessionId),
+      ]);
+      if (!station || !rawSession) throw new Error('Station not found.');
+      const session = ensureSessionRuntimeState(rawSession);
+      ensureStationRuntimeState(station);
+      applySessionTrainOccupations(station, session);
+      if (command.payload.button !== 'right' || !command.payload.emergencyCancel)
+        throw new Error('Partial route cancellation requires emergency confirmation.');
+      const route = station.runtime.activeTrainRoutes[command.payload.partialCancelRouteId!];
+      if (!route) throw new Error('The selected route no longer exists.');
+      if (
+        station.runtime.routeSelection ||
+        Object.values(station.runtime.pendingActions).some((action) =>
+          action.type.startsWith('route:'),
+        )
+      ) {
+        throw new Error('Finish the current route operation before partial cancellation.');
+      }
+      const shortened = truncateReservedRoute(
+        station,
+        route,
+        command.payload.pieceId,
+        getOccupiedPieceIdsForStation(session, station.stationId),
+      );
+      // Confirm this exact prefix is a legal route to the white button, rather than
+      // accepting an adjacent button or a traversal on the other crossover branch.
+      if (!isInteriorShuntRouteTarget(station, route, command.payload.pieceId, tiles)) {
+        throw new Error('This shunt button cannot terminate the existing route prefix.');
+      }
+      const removedSignals = route.signalPieceIds.filter(
+        (id) => !shortened.signalPieceIds.includes(id),
+      );
+      const remote = await setOutboundRouteLineblockStates(
+        session,
+        station,
+        null,
+        removedSignals,
+        route.routeClass,
+        { local: 'sendingFree', remote: 'receivingFree' },
+      );
+      station.runtime.activeTrainRoutes[route.id] = shortened;
+      applyRuntimeStateWithTrainOccupations(station, session);
+      bumpRevision(station);
+      await saveStation(station);
+      if (remote) {
+        applyRuntimeStateWithTrainOccupations(remote, session);
+        bumpRevision(remote);
+        await saveStation(remote);
+      }
+      await stationActionLogRepository.create({
+        _id: command.commandId,
+        sessionId: command.sessionId,
+        stationId: command.stationId,
+        actionId: command.commandId,
+        type: route.routeType === 'shunt' ? 'route:cancel-shunt' : 'route:cancel-normal',
+        status: 'completed',
+        issuedAt: command.issuedAt,
+        startedAt: nowIso(),
+        finishedAt: nowIso(),
+        payload: { routeId: route.id, cancelledFromPieceId: command.payload.pieceId },
+        result: { retainedPathLength: shortened.path.length },
+      });
+      return { kind: 'suffix-cancelled' as const, station };
+    });
+  },
+
   async submitRouteInteract(command: RouteInteractCommand) {
+    if (command.payload.partialCancelRouteId) return this.cancelRouteSuffix(command);
     const [station, rawSession] = await Promise.all([
       stationRepository.findBySessionAndStationId(command.sessionId, command.stationId),
       sessionRepository.findById(command.sessionId),

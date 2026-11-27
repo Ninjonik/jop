@@ -2100,3 +2100,24 @@ export function buildRouteFromSelection(
 
   throw new Error('No valid route could be found for the selected endpoints.');
 }
+
+/** Use the same incoming traversal as a shunting destination, on the saved path. */
+export function isInteriorShuntRouteTarget(
+  station: StationDocument,
+  route: ActiveTrainRoute,
+  pieceId: string,
+  tiles: TileCatalog,
+) {
+  const index = route.path.findIndex((step) => step.pieceId === pieceId);
+  if (index <= 0) return false;
+  const target = getInlineTargetTraversal(station, pieceId, route.sourcePieceId);
+  if (!target) return false;
+  const previous = route.path[index - 1];
+  return getTraversalOptions(station, previous.pieceId, tiles).some((option) => {
+    if (option.state !== previous.traversalState) return false;
+    const neighbor = getNeighborTraversal(station, previous.pieceId, option.exit);
+    return (
+      neighbor?.pieceId === pieceId && toOffsetKey(neighbor.entry) === toOffsetKey(target.entry)
+    );
+  });
+}

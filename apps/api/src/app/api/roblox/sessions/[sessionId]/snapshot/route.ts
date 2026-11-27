@@ -1,3 +1,4 @@
+import { withSessionActivity } from '@/lib/server/session-activity-http';
 import { jsonErrorResponse } from '@/lib/server/http';
 import { assertRobloxRequestAuthorized } from '@/lib/server/roblox/roblox-auth';
 import { stationService } from '@/lib/server/services/station-service';
@@ -9,7 +10,7 @@ interface SnapshotRouteProps {
   params: Promise<{ sessionId: string }>;
 }
 
-export async function GET(request: Request, { params }: SnapshotRouteProps) {
+async function handleGET(request: Request, { params }: SnapshotRouteProps) {
   try {
     assertRobloxRequestAuthorized(request);
     const { sessionId } = await params;
@@ -20,3 +21,5 @@ export async function GET(request: Request, { params }: SnapshotRouteProps) {
     return jsonErrorResponse(error);
   }
 }
+
+export const GET = withSessionActivity('roblox', 'snapshot', handleGET);

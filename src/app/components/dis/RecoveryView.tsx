@@ -1,5 +1,6 @@
 'use client';
 import { useTranslation } from '@/lib/i18n/client';
+import { SessionActivityView } from './SessionActivityView';
 
 import { AeroIcon } from '@/app/components/ui/AeroIcon';
 
@@ -109,6 +110,7 @@ export function RecoveryView({
           </section>
         ))}
       </div>
+      <SessionActivityView key={sessionId} sessionId={sessionId} />
     </div>
   );
 }

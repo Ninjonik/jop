@@ -1,3 +1,4 @@
+import { withSessionActivity } from '@/lib/server/session-activity-http';
 import { authorizeDispatcherStationCommand } from '@/lib/server/dis/station-command';
 import { jsonErrorResponse, parseJsonRequest } from '@/lib/server/http';
 import { stationService } from '@/lib/server/services/station-service';
@@ -9,7 +10,7 @@ interface ResetReservationsRouteProps {
   params: Promise<{ sessionId: string; stationId: string }>;
 }
 
-export async function POST(request: Request, { params }: ResetReservationsRouteProps) {
+async function handlePOST(request: Request, { params }: ResetReservationsRouteProps) {
   try {
     const { sessionId, stationId } = await params;
     const parsedSessionId = sessionIdSchema.parse(sessionId);
@@ -30,3 +31,5 @@ export async function POST(request: Request, { params }: ResetReservationsRouteP
     return jsonErrorResponse(error);
   }
 }
+
+export const POST = withSessionActivity('command', 'reset-reservations', handlePOST);
