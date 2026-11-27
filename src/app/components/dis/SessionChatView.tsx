@@ -114,6 +114,7 @@ export function SessionChatView({
       if (message.clientMessageId) confirmed.current.add(message.clientMessageId);
       setMessages((previous) => mergeChatMessages(previous, [message]));
       if (alreadySeen) return;
+      if (message.senderUserId !== profile.userId && !message.system) playMessageSound('incoming');
       if (
         message.senderUserId !== profile.userId &&
         (chatEndpointKey(message.recipient) === endpointKey || message.recipient.kind === 'session')
@@ -124,7 +125,6 @@ export function SessionChatView({
             : chatEndpointKey(message.sender);
         if (!current.current.expanded || current.current.target !== key) {
           setUnread((previous) => ({ ...previous, [key]: (previous[key] || 0) + 1 }));
-          playMessageSound('incoming');
         }
       }
     });
@@ -336,7 +336,9 @@ export function SessionChatView({
         <span role="status">{connected ? t('Pripojené naživo') : t('Pripájam…')}</span>
         <span>
           {mode === 'station'
-            ? stationId || t('Vyberte stanicu')
+            ? stationId
+              ? getStationDisplayName(stationId)
+              : t('Vyberte stanicu')
             : t('Rušňovodič: {0}', profile?.name)}
         </span>
         <RadioTerminalControls terminal={terminal} connected={connected} />
@@ -360,12 +362,27 @@ export function SessionChatView({
       )}
       <div className="session-chat-workspace" hidden={!expanded}>
         <ResizablePanel id="chat-contacts" title={t('Kontakty')} edge="top" defaultSize={150}>
-          <div className="session-chat-contacts !basis-auto !overflow-visible">
-            {(['station', 'driver'] as const).map((kind) => {
-              const group = contacts.filter((contact) => contact.kind === kind);
+          <div className="session-chat-contacts">
+            {(['station', 'staff', 'driver'] as const).map((kind) => {
+              const group = contacts.filter((contact) =>
+                kind === 'station'
+                  ? contact.kind === 'station'
+                  : contact.kind === 'driver' &&
+                    (kind === 'staff'
+                      ? !!contact.role &&
+                        !['driver', 'driver_trainee', 'driver_instructor'].includes(contact.role)
+                      : !contact.role ||
+                        ['driver', 'driver_trainee', 'driver_instructor'].includes(contact.role)),
+              );
               return (
                 <div key={kind} className="session-chat-contact-group">
-                  <strong>{kind === 'station' ? t('Stanice') : t('Rušňovodiči')}</strong>
+                  <strong>
+                    {kind === 'station'
+                      ? t('Stanice a výpravcovia')
+                      : kind === 'staff'
+                        ? t('Ostatný personál')
+                        : t('Rušňovodiči')}
+                  </strong>
                   {group.length ? (
                     group.map((contact) => {
                       const key = chatEndpointKey(contact);
@@ -374,6 +391,7 @@ export function SessionChatView({
                           key={key}
                           type="button"
                           className="session-chat-contact"
+                          aria-pressed={target === key}
                           title={
                             contact.robloxUsername
                               ? t('Roblox: {0}', contact.robloxUsername)
@@ -381,7 +399,11 @@ export function SessionChatView({
                           }
                           onClick={() => openConversation(contact)}
                         >
-                          <AeroIcon name={kind === 'station' ? 'network' : 'train'} />
+                          <AeroIcon
+                            name={
+                              kind === 'station' ? 'network' : kind === 'staff' ? 'staff' : 'train'
+                            }
+                          />
                           <span>
                             {contact.name}
                             {contact.robloxUsername && (
@@ -511,6 +533,7 @@ export function SessionChatView({
                 <ChatMessageView
                   key={message._id}
                   message={message}
+                  actionsVisible={message._id === conversation.at(-1)?._id}
                   onRetry={() => void deliver(message)}
                   stationId={mode === 'station' ? stationId : undefined}
                   onAcknowledge={(id) => void acknowledge(id)}

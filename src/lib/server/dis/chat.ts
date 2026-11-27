@@ -165,6 +165,7 @@ export async function loadChat(body: unknown, profile: UserProfile) {
         kind: 'station' as const,
         id: station.stationId,
         name: getStationDisplayName(station.stationId),
+        role: profilesByUser.get(stationOwners.get(station.stationId) || '')?.role,
         robloxUsername: profilesByUser.get(stationOwners.get(station.stationId) || '')
           ?.robloxUsername,
       })),
@@ -177,6 +178,7 @@ export async function loadChat(body: unknown, profile: UserProfile) {
       .map((person) => ({
         kind: 'driver' as const,
         id: person.userId,
+        role: person.role,
         name: driverChatDisplayName(person.userId, selectedTrains, person.name),
         robloxUsername: person.robloxUsername,
       })),

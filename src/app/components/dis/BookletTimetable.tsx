@@ -6,6 +6,7 @@ import { formatBookletClock, formatDwell, unfoldStops, type Timetable } from '@/
 import { useTranslation } from '@/lib/i18n/client';
 import { getStationDisplayName } from '@/lib/station/display-name';
 import { useRef, useState } from 'react';
+import './train-workspace.css';
 import { ZcpSymbol } from './ZcpSymbol';
 export function BookletTimetable({
   timetable,

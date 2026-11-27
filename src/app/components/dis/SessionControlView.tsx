@@ -1,5 +1,6 @@
 'use client';
 import { disFetch } from '@/lib/dis/api-client';
+import { getStationDisplayName } from '@/lib/station/display-name';
 
 import { useTranslation } from '@/lib/i18n/client';
 
@@ -130,7 +131,7 @@ export function SessionControlView({
                       {s.stations &&
                         s.stations.map((st) => (
                           <button
-                            key={st.stationId}
+                            key={getStationDisplayName(st.stationId)}
                             onClick={() => {
                               if (onLaunchRuntime) onLaunchRuntime(s.sessionId, st.stationId);
                             }}
@@ -139,7 +140,8 @@ export function SessionControlView({
                             <AeroIcon name="play" />
                             <span>
                               {t('Otvoriť stanicu:')} {st.stationId}
-                              {canInspectInternalStations && st.stationId.trim().toLowerCase() === 'inter'
+                              {canInspectInternalStations &&
+                              st.stationId.trim().toLowerCase() === 'inter'
                                 ? ` (${t('len náhľad')})`
                                 : ''}
                             </span>

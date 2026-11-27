@@ -1,5 +1,6 @@
 'use client';
 import { useTranslation } from '@/lib/i18n/client';
+import { getStationDisplayName } from '@/lib/station/display-name';
 
 import { isPublicStation } from '@/lib/station/visibility';
 
@@ -185,9 +186,10 @@ export function ShiftPlanView({
                         )
                       }
                     />
-                    {train.trainType} {train.trainNumber} · {train.stops[0].station} –{' '}
-                    {train.stops.at(-1)?.station} · {train.stops[0].departure}–
-                    {train.stops.at(-1)?.arrival}
+                    {train.trainType} {train.trainNumber} ·{' '}
+                    {getStationDisplayName(train.stops[0].station)} –{' '}
+                    {getStationDisplayName(train.stops.at(-1)?.station || '')} ·{' '}
+                    {train.stops[0].departure}–{train.stops.at(-1)?.arrival}
                   </label>
                 ))
               )}
@@ -281,13 +283,14 @@ export function ShiftPlanView({
                         </strong>
                         <details>
                           <summary>
-                            {train.stops[0].station} – {train.stops.at(-1)?.station}
+                            {getStationDisplayName(train.stops[0].station)} –{' '}
+                            {getStationDisplayName(train.stops.at(-1)?.station || '')}
                           </summary>
                           <ol>
                             {train.stops.map((stop, index) => (
                               <li key={index}>
-                                {stop.station} · {stop.arrival}–{stop.departure} {t('· koľaj')}{' '}
-                                {stop.track}
+                                {getStationDisplayName(stop.station)} · {stop.arrival}–
+                                {stop.departure} {t('· koľaj')} {stop.track}
                               </li>
                             ))}
                           </ol>

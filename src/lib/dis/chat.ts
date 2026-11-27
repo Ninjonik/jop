@@ -16,7 +16,11 @@ export const chatRecipientSchema = z.union([
   z.object({ kind: z.literal('session'), id: z.literal('all') }),
 ]);
 export type ChatRecipient = z.infer<typeof chatRecipientSchema>;
-export type ChatContact = ChatRecipient & { name: string; robloxUsername?: string };
+export type ChatContact = ChatRecipient & {
+  name: string;
+  robloxUsername?: string;
+  role?: UserRole;
+};
 export const globalChatContact = { kind: 'session', id: 'all', name: 'Celá relácia' } as const;
 export const chatScopeSchema = z.object({
   sessionId: sessionIdSchema,

@@ -1,3 +1,5 @@
+import { GET as trafficGET } from '../apps/api/src/app/api/dis/traffic/route';
+import { projectDiary } from '../src/lib/server/dis/edd-diary';
 /** Actual HTTP + Socket.IO delivery, with real Mongo/Appwrite fixture persistence. */
 import { Account, AppwriteException } from 'node-appwrite';
 import assert from 'node:assert/strict';
@@ -118,6 +120,7 @@ async function post(body: unknown, userId = staff[0].userId, status = 200) {
   return result;
 }
 async function verify() {
+  const mongo = await getMongoDb();
   for (const profile of staff) {
     await disDatabase().createDocument(databaseId, 'profiles', profile.userId, profile);
     profiles.push(profile.userId);
@@ -130,6 +133,49 @@ async function verify() {
       await claimStation({ sessionId: session._id, stationId: station }, staff[0]);
     }
   }
+  // The train workspace is an authenticated read model: no initialization writes on polling.
+  const seed = {
+    $id: 'traffic-overlay',
+    sessionId: sessions[0],
+    stationId: 'a',
+    trainNumber: '3150',
+    trainType: 'Os',
+    direction: 'a → b',
+    schedArrival: '08:00',
+    schedDeparture: '08:02',
+    actualArrival: '08:06',
+    actualDeparture: '',
+    track: '1',
+    status: 'arrived' as const,
+    delayMinutes: 6,
+  };
+  await projectDiary([seed]);
+  const readTraffic = () =>
+    trafficGET(
+      new Request('http://localhost/api/dis/traffic?sessionId=' + sessions[0], {
+        headers: { authorization: 'Bearer ' + staff[0].userId },
+      }),
+    );
+  const before = await mongo.collection('edd_diary_entries').findOne({ sessionId: sessions[0] });
+  const snapshot = await readTraffic();
+  assert.equal(snapshot.status, 200);
+  const traffic = await snapshot.json();
+  assert.equal(
+    traffic.records.find((r: { $id: string }) => r.$id === seed.$id).actualArrival,
+    '08:06',
+  );
+  assert.equal(traffic.records[0].history.length, 0);
+  assert.equal(traffic.clock.sessionId, sessions[0]);
+  assert.equal((await readTraffic()).status, 200);
+  assert.deepEqual(
+    await mongo.collection('edd_diary_entries').findOne({ sessionId: sessions[0] }),
+    before,
+  );
+  assert.equal(
+    (await trafficGET(new Request('http://localhost/api/dis/traffic?sessionId=' + sessions[0])))
+      .status,
+    401,
+  );
   stopChat = await startChatRealtime(sockets.of('/chat') as unknown as ChatNamespace);
   await new Promise<void>((resolve) => http.listen(0, '127.0.0.1', resolve));
   const address = http.address();
@@ -153,7 +199,6 @@ async function verify() {
   const received = once<ChatMessage>(b.socket, 'chat:message');
   const sent = await post(command);
   assert.equal((await received)._id, sent.message._id);
-  const mongo = await getMongoDb();
   assert.equal(
     (await mongo.collection('session_chat_messages').findOne({ _id: sent.message._id as never }))
       ?.content,
@@ -413,6 +458,7 @@ async function main() {
     removeMedia.mock.restore();
     const mongo = await getMongoDb();
     for (const collection of [
+      'edd_diary_entries',
       'stations',
       'station_actions',
       'session_chat_messages',

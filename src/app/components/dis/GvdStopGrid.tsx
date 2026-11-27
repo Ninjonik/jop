@@ -8,6 +8,7 @@ import {
   type TimetableInput,
 } from '@/lib/dis/timetable';
 import { useTranslation } from '@/lib/i18n/client';
+import { getStationDisplayName } from '@/lib/station/display-name';
 import { useRef, useState } from 'react';
 import { AeroAutocomplete } from '../ui/AeroAutocomplete';
 
@@ -149,8 +150,13 @@ export function GvdStopGrid({
                     portal
                     disabled={disabled}
                     label={t('Stanica {0}', index + 1)}
-                    value={stations.find((s) => s.stationId === stop.station)?.name || stop.station}
-                    options={stations.map((s) => ({ value: s.stationId, label: s.name }))}
+                    value={getStationDisplayName(
+                      stations.find((s) => s.stationId === stop.station)?.name || stop.station,
+                    )}
+                    options={stations.map((s) => ({
+                      value: s.stationId,
+                      label: getStationDisplayName(s.name),
+                    }))}
                     onInput={(value) => {
                       const match = stations.find(
                         (s) =>

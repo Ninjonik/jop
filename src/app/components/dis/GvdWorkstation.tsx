@@ -27,6 +27,7 @@ import {
 import { timetableTransportPoints, transportPointKey } from '@/lib/dis/transport-points';
 import { useDisResource } from '@/lib/dis/use-dis-resource';
 import { useTranslation } from '@/lib/i18n/client';
+import { getStationDisplayName } from '@/lib/station/display-name';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { z } from 'zod';
 import { AeroIcon } from '../ui/AeroIcon';
@@ -266,7 +267,7 @@ function GvdWorkspace({ place, sessionId }: { place: Place; sessionId: string })
   const visibleTrains = value.timetables.filter(
     (train) =>
       (showInactive || !train.planning || train.planning.status === 'active') &&
-      `${train.trainType} ${train.trainNumber} ${train.stops.map((s) => names.get(s.station) || s.station).join(' ')}`
+      `${train.trainType} ${train.trainNumber} ${train.stops.map((s) => getStationDisplayName(names.get(s.station) || s.station)).join(' ')}`
         .toLocaleLowerCase('sk')
         .includes(search.toLocaleLowerCase('sk')),
   );
@@ -569,8 +570,13 @@ function GvdWorkspace({ place, sessionId }: { place: Place; sessionId: string })
                     </time>
                   </strong>
                   <span>
-                    {names.get(train.stops[0].station) || train.stops[0].station} →{' '}
-                    {names.get(train.stops.at(-1)!.station) || train.stops.at(-1)!.station}
+                    {getStationDisplayName(
+                      names.get(train.stops[0].station) || train.stops[0].station,
+                    )}{' '}
+                    →{' '}
+                    {getStationDisplayName(
+                      names.get(train.stops.at(-1)!.station) || train.stops.at(-1)!.station,
+                    )}
                   </span>
                   <small>
                     {train.planning
@@ -999,8 +1005,13 @@ function GvdWorkspace({ place, sessionId }: { place: Place; sessionId: string })
                   {pending.map((train, i) => (
                     <li key={i}>
                       {train.trainType} {train.trainNumber} · {train.stops[0].departure} ·{' '}
-                      {names.get(train.stops[0].station) || train.stops[0].station} →{' '}
-                      {names.get(train.stops.at(-1)!.station) || train.stops.at(-1)!.station}
+                      {getStationDisplayName(
+                        names.get(train.stops[0].station) || train.stops[0].station,
+                      )}{' '}
+                      →{' '}
+                      {getStationDisplayName(
+                        names.get(train.stops.at(-1)!.station) || train.stops.at(-1)!.station,
+                      )}
                     </li>
                   ))}
                 </ul>
@@ -1106,7 +1117,7 @@ function GvdWorkspace({ place, sessionId }: { place: Place; sessionId: string })
                   >
                     {draft.stops.map((s, i) => (
                       <option key={i} value={i}>
-                        {i + 1}. {names.get(s.station) || s.station}
+                        {i + 1}. {getStationDisplayName(names.get(s.station) || s.station)}
                       </option>
                     ))}
                   </select>

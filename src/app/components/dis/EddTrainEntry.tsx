@@ -1,6 +1,8 @@
 'use client';
 import { AeroIcon } from '@/app/components/ui/AeroIcon';
 import { eddClock, offsetEddTime, timeSeconds, type EddEntry } from '@/lib/dis/edd';
+import { alignClockMinute, clockMinutes, formatMinute } from '@/lib/dis/timetable';
+import type { TrainStopProgress } from '@/lib/dis/train-progress';
 import { useTranslation } from '@/lib/i18n/client';
 import { useState } from 'react';
 export function EddTrainEntry({
@@ -9,8 +11,10 @@ export function EddTrainEntry({
   now,
   busy,
   onCommand,
+  forecast,
 }: {
   record: EddEntry;
+  forecast?: TrainStopProgress;
   date: string;
   now: string;
   busy: boolean;
@@ -24,13 +28,25 @@ export function EddTrainEntry({
   const [arrivalDate, setArrivalDate] = useState(record.eventDates.arrival || date);
   const [departureDate, setDepartureDate] = useState(record.eventDates.departure || date);
   const [manualDeparture, setManualDeparture] = useState(false);
+  const [manualArrival, setManualArrival] = useState(false);
+  const shownArrival =
+    !manualArrival && !record.actualArrival && forecast
+      ? formatMinute(forecast.arrival).slice(0, 5)
+      : arrival;
   const [error, setError] = useState('');
-  const follows = record.dwell && !manualDeparture && !record.lockedEvents?.departure;
+  const follows =
+    record.dwell && !record.actualDeparture && !manualDeparture && !record.lockedEvents?.departure;
+  const expectedDeparture = forecast?.departure ?? clockMinutes(record.schedDeparture || now);
   const shownDeparture = follows
-    ? now
+    ? formatMinute(Math.max(expectedDeparture, alignClockMinute(now, expectedDeparture))).slice(
+        0,
+        5,
+      )
     : record.movement === 'pass' && !manualDeparture && !record.actualDeparture
-      ? arrival
-      : departure;
+      ? shownArrival
+      : !manualDeparture && !record.actualDeparture && forecast
+        ? formatMinute(forecast.departure).slice(0, 5)
+        : departure;
   async function save(dwell: boolean) {
     setError('');
     await onCommand({
@@ -38,7 +54,7 @@ export function EddTrainEntry({
       action: 'train',
       id: record.$id,
       expectedRevision: record.revision,
-      ...(record.movement !== 'origin' && { arrival, arrivalDate }),
+      ...(record.movement !== 'origin' && { arrival: shownArrival, arrivalDate }),
       ...(record.movement !== 'terminus' &&
         !dwell && { departure: shownDeparture, departureDate: follows ? date : departureDate }),
       dwell,
@@ -48,7 +64,7 @@ export function EddTrainEntry({
     record.movement === 'terminus'
       ? record.schedArrival
       : record.schedDeparture || record.schedArrival;
-  const delayActual = record.movement === 'terminus' ? arrival : shownDeparture;
+  const delayActual = record.movement === 'terminus' ? shownArrival : shownDeparture;
   const delay =
     delayPlan && /^\d{2}:\d{2}$/.test(delayActual)
       ? Math.round(
@@ -61,13 +77,15 @@ export function EddTrainEntry({
         const isArrival = event === 'arrival';
         const excluded = isArrival ? record.movement === 'origin' : record.movement === 'terminus';
         const locked = !!record.lockedEvents?.[event];
-        const value = isArrival ? arrival : shownDeparture;
+        const value = isArrival ? shownArrival : shownDeparture;
         const planned = isArrival
           ? record.schedArrival
           : record.schedDeparture || record.schedArrival;
         const setValue = (time: string) => {
-          if (isArrival) setArrival(time);
-          else {
+          if (isArrival) {
+            setArrival(time);
+            setManualArrival(true);
+          } else {
             setDeparture(time);
             setManualDeparture(true);
           }

@@ -1,15 +1,25 @@
 import { ChatMessageView } from '@/app/components/dis/ChatMessageView';
 import { EddTableView } from '@/app/components/dis/EddTableView';
+import { TpvFullView } from '@/app/components/dis/TpvFullView';
+import { TrainWorkspace } from '@/app/components/dis/TrainWorkspace';
+import { ResizablePanel } from '@/app/components/ui/ResizablePanel';
 import '@/app/globals.css';
 import type { EddReply } from '@/lib/dis/edd';
 import { I18nProvider, setLocale, useTranslation } from '@/lib/i18n/client';
 import { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
-import { disFetch, previewChatHistory, previewPlainMessage, simulateFailure } from './api';
+import {
+  advancePreviewClock,
+  disFetch,
+  previewChatHistory,
+  previewPlainMessage,
+  simulateFailure,
+} from './api';
 import { setStation } from './auth';
 import './preview.css';
 function Preview() {
+  const [view, setView] = useState<'edd' | 'tpv'>('edd');
   const [stationId, select] = useState('kolarovo');
   const [multiple, setMultiple] = useState(true);
   const [target, setTarget] = useState('vesele');
@@ -17,70 +27,110 @@ function Preview() {
   return (
     <BrowserRouter>
       <I18nProvider>
-        <div
-          className="dis-portal"
-          style={{ height: '100vh', display: 'flex', flexDirection: 'column' }}
-        >
-          <div className="edd-toolbar">
-            <strong>EDD · UKÁŽKOVÉ ÚDAJE / SAMPLE DATA</strong>
-            <span>Bez pripojenia k hre / No game connection</span>
-            <label>
-              <input
-                type="checkbox"
-                checked={multiple}
+        <TrainWorkspace sessionId="edd-preview" active>
+          <div
+            className="dis-portal"
+            style={{ height: '100vh', display: 'flex', flexDirection: 'column' }}
+          >
+            <div className="edd-toolbar">
+              <strong>EDD · UKÁŽKOVÉ ÚDAJE / SAMPLE DATA</strong>
+              <span>Bez pripojenia k hre / No game connection</span>
+              <button className="aero-btn" onClick={() => setView('edd')}>
+                EDD
+              </button>
+              <button className="aero-btn" onClick={() => setView('tpv')}>
+                TPV
+              </button>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={multiple}
+                  onChange={(e) => {
+                    setMultiple(e.target.checked);
+                    setReply(undefined);
+                    if (!e.target.checked) {
+                      select('kolarovo');
+                      setStation('kolarovo');
+                      setTarget('vesele');
+                    }
+                  }}
+                />{' '}
+                Prevzaté obe stanice / Own both stations
+              </label>
+              <select
+                aria-label="Preview station"
+                className="aero-select"
+                value={stationId}
                 onChange={(e) => {
-                  setMultiple(e.target.checked);
+                  setStation(e.target.value);
+                  select(e.target.value);
                   setReply(undefined);
-                  if (!e.target.checked) {
-                    select('kolarovo');
-                    setStation('kolarovo');
-                    setTarget('vesele');
-                  }
+                  setTarget(e.target.value === 'kolarovo' ? 'vesele' : 'kolarovo');
                 }}
-              />{' '}
-              Prevzaté obe stanice / Own both stations
-            </label>
-            <select
-              aria-label="Preview station"
-              className="aero-select"
-              value={stationId}
-              onChange={(e) => {
-                setStation(e.target.value);
-                select(e.target.value);
-                setReply(undefined);
-                setTarget(e.target.value === 'kolarovo' ? 'vesele' : 'kolarovo');
-              }}
+              >
+                <option value="kolarovo">Kolárovo — Novák</option>
+                {multiple && <option value="vesele">Veselé — Kováč</option>}
+              </select>
+              <button className="aero-btn" onClick={() => setLocale('sk')}>
+                Slovensky
+              </button>
+              <button className="aero-btn" onClick={() => setLocale('en')}>
+                English
+              </button>
+              <button
+                className="aero-btn"
+                onClick={() => document.documentElement.classList.toggle('dark')}
+              >
+                Svetlá / tmavá
+              </button>
+              <button className="aero-btn" onClick={advancePreviewClock}>
+                Test: +1 min
+              </button>
+              <button className="aero-btn" onClick={simulateFailure}>
+                Test: ďalšie uloženie zlyhá
+              </button>
+            </div>
+            <div
+              className="edd-preview-workspace"
+              style={{ display: view === 'edd' ? '' : 'none' }}
             >
-              <option value="kolarovo">Kolárovo — Novák</option>
-              {multiple && <option value="vesele">Veselé — Kováč</option>}
-            </select>
-            <button className="aero-btn" onClick={() => setLocale('sk')}>
-              Slovensky
-            </button>
-            <button className="aero-btn" onClick={() => setLocale('en')}>
-              English
-            </button>
-            <button
-              className="aero-btn"
-              onClick={() => document.documentElement.classList.toggle('dark')}
+              <EddTableView
+                sessionId="edd-preview"
+                stationId={stationId}
+                placeId="113144512557419"
+                active={view === 'edd'}
+                reply={reply}
+                onOpenChat={setTarget}
+              />
+              <PreviewChat
+                key={stationId}
+                stationId={stationId}
+                target={target}
+                onReply={setReply}
+              />
+            </div>
+            <div
+              className="tpv-preview-split"
+              style={{ display: view === 'tpv' ? undefined : 'none' }}
             >
-              Svetlá / tmavá
-            </button>
-            <button className="aero-btn" onClick={simulateFailure}>
-              Test: ďalšie uloženie zlyhá
-            </button>
+              <TpvFullView
+                sessionId="edd-preview"
+                stationId={stationId}
+                placeId="113144512557419"
+                active={view === 'tpv'}
+              />
+              <ResizablePanel
+                id="tpv-preview-communication"
+                title="Komunikácia"
+                edge="right"
+                defaultSize={300}
+                responsive
+              >
+                <PreviewChat stationId={stationId} target={target} onReply={setReply} />
+              </ResizablePanel>
+            </div>
           </div>
-          <div className="edd-preview-workspace">
-            <EddTableView
-              sessionId="edd-preview"
-              stationId={stationId}
-              placeId="113144512557419"
-              reply={reply}
-              onOpenChat={setTarget}
-            />
-            <PreviewChat key={stationId} stationId={stationId} target={target} onReply={setReply} />
-          </div>
-        </div>
+        </TrainWorkspace>
       </I18nProvider>
     </BrowserRouter>
   );
@@ -115,6 +165,7 @@ function PreviewChat({
           <ChatMessageView
             key={message._id}
             message={message}
+            actionsVisible={message._id === messages.at(-1)?._id}
             stationId={stationId}
             onEddReply={onReply}
             offerAnswered={messages.some(

@@ -30,8 +30,18 @@ const date = z
   .refine((s) => !Number.isNaN(Date.parse(s)) && new Date(s).toISOString().slice(0, 10) === s);
 const entryKey = (r: Pick<EddRecord, 'sessionId' | 'stationId' | '$id'>) =>
   JSON.stringify([r.sessionId, r.stationId, r.$id]);
+let diaryIndex: Promise<unknown> | undefined;
 export async function diaryEntries() {
-  return (await getMongoDb()).collection<EddEntry & { _id: string }>('edd_diary_entries');
+  const collection = (await getMongoDb()).collection<EddEntry & { _id: string }>(
+    'edd_diary_entries',
+  );
+  // Shared traffic snapshots read one session, without scanning every historical diary.
+  diaryIndex ??= collection.createIndex({ sessionId: 1 }).catch((error) => {
+    diaryIndex = undefined;
+    throw error;
+  });
+  await diaryIndex;
+  return collection;
 }
 let messageIndexes: Promise<unknown> | undefined;
 async function messages() {
@@ -56,46 +66,64 @@ export async function projectDiary(
 ) {
   if (!records.length) return [];
   const collection = await diaryEntries();
-  try {
-    await collection.bulkWrite(
-      records.map((record) => ({
-        updateOne: {
-          filter: { _id: entryKey(record) },
-          update: {
-            $setOnInsert: {
-              ...record,
-              revision: 0,
-              movement:
-                hints.get(record.$id)?.movement ||
-                (!record.schedArrival ? 'origin' : !record.schedDeparture ? 'terminus' : 'stop'),
-              notes:
-                typeof (record as EddEntry).notes === 'string' ? (record as EddEntry).notes : '',
-              history: [],
-              eventDates: {},
-              ...hints.get(record.$id),
+  const keys = records.map(entryKey);
+  const existing = await collection.find({ _id: { $in: keys } }).toArray();
+  const byId = new Map(existing.map((record) => [record.$id, record]));
+  const missing = records.filter((record) => !byId.has(record.$id));
+  const changedHints = [...hints].filter(([id, hint]) => {
+    const record = byId.get(id);
+    return (
+      record &&
+      record.revision === 0 &&
+      (record.movement !== hint.movement || record.timetableId !== hint.timetableId)
+    );
+  });
+  if (missing.length) {
+    try {
+      await collection.bulkWrite(
+        missing.map((record) => ({
+          updateOne: {
+            filter: { _id: entryKey(record) },
+            upsert: true,
+            update: {
+              $setOnInsert: {
+                ...record,
+                revision: 0,
+                movement:
+                  hints.get(record.$id)?.movement ||
+                  (!record.schedArrival ? 'origin' : !record.schedDeparture ? 'terminus' : 'stop'),
+                notes:
+                  typeof (record as EddEntry).notes === 'string' ? (record as EddEntry).notes : '',
+                history: [],
+                eventDates: {},
+                ...hints.get(record.$id),
+              },
             },
           },
-          upsert: true,
-        },
-      })),
-      { ordered: false },
-    );
-  } catch (e) {
-    if ((e as { code?: number }).code !== 11000) throw e;
+        })),
+        { ordered: false },
+      );
+    } catch (error) {
+      if ((error as { code?: number }).code !== 11000) throw error;
+    }
   }
-  if (hints.size)
+  if (changedHints.length)
     await collection.bulkWrite(
-      [...hints].map(([id, hint]) => ({
+      changedHints.map(([id, hint]) => ({
         updateOne: {
           filter: { _id: entryKey({ ...records[0], $id: id }), revision: 0 },
           update: { $set: hint },
         },
       })),
     );
-  const overlay = await collection.find({ _id: { $in: records.map(entryKey) } }).toArray();
-  const indexed = new Map(overlay.map((r) => [r.$id, r]));
+  const result =
+    missing.length || changedHints.length
+      ? await collection.find({ _id: { $in: keys } }).toArray()
+      : existing;
+  const indexed = new Map(result.map((record) => [record.$id, record]));
   return records.map((record) => indexed.get(record.$id)!);
 }
+
 export const editDiarySchema = scope.extend({
   id: identity,
   expectedRevision: z.number().int().nonnegative(),

@@ -10,6 +10,7 @@ import {
   type EddEntry,
   type EddMessage,
 } from '@/lib/dis/edd';
+import type { Timetable } from '@/lib/dis/timetable';
 const sessionId = 'edd-preview';
 const rows: EddEntry[] = [];
 for (const stationId of ['kolarovo', 'vesele'])
@@ -43,6 +44,88 @@ for (const stationId of ['kolarovo', 'vesele'])
       history: [],
       eventDates: {},
     });
+const stop = (
+  station: string,
+  arrival: string,
+  departure: string,
+  kind: 'stop' | 'pass' = 'stop',
+) => ({ station, arrival, departure, track: station === 'stefanovo' ? '' : '1', kind });
+const timetables: Timetable[] = [
+  {
+    $id: 'preview-5849',
+    trainNumber: '5849',
+    trainType: 'Os',
+    maxSpeed: 100,
+    trainLength: 180,
+    stops: [
+      stop('kolarovo', '', '15:01'),
+      stop('stefanovo', '15:05', '15:05', 'pass'),
+      stop('vesele', '15:10', ''),
+    ],
+  },
+  {
+    $id: 'preview-3150',
+    trainNumber: '3150',
+    trainType: 'Os',
+    maxSpeed: 100,
+    trainLength: 180,
+    stops: [
+      stop('vesele', '', '15:00'),
+      stop('stefanovo', '15:08', '15:08', 'pass'),
+      stop('kolarovo', '15:12', ''),
+    ],
+  },
+  {
+    $id: 'preview-6206',
+    trainNumber: '6206',
+    trainType: 'Os',
+    maxSpeed: 100,
+    trainLength: 180,
+    stops: [
+      stop('lubina', '', '15:10'),
+      stop('kolarovo', '15:20', '15:20', 'pass'),
+      stop('stefanovo', '15:24', '15:24', 'pass'),
+      stop('vesele', '15:28', ''),
+    ],
+  },
+  {
+    $id: 'preview-90001',
+    trainNumber: '90001',
+    trainType: 'Mn',
+    maxSpeed: 80,
+    trainLength: 180,
+    stops: [
+      stop('lubina', '', '15:20'),
+      stop('kolarovo', '15:30', '15:32'),
+      stop('stefanovo', '15:36', '15:36', 'pass'),
+      stop('vesele', '15:40', ''),
+    ],
+  },
+];
+for (const row of rows) {
+  const train = timetables.find((t) => t.trainNumber === row.trainNumber)!;
+  const index = train.stops.findIndex((s) => s.station === row.stationId);
+  const point = train.stops[index];
+  row.timetableId = train.$id;
+  row.schedArrival = point.arrival;
+  row.schedDeparture = point.departure;
+  row.movement =
+    index === 0
+      ? 'origin'
+      : index === train.stops.length - 1
+        ? 'terminus'
+        : point.kind === 'pass'
+          ? 'pass'
+          : 'stop';
+  row.trainType = train.trainType;
+  row.direction =
+    train.stops[0].station === 'vesele' ? 'Veselé → Kolárovo' : 'Lubina / Kolárovo → Veselé';
+}
+// One upstream +6 report demonstrates propagation without turning estimates into actuals.
+Object.assign(
+  rows.find((r) => r.stationId === 'kolarovo' && r.trainNumber === '5849')!,
+  { actualDeparture: '15:07', status: 'departed', revision: 1 },
+);
 const messages: EddMessage[] = [];
 const plainMessages: ChatMessage[] = [];
 export function previewChatHistory(stationId: string, target: string): ChatMessage[] {
@@ -86,13 +169,18 @@ export let failNext = false;
 export function simulateFailure() {
   failNext = true;
 }
+const sampleStart = operatingClockParts();
+let offsetMinutes =
+  15 * 60 +
+  15 -
+  (Number(sampleStart.minuteTime.slice(0, 2)) * 60 + Number(sampleStart.minuteTime.slice(3, 5)));
 function clock() {
   return {
     sessionId,
-    offsetMinutes: 0,
+    offsetMinutes,
     configured: false,
     serverUnixMs: Date.now(),
-    ...operatingClockParts(),
+    ...operatingClockParts(offsetMinutes),
   };
 }
 export async function disFetch<T>(url: string, init: RequestInit = {}): Promise<T> {
@@ -104,6 +192,34 @@ export async function disFetch<T>(url: string, init: RequestInit = {}): Promise<
     failNext = false;
     throw new Error('Skúšobné zlyhanie uloženia. Skúste znova.');
   }
+  if (path === '/api/dis/traffic')
+    return structuredClone({
+      timetables,
+      records: rows,
+      drivers: [
+        {
+          sessionId,
+          userId: 'sample-driver',
+          userName: 'Novák · SAMPLE',
+          trainNumber: '5849',
+          trainType: 'Os',
+          timetableId: 'preview-5849',
+          tonnage: 210,
+        },
+      ],
+      clock: clock(),
+    }) as T;
+  if (path === '/api/dis/lines')
+    return {
+      lines: [
+        {
+          id: '52a915da-d070-4b08-b742-3a2d806ae258',
+          placeId: '113144512557419',
+          name: 'Kolárovo — Veselé',
+          stations: ['lubina', 'kolarovo', 'stefanovo', 'vesele'],
+        },
+      ],
+    } as T;
   if (path === '/api/dis/session-clock') return { clock: clock() } as T;
   if (path === '/api/dis/preferences') {
     if (c) preferences.set(c.key, c.value);
@@ -266,4 +382,8 @@ export async function disFetch<T>(url: string, init: RequestInit = {}): Promise<
     return { message: m } as T;
   }
   return {} as T;
+}
+
+export function advancePreviewClock() {
+  offsetMinutes += 1;
 }
