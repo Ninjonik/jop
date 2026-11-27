@@ -4,9 +4,12 @@ import type { EddEntry } from '../edd';
 import type { Timetable } from '../timetable';
 import { readTpvLayouts, reorderTpvStations } from '../tpv-layout';
 import {
+  graphTrainStops,
   isFreightTrain,
   lastReportedStop,
   recordedTrainSegments,
+  trainCancellation,
+  trainOverviewPoints,
   trainProgress,
 } from '../train-progress';
 const train: Timetable = {
@@ -123,12 +126,14 @@ test('freight and passenger categories use distinct graph styles', () => {
   for (const category of ['Os', 'R', 'EC', 'REX']) assert(!isFreightTrain(category));
 });
 
-test('elapsed clock never turns unreported travel into solid actuals', () => {
+test('clock alone draws no solid path; a reported departure advances only its next leg', () => {
   assert.deepEqual(recordedTrainSegments(train, [], 600), []);
-  assert.deepEqual(
-    recordedTrainSegments(train, [report('a', { actualDeparture: '08:06' })], 600),
-    [],
-  );
+  assert.deepEqual(recordedTrainSegments(train, [report('a', { actualDeparture: '08:06' })], 491), [
+    [
+      { station: 'a', minute: 486 },
+      { station: 'a', toward: 'b', minute: 491, fraction: 0.5 },
+    ],
+  ]);
 });
 test('solid travel requires departure and the next arrival, with no bridge across missing reports', () => {
   const records = [
@@ -162,11 +167,9 @@ test('completed layover uses its recorded departure and stops following clock', 
     [report('c', { actualArrival: '08:20', actualDeparture: '08:26', dwell: true })],
     600,
   );
-  assert.deepEqual(segments, [
-    [
-      { station: 'c', minute: 500 },
-      { station: 'c', minute: 506 },
-    ],
+  assert.deepEqual(segments[0], [
+    { station: 'c', minute: 500 },
+    { station: 'c', minute: 506 },
   ]);
 });
 test('layout station order moves both ways and survives saved preferences', () => {
@@ -182,4 +185,90 @@ test('layout station order moves both ways and survives saved preferences', () =
     order: ['c', 'a', 'b'],
   };
   assert.deepEqual(readTpvLayouts(JSON.stringify([layout]))[0].order, ['c', 'a', 'b']);
+});
+
+test('normalized endpoints and early departure never shift the graph by a day', () => {
+  const normalized = {
+    ...train,
+    stops: train.stops.map((s, i) => ({
+      ...s,
+      arrival: i === 0 ? s.departure : s.arrival,
+      departure: i === 3 ? s.arrival : s.departure,
+    })),
+  };
+  const points = graphTrainStops(normalized, [report('a', { actualDeparture: '07:54' })], 480);
+  assert.equal(points[0].arrivalMinute, 474);
+  assert.equal(points[0].departureMinute, 474);
+  assert(points.every((p) => p.departureMinute < 1440));
+});
+test('early terminus arrival has no artificial destination layover', () => {
+  const terminal = { ...train, stops: [train.stops[0], { ...train.stops[3], departure: '08:35' }] };
+  const points = graphTrainStops(terminal, [report('d', { actualArrival: '08:29' })], 600);
+  assert.equal(points[1].arrivalMinute, 509);
+  assert.equal(points[1].departureMinute, 509);
+});
+test('a real midnight trip retains numerical next-day coordinates', () => {
+  const night = {
+    ...train,
+    stops: [
+      { ...train.stops[0], arrival: '23:55', departure: '23:55' },
+      { ...train.stops[3], arrival: '00:05', departure: '00:05' },
+    ],
+  };
+  const points = graphTrainStops(night, [report('a', { actualDeparture: '23:50' })]);
+  assert.equal(points[0].departureMinute, 1430);
+  assert.equal(points[1].arrivalMinute, 1440);
+});
+test('origin layover is solid from its persisted start until now', () => {
+  const points = recordedTrainSegments(
+    train,
+    [report('a', { dwell: true, dwellStartedTime: '07:59' })],
+    485,
+  );
+  assert.deepEqual(points, [
+    [
+      { station: 'a', minute: 479 },
+      { station: 'a', minute: 485 },
+    ],
+  ]);
+});
+test('confirmed travel bridges ordinary halts without fabricating their records', () => {
+  const local = {
+    ...train,
+    stops: [
+      { ...train.stops[0], station: 'kolarovo' },
+      { ...train.stops[1], station: 'stefanovo' },
+      { ...train.stops[3], station: 'vesele' },
+    ],
+  };
+  const records = [
+    report('kolarovo', { actualDeparture: '08:00' }),
+    report('vesele', { actualArrival: '08:35' }),
+  ];
+  const points = recordedTrainSegments(local, records);
+  assert.equal(points.length, 1);
+  assert.equal(points[0][1].station, 'stefanovo');
+  assert.equal(trainProgress(local, records)[1].arrivalRecorded, false);
+});
+test('overview expands explicit topology but assigns no invented times to inserted points', () => {
+  const network = {
+    points: [],
+    sections: [
+      { id: 'ab', from: 'a', to: 'halt', tracks: 1, block: 'unknown', against: false },
+      { id: 'bc', from: 'halt', to: 'd', tracks: 1, block: 'unknown', against: false },
+    ],
+  } as import('../railway-network').RailwayNetwork;
+  assert.deepEqual(
+    trainOverviewPoints({ ...train, stops: [train.stops[0], train.stops[3]] }, network),
+    [{ station: 'a', index: 0 }, { station: 'halt' }, { station: 'd', index: 1 }],
+  );
+});
+test('cancellation is scoped to its timetable and does not erase historical actuals', () => {
+  const record = report('a', {
+    actualDeparture: '08:00',
+    cancellation: { fromStation: 'c', reason: 'QA' },
+  });
+  assert.equal(trainCancellation(train, [record])?.fromStation, 'c');
+  assert.equal(trainCancellation({ ...train, $id: 'other' }, [record]), undefined);
+  assert.equal(trainProgress(train, [record])[0].departureRecorded, true);
 });

@@ -10,6 +10,7 @@ import {
   type EddMovement,
 } from '@/lib/dis/edd';
 import type { EddRecord } from '@/lib/dis/records';
+import { stationKey } from '@/lib/dis/timetable';
 import { getStationDisplayName } from '@/lib/station/display-name';
 import { isPublicStation } from '@/lib/station/visibility';
 import { createHash } from 'node:crypto';
@@ -21,6 +22,7 @@ import { DisError } from './appwrite';
 import { chatMessagesCollection, sendChat } from './chat';
 import { requireStationClaim } from './claims';
 import { sessionClockSnapshot } from './session-clock';
+import { loadOperatingTimetables } from './session-timetables';
 
 const identity = z.string().trim().min(1).max(64);
 const scope = z.object({ sessionId: identity, stationId: identity });
@@ -36,7 +38,17 @@ export async function diaryEntries() {
     'edd_diary_entries',
   );
   // Shared traffic snapshots read one session, without scanning every historical diary.
-  diaryIndex ??= collection.createIndex({ sessionId: 1 }).catch((error) => {
+  diaryIndex ??= Promise.all([
+    collection.createIndex({ sessionId: 1 }),
+    collection.createIndex(
+      { sessionId: 1, timetableId: 1 },
+      {
+        unique: true,
+        name: 'one_train_cancellation',
+        partialFilterExpression: { 'cancellation.fromStation': { $exists: true } },
+      },
+    ),
+  ]).catch((error) => {
     diaryIndex = undefined;
     throw error;
   });
@@ -127,7 +139,17 @@ export async function projectDiary(
 export const editDiarySchema = scope.extend({
   id: identity,
   expectedRevision: z.number().int().nonnegative(),
-  action: z.enum(['record', 'correct', 'details', 'cancel', 'restore', 'train']),
+  action: z.enum([
+    'record',
+    'correct',
+    'details',
+    'cancel',
+    'restore',
+    'train',
+    'cancel-route',
+    'restore-route',
+  ]),
+  cancellationFrom: identity.optional(),
   arrival: eddTimeSchema.optional(),
   departure: eddTimeSchema.optional(),
   arrivalDate: date.optional(),
@@ -150,6 +172,32 @@ export async function editDiary(input: unknown, profile: UserProfile) {
   if (!entry) throw new DisError(404, 'Záznam nepatrí vybranej stanici.');
   if (entry.revision !== c.expectedRevision)
     throw new DisError(409, 'Záznam zmenil iný používateľ. Obnovte denník.');
+  if (['train', 'record', 'correct'].includes(c.action)) {
+    const cancellation = await collection.findOne({
+      sessionId: c.sessionId,
+      trainNumber: entry.trainNumber,
+      ...(entry.timetableId ? { timetableId: entry.timetableId } : {}),
+      'cancellation.fromStation': { $exists: true },
+    });
+    if (cancellation?.cancellation) {
+      const train = (await loadOperatingTimetables(c.sessionId)).find((t) =>
+        entry.timetableId ? t.$id === entry.timetableId : t.trainNumber === entry.trainNumber,
+      );
+      const index =
+        train?.stops.findIndex((s) => stationKey(s.station) === stationKey(entry.stationId)) ?? -1;
+      const cutoff =
+        train?.stops.findIndex(
+          (s) => stationKey(s.station) === stationKey(cancellation.cancellation!.fromStation),
+        ) ?? -1;
+      if (
+        cutoff >= 0 &&
+        (index > cutoff ||
+          (index === cutoff &&
+            (c.departure || c.dwell || c.event === 'departure' || c.event === 'passage')))
+      )
+        throw new DisError(409, 'Vlak je v tomto úseku zrušený. Najprv obnovte vlak.');
+    }
+  }
   const clock = await sessionClockSnapshot(c.sessionId);
   const before = JSON.stringify({
     status: entry.status,
@@ -161,7 +209,49 @@ export async function editDiary(input: unknown, profile: UserProfile) {
     dates: entry.eventDates,
   });
   let patch: Partial<EddEntry> = {};
-  if (c.action === 'train') {
+  if (c.action === 'cancel-route' || c.action === 'restore-route') {
+    if (!c.reason) throw new DisError(400, 'Uveďte dôvod zmeny.');
+    const train = (await loadOperatingTimetables(c.sessionId)).find((t) =>
+      entry.timetableId ? t.$id === entry.timetableId : t.trainNumber === entry.trainNumber,
+    );
+    if (!train) throw new DisError(404, 'Vlak neexistuje.');
+    const ownIndex = train.stops.findIndex(
+      (s) => stationKey(s.station) === stationKey(c.stationId),
+    );
+    const fromIndex = train.stops.findIndex(
+      (s) => stationKey(s.station) === stationKey(c.cancellationFrom || ''),
+    );
+    if (c.action === 'restore-route') {
+      if (!entry.cancellation) throw new DisError(409, 'Vlak nie je zrušený.');
+      patch.cancellation = null;
+    } else {
+      if (ownIndex < 0 || fromIndex < ownIndex || fromIndex >= train.stops.length - 1)
+        throw new DisError(400, 'Vyberte dopravný bod na ďalšej trase vlaku.');
+      const reports = await collection
+        .find({ sessionId: c.sessionId, trainNumber: entry.trainNumber })
+        .toArray();
+      if (
+        reports.some(
+          (r) =>
+            (!r.timetableId || r.timetableId === train.$id) &&
+            r.cancellation &&
+            r.$id !== entry.$id,
+        )
+      )
+        throw new DisError(409, 'Zrušenie už zapísala iná stanica.');
+      if (
+        reports.some((r) => {
+          if (r.timetableId && r.timetableId !== train.$id) return false;
+          const i = train.stops.findIndex((s) => stationKey(s.station) === stationKey(r.stationId));
+          return (i >= fromIndex && !!r.actualDeparture) || (i > fromIndex && !!r.actualArrival);
+        })
+      )
+        throw new DisError(409, 'Vlak už prešiel miestom zrušenia. Vyberte neskorší bod.');
+      patch.timetableId = train.$id;
+      patch.cancellation = { fromStation: train.stops[fromIndex].station, reason: c.reason };
+      if (fromIndex === ownIndex) patch.dwell = false;
+    }
+  } else if (c.action === 'train') {
     let next = { ...entry, eventDates: { ...entry.eventDates } };
     for (const event of ['arrival', 'departure'] as const) {
       const time = c[event];
@@ -199,6 +289,9 @@ export async function editDiary(input: unknown, profile: UserProfile) {
       status: next.status,
       delayMinutes: next.delayMinutes,
       dwell: c.dwell ?? false,
+      ...((c.dwell || entry.dwellStartedTime) && {
+        dwellStartedTime: entry.dwellStartedTime || clock.time.slice(0, 5),
+      }),
     };
   } else if (c.action === 'record' || c.action === 'correct') {
     if (entry.lockedEvents?.[c.event as 'arrival' | 'departure'])
@@ -245,27 +338,33 @@ export async function editDiary(input: unknown, profile: UserProfile) {
       throw new DisError(409, 'Vlak nie je zrušený.');
     patch.status = c.action === 'cancel' ? 'cancelled' : 'scheduled';
   }
-  const result = await collection.findOneAndUpdate(
-    { _id, revision: c.expectedRevision },
-    {
-      $set: { ...patch },
-      $inc: { revision: 1 },
-      $push: {
-        history: {
-          at: new Date().toISOString(),
-          userId: profile.userId,
-          operator: profile.name,
-          action: c.action + (c.event ? ':' + c.event : ''),
-          before,
-          after: JSON.stringify(patch),
-          reason: c.reason,
-          operatingDate: clock.date,
-          operatingTime: clock.time,
+  const result = await collection
+    .findOneAndUpdate(
+      { _id, revision: c.expectedRevision },
+      {
+        $set: { ...patch },
+        $inc: { revision: 1 },
+        $push: {
+          history: {
+            at: new Date().toISOString(),
+            userId: profile.userId,
+            operator: profile.name,
+            action: c.action + (c.event ? ':' + c.event : ''),
+            before,
+            after: JSON.stringify(patch),
+            reason: c.reason,
+            operatingDate: clock.date,
+            operatingTime: clock.time,
+          },
         },
       },
-    },
-    { returnDocument: 'after' },
-  );
+      { returnDocument: 'after' },
+    )
+    .catch((error) => {
+      if ((error as { code?: number }).code === 11000)
+        throw new DisError(409, 'Zrušenie už zapísala iná stanica.');
+      throw error;
+    });
   if (!result) throw new DisError(409, 'Záznam zmenil iný používateľ. Obnovte denník.');
   return { record: result };
 }

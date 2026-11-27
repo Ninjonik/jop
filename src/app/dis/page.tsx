@@ -22,6 +22,7 @@ import { DriverDashboardView } from '@/app/components/dis/DriverDashboardView';
 import { EddTableView } from '@/app/components/dis/EddTableView';
 import { GvdEditorView } from '@/app/components/dis/GvdEditorView';
 import { JopEmbeddedView } from '@/app/components/dis/JopEmbeddedView';
+import { ModuleArrowNavigation } from '@/app/components/dis/ModuleArrowNavigation';
 import { NetworkPreparationView } from '@/app/components/dis/NetworkPreparationView';
 import { RecoveryView } from '@/app/components/dis/RecoveryView';
 import { SessionChatView } from '@/app/components/dis/SessionChatView';
@@ -386,24 +387,31 @@ function DisPortalShell() {
       key={current.sessionId}
       sessionId={current.sessionId}
       active={activeTab === 'edd' || activeTab === 'tpv'}
+      stationId={current.stationId}
+      writable={ownsStation && workingMode === 'dispatcher'}
     >
       <div className="dis-portal h-screen flex flex-col overflow-hidden bg-[var(--aero-bg)] text-[var(--aero-text)] text-xs">
         <AccountSettingsSync />
-        {hasSession && workingMode === 'dispatcher' && (
-          <nav className="train-workspace-switch" aria-label={t('Riadenie dopravy')}>
-            {(['runtime', 'edd', 'tpv'] as const).map((id) => (
-              <button
-                key={id}
-                className="aero-btn"
-                aria-pressed={activeTab === id}
-                onClick={() => openTab(id)}
-              >
-                <AeroIcon name={tabIcons[id]} />
-                {t(id === 'runtime' ? 'Staničný pult' : id === 'edd' ? 'Dopravný denník' : 'TPV')}
-              </button>
-            ))}
-          </nav>
-        )}
+        <ModuleArrowNavigation
+          tabs={tabs
+            .filter(
+              (item) =>
+                item.visible !== false &&
+                (selectedPlace || ['settings', 'preparation'].includes(item.id)),
+            )
+            .sort(
+              (a, b) =>
+                Number(
+                  ['settings', 'shifts', 'staff', 'docs', 'gvd', 'preparation'].includes(a.id),
+                ) -
+                Number(
+                  ['settings', 'shifts', 'staff', 'docs', 'gvd', 'preparation'].includes(b.id),
+                ),
+            )
+            .map((item) => item.id)}
+          active={activeTab}
+          onSelect={openTab}
+        />
         <AudioPermissions sessionId={current.sessionId} />
         <div className="aero-title-bar dis-main-title-bar">
           <div className="window-title">

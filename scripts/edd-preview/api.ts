@@ -10,6 +10,7 @@ import {
   type EddEntry,
   type EddMessage,
 } from '@/lib/dis/edd';
+import { seedRailwayNetwork } from '@/lib/dis/railway-network';
 import type { Timetable } from '@/lib/dis/timetable';
 const sessionId = 'edd-preview';
 const rows: EddEntry[] = [];
@@ -192,9 +193,12 @@ export async function disFetch<T>(url: string, init: RequestInit = {}): Promise<
     failNext = false;
     throw new Error('Skúšobné zlyhanie uloženia. Skúste znova.');
   }
+  if (path === '/api/dis/railway-network')
+    return { network: seedRailwayNetwork('113144512557419'), updatedAt: null } as T;
   if (path === '/api/dis/traffic')
     return structuredClone({
       timetables,
+      placeId: '113144512557419',
       records: rows,
       drivers: [
         {
@@ -268,7 +272,11 @@ export async function disFetch<T>(url: string, init: RequestInit = {}): Promise<
       status: r.status,
     });
     const action = c.action || 'record';
-    if (action === 'train') {
+    if (action === 'cancel-route' || action === 'restore-route') {
+      if (!c.reason) throw new Error('Uveďte dôvod zmeny.');
+      r.cancellation =
+        action === 'restore-route' ? null : { fromStation: c.cancellationFrom, reason: c.reason };
+    } else if (action === 'train') {
       const next = structuredClone(r);
       for (const event of ['arrival', 'departure'] as const) {
         if (!c[event]) continue;
@@ -289,7 +297,10 @@ export async function disFetch<T>(url: string, init: RequestInit = {}): Promise<
           next.eventDates.departure! + 'T' + next.actualDeparture
       )
         throw new Error('Odchod je pred príchodom. Skontrolujte dátum a čas.');
-      Object.assign(r, next, { dwell: c.dwell });
+      Object.assign(r, next, {
+        dwell: c.dwell,
+        dwellStartedTime: r.dwellStartedTime || (c.dwell ? clock().minuteTime : undefined),
+      });
     } else if (['record', 'correct'].includes(action)) {
       if (action === 'record' && !canRecord(r, c.event))
         throw new Error('Úkon nezodpovedá stavu vlaku. Obnovte denník.');
@@ -386,4 +397,16 @@ export async function disFetch<T>(url: string, init: RequestInit = {}): Promise<
 
 export function advancePreviewClock() {
   offsetMinutes += 1;
+}
+
+export function previewOverlap() {
+  if (timetables.some((t) => t.$id === 'preview-overlap')) return;
+  const original = timetables[0];
+  timetables.push({ ...structuredClone(original), $id: 'preview-overlap', trainNumber: '3190' });
+  rows.push({
+    ...structuredClone(rows.find((r) => r.stationId === 'kolarovo' && r.trainNumber === '5849')!),
+    $id: 'overlap-3190',
+    timetableId: 'preview-overlap',
+    trainNumber: '3190',
+  });
 }

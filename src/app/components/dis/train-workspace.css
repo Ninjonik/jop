@@ -1,19 +1,3 @@
-.train-workspace-switch {
-  display: flex;
-  gap: 5px;
-  padding: 4px 8px;
-  background: var(--aero-ribbon-bg);
-  border-bottom: 1px solid var(--aero-panel-border);
-}
-.train-workspace-switch .aero-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-}
-.train-workspace-switch [aria-pressed='true'] {
-  font-weight: 700;
-  border-color: var(--btn-hover-border);
-}
 .train-overview-body {
   padding: 12px;
   overflow: auto;
@@ -215,12 +199,15 @@
 }
 .timetable-graph .gvd-graph-canvas {
   --tpv-bg: #fff;
+  --tpv-passenger: #111;
+  --tpv-freight: #0000ff;
+  --tpv-cancelled: #bd2929;
   --aero-panel-bg: #fff;
   --aero-text: #111;
   --aero-text-muted: #666;
   --tpv-grid-line: #ffc58b;
-  color: #111;
-  background: #fff;
+  color: var(--tpv-passenger);
+  background: var(--tpv-bg);
 }
 .gvd-sticky-stations {
   position: sticky;
@@ -235,7 +222,7 @@
   top: 0;
   left: 0;
   width: 175px;
-  background: #fff;
+  background: var(--tpv-bg);
   border-right: 2px solid #5d7f9c;
 }
 .gvd-sticky-stations span {
@@ -245,7 +232,7 @@
   display: flex;
   align-items: center;
   gap: 5px;
-  color: #111;
+  color: var(--tpv-passenger);
   font: 600 12px/1.2 Arial;
 }
 .gvd-sticky-stations i {
@@ -379,10 +366,10 @@
   display: flex;
   align-items: center;
   gap: 5px;
-  color: #111;
+  color: var(--tpv-passenger);
   font: 600 13px/1.25 Arial;
   text-align: left;
-  background: #fff;
+  background: var(--tpv-bg);
   border: 0;
   pointer-events: auto;
   cursor: pointer;
@@ -413,4 +400,98 @@
 .tpv-preview-split .edd-preview-chat {
   width: 100%;
   min-width: 0;
+}
+
+.dark .timetable-graph .gvd-graph-canvas {
+  --tpv-bg: #171e28;
+  --aero-panel-bg: #171e28;
+  --aero-text: #e4ebf3;
+  --aero-text-muted: #a5b2c2;
+  --tpv-passenger: #e4ebf3;
+  --tpv-freight: #729eff;
+  --tpv-cancelled: #ff7979;
+  --tpv-grid-line: #805c3a;
+}
+.dark .timetable-graph .gvd-sticky-stations button[aria-pressed='true'] {
+  background: #29415b;
+  color: #e1edff;
+}
+.train-cancellation {
+  margin-top: 12px;
+  padding: 8px;
+  border-top: 1px solid var(--aero-panel-border);
+}
+.train-cancellation form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 8px;
+  margin-top: 8px;
+}
+.train-cancellation label {
+  display: grid;
+  gap: 3px;
+}
+.train-cancellation-notice {
+  color: var(--aero-text);
+  border-left: 3px solid #c44;
+  padding: 6px;
+  background: color-mix(in srgb, #c44 10%, var(--aero-panel-bg));
+}
+@media print {
+  .dark .timetable-graph .gvd-graph-canvas,
+  .timetable-graph .gvd-graph-canvas {
+    --tpv-bg: #fff;
+    --aero-panel-bg: #fff;
+    --aero-text: #111;
+    --aero-text-muted: #666;
+    --tpv-passenger: #111;
+    --tpv-freight: #0000ff;
+    --tpv-cancelled: #bd2929;
+    --tpv-grid-line: #ffc58b;
+  }
+}
+
+.tpv-overlap-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+}
+.tpv-overlap-menu {
+  position: absolute;
+  width: 260px;
+  max-height: 250px;
+  overflow: auto;
+  border: 1px solid var(--aero-panel-border);
+  background: var(--aero-panel-bg);
+  color: var(--aero-text);
+  box-shadow: 2px 3px 8px #0004;
+  padding: 3px;
+  font-size: 12px;
+}
+.tpv-overlap-menu > strong {
+  display: block;
+  padding: 4px 6px;
+  color: var(--aero-text-muted);
+  font-size: 11px;
+}
+.tpv-overlap-menu button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 6px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+.tpv-overlap-menu button:hover,
+.tpv-overlap-menu button:focus-visible {
+  background: var(--aero-ribbon-bg);
+  outline: 1px solid var(--aero-panel-border);
+}
+.tpv-overlap-menu small {
+  display: block;
+  font-size: 10px;
+  color: var(--aero-text-muted);
 }

@@ -1,4 +1,6 @@
+import { getStationDisplayName } from '../station/display-name';
 import type { EddEntry } from './edd';
+import { networkPath, pointKind, type RailwayNetwork } from './railway-network';
 import {
   alignClockMinute,
   formatMinute,
@@ -28,10 +30,7 @@ export function trainProgress(
   nowMinute?: number,
 ): TrainStopProgress[] {
   const trainRecords = records.filter(
-    (r) =>
-      r.trainNumber === train.trainNumber &&
-      (!r.timetableId || r.timetableId === train.$id) &&
-      r.status !== 'cancelled',
+    (r) => r.trainNumber === train.trainNumber && (!r.timetableId || r.timetableId === train.$id),
   );
   let delay = 0;
   let previousDeparture = -Infinity;
@@ -50,6 +49,8 @@ export function trainProgress(
       arrival = alignClockMinute(actualArrival, stop.arrivalMinute);
       delay = arrival - stop.arrivalMinute;
     }
+    if (index === 0 && actualDeparture)
+      arrival = alignClockMinute(actualDeparture, stop.departureMinute);
     let departure = Math.max(arrival, stop.departureMinute + delay);
     if (index === 0 || stop.kind !== 'pass') departure = Math.max(departure, stop.departureMinute);
     const dwell = !!record?.dwell && !actualDeparture;
@@ -60,6 +61,14 @@ export function trainProgress(
     if (actualDeparture) departure = alignClockMinute(actualDeparture, stop.departureMinute);
     // Departure is authoritative for all later estimates, including recovery of early running.
     delay = departure - stop.departureMinute;
+    // Endpoint clocks are normalized for storage, but are not two separate events.
+    if (index === train.stops.length - 1) departure = arrival;
+    if (index === 0)
+      arrival = record?.dwellStartedTime
+        ? Math.min(departure, alignClockMinute(record.dwellStartedTime, stop.departureMinute))
+        : record?.dwell
+          ? Math.min(departure, stop.departureMinute)
+          : departure;
     previousDeparture = departure;
     return {
       station: stop.station,
@@ -90,9 +99,8 @@ export function forecastTimetable(
     ...train,
     stops: train.stops.map((stop, index) => ({
       ...stop,
-      arrival: index === 0 ? stop.arrival : formatMinute(progress[index].arrival),
-      departure:
-        index === train.stops.length - 1 ? stop.departure : formatMinute(progress[index].departure),
+      arrival: formatMinute(progress[index].arrival),
+      departure: formatMinute(progress[index].departure),
     })),
   };
 }
@@ -103,8 +111,13 @@ export function isFreightTrain(category: string) {
   return ['Nex', 'Rn', 'Zn', 'Pn', 'Vn', 'Mn', 'Pv', 'Vleč', 'P', 'Pos'].includes(category);
 }
 
-export type RecordedGraphPoint = { station: string; minute: number };
-/** Only recorded events establish completed paths; the clock alone confirms nothing. */
+export type RecordedGraphPoint = {
+  station: string;
+  minute: number;
+  toward?: string;
+  fraction?: number;
+};
+/** Reports establish completed legs between controlled points. Minor halts require no report. */
 export function recordedTrainSegments(
   train: Timetable,
   records: EddEntry[],
@@ -112,25 +125,113 @@ export function recordedTrainSegments(
 ): RecordedGraphPoint[][] {
   const progress = trainProgress(train, records, nowMinute);
   const segments: RecordedGraphPoint[][] = [];
+  const cancellation = trainCancellation(train, records);
+  const cutoff = cancellation
+    ? progress.findIndex(
+        (stop) => stationKey(stop.station) === stationKey(cancellation.fromStation),
+      )
+    : -1;
   progress.forEach((stop, index) => {
-    if (stop.arrivalRecorded && stop.departureRecorded)
+    if (
+      stop.departureRecorded &&
+      (stop.arrivalRecorded || (index === 0 && !!stop.record?.dwellStartedTime))
+    )
       segments.push([
         { station: stop.station, minute: stop.arrival },
         { station: stop.station, minute: stop.departure },
       ]);
-    else if (stop.arrivalRecorded && stop.dwell && nowMinute !== undefined) {
+    else if (stop.dwell && (stop.arrivalRecorded || index === 0) && nowMinute !== undefined) {
       const now = nowMinute + Math.round((stop.arrival - nowMinute) / 1440) * 1440;
       segments.push([
         { station: stop.station, minute: stop.arrival },
         { station: stop.station, minute: Math.max(stop.arrival, now) },
       ]);
     }
-    const next = progress[index + 1];
-    if (stop.departureRecorded && next?.arrivalRecorded)
-      segments.push([
-        { station: stop.station, minute: stop.departure },
-        { station: next.station, minute: next.arrival },
-      ]);
+    if (!stop.departureRecorded || (cutoff >= 0 && index >= cutoff)) return;
+    // EDD entries identify dispatchable points even when no event has been recorded there yet.
+    let nextIndex = progress.findIndex(
+      (item, i) =>
+        i > index &&
+        (!!item.record ||
+          i === progress.length - 1 ||
+          ['Stanica', 'Odbočka', 'Výhybňa'].includes(
+            pointKind(getStationDisplayName(item.station)),
+          )),
+    );
+    if (cutoff > index && nextIndex > cutoff) nextIndex = cutoff;
+    if (nextIndex < 0) return;
+    const path: RecordedGraphPoint[] = [
+      { station: stop.station, minute: stop.departure },
+      ...progress
+        .slice(index + 1, nextIndex + 1)
+        .flatMap((item) => [
+          { station: item.station, minute: item.arrival },
+          ...(item.index < nextIndex ? [{ station: item.station, minute: item.departure }] : []),
+        ]),
+    ];
+    if (progress[nextIndex].arrivalRecorded) {
+      segments.push(path);
+      return;
+    }
+    if (nowMinute === undefined) return;
+    const now = nowMinute + Math.round((stop.departure - nowMinute) / 1440) * 1440;
+    const completed: RecordedGraphPoint[] = [];
+    for (let i = 0; i < path.length; i++) {
+      const point = path[i];
+      if (point.minute <= now) {
+        completed.push(point);
+        continue;
+      }
+      const previous = path[i - 1];
+      if (previous && now > previous.minute)
+        completed.push({
+          station: previous.station,
+          toward: point.station,
+          minute: now,
+          fraction: (now - previous.minute) / (point.minute - previous.minute),
+        });
+      break;
+    }
+    if (completed.length > 1) segments.push(completed);
   });
   return segments;
+}
+
+/** Keep service-day coordinates numerical: an early event is not a midnight rollover. */
+export function graphTrainStops(train: Timetable, records: EddEntry[], nowMinute?: number) {
+  const progress = trainProgress(train, records, nowMinute);
+  return unfoldStops(train.stops).map((stop, index) => ({
+    ...stop,
+    arrival: formatMinute(progress[index].arrival),
+    departure: formatMinute(progress[index].departure),
+    arrivalMinute: progress[index].arrival,
+    departureMinute: progress[index].departure,
+  }));
+}
+
+export function trainCancellation(train: Timetable, records: EddEntry[]) {
+  const matches = records.filter(
+    (record) =>
+      record.trainNumber === train.trainNumber &&
+      (!record.timetableId || record.timetableId === train.$id),
+  );
+  return (
+    matches.find((record) => record.cancellation)?.cancellation ||
+    matches
+      .filter((record) => record.status === 'cancelled')
+      .map((record) => ({ fromStation: record.stationId, reason: record.notes || '' }))[0]
+  );
+}
+
+/** Insert topology-only points without inventing arrival/departure times. */
+export function trainOverviewPoints(train: Timetable, network?: RailwayNetwork) {
+  const points: { station: string; index?: number }[] = [];
+  train.stops.forEach((stop, index) => {
+    if (network && index > 0) {
+      const path = networkPath(network, train.stops[index - 1].station, stop.station);
+      points.push(...path.slice(1, -1).map((station) => ({ station })));
+    }
+    points.push({ station: stop.station, index });
+  });
+  return points;
 }

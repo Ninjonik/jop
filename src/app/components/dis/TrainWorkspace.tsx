@@ -1,12 +1,18 @@
 'use client';
+import { disFetch } from '@/lib/dis/api-client';
 import type { SessionClockSnapshot } from '@/lib/dis/clock';
 import { operatingClockParts } from '@/lib/dis/clock';
 import type { DriverTrain } from '@/lib/dis/driver-train';
 import type { EddEntry } from '@/lib/dis/edd';
-import { pointKind } from '@/lib/dis/railway-network';
+import { pointKind, type NetworkSnapshot } from '@/lib/dis/railway-network';
 import type { Timetable } from '@/lib/dis/timetable';
 import { clockMinutes, formatMinute } from '@/lib/dis/timetable';
-import { lastReportedStop, trainProgress } from '@/lib/dis/train-progress';
+import {
+  lastReportedStop,
+  trainCancellation,
+  trainOverviewPoints,
+  trainProgress,
+} from '@/lib/dis/train-progress';
 import { useDisResource } from '@/lib/dis/use-dis-resource';
 import { useLeaseClock } from '@/lib/dis/use-lease-clock';
 import { useTranslation } from '@/lib/i18n/client';
@@ -19,6 +25,7 @@ export type TrafficSnapshot = {
   records: EddEntry[];
   drivers: DriverTrain[];
   clock?: SessionClockSnapshot;
+  placeId?: string;
 };
 const initial: TrafficSnapshot = { timetables: [], records: [], drivers: [] };
 const Context = createContext<{
@@ -29,6 +36,9 @@ const Context = createContext<{
   refresh: () => Promise<void>;
   error: string | null;
   available: boolean;
+  sessionId: string;
+  stationId: string;
+  writable: boolean;
 }>({
   value: initial,
   date: '',
@@ -36,15 +46,22 @@ const Context = createContext<{
   refresh: async () => {},
   error: null,
   available: false,
+  sessionId: '',
+  stationId: '',
+  writable: false,
 });
 export const useTrainWorkspace = () => useContext(Context);
 export function TrainWorkspace({
   sessionId,
   active,
+  stationId = '',
+  writable = false,
   children,
 }: {
   sessionId: string;
   active: boolean;
+  stationId?: string;
+  writable?: boolean;
   children: ReactNode;
 }) {
   const [selection, setSelection] = useState<{ number: string; train?: Timetable }>({ number: '' });
@@ -72,8 +89,11 @@ export function TrainWorkspace({
       refresh,
       error,
       available: !!sessionId,
+      sessionId,
+      stationId,
+      writable,
     }),
-    [current, minute, parts.date, refresh, error, sessionId, openTrain],
+    [current, minute, parts.date, refresh, error, sessionId, stationId, writable, openTrain],
   );
   return (
     <Context.Provider value={context}>
@@ -99,13 +119,67 @@ function TrainOverview({
   fallback?: Timetable;
 }) {
   const t = useTranslation();
-  const { value, minute, error } = useTrainWorkspace();
+  const { value, minute, error, stationId, sessionId, writable, refresh } = useTrainWorkspace();
+  const { value: network } = useDisResource<NetworkSnapshot | null>(
+    value.placeId
+      ? '/api/dis/railway-network?' + new URLSearchParams({ placeId: value.placeId })
+      : null,
+    null,
+    60000,
+  );
+  const [cancelling, setCancelling] = useState(false);
+  const [cancelFrom, setCancelFrom] = useState('');
+  const [cancelReason, setCancelReason] = useState('');
+  const [cancelError, setCancelError] = useState('');
   const found = value.timetables.filter((train) => train.trainNumber === number);
   const matches = found.length ? found : fallback ? [fallback] : [];
   const [chosen, setChosen] = useState('');
   const train = matches.find((train) => train.$id === chosen) || matches[0];
   const progress = train ? trainProgress(train, value.records, minute) : [];
   const last = lastReportedStop(progress);
+  const overview = train ? trainOverviewPoints(train, network?.network) : [];
+  const own = progress.find((stop) => stop.station === stationId)?.record;
+  const ownIndex = progress.findIndex((stop) => stop.station === stationId);
+  const cancellation = train ? trainCancellation(train, value.records) : null;
+  const cancellationOptions = progress.filter(
+    (stop) =>
+      stop.index >= ownIndex &&
+      stop.index < progress.length - 1 &&
+      !progress.some(
+        (later) =>
+          (later.index >= stop.index && later.departureRecorded) ||
+          (later.index > stop.index && later.arrivalRecorded),
+      ),
+  );
+  const selectedCancellationPoint = cancellationOptions.some((stop) => stop.station === cancelFrom)
+    ? cancelFrom
+    : cancellationOptions[0]?.station || '';
+  async function cancelTrain(restore = false) {
+    if (!own || cancelling) return;
+    setCancelling(true);
+    setCancelError('');
+    try {
+      await disFetch('/api/dis/edd', {
+        method: 'POST',
+        body: JSON.stringify({
+          command: 'edit',
+          sessionId,
+          stationId,
+          id: own.$id,
+          expectedRevision: own.revision,
+          action: restore ? 'restore-route' : 'cancel-route',
+          cancellationFrom: selectedCancellationPoint,
+          reason: cancelReason,
+        }),
+      });
+      await refresh();
+      setCancelReason('');
+    } catch (error) {
+      setCancelError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setCancelling(false);
+    }
+  }
   const driver = value.drivers.find(
     (driver) =>
       driver.timetableId === train?.$id || (!driver.timetableId && driver.trainNumber === number),
@@ -186,88 +260,178 @@ function TrainOverview({
                 </tr>
               </thead>
               <tbody>
-                {progress.map((stop, i) => (
-                  <tr key={i} className={last?.index === i ? 'train-last-report' : ''}>
-                    <th
-                      className={
-                        ['Stanica', 'Odbočka', 'Výhybňa'].includes(
-                          pointKind(getStationDisplayName(stop.station)),
-                        )
-                          ? 'train-point-major'
-                          : 'train-point-minor'
-                      }
-                    >
-                      {getStationDisplayName(stop.station)}
-                      <small>
-                        {t(
-                          i === 0
-                            ? 'Vychádzajúci'
-                            : i === progress.length - 1
-                              ? 'Končiaci'
-                              : train.stops[i].kind === 'pass'
-                                ? 'Prechádzajúci'
-                                : 'Zastavujúci',
-                        )}
-                      </small>
-                    </th>
-                    {(['arrival', 'departure'] as const).map((event) => {
-                      const excluded = event === 'arrival' ? i === 0 : i === progress.length - 1;
-                      const recorded =
-                        event === 'arrival' ? stop.arrivalRecorded : stop.departureRecorded;
-                      const planned =
-                        event === 'arrival' ? stop.plannedArrival : stop.plannedDeparture;
-                      const actual = stop[event];
-                      return (
-                        <td
-                          key={event}
-                          className={recorded ? 'train-time-recorded' : 'train-time-estimated'}
+                {overview.map((point, rowIndex) => {
+                  if (point.index === undefined)
+                    return (
+                      <tr key={'route-' + rowIndex}>
+                        <th
+                          className={
+                            ['Stanica', 'Odbočka', 'Výhybňa'].includes(
+                              pointKind(getStationDisplayName(point.station)),
+                            )
+                              ? 'train-point-major'
+                              : 'train-point-minor'
+                          }
                         >
-                          {excluded ? (
-                            '—'
-                          ) : (
-                            <>
-                              <strong>{formatMinute(actual).slice(0, 5)}</strong>
-                              <small>
-                                {t(recorded ? 'Zapísané' : 'Odhad')} · {t('Plán')}:{' '}
-                                {formatMinute(planned).slice(0, 5)}
-                              </small>
-                              {stop.dwell && event === 'departure' && <small>{t('Pobyt')}</small>}
-                            </>
+                          {getStationDisplayName(point.station)}
+                          <small>{t('Prechádzajúci')}</small>
+                        </th>
+                        <td>—</td>
+                        <td>—</td>
+                        <td>—</td>
+                        <td>—</td>
+                      </tr>
+                    );
+                  const i = point.index;
+                  const stop = progress[i];
+                  const untimedPass =
+                    train.stops[i].kind === 'pass' &&
+                    pointKind(getStationDisplayName(stop.station)) === 'Zastávka';
+                  return (
+                    <tr key={i} className={last?.index === i ? 'train-last-report' : ''}>
+                      <th
+                        className={
+                          ['Stanica', 'Odbočka', 'Výhybňa'].includes(
+                            pointKind(getStationDisplayName(stop.station)),
+                          )
+                            ? 'train-point-major'
+                            : 'train-point-minor'
+                        }
+                      >
+                        {getStationDisplayName(stop.station)}
+                        <small>
+                          {t(
+                            i === 0
+                              ? 'Vychádzajúci'
+                              : i === progress.length - 1
+                                ? 'Končiaci'
+                                : train.stops[i].kind === 'pass'
+                                  ? 'Prechádzajúci'
+                                  : 'Zastavujúci',
                           )}
-                        </td>
-                      );
-                    })}
-                    <td>{stop.record?.track || train.stops[i].track || '–'}</td>
-                    <td>
+                        </small>
+                      </th>
                       {(['arrival', 'departure'] as const).map((event) => {
-                        if (
-                          (event === 'arrival' && i === 0) ||
-                          (event === 'departure' && i === progress.length - 1)
-                        )
-                          return null;
-                        const delta = Math.round(
-                          stop[event] -
-                            (event === 'arrival' ? stop.plannedArrival : stop.plannedDeparture),
-                        );
+                        const excluded =
+                          untimedPass ||
+                          (event === 'arrival' ? i === 0 : i === progress.length - 1);
+                        const recorded =
+                          event === 'arrival' ? stop.arrivalRecorded : stop.departureRecorded;
+                        const planned =
+                          event === 'arrival' ? stop.plannedArrival : stop.plannedDeparture;
+                        const actual = stop[event];
                         return (
-                          <small
+                          <td
                             key={event}
-                            className={
-                              'train-delay ' + (delta > 0 ? 'late' : delta < 0 ? 'early' : 'ontime')
-                            }
+                            className={recorded ? 'train-time-recorded' : 'train-time-estimated'}
                           >
-                            <span>{t(event === 'arrival' ? 'Príchod' : 'Odchod')}</span>
-                            <strong>
-                              {delta ? (delta > 0 ? '+' : '') + delta + ' min' : t('Načas')}
-                            </strong>
-                          </small>
+                            {excluded ? (
+                              '—'
+                            ) : (
+                              <>
+                                <strong>{formatMinute(actual).slice(0, 5)}</strong>
+                                <small>
+                                  {t(recorded ? 'Zapísané' : 'Odhad')} · {t('Plán')}:{' '}
+                                  {formatMinute(planned).slice(0, 5)}
+                                </small>
+                                {stop.dwell && event === 'departure' && <small>{t('Pobyt')}</small>}
+                              </>
+                            )}
+                          </td>
                         );
                       })}
-                    </td>
-                  </tr>
-                ))}
+                      <td>{stop.record?.track || train.stops[i].track || '–'}</td>
+                      <td>
+                        {(['arrival', 'departure'] as const).map((event) => {
+                          if (
+                            untimedPass ||
+                            (event === 'arrival' && i === 0) ||
+                            (event === 'departure' && i === progress.length - 1)
+                          )
+                            return null;
+                          const delta = Math.round(
+                            stop[event] -
+                              (event === 'arrival' ? stop.plannedArrival : stop.plannedDeparture),
+                          );
+                          return (
+                            <small
+                              key={event}
+                              className={
+                                'train-delay ' +
+                                (delta > 0 ? 'late' : delta < 0 ? 'early' : 'ontime')
+                              }
+                            >
+                              <span>{t(event === 'arrival' ? 'Príchod' : 'Odchod')}</span>
+                              <strong>
+                                {delta ? (delta > 0 ? '+' : '') + delta + ' min' : t('Načas')}
+                              </strong>
+                            </small>
+                          );
+                        })}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
+            {cancellation && (
+              <p className="train-cancellation-notice">
+                {t('Vlak zrušený od dopravného bodu')}:{' '}
+                <strong>{getStationDisplayName(cancellation.fromStation)}</strong> ·{' '}
+                {cancellation.reason}
+              </p>
+            )}
+            {writable && own && ownIndex >= 0 && (
+              <details className="train-cancellation">
+                <summary>{t('Zrušenie vlaku v relácii')}</summary>
+                <p>
+                  {t(
+                    'Zrušenie platí od vybraného bodu po cieľ. Už zapísané pohyby zostanú zachované.',
+                  )}
+                </p>
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    void cancelTrain(!!own.cancellation);
+                  }}
+                >
+                  {!cancellation && (
+                    <label>
+                      {t('Od dopravného bodu')}
+                      <select
+                        className="aero-select"
+                        value={selectedCancellationPoint}
+                        onChange={(e) => setCancelFrom(e.target.value)}
+                      >
+                        {cancellationOptions.map((stop) => (
+                          <option key={stop.station} value={stop.station}>
+                            {getStationDisplayName(stop.station)}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  )}
+                  <label>
+                    {t('Dôvod')}
+                    <input
+                      className="aero-input"
+                      value={cancelReason}
+                      maxLength={500}
+                      onChange={(e) => setCancelReason(e.target.value)}
+                    />
+                  </label>
+                  <button
+                    className="aero-btn"
+                    disabled={
+                      cancelling || !cancelReason.trim() || (!!cancellation && !own.cancellation)
+                    }
+                  >
+                    {t(own.cancellation ? 'Obnoviť vlak' : 'Zrušiť vlak')}
+                  </button>
+                </form>
+                {cancelError && <p role="alert">{t(cancelError)}</p>}
+              </details>
+            )}
           </>
         )}
       </div>

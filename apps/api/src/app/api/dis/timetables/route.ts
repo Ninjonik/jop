@@ -1,6 +1,11 @@
 import { requireDisProfile } from '@/lib/server/dis/appwrite';
 import { disResponse } from '@/lib/server/dis/http';
-import { loadTimetables, retireTimetable, saveTimetable } from '@/lib/server/dis/timetables';
+import {
+  deleteTimetable,
+  loadTimetables,
+  retireTimetable,
+  saveTimetable,
+} from '@/lib/server/dis/timetables';
 export async function GET(request: Request) {
   return disResponse(async () => {
     await requireDisProfile(request);
@@ -15,7 +20,8 @@ export async function GET(request: Request) {
 export async function DELETE(request: Request) {
   return disResponse(async () => {
     await requireDisProfile(request, ['dispatcher_manager']);
-    return retireTimetable(await request.json());
+    const body = await request.json();
+    return body.permanent === true ? deleteTimetable(body) : retireTimetable(body);
   });
 }
 export async function POST(request: Request) {
