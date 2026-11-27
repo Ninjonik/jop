@@ -25,6 +25,7 @@ import { SessionControlView } from '@/app/components/dis/SessionControlView';
 import { ShiftManagementView } from '@/app/components/dis/ShiftManagementView';
 import { StaffManagementView } from '@/app/components/dis/StaffManagementView';
 import { TpvFullView } from '@/app/components/dis/TpvFullView';
+import { TrainWorkspace } from '@/app/components/dis/TrainWorkspace';
 import MockControlClient from '@/app/components/mock/MockControlClient';
 import RuntimeStationClient from '@/app/components/runtime/RuntimeStationClient';
 import { AeroIcon, type AeroIconName } from '@/app/components/ui/AeroIcon';
@@ -58,7 +59,7 @@ const tabIcons: Record<Tab, AeroIconName> = {
   preparation: 'network',
   sessions: 'launch',
   driver: 'train',
-  runtime: 'train',
+  runtime: 'network',
   edd: 'table',
   tpv: 'chart',
   shifts: 'calendar',
@@ -354,7 +355,7 @@ function DisPortalShell() {
       visible: hasStation && ownsStation && workingMode === 'dispatcher',
       title: 'Dopravný denník',
     },
-    { id: 'tpv', title: 'NCP', visible: hasSession },
+    { id: 'tpv', title: 'TPV', visible: hasSession },
     { id: 'shifts', title: 'Šichty' },
     { id: 'staff', title: 'Personál', visible: canManageStaff && workingMode === 'admin' },
     { id: 'docs', title: 'Dokumenty' },
@@ -377,365 +378,300 @@ function DisPortalShell() {
   ];
   const activeTab = tabs.find((item) => item.id === tab)?.visible === false ? 'sessions' : tab;
   return (
-    <div className="dis-portal h-screen flex flex-col overflow-hidden bg-[var(--aero-bg)] text-[var(--aero-text)] text-xs">
-      <AccountSettingsSync />
-      <AudioPermissions sessionId={current.sessionId} />
-      <div className="aero-title-bar dis-main-title-bar">
-        <div className="window-title">
-          <AeroIcon name="train" size={24} />
-          <span>{t('ZSSK DIS — Dopravný informačný systém')}</span>
+    <TrainWorkspace
+      key={current.sessionId}
+      sessionId={current.sessionId}
+      active={activeTab === 'edd' || activeTab === 'tpv'}
+    >
+      <div className="dis-portal h-screen flex flex-col overflow-hidden bg-[var(--aero-bg)] text-[var(--aero-text)] text-xs">
+        <AccountSettingsSync />
+        {hasSession && workingMode === 'dispatcher' && (
+          <nav className="train-workspace-switch" aria-label={t('Riadenie dopravy')}>
+            {(['runtime', 'edd', 'tpv'] as const).map((id) => (
+              <button
+                key={id}
+                className="aero-btn"
+                aria-pressed={activeTab === id}
+                onClick={() => setTab(id)}
+              >
+                <AeroIcon name={tabIcons[id]} />
+                {t(id === 'runtime' ? 'Staničný pult' : id === 'edd' ? 'Dopravný denník' : 'TPV')}
+              </button>
+            ))}
+          </nav>
+        )}
+        <AudioPermissions sessionId={current.sessionId} />
+        <div className="aero-title-bar dis-main-title-bar">
+          <div className="window-title">
+            <AeroIcon name="train" size={24} />
+            <span>{t('ZSSK DIS — Dopravný informačný systém')}</span>
+          </div>
+          <span className="ml-auto">
+            {profile.name} ({profile.callsign})
+          </span>
+          <DisClock sessionId={current.sessionId} canManage={canManageStaff} />
         </div>
-        <span className="ml-auto">
-          {profile.name} ({profile.callsign})
-        </span>
-        <DisClock sessionId={current.sessionId} canManage={canManageStaff} />
-      </div>
-      <nav hidden={!workingMode} className="menubar flex-wrap" aria-label={t('Moduly DIS')}>
-        <button className="menu-btn" onClick={() => setWorkingMode(null)}>
-          <AeroIcon name="staff" />
-          {t('Zmeniť pracovnú pozíciu')}
-        </button>
-        <span className="menu-group-label">{t('Relácia')}</span>
-        {tabs
-          .filter((item) => item.visible !== false)
-          .filter((item) =>
-            ['sessions', 'driver', 'runtime', 'edd', 'tpv', 'mock', 'recovery'].includes(item.id),
-          )
-          .map((item) => (
-            <button
-              key={item.id}
-              className={`menu-btn ${activeTab === item.id && !tool ? 'font-bold underline' : ''}`}
-              disabled={!selectedPlace}
-              onClick={() => openTab(item.id)}
-            >
-              <AeroIcon name={tabIcons[item.id]} /> {t(item.title)}
-            </button>
-          ))}
-        <span className="menu-group-label">{t('Všeobecné')}</span>
-        {tabs
-          .filter(
-            (item) =>
-              item.visible !== false &&
-              ['settings', 'shifts', 'staff', 'docs', 'gvd', 'preparation'].includes(item.id),
-          )
-          .map((item) => (
-            <button
-              key={item.id}
-              className={`menu-btn ${activeTab === item.id && !tool ? 'font-bold underline' : ''}`}
-              disabled={!['preparation', 'settings'].includes(item.id) && !selectedPlace}
-              onClick={() => openTab(item.id)}
-            >
-              <AeroIcon name={tabIcons[item.id]} /> {t(item.title)}
-            </button>
-          ))}
-        <div className="ml-auto flex gap-2">
-          <DesktopDownloads />
-          <LanguageSelector />
-          <button
-            className="aero-btn"
-            onClick={() => {
-              document.documentElement.classList.toggle('dark', !dark);
-              setAppearance({ dark: !dark });
-            }}
-          >
-            <AeroIcon name={dark ? 'sun' : 'moon'} />
-            {dark ? t('Svetlý motív') : t('Tmavý motív')}
+        <nav hidden={!workingMode} className="menubar flex-wrap" aria-label={t('Moduly DIS')}>
+          <button className="menu-btn" onClick={() => setWorkingMode(null)}>
+            <AeroIcon name="staff" />
+            {t('Zmeniť pracovnú pozíciu')}
           </button>
-          <button className="aero-btn" onClick={logout}>
-            <AeroIcon name="logout" /> {t('Odhlásiť')}{' '}
-          </button>
-        </div>
-      </nav>
-      {!singlePlaceSessionMode && !['preparation', 'settings'].includes(activeTab) && !tool && (
-        <div className="ribbon-bar flex-wrap">
-          <label>
-            {' '}
-            {t('Sieť')}{' '}
-            <select
-              aria-label={t('Sieť')}
-              className="aero-select max-w-80"
-              value={placeId}
-              disabled={placesLoading && !places.places.length}
-              onChange={(event) => {
-                setPlaceChoice(event.target.value);
-                setScope(null);
-                setTool(null);
-                selectTab('sessions');
-                setSessionSearch('');
+          <span className="menu-group-label">{t('Relácia')}</span>
+          {tabs
+            .filter((item) => item.visible !== false)
+            .filter((item) =>
+              ['sessions', 'driver', 'runtime', 'edd', 'tpv', 'mock', 'recovery'].includes(item.id),
+            )
+            .map((item) => (
+              <button
+                key={item.id}
+                className={`menu-btn ${activeTab === item.id && !tool ? 'font-bold underline' : ''}`}
+                disabled={!selectedPlace}
+                onClick={() => openTab(item.id)}
+              >
+                <AeroIcon name={tabIcons[item.id]} /> {t(item.title)}
+              </button>
+            ))}
+          <span className="menu-group-label">{t('Všeobecné')}</span>
+          {tabs
+            .filter(
+              (item) =>
+                item.visible !== false &&
+                ['settings', 'shifts', 'staff', 'docs', 'gvd', 'preparation'].includes(item.id),
+            )
+            .map((item) => (
+              <button
+                key={item.id}
+                className={`menu-btn ${activeTab === item.id && !tool ? 'font-bold underline' : ''}`}
+                disabled={!['preparation', 'settings'].includes(item.id) && !selectedPlace}
+                onClick={() => openTab(item.id)}
+              >
+                <AeroIcon name={tabIcons[item.id]} /> {t(item.title)}
+              </button>
+            ))}
+          <div className="ml-auto flex gap-2">
+            <DesktopDownloads />
+            <LanguageSelector />
+            <button
+              className="aero-btn"
+              onClick={() => {
+                document.documentElement.classList.toggle('dark', !dark);
+                setAppearance({ dark: !dark });
               }}
             >
-              <option value="">{t('Vybrať sieť')}</option>
-              {places.places.map((place) => (
-                <option key={place.placeId} value={place.placeId}>
-                  {place.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          {selectedPlace && (
-            <>
-              <label>
-                {' '}
-                {t('Relácia')}{' '}
-                <select
-                  aria-label={t('Aktívna relácia')}
-                  className="aero-select max-w-80"
-                  disabled={!selectedPlace}
-                  value={current.sessionId}
-                  onChange={(event) => {
-                    const sessionId = event.target.value;
-                    setScope({
-                      sessionId,
-                      stationId:
-                        network.stations.find((station) => station.sessionId === sessionId)
-                          ?.stationId || '',
-                    });
-                  }}
-                >
-                  <option value="">{t('Vybrať reláciu')}</option>
-                  {sessions.map((session) => (
-                    <option key={session.sessionId} value={session.sessionId}>
-                      {session.isLive ? '● ' : ''}
-                      {session.createdAt
-                        ? new Date(session.createdAt).toLocaleString(localeTag)
-                        : t('Dátum neznámy')}{' '}
-                      — {session.sessionId}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <button
-                className="aero-btn"
-                disabled={!selectedPlace}
-                onClick={() => {
-                  setShowMore(!showMore);
+              <AeroIcon name={dark ? 'sun' : 'moon'} />
+              {dark ? t('Svetlý motív') : t('Tmavý motív')}
+            </button>
+            <button className="aero-btn" onClick={logout}>
+              <AeroIcon name="logout" /> {t('Odhlásiť')}{' '}
+            </button>
+          </div>
+        </nav>
+        {!singlePlaceSessionMode && !['preparation', 'settings'].includes(activeTab) && !tool && (
+          <div className="ribbon-bar flex-wrap">
+            <label>
+              {' '}
+              {t('Sieť')}{' '}
+              <select
+                aria-label={t('Sieť')}
+                className="aero-select max-w-80"
+                value={placeId}
+                disabled={placesLoading && !places.places.length}
+                onChange={(event) => {
+                  setPlaceChoice(event.target.value);
+                  setScope(null);
+                  setTool(null);
+                  selectTab('sessions');
                   setSessionSearch('');
-                  if (showMore) setScope(null);
                 }}
               >
-                {showMore ? t('Len živé') : t('Zobraziť ďalšie')}
-              </button>
-              {showMore && (
-                <input
-                  className="aero-input"
-                  disabled={!selectedPlace}
-                  aria-label={t('Hľadať reláciu podľa dátumu alebo ID')}
-                  placeholder={t('Hľadať dátum alebo ID')}
-                  value={sessionSearch}
-                  onChange={(event) => setSessionSearch(event.target.value)}
-                />
-              )}
-              {hasSession && sessionStations.length > 0 && (
+                <option value="">{t('Vybrať sieť')}</option>
+                {places.places.map((place) => (
+                  <option key={place.placeId} value={place.placeId}>
+                    {place.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {selectedPlace && (
+              <>
                 <label>
                   {' '}
-                  {t('Stanica')}{' '}
+                  {t('Relácia')}{' '}
                   <select
-                    aria-label={t('Aktívna stanica')}
-                    className="aero-select"
-                    disabled={!selectedPlace || !current.sessionId}
-                    value={workingMode === 'dispatcher' && !ownsStation ? '' : current.stationId}
-                    onChange={(event) =>
-                      setScope({ sessionId: current.sessionId, stationId: event.target.value })
-                    }
-                  >
-                    <option value="">{t('Vybrať stanicu')}</option>
-                    {sessionStations
-                      .filter(
-                        (station) =>
-                          workingMode !== 'dispatcher' ||
-                          ownClaims.some((claim) => claim.stationId === station.stationId),
-                      )
-                      .map((station) => (
-                        <option key={station.stationId} value={station.stationId}>
-                          {station.name}
-                        </option>
-                      ))}
-                  </select>
-                </label>
-              )}
-            </>
-          )}
-        </div>
-      )}
-      {activeTab !== 'preparation' && t(placesError) && (
-        <p role="alert" className="p-2 text-red-700">
-          {' '}
-          {t('Siete sa nepodarilo načítať:')} {t(placesError)}
-        </p>
-      )}
-      {activeTab !== 'preparation' && !places.placesComplete && (
-        <p role="status" className="p-2">
-          {' '}
-          {t('Roblox nie je dostupný; zobrazené sú uložené siete.')}{' '}
-        </p>
-      )}
-      {activeTab !== 'preparation' && t(networkError) && (
-        <p role="alert" className="p-2 text-red-700">
-          {t(networkError)}
-        </p>
-      )}
-      <div className="workspace min-h-0">
-        <main className="content-panel min-h-0 min-w-0">
-          {!workingMode ? (
-            <div className="working-mode-selection">
-              <h1>{t('Vyberte pracovnú pozíciu')}</h1>
-              <div className="working-mode-options">
-                {(['admin', 'dispatcher', 'driver'] as const).map((mode) => (
-                  <button
-                    key={mode}
-                    className="aero-btn working-mode-choice"
-                    disabled={!canUseWorkingMode(profile.role, mode)}
-                    onClick={() => {
-                      setWorkingMode(mode);
-                      openTab(mode === 'driver' ? 'driver' : 'sessions');
+                    aria-label={t('Aktívna relácia')}
+                    className="aero-select max-w-80"
+                    disabled={!selectedPlace}
+                    value={current.sessionId}
+                    onChange={(event) => {
+                      const sessionId = event.target.value;
+                      setScope({
+                        sessionId,
+                        stationId:
+                          network.stations.find((station) => station.sessionId === sessionId)
+                            ?.stationId || '',
+                      });
                     }}
                   >
-                    <AeroIcon
-                      name={
-                        mode === 'admin' ? 'settings' : mode === 'dispatcher' ? 'network' : 'train'
-                      }
-                      size={32}
-                    />
-                    <strong>
-                      {t(
-                        mode === 'admin'
-                          ? 'Administratíva'
-                          : mode === 'dispatcher'
-                            ? 'Výpravca'
-                            : 'Rušňovodič a vlakový personál',
-                      )}
-                    </strong>
-                    <span>
-                      {t(
-                        mode === 'admin'
-                          ? 'Správa, GVD a dokumenty'
-                          : mode === 'dispatcher'
-                            ? 'Výber stanice a riadenie dopravy'
-                            : 'Môj vlak a cestovný poriadok',
-                      )}
-                    </span>
-                  </button>
-                ))}
-              </div>
-              <p>{t(profile.role)}</p>
-              <button className="aero-btn" onClick={logout}>
-                <AeroIcon name="logout" />
-                {t('Odhlásiť')}
-              </button>
-            </div>
-          ) : (
-            <>
-              {tool && (
-                <JopEmbeddedView
-                  {...tool}
-                  onClose={() => setTool(null)}
-                  onNavigate={navigateTool}
-                />
-              )}
-              {!tool && activeTab === 'preparation' && (
-                <NetworkPreparationView onOpenTool={(target) => launch(target, '')} />
-              )}
-              {!tool && activeTab === 'settings' && <SettingsView />}
-              {!tool &&
-                !selectedPlace &&
-                activeTab !== 'settings' &&
-                activeTab !== 'preparation' && <p className="p-4">{t('Najprv vyberte sieť.')}</p>}
-              {selectedPlace && (
-                <WorkspaceView
-                  active={!tool && activeTab !== 'settings' && activeTab !== 'preparation'}
+                    <option value="">{t('Vybrať reláciu')}</option>
+                    {sessions.map((session) => (
+                      <option key={session.sessionId} value={session.sessionId}>
+                        {session.isLive ? '● ' : ''}
+                        {session.createdAt
+                          ? new Date(session.createdAt).toLocaleString(localeTag)
+                          : t('Dátum neznámy')}{' '}
+                        — {session.sessionId}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <button
+                  className="aero-btn"
+                  disabled={!selectedPlace}
+                  onClick={() => {
+                    setShowMore(!showMore);
+                    setSessionSearch('');
+                    if (showMore) setScope(null);
+                  }}
                 >
-                  {visitedViews.sessions && (
-                    <WorkspaceView active={activeTab === 'sessions'}>
-                      {workingMode === 'dispatcher' ? (
-                        <StationSelectionView
-                          placeId={placeId}
-                          sessionId={current.sessionId}
-                          stations={sessionStations}
-                          claims={control.claims}
-                          userId={profile.userId}
-                          canTakeOver={
-                            isDisAdministrator(profile.role) && workingMode === 'dispatcher'
-                          }
-                          onSelect={launch}
-                          error={claimError || claimsError || ''}
-                        />
-                      ) : (
-                        <SessionControlView
-                          key={placeId}
-                          placeId={placeId}
-                          showSessionControls={!singlePlaceSessionMode}
-                          onLaunchRuntime={launch}
-                          canLaunchSimulator={hasSession && canOperateStation}
-                          canInspectInternalStations={isDisAdministrator(profile.role)}
-                        />
-                      )}
-                    </WorkspaceView>
-                  )}
-                  {visitedViews.driver && hasSession && workingMode === 'driver' && (
-                    <WorkspaceView active={activeTab === 'driver'}>
-                      <DriverDashboardView
-                        key={current.sessionId}
-                        sessionId={current.sessionId}
-                        onTrainChange={onDriverTrainChange}
+                  {showMore ? t('Len živé') : t('Zobraziť ďalšie')}
+                </button>
+                {showMore && (
+                  <input
+                    className="aero-input"
+                    disabled={!selectedPlace}
+                    aria-label={t('Hľadať reláciu podľa dátumu alebo ID')}
+                    placeholder={t('Hľadať dátum alebo ID')}
+                    value={sessionSearch}
+                    onChange={(event) => setSessionSearch(event.target.value)}
+                  />
+                )}
+                {hasSession && sessionStations.length > 0 && (
+                  <label>
+                    {' '}
+                    {t('Stanica')}{' '}
+                    <select
+                      aria-label={t('Aktívna stanica')}
+                      className="aero-select"
+                      disabled={!selectedPlace || !current.sessionId}
+                      value={workingMode === 'dispatcher' && !ownsStation ? '' : current.stationId}
+                      onChange={(event) =>
+                        setScope({ sessionId: current.sessionId, stationId: event.target.value })
+                      }
+                    >
+                      <option value="">{t('Vybrať stanicu')}</option>
+                      {sessionStations
+                        .filter(
+                          (station) =>
+                            workingMode !== 'dispatcher' ||
+                            ownClaims.some((claim) => claim.stationId === station.stationId),
+                        )
+                        .map((station) => (
+                          <option key={station.stationId} value={station.stationId}>
+                            {station.name}
+                          </option>
+                        ))}
+                    </select>
+                  </label>
+                )}
+              </>
+            )}
+          </div>
+        )}
+        {activeTab !== 'preparation' && t(placesError) && (
+          <p role="alert" className="p-2 text-red-700">
+            {' '}
+            {t('Siete sa nepodarilo načítať:')} {t(placesError)}
+          </p>
+        )}
+        {activeTab !== 'preparation' && !places.placesComplete && (
+          <p role="status" className="p-2">
+            {' '}
+            {t('Roblox nie je dostupný; zobrazené sú uložené siete.')}{' '}
+          </p>
+        )}
+        {activeTab !== 'preparation' && t(networkError) && (
+          <p role="alert" className="p-2 text-red-700">
+            {t(networkError)}
+          </p>
+        )}
+        <div className="workspace min-h-0">
+          <main className="content-panel min-h-0 min-w-0">
+            {!workingMode ? (
+              <div className="working-mode-selection">
+                <h1>{t('Vyberte pracovnú pozíciu')}</h1>
+                <div className="working-mode-options">
+                  {(['admin', 'dispatcher', 'driver'] as const).map((mode) => (
+                    <button
+                      key={mode}
+                      className="aero-btn working-mode-choice"
+                      disabled={!canUseWorkingMode(profile.role, mode)}
+                      onClick={() => {
+                        setWorkingMode(mode);
+                        openTab(mode === 'driver' ? 'driver' : 'sessions');
+                      }}
+                    >
+                      <AeroIcon
+                        name={
+                          mode === 'admin'
+                            ? 'settings'
+                            : mode === 'dispatcher'
+                              ? 'network'
+                              : 'train'
+                        }
+                        size={32}
                       />
-                    </WorkspaceView>
-                  )}
-                  {!current.sessionId &&
-                    ['runtime', 'edd', 'tpv', 'mock', 'recovery'].includes(activeTab) && (
-                      <p className="p-4">{t('Najprv vyberte reláciu pre vybranú sieť.')}</p>
-                    )}
-                  {visitedViews.runtime &&
-                    current.sessionId &&
-                    canOperateStation &&
-                    (workingMode === 'dispatcher' ||
-                      (workingMode === 'admin' && isDisAdministrator(profile.role))) && (
-                      <WorkspaceView active={activeTab === 'runtime'}>
-                        {current.sessionId &&
-                        current.stationId &&
-                        (isDisAdministrator(profile.role) || (canOperateStation && ownsStation)) ? (
-                          <>
-                            <div
-                              className="ribbon-bar flex-wrap"
-                              role="group"
-                              aria-label={t('Ovládané stanice')}
-                            >
-                              {ownClaims.map((claim) => (
-                                <span key={claim.stationId} className="station-control-tab">
-                                  <button
-                                    className="aero-btn"
-                                    aria-pressed={claim.stationId === current.stationId}
-                                    onClick={() =>
-                                      setScope({
-                                        sessionId: claim.sessionId,
-                                        stationId: claim.stationId,
-                                      })
-                                    }
-                                  >
-                                    {sessionStations.find((s) => s.stationId === claim.stationId)
-                                      ?.name || claim.stationId}
-                                  </button>
-                                  <button
-                                    className="aero-btn"
-                                    onClick={() => void releaseStation(claim.stationId)}
-                                    aria-label={t('Uvoľniť stanicu {0}', claim.stationId)}
-                                  >
-                                    <AeroIcon name="close" />
-                                  </button>
-                                </span>
-                              ))}
-                              <button className="aero-btn" onClick={() => openTab('sessions')}>
-                                <AeroIcon name="add" />
-                                {t('Ďalšia stanica')}
-                              </button>
-                            </div>
-                            <RuntimeStationClient
-                              key={scopeKey}
-                              {...current}
-                              embedded
-                              readOnly={workingMode === 'admin' && isDisAdministrator(profile.role)}
-                            />
-                          </>
-                        ) : (
+                      <strong>
+                        {t(
+                          mode === 'admin'
+                            ? 'Administratíva'
+                            : mode === 'dispatcher'
+                              ? 'Výpravca'
+                              : 'Rušňovodič a vlakový personál',
+                        )}
+                      </strong>
+                      <span>
+                        {t(
+                          mode === 'admin'
+                            ? 'Správa, GVD a dokumenty'
+                            : mode === 'dispatcher'
+                              ? 'Výber stanice a riadenie dopravy'
+                              : 'Môj vlak a cestovný poriadok',
+                        )}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+                <p>{t(profile.role)}</p>
+                <button className="aero-btn" onClick={logout}>
+                  <AeroIcon name="logout" />
+                  {t('Odhlásiť')}
+                </button>
+              </div>
+            ) : (
+              <>
+                {tool && (
+                  <JopEmbeddedView
+                    {...tool}
+                    onClose={() => setTool(null)}
+                    onNavigate={navigateTool}
+                  />
+                )}
+                {!tool && activeTab === 'preparation' && (
+                  <NetworkPreparationView onOpenTool={(target) => launch(target, '')} />
+                )}
+                {!tool && activeTab === 'settings' && <SettingsView />}
+                {!tool &&
+                  !selectedPlace &&
+                  activeTab !== 'settings' &&
+                  activeTab !== 'preparation' && <p className="p-4">{t('Najprv vyberte sieť.')}</p>}
+                {selectedPlace && (
+                  <WorkspaceView
+                    active={!tool && activeTab !== 'settings' && activeTab !== 'preparation'}
+                  >
+                    {visitedViews.sessions && (
+                      <WorkspaceView active={activeTab === 'sessions'}>
+                        {workingMode === 'dispatcher' ? (
                           <StationSelectionView
                             placeId={placeId}
                             sessionId={current.sessionId}
@@ -748,148 +684,250 @@ function DisPortalShell() {
                             onSelect={launch}
                             error={claimError || claimsError || ''}
                           />
+                        ) : (
+                          <SessionControlView
+                            key={placeId}
+                            placeId={placeId}
+                            showSessionControls={!singlePlaceSessionMode}
+                            onLaunchRuntime={launch}
+                            canLaunchSimulator={hasSession && canOperateStation}
+                            canInspectInternalStations={isDisAdministrator(profile.role)}
+                          />
                         )}
                       </WorkspaceView>
                     )}
-                  {visitedViews.edd && current.sessionId && workingMode === 'dispatcher' && (
-                    <div
-                      className="flex flex-1 flex-col min-h-0 overflow-hidden"
-                      hidden={activeTab !== 'edd'}
-                      style={activeTab !== 'edd' ? { display: 'none' } : undefined}
-                    >
-                      {ownsStation ? (
-                        <EddTableView
+                    {visitedViews.driver && hasSession && workingMode === 'driver' && (
+                      <WorkspaceView active={activeTab === 'driver'}>
+                        <DriverDashboardView
+                          key={current.sessionId}
+                          sessionId={current.sessionId}
+                          onTrainChange={onDriverTrainChange}
+                        />
+                      </WorkspaceView>
+                    )}
+                    {!current.sessionId &&
+                      ['runtime', 'edd', 'tpv', 'mock', 'recovery'].includes(activeTab) && (
+                        <p className="p-4">{t('Najprv vyberte reláciu pre vybranú sieť.')}</p>
+                      )}
+                    {visitedViews.runtime &&
+                      current.sessionId &&
+                      canOperateStation &&
+                      (workingMode === 'dispatcher' ||
+                        (workingMode === 'admin' && isDisAdministrator(profile.role))) && (
+                        <WorkspaceView active={activeTab === 'runtime'}>
+                          {current.sessionId &&
+                          current.stationId &&
+                          (isDisAdministrator(profile.role) ||
+                            (canOperateStation && ownsStation)) ? (
+                            <>
+                              <div
+                                className="ribbon-bar flex-wrap"
+                                role="group"
+                                aria-label={t('Ovládané stanice')}
+                              >
+                                {ownClaims.map((claim) => (
+                                  <span key={claim.stationId} className="station-control-tab">
+                                    <button
+                                      className="aero-btn"
+                                      aria-pressed={claim.stationId === current.stationId}
+                                      onClick={() =>
+                                        setScope({
+                                          sessionId: claim.sessionId,
+                                          stationId: claim.stationId,
+                                        })
+                                      }
+                                    >
+                                      {sessionStations.find((s) => s.stationId === claim.stationId)
+                                        ?.name || claim.stationId}
+                                    </button>
+                                    <button
+                                      className="aero-btn"
+                                      onClick={() => void releaseStation(claim.stationId)}
+                                      aria-label={t('Uvoľniť stanicu {0}', claim.stationId)}
+                                    >
+                                      <AeroIcon name="close" />
+                                    </button>
+                                  </span>
+                                ))}
+                                <button className="aero-btn" onClick={() => openTab('sessions')}>
+                                  <AeroIcon name="add" />
+                                  {t('Ďalšia stanica')}
+                                </button>
+                              </div>
+                              <RuntimeStationClient
+                                key={scopeKey}
+                                {...current}
+                                embedded
+                                readOnly={
+                                  workingMode === 'admin' && isDisAdministrator(profile.role)
+                                }
+                              />
+                            </>
+                          ) : (
+                            <StationSelectionView
+                              placeId={placeId}
+                              sessionId={current.sessionId}
+                              stations={sessionStations}
+                              claims={control.claims}
+                              userId={profile.userId}
+                              canTakeOver={
+                                isDisAdministrator(profile.role) && workingMode === 'dispatcher'
+                              }
+                              onSelect={launch}
+                              error={claimError || claimsError || ''}
+                            />
+                          )}
+                        </WorkspaceView>
+                      )}
+                    {visitedViews.edd && current.sessionId && workingMode === 'dispatcher' && (
+                      <div
+                        className="flex flex-1 flex-col min-h-0 overflow-hidden"
+                        hidden={activeTab !== 'edd'}
+                        style={activeTab !== 'edd' ? { display: 'none' } : undefined}
+                      >
+                        {ownsStation ? (
+                          <EddTableView
+                            key={scopeKey}
+                            {...current}
+                            placeId={placeId}
+                            active={activeTab === 'edd'}
+                            reply={eddReply}
+                            onOpenChat={(stationId) =>
+                              setChatToOpen({ stationId, request: Date.now() })
+                            }
+                          />
+                        ) : (
+                          <p className="p-3">
+                            {t('Pre prístup k EDD najprv prevezmite stanicu v riadení dopravy.')}
+                          </p>
+                        )}
+                      </div>
+                    )}
+                    {visitedViews.tpv && current.sessionId && (
+                      <div
+                        className="flex flex-1 flex-col min-h-0 overflow-hidden"
+                        hidden={activeTab !== 'tpv'}
+                        style={activeTab !== 'tpv' ? { display: 'none' } : undefined}
+                      >
+                        <TpvFullView
                           key={scopeKey}
                           {...current}
                           placeId={placeId}
-                          reply={eddReply}
-                          onOpenChat={(stationId) =>
-                            setChatToOpen({ stationId, request: Date.now() })
-                          }
+                          active={activeTab === 'tpv'}
                         />
-                      ) : (
-                        <p className="p-3">
-                          {t('Pre prístup k EDD najprv prevezmite stanicu v riadení dopravy.')}
-                        </p>
+                      </div>
+                    )}
+                    {visitedViews.shifts && (
+                      <WorkspaceView active={activeTab === 'shifts'}>
+                        <ShiftManagementView />
+                      </WorkspaceView>
+                    )}
+                    {!tool &&
+                      activeTab === 'staff' &&
+                      canManageStaff &&
+                      workingMode === 'admin' && <StaffManagementView />}
+                    {!tool && activeTab === 'docs' && <DocumentCenterView />}
+                    {!tool && activeTab === 'gvd' && canCreateGvd && workingMode === 'admin' && (
+                      <GvdEditorView
+                        key={placeId}
+                        place={selectedPlace}
+                        sessionId={current.sessionId}
+                      />
+                    )}
+                    {visitedViews.recovery &&
+                      workingMode === 'admin' &&
+                      current.sessionId &&
+                      isDisAdministrator(profile.role) && (
+                        <WorkspaceView active={activeTab === 'recovery'}>
+                          <RecoveryView
+                            key={current.sessionId}
+                            sessionId={current.sessionId}
+                            stations={network.stations}
+                          />
+                        </WorkspaceView>
                       )}
-                    </div>
-                  )}
-                  {visitedViews.tpv && current.sessionId && (
-                    <div
-                      className="flex flex-1 flex-col min-h-0 overflow-hidden"
-                      hidden={activeTab !== 'tpv'}
-                      style={activeTab !== 'tpv' ? { display: 'none' } : undefined}
-                    >
-                      <TpvFullView key={scopeKey} {...current} placeId={placeId} />
-                    </div>
-                  )}
-                  {visitedViews.shifts && (
-                    <WorkspaceView active={activeTab === 'shifts'}>
-                      <ShiftManagementView />
-                    </WorkspaceView>
-                  )}
-                  {!tool && activeTab === 'staff' && canManageStaff && workingMode === 'admin' && (
-                    <StaffManagementView />
-                  )}
-                  {!tool && activeTab === 'docs' && <DocumentCenterView />}
-                  {!tool && activeTab === 'gvd' && canCreateGvd && workingMode === 'admin' && (
-                    <GvdEditorView
-                      key={placeId}
-                      place={selectedPlace}
-                      sessionId={current.sessionId}
-                    />
-                  )}
-                  {visitedViews.recovery &&
-                    workingMode === 'admin' &&
-                    current.sessionId &&
-                    isDisAdministrator(profile.role) && (
-                      <WorkspaceView active={activeTab === 'recovery'}>
-                        <RecoveryView
-                          key={current.sessionId}
-                          sessionId={current.sessionId}
-                          stations={network.stations}
-                        />
-                      </WorkspaceView>
-                    )}
-                  {visitedViews.mock &&
-                    current.sessionId &&
-                    canOperateStation &&
-                    workingMode === 'admin' && (
-                      <WorkspaceView active={activeTab === 'mock'}>
-                        <div className="dis-simulator flex-1 overflow-auto p-3">
-                          <Suspense fallback={<p> {t('Načítavam simulátor...')} </p>}>
-                            <MockControlClient
-                              key={current.sessionId}
-                              onSessionChange={(sessionId) =>
-                                setScope({
-                                  sessionId,
-                                  stationId:
-                                    network.stations.find(
-                                      (station) => station.sessionId === sessionId,
-                                    )?.stationId || '',
-                                })
-                              }
-                              embedded
-                              initialSessionId={current.sessionId}
-                              onLaunch={launch}
-                            />
-                          </Suspense>
-                        </div>
-                      </WorkspaceView>
-                    )}
-                </WorkspaceView>
-              )}
-            </>
+                    {visitedViews.mock &&
+                      current.sessionId &&
+                      canOperateStation &&
+                      workingMode === 'admin' && (
+                        <WorkspaceView active={activeTab === 'mock'}>
+                          <div className="dis-simulator flex-1 overflow-auto p-3">
+                            <Suspense fallback={<p> {t('Načítavam simulátor...')} </p>}>
+                              <MockControlClient
+                                key={current.sessionId}
+                                onSessionChange={(sessionId) =>
+                                  setScope({
+                                    sessionId,
+                                    stationId:
+                                      network.stations.find(
+                                        (station) => station.sessionId === sessionId,
+                                      )?.stationId || '',
+                                  })
+                                }
+                                embedded
+                                initialSessionId={current.sessionId}
+                                onLaunch={launch}
+                              />
+                            </Suspense>
+                          </div>
+                        </WorkspaceView>
+                      )}
+                  </WorkspaceView>
+                )}
+              </>
+            )}
+          </main>
+          {hasSession && workingMode && activeTab !== 'preparation' && (
+            <ResizablePanel
+              id="communication"
+              title={t('Komunikácia')}
+              edge="right"
+              defaultSize={350}
+              responsive
+            >
+              <SessionChatView
+                key={`${current.sessionId}/${workingMode}/${workingMode === 'dispatcher' && ownsStation ? current.stationId : 'self'}`}
+                sessionId={current.sessionId}
+                stationId={workingMode === 'dispatcher' && ownsStation ? current.stationId : ''}
+                contactToOpen={chatToOpen}
+                onEddReply={(reply) => {
+                  setEddReply(reply);
+                  selectTab('edd');
+                }}
+                driverTrain={
+                  driverSelection?.sessionId === current.sessionId
+                    ? driverSelection.train
+                    : undefined
+                }
+              />
+            </ResizablePanel>
           )}
-        </main>
-        {hasSession && workingMode && activeTab !== 'preparation' && (
-          <ResizablePanel
-            id="communication"
-            title={t('Komunikácia')}
-            edge="right"
-            defaultSize={350}
-            responsive
+        </div>
+        <div className="statusbar">
+          <a
+            className="status-item"
+            href="https://www.fatcow.com/free-icons"
+            target="_blank"
+            rel="noopener noreferrer"
+            title={t('Farm-Fresh icons © FatCow Web Hosting · CC BY 3.0')}
           >
-            <SessionChatView
-              key={`${current.sessionId}/${workingMode}/${workingMode === 'dispatcher' && ownsStation ? current.stationId : 'self'}`}
-              sessionId={current.sessionId}
-              stationId={workingMode === 'dispatcher' && ownsStation ? current.stationId : ''}
-              contactToOpen={chatToOpen}
-              onEddReply={(reply) => {
-                setEddReply(reply);
-                selectTab('edd');
-              }}
-              driverTrain={
-                driverSelection?.sessionId === current.sessionId ? driverSelection.train : undefined
-              }
-            />
-          </ResizablePanel>
-        )}
-      </div>
-      <div className="statusbar">
-        <a
-          className="status-item"
-          href="https://www.fatcow.com/free-icons"
-          target="_blank"
-          rel="noopener noreferrer"
-          title={t('Farm-Fresh icons © FatCow Web Hosting · CC BY 3.0')}
-        >
-          {' '}
-          {t('Ikony: FatCow')}{' '}
-        </a>
-        <span className="status-item">{t(profile.role)}</span>
-        {hasStation && (
+            {' '}
+            {t('Ikony: FatCow')}{' '}
+          </a>
+          <span className="status-item">{t(profile.role)}</span>
+          {hasStation && (
+            <span className="status-item">
+              {t('Stanica:')}{' '}
+              {sessionStations.find((station) => station.stationId === current.stationId)?.name ||
+                t('nevybraná')}
+            </span>
+          )}
           <span className="status-item">
-            {t('Stanica:')}{' '}
-            {sessionStations.find((station) => station.stationId === current.stationId)?.name ||
-              t('nevybraná')}
+            {networkError ? t('Chyba načítania siete') : t('Stanice: {0}', network.stations.length)}
           </span>
-        )}
-        <span className="status-item">
-          {networkError ? t('Chyba načítania siete') : t('Stanice: {0}', network.stations.length)}
-        </span>
+        </div>
       </div>
-    </div>
+    </TrainWorkspace>
   );
 }
 export default function DisPortalPage() {

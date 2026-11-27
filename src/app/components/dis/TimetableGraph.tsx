@@ -1,4 +1,5 @@
 'use client';
+import type { EddEntry } from '@/lib/dis/edd';
 import { recordedEddTimeSchema } from '@/lib/dis/edd';
 import { parseCompactClock } from '@/lib/dis/gvd-running-times';
 import { downloadGvd } from '@/lib/dis/gvd-tools';
@@ -17,10 +18,12 @@ import {
   type Timetable,
   type TimetableInput,
 } from '@/lib/dis/timetable';
+import { forecastTimetable, isFreightTrain } from '@/lib/dis/train-progress';
 import { preferenceHash, useUserPreference } from '@/lib/dis/use-user-preference';
 import { useTranslation } from '@/lib/i18n/client';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { AeroIcon } from '../ui/AeroIcon';
+import { useTrainWorkspace } from './TrainWorkspace';
 
 export function TimetableGraph({
   trains,
@@ -33,6 +36,8 @@ export function TimetableGraph({
   onSelect,
   stationPositions,
   preferenceScope = 'graph',
+  live = false,
+  onOpenTrain,
 }: {
   trains: Timetable[];
   stations: { stationId: string; name: string }[];
@@ -44,9 +49,21 @@ export function TimetableGraph({
   onSelect?: (train: Timetable) => void;
   stationPositions?: Record<string, number>;
   preferenceScope?: string;
+  live?: boolean;
+  onOpenTrain?: (number: string) => void;
 }) {
   const t = useTranslation();
-  const [preferences, setPreferences, preferenceError] = useUserPreference(
+  const workspace = useTrainWorkspace();
+  const markerId = 'railway-arrow-' + useId().replaceAll(':', '');
+  const [preferences, setPreferences, preferenceError] = useUserPreference<{
+    onlySelected: boolean;
+    dragEnabled: boolean;
+    reverse: boolean;
+    timeScale: number;
+    stationScale: number;
+    snapMinutes: number;
+    order: string[];
+  }>(
     `ncp:${preferenceScope}:${preferenceHash(
       incomingStations
         .map((s) => s.stationId)
@@ -57,8 +74,8 @@ export function TimetableGraph({
       onlySelected: false,
       dragEnabled: false,
       reverse: false,
-      timeScale: 5,
-      stationScale: 60,
+      timeScale: 12,
+      stationScale: 120,
       snapMinutes: 1,
       order: incomingStations.map((s) => s.stationId),
     },
@@ -88,7 +105,6 @@ export function TimetableGraph({
   const [dragDelta, setDragDelta] = useState(0);
   const dragEnabled = preferences.dragEnabled;
   const setDragEnabled = (dragEnabled: boolean) => setPreferences({ dragEnabled });
-  const [colours, setColours] = useState<Record<string, string>>({});
   const activeId = editableId || selectedTrainId;
   const activeTrain = trains.find((train) => train.$id === activeId);
   const categories = [...new Set(trains.map((train) => train.trainType))];
@@ -112,6 +128,9 @@ export function TimetableGraph({
   const validSchedules = useMemo(
     () =>
       trains
+        .map((train) =>
+          live ? forecastTimetable(train, records as EddEntry[], currentMinute) : train,
+        )
         .map((train) => ({ ...train, stops: completeEndpointTimes(train.stops) }))
         .filter(
           (train) =>
@@ -123,7 +142,7 @@ export function TimetableGraph({
             ),
         )
         .map((train) => ({ train, stops: unfoldStops(train.stops) })),
-    [trains],
+    [trains, records, currentMinute, live],
   );
   const graphIssues = useMemo(() => {
     const selected = validSchedules.find((item) => item.train.$id === activeId);
@@ -183,7 +202,7 @@ export function TimetableGraph({
       : 60 + stations.findIndex((s) => stationKey(s.stationId) === stationKey(id)) * stationScale;
   const visible = (id: string) => stations.some((s) => stationKey(s.stationId) === stationKey(id));
   const actual = (train: Timetable) => records.filter((r) => r.trainNumber === train.trainNumber);
-  const cursorMinute = referenceMinute ?? currentMinute;
+  const cursorMinute = live ? currentMinute : (referenceMinute ?? currentMinute);
   const current =
     cursorMinute !== undefined && cursorMinute < minimum && maximum >= 1440
       ? cursorMinute + 1440
@@ -216,9 +235,13 @@ export function TimetableGraph({
     return () => container.removeEventListener('wheel', wheel);
   });
   function chooseTrain(train: Timetable) {
+    if (train.$id === activeId) {
+      if (onOpenTrain) onOpenTrain(train.trainNumber);
+      else workspace.openTrain(train.trainNumber, train);
+    }
     setSelectedTrainId(train.$id);
     onSelect?.(train);
-    setInspectorOpen(true);
+    setInspectorOpen(!!onEdit);
   }
   function showHover(
     train: Timetable,
@@ -246,15 +269,7 @@ export function TimetableGraph({
       );
   }
   function colour(train: Timetable) {
-    if (colours[train.$id]) return colours[train.$id];
-    if (train.$id === activeId) return 'var(--sig-red)';
-    if (graphIssues.some((issue) => issue.trains.includes(train.trainNumber)))
-      return 'var(--sig-orange)';
-    return /^(R|Ex|EC|IC|EN)/.test(train.trainType)
-      ? 'var(--sig-orange)'
-      : /^(Mn|Pn|Nex|Vleč)/.test(train.trainType)
-        ? 'var(--sig-green)'
-        : 'var(--sig-blue)';
+    return isFreightTrain(train.trainType) ? '#0000ff' : '#111111';
   }
   function beginDrag(
     event: React.PointerEvent<SVGElement>,
@@ -320,7 +335,7 @@ export function TimetableGraph({
   return (
     <div className="timetable-graph">
       <div className="ribbon-bar flex-wrap gvd-graph-toolbar">
-        <strong>{t('Nákresný cestovný poriadok')}</strong>
+        <strong>{t(live ? 'TPV' : 'Nákresný cestovný poriadok')}</strong>
         <button
           className="aero-btn"
           onClick={() => setPreferences({ reverse: !preferences.reverse })}
@@ -376,7 +391,7 @@ export function TimetableGraph({
           {t(
             onEdit && dragEnabled
               ? 'Potiahnite čiaru pre posun celého vlaku; body upravujú jednotlivé časy. Zmeny potvrďte uložením.'
-              : 'Bodkovaná čiara: plán. Plná čiara a body: hlásenia EDD. Kliknutím zobrazíte vlak.',
+              : 'Odhad priebehu podľa EDD; body označujú zápisy. Vybraný vlak otvoríte ďalším kliknutím.',
           )}
         </span>
         <label>
@@ -467,17 +482,6 @@ export function TimetableGraph({
             {t('Upravovať ťahaním')}
           </label>
         )}
-        {activeId && (
-          <label>
-            {t('Farba vlaku')}
-            <input
-              type="color"
-              aria-label={t('Farba vlaku')}
-              value={colours[activeId] || '#b74040'}
-              onChange={(e) => setColours({ ...colours, [activeId]: e.target.value })}
-            />
-          </label>
-        )}
         <label>
           {t('Prejsť na čas')}
           <input
@@ -550,8 +554,20 @@ export function TimetableGraph({
           ) : (
             <div style={{ width, height, position: 'relative' }}>
               <div className="gvd-sticky-time" style={{ width }}>
-                <svg width={width} height={36} aria-hidden="true">
-                  <rect width={width} height={36} fill="var(--aero-panel-bg)" />
+                <svg width={width} height={44} aria-hidden="true">
+                  <rect width={width} height={44} fill="var(--aero-panel-bg)" />
+                  {current !== undefined && (
+                    <text
+                      x={x(current)}
+                      y={16}
+                      textAnchor="middle"
+                      fontWeight={700}
+                      fontSize={14}
+                      fill="#31bc36"
+                    >
+                      {formatMinute(current).slice(0, 5)}
+                    </text>
+                  )}
                   {Array.from(
                     { length: Math.ceil((maximum - minimum) / tickMinutes) + 1 },
                     (_, i) => minimum + i * tickMinutes,
@@ -559,7 +575,7 @@ export function TimetableGraph({
                     <text
                       key={minute}
                       x={x(minute)}
-                      y={24}
+                      y={36}
                       textAnchor="middle"
                       fill="var(--aero-text)"
                       fontSize={11}
@@ -569,6 +585,20 @@ export function TimetableGraph({
                     </text>
                   ))}
                 </svg>
+              </div>
+              <div className="gvd-sticky-stations" aria-hidden="true">
+                <div style={{ height }}>
+                  {stations.map((station) => (
+                    <span key={station.stationId} style={{ top: y(station.stationId) - 10 }}>
+                      <i
+                        style={{
+                          background: station.stationId === highlighted ? '#31bc36' : '#bbb',
+                        }}
+                      />
+                      {station.name}
+                    </span>
+                  ))}
+                </div>
               </div>
               <svg
                 ref={svg}
@@ -610,10 +640,23 @@ export function TimetableGraph({
                   setDragDelta(0);
                 }}
               >
+                <defs>
+                  <marker
+                    id={markerId}
+                    viewBox="0 0 10 10"
+                    refX="9"
+                    refY="5"
+                    markerWidth="7"
+                    markerHeight="7"
+                    orient="auto"
+                  >
+                    <path d="M 0 0 L 10 5 L 0 10 z" fill="context-stroke" />
+                  </marker>
+                </defs>
                 <rect width={width} height={height} fill="var(--tpv-bg)" />
                 {Array.from(
-                  { length: Math.ceil((maximum - minimum) / tickMinutes) + 1 },
-                  (_, i) => minimum + i * tickMinutes,
+                  { length: Math.ceil((maximum - minimum) / 5) + 1 },
+                  (_, i) => minimum + i * 5,
                 ).map((minute) => (
                   <g key={minute}>
                     <line
@@ -621,8 +664,9 @@ export function TimetableGraph({
                       x2={x(minute)}
                       y1={38}
                       y2={height - 20}
-                      stroke="var(--tpv-grid-line)"
-                      strokeWidth={minute % 60 === 0 ? 1.5 : 0.5}
+                      stroke="#ffc58b"
+                      strokeWidth={minute % 60 === 0 ? 2 : minute % 30 === 0 ? 1.3 : 0.6}
+                      strokeDasharray={minute % 30 === 0 ? '6 4' : undefined}
                     />
                     <text x={x(minute) - 15} y={25} fill="var(--aero-text)" fontSize={11}>
                       {formatMinute(minute)}
@@ -650,11 +694,7 @@ export function TimetableGraph({
                       x2={width - 20}
                       y1={y(station.stationId)}
                       y2={y(station.stationId)}
-                      stroke={
-                        selectedStation === station.stationId
-                          ? 'var(--sig-green)'
-                          : 'var(--tpv-grid-line)'
-                      }
+                      stroke={'#ffbf80'}
                     />
                     <circle
                       cx={8}
@@ -666,7 +706,13 @@ export function TimetableGraph({
                           : 'var(--aero-text-muted)'
                       }
                     />
-                    <text x={18} y={y(station.stationId) - 5} fontSize={11} fill="var(--aero-text)">
+                    <text
+                      x={18}
+                      y={y(station.stationId) - 5}
+                      fontSize={12}
+                      fontWeight={600}
+                      fill="var(--aero-text)"
+                    >
                       {station.name}
                     </text>
                   </g>
@@ -681,12 +727,34 @@ export function TimetableGraph({
                         ]
                       : [],
                   );
+                  const visibleStops = stops.filter((stop) => visible(stop.station));
+                  const firstVisible = visibleStops[0],
+                    lastVisible = visibleStops.at(-1);
+                  const enters = !!firstVisible && stops.indexOf(firstVisible) > 0;
+                  const leaves = !!lastVisible && stops.indexOf(lastVisible) < stops.length - 1;
+                  const direction =
+                    firstVisible && lastVisible && y(firstVisible.station) > y(lastVisible.station)
+                      ? -1
+                      : 1;
+                  if (enters && firstVisible)
+                    points.unshift(
+                      x(firstVisible.arrivalMinute - 2) +
+                        ',' +
+                        (y(firstVisible.station) - direction * 35),
+                    );
+                  if (leaves && lastVisible)
+                    points.push(
+                      x(lastVisible.departureMinute + 2) +
+                        ',' +
+                        (y(lastVisible.station) + direction * 35),
+                    );
                   const events = stops.flatMap((stop) =>
                     actual(train)
                       .filter(
                         (r) =>
                           stationKey(r.stationId) === stationKey(stop.station) &&
-                          r.schedArrival === stop.arrival,
+                          (!(r as EddEntry).timetableId ||
+                            (r as EddEntry).timetableId === train.$id),
                       )
                       .flatMap((r) =>
                         [
@@ -700,9 +768,31 @@ export function TimetableGraph({
                           })),
                       ),
                   );
-                  const labelStop = stops.find((s) => visible(s.station));
+                  const labelStop = visibleStops[0];
+                  const labelNext = visibleStops[1];
+                  const labelX =
+                    labelStop && labelNext
+                      ? (x(labelStop.departureMinute) + x(labelNext.arrivalMinute)) / 2
+                      : labelStop
+                        ? x(labelStop.departureMinute) + 4
+                        : 0;
+                  const labelY =
+                    labelStop && labelNext
+                      ? (y(labelStop.station) + y(labelNext.station)) / 2
+                      : labelStop
+                        ? y(labelStop.station)
+                        : 0;
+                  const labelAngle =
+                    labelStop && labelNext
+                      ? (Math.atan2(
+                          y(labelNext.station) - y(labelStop.station),
+                          x(labelNext.arrivalMinute) - x(labelStop.departureMinute),
+                        ) *
+                          180) /
+                        Math.PI
+                      : 0;
                   return (
-                    <g key={train.$id} opacity={activeId && train.$id !== activeId ? 0.65 : 1}>
+                    <g key={train.$id}>
                       {drag?.trainId === train.$id && dragDelta !== 0 && (
                         <polyline
                           points={points.join(' ')}
@@ -742,8 +832,10 @@ export function TimetableGraph({
                           points={points.join(' ')}
                           fill="none"
                           stroke={color}
-                          strokeWidth={train.$id === activeId ? 2.5 : 1.5}
-                          strokeDasharray={onEdit ? undefined : '3 3'}
+                          strokeWidth={train.$id === activeId ? 3 : 1.5}
+                          markerEnd={leaves ? `url(#${markerId})` : undefined}
+                          markerStart={enters ? `url(#${markerId})` : undefined}
+                          strokeDasharray={live ? '2 2' : undefined}
                         />
                         <polyline
                           points={points.join(' ')}
@@ -756,22 +848,46 @@ export function TimetableGraph({
                         </title>
                         {labelStop && (
                           <text
-                            x={x(labelStop.departureMinute) + 4}
-                            y={y(labelStop.station) - 10}
+                            x={labelX}
+                            y={labelY - 6}
+                            transform={`rotate(${labelAngle},${labelX},${labelY})`}
                             fill={color}
-                            fontSize={11}
+                            fontSize={13}
+                            fontWeight={train.$id === activeId ? 700 : 400}
                           >
                             {train.trainNumber}
                           </text>
                         )}
                       </g>
+                      {live && current !== undefined && (
+                        <>
+                          <defs>
+                            <clipPath id={markerId + '-past-' + train.$id}>
+                              <rect
+                                x="175"
+                                y="36"
+                                width={Math.max(0, x(current) - 175)}
+                                height={height}
+                              />
+                            </clipPath>
+                          </defs>
+                          <polyline
+                            points={points.join(' ')}
+                            fill="none"
+                            stroke={color}
+                            strokeWidth={train.$id === activeId ? 3 : 1.5}
+                            clipPath={'url(#' + markerId + '-past-' + train.$id + ')'}
+                            pointerEvents="none"
+                          />
+                        </>
+                      )}
                       <polyline
                         points={events
                           .filter((e) => visible(e.station))
                           .map((e) => `${x(e.minute)},${y(e.station)}`)
                           .join(' ')}
                         fill="none"
-                        stroke="var(--aero-text)"
+                        stroke={color}
                         strokeWidth={2}
                       />
                       {train.$id === activeId &&
@@ -795,15 +911,10 @@ export function TimetableGraph({
                       {events
                         .filter((e) => visible(e.station))
                         .map((e, i) => (
-                          <circle
-                            key={i}
-                            cx={x(e.minute)}
-                            cy={y(e.station)}
-                            r={3}
-                            fill="var(--sig-green)"
-                          />
+                          <circle key={i} cx={x(e.minute)} cy={y(e.station)} r={3} fill="#31bc36" />
                         ))}
-                      {train.$id === activeId &&
+                      {onEdit &&
+                        train.$id === activeId &&
                         stops.map(
                           (stop, index) =>
                             visible(stop.station) &&
@@ -849,28 +960,15 @@ export function TimetableGraph({
                       x2={x(current)}
                       y1={35}
                       y2={height - 20}
-                      stroke="var(--tpv-cursor)"
+                      stroke="#31bc36"
                       strokeWidth={2}
                     />
-                    <text x={x(current)} y={13} fontSize={11} fill="var(--tpv-cursor)">
+                    <text x={x(current)} y={13} fontSize={11} fill="#31bc36">
                       {formatMinute(current)}
                     </text>
                   </g>
                 )}
               </svg>
-              <div className="gvd-sticky-stations" style={{ height }}>
-                <strong>{t('Dopravňa')}</strong>
-                {stations.map((station) => (
-                  <button
-                    key={station.stationId}
-                    className="gvd-station-label"
-                    style={{ top: y(station.stationId) - 14 }}
-                    onClick={() => setSelectedStation(station.stationId)}
-                  >
-                    {station.name}
-                  </button>
-                ))}
-              </div>
             </div>
           )}
         </div>

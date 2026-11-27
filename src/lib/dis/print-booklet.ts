@@ -19,6 +19,26 @@ export function printBooklet(
         style.getPropertyValue(property),
         'important',
       );
+    // Digital dark mode is independent of the immutable white A4 document.
+    const output = copies[i] as HTMLElement;
+    output.style.setProperty('color', '#000', 'important');
+    output.style.setProperty('-webkit-text-fill-color', '#000', 'important');
+    output.style.setProperty('text-shadow', 'none', 'important');
+    for (const edge of ['top', 'bottom', 'left', 'right'])
+      output.style.setProperty('border-' + edge + '-color', '#000', 'important');
+    output.style.setProperty(
+      'background-color',
+      node === table ? '#fff' : 'transparent',
+      'important',
+    );
+    if (node.tagName === 'TR' && node.parentElement?.tagName === 'TBODY') {
+      const index = Array.from(node.parentElement.children).indexOf(node);
+      output.style.setProperty(
+        'background-color',
+        index % 2 === 0 ? '#dedede' : '#fff',
+        'important',
+      );
+    }
     copies[i].removeAttribute('id');
   });
   const scale = Math.min(1, (182 * 96) / 25.4 / width);

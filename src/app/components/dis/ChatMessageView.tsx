@@ -5,6 +5,7 @@ import { chatSystemText } from '@/lib/dis/chat-system';
 import { formatEddMessage, type EddReply } from '@/lib/dis/edd';
 import { useLocale, useLocaleTag, useTranslation } from '@/lib/i18n/client';
 import { getStationDisplayName } from '@/lib/station/display-name';
+import { useTrainWorkspace } from './TrainWorkspace';
 
 export type DisplayMessage = ChatMessage & { delivery?: 'sending' | 'failed' };
 
@@ -15,6 +16,7 @@ export function ChatMessageView({
   onAcknowledge,
   onEddReply,
   offerAnswered,
+  actionsVisible = true,
 }: {
   message: DisplayMessage;
   onRetry?: () => void;
@@ -22,11 +24,26 @@ export function ChatMessageView({
   onAcknowledge?: (id: string) => void;
   onEddReply?: (reply: EddReply) => void;
   offerAnswered?: boolean;
+  actionsVisible?: boolean;
 }) {
   const t = useTranslation();
   const localeTag = useLocaleTag();
   const locale = useLocale();
   const edd = message.edd;
+  const traffic = useTrainWorkspace();
+  function linkedText(text: string) {
+    const numbers = new Set(traffic.value.timetables.map((train) => train.trainNumber));
+    if (edd) numbers.add(edd.trainNumber);
+    return text.split(/(\d+)/g).map((part, i) =>
+      numbers.has(part) || /^\d{3,6}$/.test(part) ? (
+        <button key={i} className="chat-train-link" onClick={() => traffic.openTrain(part)}>
+          {part}
+        </button>
+      ) : (
+        part
+      ),
+    );
+  }
   return (
     <div className="session-chat-message" data-announcement={message.announcement}>
       <time
@@ -85,8 +102,8 @@ export function ChatMessageView({
         {message.system
           ? chatSystemText(message.system, t)
           : edd
-            ? formatEddMessage(edd, locale)
-            : message.content}
+            ? linkedText(formatEddMessage(edd, locale))
+            : linkedText(message.content)}
       </span>
       {edd && (
         <div className="chat-operating-actions">
@@ -94,12 +111,20 @@ export function ChatMessageView({
             {t(edd.acknowledgedAt ? 'Potvrdené' : edd.deliveredAt ? 'Doručené' : 'Odoslané')}
             {edd.acknowledgedBy ? ' · ' + edd.acknowledgedBy : ''}
           </small>
-          {edd.acknowledgedAt && <small>{formatEddMessage(edd, locale, true)}</small>}
-          {stationId === edd.toStation && !edd.acknowledgedAt && onAcknowledge && (
-            <button className="aero-btn" onClick={() => onAcknowledge(edd.id)}>
-              {t('Potvrdiť príjem')}
-            </button>
+          {edd.acknowledgedAt && (
+            <details>
+              <summary>{t('Potvrdenie príjmu')}</summary>
+              <small>{formatEddMessage(edd, locale, true)}</small>
+            </details>
           )}
+          {actionsVisible &&
+            stationId === edd.toStation &&
+            !edd.acknowledgedAt &&
+            onAcknowledge && (
+              <button className="aero-btn" onClick={() => onAcknowledge(edd.id)}>
+                {t('Potvrdiť príjem')}
+              </button>
+            )}
           {stationId === edd.toStation && edd.kind === 'offer' && !offerAnswered && onEddReply && (
             <>
               <button
@@ -130,7 +155,7 @@ export function ChatMessageView({
               </button>
             </>
           )}
-          {stationId === edd.fromStation && onEddReply && (
+          {actionsVisible && stationId === edd.fromStation && onEddReply && (
             <>
               <button
                 className="aero-btn"

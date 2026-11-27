@@ -16,6 +16,7 @@ import {
   type EddMovement,
   type EddReply,
 } from '@/lib/dis/edd';
+import { trainProgress } from '@/lib/dis/train-progress';
 import { useDisResource } from '@/lib/dis/use-dis-resource';
 import { useSessionClock } from '@/lib/dis/use-session-clock';
 import { useUserPreference } from '@/lib/dis/use-user-preference';
@@ -24,12 +25,15 @@ import { getStationDisplayName } from '@/lib/station/display-name';
 import { useEffect, useRef, useState } from 'react';
 import { EddTrainEntry } from './EddTrainEntry';
 import { TrainCategoryOptions } from './TrainCategoryOptions';
+import { useTrainWorkspace } from './TrainWorkspace';
 import './edd.css';
+import { playMessageSound } from './message-sounds';
 
 export type EddProps = {
   sessionId: string;
   stationId: string;
   placeId: string;
+  active?: boolean;
   onSelectTrain?: (train: string) => void;
   onOpenChat?: (stationId: string) => void;
   reply?: EddReply;
@@ -58,10 +62,12 @@ const movementNames: Record<EddMovement, string> = {
 export function EddWorkstation({
   sessionId,
   stationId,
+  active = true,
   onSelectTrain,
   onOpenChat,
   reply: incomingReply,
 }: EddProps) {
+  const traffic = useTrainWorkspace();
   const t = useTranslation(),
     locale = useLocale();
   const { profile, canOperateStation } = useDisAuth();
@@ -74,7 +80,7 @@ export function EddWorkstation({
     loading,
     refresh,
   } = useDisResource<EddSnapshot>(
-    sessionId && stationId ? `/api/dis/edd?${new URLSearchParams(scope)}` : null,
+    active && sessionId && stationId ? `/api/dis/edd?${new URLSearchParams(scope)}` : null,
     { records: [], messages: [], contacts: [] },
     5000,
   );
@@ -144,6 +150,8 @@ export function EddWorkstation({
       )
         setEditRevision(result.record.revision);
       setNotice('Uložené.');
+      if ((payload as { command?: string }).command === 'send') playMessageSound('outgoing');
+      void traffic.refresh();
       await refresh();
       return true;
     } catch (e) {
@@ -365,7 +373,13 @@ export function EddWorkstation({
                       className={`${index % 2 ? 'edd-pair-alt' : ''} ${selectedId === record.$id ? 'edd-selected' : ''} ${record.actualArrival || record.actualDeparture ? 'edd-recorded' : ''}`}
                     >
                       <td>
-                        <button className="edd-train" onClick={() => choose(record)}>
+                        <button
+                          className="edd-train"
+                          onClick={() => {
+                            choose(record);
+                            traffic.openTrain(record.trainNumber);
+                          }}
+                        >
                           {record.trainType} {record.trainNumber}
                         </button>
                         <button
@@ -411,6 +425,22 @@ export function EddWorkstation({
                           <EddTrainEntry
                             key={record.$id + record.revision}
                             record={record}
+                            forecast={(() => {
+                              const train =
+                                traffic.value.timetables.find(
+                                  (train) => train.$id === record.timetableId,
+                                ) ||
+                                traffic.value.timetables.find(
+                                  (train) => train.trainNumber === record.trainNumber,
+                                );
+                              return train
+                                ? trainProgress(train, traffic.value.records, traffic.minute).find(
+                                    (stop) =>
+                                      stop.station.toLocaleLowerCase('sk') ===
+                                      record.stationId.toLocaleLowerCase('sk'),
+                                  )
+                                : undefined;
+                            })()}
                             date={current.date}
                             now={current.minuteTime}
                             busy={busy || !clock || !!clockError}

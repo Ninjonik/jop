@@ -7,9 +7,7 @@ takeover/release remains in the existing station-selection workflow rather than 
 
 ## Workflow
 
-- Two rows per train: arrival above departure/passage. Originating and terminating trains do
-  not require fictional endpoint movements. A timetable's intermediate `kind: pass` produces
-  one passage entry. A manual train's movement type can be set before actual movements exist.
+- One row per train presents arrival and departure side by side, including passing trains. Origins and termini disable only the inapplicable endpoint. A manual train's movement type can be set before actual movements exist.
 - Quick actions use server operating time at whole-minute precision. Manual entries accept `1803`
   or `18:03` and an explicit operating date. Midnight is resolved using dates, not
   an assumed clock ordering. Existing records without event dates retain their original values.
@@ -99,4 +97,23 @@ SPA typing issues and UI-copy-checker findings are reported in the pull request.
 Arrival/departure/passage entries and operating messages use HH:mm only. Seconds remain on the
 live clock and internal audit timestamps. Legacy records are readable without being rewritten.
 
-Train rows now present arrival and departure horizontally, including passing trains. Passing trains default to equal movement times until departure is edited. Endpoints disable only the inapplicable movement. A single train command atomically records both times; Save with dwell records arrival (or waiting at an origin) without recording a departure. Dwell is persisted as a flag; the proposed departure and delay follow the session clock in the UI without per-minute database writes, until manually overridden or saved. Only exact dated movement reports acknowledged by the receiving station lock their matching recorded movement. Other events remain editable; revision checks cover concurrent acknowledgments.
+Train rows now present arrival and departure horizontally, including passing trains. Passing trains default to equal movement times until departure is edited. Endpoints disable only the inapplicable movement. A single train command atomically records both times; Save with layover records arrival (or waiting at an origin) without recording a departure. Dwell is persisted as a flag; the proposed departure and delay follow the session clock in the UI without per-minute database writes, until manually overridden or saved. Only exact dated movement reports acknowledged by the receiving station lock their matching recorded movement. Other events remain editable; revision checks cover concurrent acknowledgments.
+
+
+## Shared train workspace and live TPV
+
+The train number in EDD, a train number in an ordinary/structured chat message, and a second click on a selected graph path open the same bounded dialog. It shows the operating timetable, available driver metadata, dispatcher-recorded times, last reported stop, and explicitly labelled estimates. These are dispatcher reports, not inferred GPS or sensor-confirmed positions.
+
+`/api/dis/traffic` is an authenticated, live-session read model combining active operating timetables, legacy EDD records, the Mongo diary overlay (without audit history), current driver selections and the operating clock. It does not initialize diary rows or alter runtime/Roblox state. One shared client resource polls every 10 seconds while EDD, TPV or the train dialog needs it, using the existing reconnect/backoff layer; saving EDD refreshes it immediately. Layover advances estimates locally each minute, with no periodic database writes. Hidden EDD/TPV views stop their own polls. Station runtime and chat keep Ninjonik’s existing socket reconnect logic.
+
+`train-progress.ts` propagates recorded deviations along the ordered timetable. Passing trains retain early running; stops do not forecast departure before booked time. Actual departures override estimates and stale layover flags. Actuals and neighbor acknowledgments remain separate. Forecasts never write into planned or recorded times. The green TPV clock always means operating time, even after navigating to another time.
+
+TPV uses black passenger and blue freight paths, heavier selected paths, directional section-boundary arrows, orange 5/30/60-minute divisions, and a green clock. Account preferences store up to 12 named station-section layouts (within the existing 8 KB preference limit). Layouts are private preferences, not new session topology.
+
+Chat retains its existing station/driver conversations and sound assets. Contacts are grouped, tabs wrap, and only the latest conversation message offers operating reply/correction controls. History stays visible; server reply/acknowledgment rules are unchanged. Structured Slovak message patterns were cross-checked against the indexed ŽSR Z1 and OS 506 training examples referenced above; English remains a game translation, not an official prescribed railway text.
+
+Digital ZCP follows the selected theme. A4/print clones explicitly reset text fill, text colour and row shading to black on white, preserving the existing geometric scale, heading and footer. Native PDF still requires A4, 100% and background graphics; no SVG background workaround is used.
+
+The sample EDD preview now also exposes TPV and a +6-minute upstream report; switch to Veselé to inspect propagation. Samples include origin, terminus, passing, stopping, reverse-direction and freight trains. The GVD preview also supports the train dialog and dark digital/white A4 comparisons.
+
+The diary writer initializes a session-ID read index for shared snapshots; repeated EDD projection reads initialize only missing rows and changed untouched timetable hints. Existing operated records and audit histories are preserved.
