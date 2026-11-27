@@ -962,9 +962,9 @@ export function TimetableGraph({
                           markerEnd={leaves ? `url(#${markerId})` : undefined}
                           markerStart={enters ? `url(#${markerId})` : undefined}
                           strokeDasharray={
-                            live ? (train.$id === activeId ? '0.1 10' : '0.1 7') : undefined
+                            live ? (train.$id === activeId ? '4.4 5.6' : '2.8 4.2') : undefined
                           }
-                          strokeLinecap="round"
+                          strokeLinecap="butt"
                         />
                         <polyline
                           points={points.join(' ')}
