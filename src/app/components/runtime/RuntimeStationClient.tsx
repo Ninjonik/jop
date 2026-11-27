@@ -1,5 +1,6 @@
 'use client';
 import { apiFetch, apiOrigin } from '@/lib/api-client';
+import { keepSocketConnected, socketReconnectOptions } from '@/lib/reconnect';
 
 import { useTranslation } from '@/lib/i18n/client';
 
@@ -134,11 +135,13 @@ export default function RuntimeStationClient({
     const socket: Socket<StationRealtimeServerEvents, StationRealtimeClientEvents> = io(
       apiOrigin || undefined,
       {
+        ...socketReconnectOptions,
         path: '/socket.io',
         transports: ['websocket'],
       },
     );
 
+    const stopReconnecting = keepSocketConnected(socket);
     realtimeSocket.current = socket;
     socket.io.on('reconnect_attempt', () => {
       reconnectAttempts.current++;
@@ -154,6 +157,7 @@ export default function RuntimeStationClient({
     });
 
     socket.on('station:snapshot', (nextStation) => {
+      setLoading(false);
       startTransition(() => {
         setStation((current) =>
           !current || nextStation.revision >= current.revision ? nextStation : current,
@@ -178,6 +182,7 @@ export default function RuntimeStationClient({
 
     return () => {
       active = false;
+      stopReconnecting();
       realtimeSocket.current = null;
       socket.disconnect();
     };

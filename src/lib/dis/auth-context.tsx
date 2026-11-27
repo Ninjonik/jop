@@ -5,7 +5,8 @@ import { account, type UserProfile, type UserRole } from '@/lib/dis/appwrite-cli
 import { hasDisRole } from '@/lib/dis/permissions';
 import { useRouter } from '@/lib/navigation';
 import type { Models } from 'appwrite';
-import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { reconnectDelay } from '../reconnect';
 import { restoreDisSession } from './restore-session';
 
 interface DisAuthContextType {
@@ -42,6 +43,7 @@ export function DisAuthProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const authFailures = useRef(0);
   const [authError, setAuthError] = useState<string | null>(null);
   const loadAuth = useCallback(async () => {
     setLoading(true);
@@ -55,6 +57,7 @@ export function DisAuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
       const result = await disFetch<{ profile: UserProfile }>('/api/dis/profile');
+      authFailures.current = 0;
       setProfile(result.profile);
     } catch (error) {
       console.warn('DIS session verification unavailable', {
@@ -82,6 +85,17 @@ export function DisAuthProvider({ children }: { children: React.ReactNode }) {
     }, 0);
     return () => clearTimeout(initial);
   }, [loadAuth]);
+
+  useEffect(() => {
+    if (!authError) return;
+    const retry = setTimeout(() => void loadAuth(), reconnectDelay(authFailures.current++));
+    const online = () => void loadAuth();
+    window.addEventListener('online', online);
+    return () => {
+      clearTimeout(retry);
+      window.removeEventListener('online', online);
+    };
+  }, [authError, loadAuth]);
 
   const logout = async () => {
     try {

@@ -5,6 +5,7 @@ import { audioCaptureSettings } from '@/lib/dis/browser-settings';
 import type { ChatClientEvents, ChatServerEvents } from '@/lib/dis/chat';
 import type { RadioTerminalState } from '@/lib/dis/radio';
 import { useTranslation } from '@/lib/i18n/client';
+import { voiceReconnectPolicy } from '@/lib/reconnect';
 import { Room, RoomEvent, Track } from 'livekit-client';
 import { useCallback, useEffect, useRef, useState, type RefObject } from 'react';
 import type { Socket } from 'socket.io-client';
@@ -52,6 +53,7 @@ export function EmergencyAudio({
       if (terminalRef.current.ownerSocketId !== socket.id) return;
       stop(credentials.id);
       const voice = new Room({
+        reconnectPolicy: voiceReconnectPolicy,
         audioCaptureDefaults: audioCaptureSettings(),
       });
       const room: EmergencyRoom = { voice, cleanups: new Set(), outgoing: credentials.outgoing };

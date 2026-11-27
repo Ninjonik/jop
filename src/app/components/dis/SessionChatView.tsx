@@ -3,6 +3,7 @@ import { ResizablePanel, useResizablePanel } from '@/app/components/ui/Resizable
 import { apiOrigin } from '@/lib/api-client';
 import { canPublishAnnouncements } from '@/lib/dis/permissions';
 import { useTranslation } from '@/lib/i18n/client';
+import { keepSocketConnected, socketReconnectOptions } from '@/lib/reconnect';
 import { EmergencyAudio } from './EmergencyAudio';
 import { RadioTerminalControls, useRadioTerminal } from './RadioTerminal';
 
@@ -79,6 +80,7 @@ export function SessionChatView({
     if (!endpointId || !profile) return;
     let active = true;
     const socket: Socket<ChatServerEvents, ChatClientEvents> = io(`${apiOrigin}/chat`, {
+      ...socketReconnectOptions,
       path: '/socket.io',
       transports: ['websocket'],
       auth: (callback) => {
@@ -87,6 +89,7 @@ export function SessionChatView({
           .catch(() => callback({}));
       },
     });
+    const stopReconnecting = keepSocketConnected(socket, clearDisToken);
     connection.current = socket;
     socket.on('connect', () => {
       setVoiceSocket(socket);
@@ -133,12 +136,8 @@ export function SessionChatView({
       setError(error.message);
       setConnected(false);
     });
-    socket.on('disconnect', (reason) => {
+    socket.on('disconnect', () => {
       setConnected(false);
-      if (active && reason === 'io server disconnect') {
-        clearDisToken();
-        socket.connect();
-      }
     });
     const refreshAuth = setInterval(
       () => {
@@ -147,11 +146,15 @@ export function SessionChatView({
           .then((token) => {
             if (socket.connected) socket.emit('chat:refresh-auth', token);
           })
-          .catch(() => socket.disconnect());
+          .catch(() => {
+            // Keep the transport alive; the next handshake obtains a fresh token.
+            clearDisToken();
+          });
       },
       5 * 60 * 1000,
     );
     return () => {
+      stopReconnecting();
       clearInterval(refreshAuth);
       active = false;
       socket.disconnect();

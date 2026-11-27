@@ -1,6 +1,7 @@
 'use client';
 import { audioCaptureSettings } from '@/lib/dis/browser-settings';
 import type { RadioNormalCall as Call, RadioTerminalState } from '@/lib/dis/radio';
+import { voiceReconnectPolicy } from '@/lib/reconnect';
 import { ChannelVolume } from './ChannelVolume';
 
 import { AeroIcon } from '@/app/components/ui/AeroIcon';
@@ -91,6 +92,7 @@ export function VoiceCall({
       callRef.current = active;
       setCall(active);
       const voice = new Room({
+        reconnectPolicy: voiceReconnectPolicy,
         audioCaptureDefaults: audioCaptureSettings(),
       });
       room.current = voice;
