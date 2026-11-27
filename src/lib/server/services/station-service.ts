@@ -5092,10 +5092,10 @@ export const stationService = {
 
   async submitLineblockAction(command: LineblockActionCommand) {
     return serializeSessionMutation(command.sessionId, async () => {
-      const localStation = await stationRepository.findBySessionAndStationId(
-        command.sessionId,
-        command.stationId,
-      );
+      const [localStation, rawSession] = await Promise.all([
+        stationRepository.findBySessionAndStationId(command.sessionId, command.stationId),
+        sessionRepository.findById(command.sessionId),
+      ]);
       if (!localStation) {
         throw new Error('Station not found.');
       }
@@ -5110,7 +5110,6 @@ export const stationService = {
         throw new Error('AH acknowledgement is automatic after the inbound route completes.');
       }
 
-      const rawSession = await sessionRepository.findById(command.sessionId);
       if (!rawSession) {
         throw new Error('Session not found.');
       }
@@ -5262,9 +5261,13 @@ export const stationService = {
         bumpRevision(remoteStation);
         await saveStation(localStation, { skipRuntimeNotify: true });
         await saveStation(remoteStation, { skipRuntimeNotify: true });
-        await notifyRuntimeInterpreter(command.sessionId, () =>
-          buildRobloxPhysicalSnapshot(command.sessionId),
-        );
+        // Both station writes are complete. Interpreter synchronization has its
+        // own session queue; only snapshot capture reacquires the mutation lock.
+        void notifyRuntimeInterpreter(command.sessionId, () =>
+          serializeSessionMutation(command.sessionId, () =>
+            buildRobloxPhysicalSnapshot(command.sessionId),
+          ),
+        ).catch((error) => console.error('[lineblock] Runtime synchronization failed:', error));
         return { localStation, remoteStation };
       }
       if (ahVariant) {
@@ -5330,9 +5333,12 @@ export const stationService = {
       // station has changed and the linked sending station is still stale.
       await saveStation(localStation, { skipRuntimeNotify: true });
       await saveStation(remoteStation, { skipRuntimeNotify: true });
-      await notifyRuntimeInterpreter(command.sessionId, () =>
-        buildRobloxPhysicalSnapshot(command.sessionId),
-      );
+      // Publish only after both writes, without delaying the persisted command result.
+      void notifyRuntimeInterpreter(command.sessionId, () =>
+        serializeSessionMutation(command.sessionId, () =>
+          buildRobloxPhysicalSnapshot(command.sessionId),
+        ),
+      ).catch((error) => console.error('[lineblock] Runtime synchronization failed:', error));
 
       return {
         localStation,

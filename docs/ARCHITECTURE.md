@@ -1103,3 +1103,18 @@ and prevents mock tail-clearance extensions beyond it. Scheduled mock steps rech
 the shortened boundary under the same session mutation lock. Later source cancellation
 uses the retained route. Verify with
 `node --env-file=.env.local --import tsx scripts/verify-partial-route-cancellation.ts`.
+
+Runtime station loading commits snapshot and loading completion at the same React
+priority. DIS keeps claimed station boards mounted while switching tabs, preserving
+viewport and subscription state; releasing a claim removes its board. Runtime
+feedback uses `DispatcherFeedbackProvider` and the fixed-height status bar, so route
+status and command errors do not move the canvas. Standalone runtime uses a fixed
+bottom feedback area.
+
+Lineblock commands persist both endpoints before returning their snapshots. Runtime
+interpreter notification runs asynchronously with explicit failure logging. Its
+Roblox snapshot factory reacquires the session mutation lock to avoid reading a
+half-written endpoint pair; downstream synchronization does not hold that lock.
+`node --env-file=.env.local --import tsx scripts/verify-lineblock-response.ts`
+checks persisted results, notification ordering and response independence using
+isolated Mongo fixtures and a deliberately blocked mock interpreter.
