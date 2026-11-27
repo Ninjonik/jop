@@ -1,6 +1,6 @@
-import { sessionClockSnapshot } from '../dis/session-clock';
 import type { PhysicalVehicleContact } from '@/lib/station/physical-trains';
 import { randomUUID } from 'crypto';
+import { sessionClockSnapshot } from '../dis/session-clock';
 import { refreshPhysicalTrainLabels } from '../roblox/physical-trains';
 
 import { stateGroups, tiles } from '@/app/data/tiles';
@@ -76,7 +76,7 @@ import {
 import { getInitialGroupSelections, resolveComponentStyles } from '@/lib/station/tile-state';
 
 import { buildActionDebugLines } from '@/lib/station/debug';
-import { printDebugBlock } from '../debug-log';
+import { isRuntimeDebugEnabled, printDebugBlock } from '../debug-log';
 import { placeTemplateRepository } from '../repositories/place-template-repository';
 import { robloxRuntimeStateRepository } from '../repositories/roblox-runtime-state-repository';
 import { robloxRuntimeUpdateRepository } from '../repositories/roblox-runtime-update-repository';
@@ -102,6 +102,7 @@ function logRouteBuildDebug(
   station: StationDocument,
   builtRoute: ReturnType<typeof buildRouteFromSelection>,
 ) {
+  if (!isRuntimeDebugEnabled()) return;
   const projectedStation = structuredClone(station);
   projectedStation.runtime.activeTrainRoutes.__debug__ = {
     id: '__debug__',
@@ -988,8 +989,9 @@ function hasLocalSpeedRestriction(aspect: RobloxResolvedSignalAspect | null | un
     aspect === 'proceed40Expect40' ||
     aspect === 'proceed40Expect60' ||
     aspect === 'proceed40Expect80' ||
-    aspect === 'proceed40Expect100'
-    || aspect === 'proceed60' || aspect === 'proceed100'
+    aspect === 'proceed40Expect100' ||
+    aspect === 'proceed60' ||
+    aspect === 'proceed100'
   );
 }
 
@@ -1049,7 +1051,9 @@ function buildResolvedRobloxSignalAspects(station: StationDocument) {
 
   const signalPlans = buildSignalRoutePlans(station, normalRoutes, tiles);
   signalPlans.forEach((plan, pieceId) => {
-    const nextSpeed = plan.nextSignalPieceId ? locallyRestrictedSignals.get(plan.nextSignalPieceId) : null;
+    const nextSpeed = plan.nextSignalPieceId
+      ? locallyRestrictedSignals.get(plan.nextSignalPieceId)
+      : null;
     if (!nextSpeed) {
       return;
     }
@@ -1063,7 +1067,9 @@ function buildResolvedRobloxSignalAspects(station: StationDocument) {
       ...current,
       aspect:
         locallyRestrictedSignals.has(pieceId) && hasLocalSpeedRestriction(current.aspect)
-          ? nextSpeed === 40 ? 'proceed40Expect40' : current.aspect
+          ? nextSpeed === 40
+            ? 'proceed40Expect40'
+            : current.aspect
           : nextSpeed === 40
             ? 'expect40'
             : nextSpeed === 60
@@ -1560,7 +1566,9 @@ function syncDistantSignalsForBlockSignals(station: StationDocument) {
         if (!candidate || !isMainSignal(candidate.type)) return false;
         const center = getPieceCenter(station, pieceId);
         if (center.y !== distantCenter.y) return false;
-        return direction === 'left-to-right' ? center.x > distantCenter.x : center.x < distantCenter.x;
+        return direction === 'left-to-right'
+          ? center.x > distantCenter.x
+          : center.x < distantCenter.x;
       })
       .sort((leftId, rightId) => {
         const leftDistance = Math.abs(getPieceCenter(station, leftId).x - distantCenter.x);
@@ -2736,7 +2744,14 @@ async function completeAhBlockReset(actionId: string, sessionId: string, station
       ? await stationRepository.findBySessionAndStationId(sessionId, linked.remote.stationId)
       : null;
 
-    if (!action || !pieceId || !piece || !isAhLineblockPieceType(piece.type) || !linked || !remoteStation) {
+    if (
+      !action ||
+      !pieceId ||
+      !piece ||
+      !isAhLineblockPieceType(piece.type) ||
+      !linked ||
+      !remoteStation
+    ) {
       return;
     }
     ensureStationRuntimeState(remoteStation);
@@ -3081,9 +3096,9 @@ function isClearedTraversalOnRoute(
   const piece = station.layout.pieces[pieceId];
   const requiresBranchMatch = Boolean(
     piece &&
-      isPhysicalSwitchType(piece.type) &&
-      traversalState !== null &&
-      isSwitchBranchTraversalState(traversalState),
+    isPhysicalSwitchType(piece.type) &&
+    traversalState !== null &&
+    isSwitchBranchTraversalState(traversalState),
   );
 
   if (!requiresBranchMatch) {
@@ -3372,7 +3387,12 @@ function updateLineblockArrivalEligibility(
           : null;
     const remoteStation = remoteEndpoint ? stations.get(remoteEndpoint.stationId) : null;
 
-    if (receivingPiece && isAhLineblockPieceType(receivingPiece.type) && remoteEndpoint && remoteStation) {
+    if (
+      receivingPiece &&
+      isAhLineblockPieceType(receivingPiece.type) &&
+      remoteEndpoint &&
+      remoteStation
+    ) {
       setLineblockVisualState(receivingStation, transit.receivingLineblockPieceId, 'receivingFree');
       setLineblockVisualState(remoteStation, remoteEndpoint.pieceId, 'sendingFree');
       train.lineblockTransit = null;
@@ -5331,7 +5351,7 @@ export const stationService = {
       printDebugBlock(
         'web-debug',
         `${station.sessionId}/${station.stationId} accepted ${action.type}`,
-        buildActionDebugLines(station, action),
+        () => buildActionDebugLines(station, action),
       );
       await stationActionLogRepository.create(toActionLog(station, action));
       await saveStation(station);
@@ -5376,7 +5396,7 @@ export const stationService = {
       printDebugBlock(
         'web-debug',
         `${station.sessionId}/${station.stationId} accepted ${action.type}`,
-        buildActionDebugLines(station, action),
+        () => buildActionDebugLines(station, action),
       );
       await stationActionLogRepository.create(toActionLog(station, action));
       await saveStation(station);
@@ -5392,7 +5412,7 @@ export const stationService = {
     printDebugBlock(
       'web-debug',
       `${station.sessionId}/${station.stationId} accepted ${action.type}`,
-      buildActionDebugLines(station, action),
+      () => buildActionDebugLines(station, action),
     );
     await saveStation(station);
 
@@ -5421,6 +5441,12 @@ export const stationService = {
 
     const mode = command.payload.button === 'right' ? 'cancel' : 'build';
     const selectedRoute = station.runtime.routeSelection;
+    if (
+      command.payload.expectedSelectionId &&
+      selectedRoute?.commandId !== command.payload.expectedSelectionId
+    ) {
+      throw new Error('The route selection changed. Select the route again.');
+    }
     const routeType = selectedRoute?.routeType ?? command.payload.control;
     const shuntEndpointTypes = new Set([
       'departureButton',
@@ -5446,7 +5472,10 @@ export const stationService = {
       }
 
       await completeRouteAction(pendingCancellation.id, command.sessionId, command.stationId);
-      return { kind: 'cancel-completed' as const };
+      return {
+        kind: 'cancel-completed' as const,
+        station: await this.getStation(command.sessionId, command.stationId),
+      };
     }
 
     if (
@@ -5499,7 +5528,7 @@ export const stationService = {
       printDebugBlock(
         'web-debug',
         `${station.sessionId}/${station.stationId} accepted ${action.type}`,
-        buildActionDebugLines(station, action),
+        () => buildActionDebugLines(station, action),
       );
       await saveStation(station);
 
@@ -5507,7 +5536,7 @@ export const stationService = {
         void completeRouteAction(action.id, command.sessionId, command.stationId);
       }, cancelDelay.durationMs);
 
-      return { kind: 'cancel-queued' as const, action };
+      return { kind: 'cancel-queued' as const, action, station };
     }
 
     if (!station.runtime.routeSelection) {
@@ -5518,11 +5547,12 @@ export const stationService = {
         sourcePieceType,
         sourceControl: command.payload.control,
         selectedAt: command.issuedAt,
+        commandId: command.commandId,
       };
       applyRuntimeStateWithTrainOccupations(station, session);
       bumpRevision(station);
       await saveStation(station);
-      return { kind: 'selection-started' as const };
+      return { kind: 'selection-started' as const, station };
     }
 
     const selection = station.runtime.routeSelection;
@@ -5535,7 +5565,7 @@ export const stationService = {
       applyRuntimeStateWithTrainOccupations(station, session);
       bumpRevision(station);
       await saveStation(station);
-      return { kind: 'selection-cleared' as const };
+      return { kind: 'selection-cleared' as const, station };
     }
 
     const targetPieceType = piece.type as string;
@@ -5611,7 +5641,7 @@ export const stationService = {
       printDebugBlock(
         'web-debug',
         `${station.sessionId}/${station.stationId} accepted ${action.type}`,
-        buildActionDebugLines(station, action),
+        () => buildActionDebugLines(station, action),
       );
       await saveStation(station);
       if (linkedLineblockStation) {
@@ -5625,7 +5655,7 @@ export const stationService = {
         void completeRouteAction(action.id, command.sessionId, command.stationId);
       }, ROUTE_BUILD_DELAY_MS);
 
-      return { kind: 'build-queued' as const, action };
+      return { kind: 'build-queued' as const, action, station };
     }
 
     const activeRoute = Object.values(station.runtime.activeTrainRoutes).find(
@@ -5669,7 +5699,7 @@ export const stationService = {
     printDebugBlock(
       'web-debug',
       `${station.sessionId}/${station.stationId} accepted ${action.type}`,
-      buildActionDebugLines(station, action),
+      () => buildActionDebugLines(station, action),
     );
     await saveStation(station);
 
@@ -5677,7 +5707,7 @@ export const stationService = {
       void completeRouteAction(action.id, command.sessionId, command.stationId);
     }, cancelDelay.durationMs);
 
-    return { kind: 'cancel-queued' as const, action };
+    return { kind: 'cancel-queued' as const, action, station };
   },
 
   async submitPrivolavaciaInteract(command: PrivolavaciaInteractCommand) {

@@ -1057,3 +1057,15 @@ Mongo `edd_diary_entries` projection. Both EDD and TPV must use that projection.
 structured messages share `session_chat_messages` and the existing station conversations; delivery and acknowledgment are distinct. EDD reads and writes require a live station claim.
 All writes require the existing live station claim, use explicit commands and preserve the
 pult/signalling boundaries. See `docs/EDD.md` for compatibility, source references and preview.
+
+### Route command performance
+
+Route search uses a stable minimum-cost heap and a fresh per-search geometry index
+(`route-search-queue.ts`, `route-geometry.ts`). Equal-cost route ordering is preserved;
+the index must never be reused across editor layout mutations. Runtime availability
+and railway validation still use the current station snapshot. Route command services
+return their persisted snapshot directly; emergency completion rereads its separate
+action result. Dependent clicks reuse the request's authenticated profile and recheck
+the live claim after waiting, without repeating Appwrite identity/profile requests.
+Set server `JOP_RUNTIME_DEBUG=true` to enable detailed station and route diagnostics;
+the default skips diagnostic station cloning and lazy log formatting.

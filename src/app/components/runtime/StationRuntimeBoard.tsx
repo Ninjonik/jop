@@ -121,6 +121,26 @@ export default function StationRuntimeBoard({
   const [viewportWidth, setViewportWidth] = useState(0);
   const [manualTileSize, setManualTileSize] = useState(75);
   const [pendingActionKey, setPendingActionKey] = useState<string | null>(null);
+  const [optimisticSwitch, setOptimisticSwitch] = useState<Record<string, SwitchPosition>>({});
+  const [optimisticRoute, setOptimisticRoute] = useState<{
+    pieceId: string;
+    control: 'normal' | 'shunt';
+  } | null>(null);
+  const routeRequestInFlight = useRef<{
+    id: string;
+    control: 'normal' | 'shunt';
+    targetSubmitted: boolean;
+  } | null>(null);
+  useEffect(() => {
+    const pending = routeRequestInFlight.current;
+    if (
+      pending &&
+      !pending.targetSubmitted &&
+      station.runtime.routeSelection?.commandId === pending.id
+    ) {
+      routeRequestInFlight.current = null;
+    }
+  }, [station.runtime.routeSelection]);
   const [heldInspectionButtonId, setHeldInspectionButtonId] = useState<string | null>(null);
   const [hoveredTrainPieceId, setHoveredTrainPieceId] = useState<string | null>(null);
   const fittedTileSize = viewportWidth > 0 ? viewportWidth / layout.width : 75;
@@ -169,6 +189,7 @@ export default function StationRuntimeBoard({
         `/api/stations/${station.sessionId}/${station.stationId}/commands/lineblock-action`,
         {
           method: 'POST',
+          keepalive: true,
           headers: {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${await getDisToken().catch(() => '')}`,
@@ -218,6 +239,30 @@ export default function StationRuntimeBoard({
     control: 'normal' | 'shunt',
     emergencyCancel = false,
   ) {
+    const pending = routeRequestInFlight.current;
+    if (pending?.targetSubmitted) {
+      onErrorChange('Počkajte na potvrdenie predchádzajúceho povelu.');
+      return;
+    }
+    const commandId = crypto.randomUUID();
+    const piece = station.layout.pieces[pieceId];
+    const canStart =
+      control === 'normal'
+        ? ['premainSignal', 'premainSignalNoOcp', 'departureButton'].includes(piece?.type)
+        : [
+            'departureButton',
+            'shuntButton',
+            'shuntButtonNoOcp',
+            'shuntSignalButtonBuffer',
+          ].includes(piece?.type);
+    const startsSelection =
+      !pending && button === 'left' && !station.runtime.routeSelection && canStart;
+    if (startsSelection) {
+      routeRequestInFlight.current = { id: commandId, control, targetSubmitted: false };
+      if (piece.state.groups.button) setOptimisticRoute({ pieceId, control });
+    } else if (pending) {
+      pending.targetSubmitted = true;
+    }
     try {
       setPendingActionKey(`${pieceId}:route:${button}`);
       onErrorChange(null);
@@ -226,12 +271,13 @@ export default function StationRuntimeBoard({
         `/api/stations/${station.sessionId}/${station.stationId}/commands/route-interact`,
         {
           method: 'POST',
+          keepalive: true,
           headers: {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${await getDisToken().catch(() => '')}`,
           },
           body: JSON.stringify({
-            commandId: crypto.randomUUID(),
+            commandId,
             sessionId: station.sessionId,
             stationId: station.stationId,
             type: 'route:interact',
@@ -245,6 +291,7 @@ export default function StationRuntimeBoard({
               button,
               control,
               emergencyCancel,
+              ...(pending ? { expectedSelectionId: pending.id } : {}),
             },
           }),
         },
@@ -261,15 +308,20 @@ export default function StationRuntimeBoard({
         onStationSnapshot(payload.station);
       }
     } catch (submitError) {
+      if (startsSelection && routeRequestInFlight.current?.id === commandId)
+        routeRequestInFlight.current = null;
       onErrorChange(
         submitError instanceof Error ? submitError.message : 'Failed to submit route interaction.',
       );
     } finally {
+      if (pending && routeRequestInFlight.current === pending) routeRequestInFlight.current = null;
+      setOptimisticRoute(null);
       setPendingActionKey(null);
     }
   }
 
   async function submitSwitchPosition(pieceId: string, position: SwitchPosition) {
+    setOptimisticSwitch((current) => ({ ...current, [pieceId]: position }));
     try {
       setPendingActionKey(`${pieceId}:switch`);
       onErrorChange(null);
@@ -278,6 +330,7 @@ export default function StationRuntimeBoard({
         `/api/stations/${station.sessionId}/${station.stationId}/commands/switch-set-position`,
         {
           method: 'POST',
+          keepalive: true,
           headers: {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${await getDisToken().catch(() => '')}`,
@@ -300,16 +353,25 @@ export default function StationRuntimeBoard({
         },
       );
 
-      const payload = (await response.json()) as { error?: { message?: string } };
+      const payload = (await response.json()) as {
+        error?: { message?: string };
+        station?: StationDocument | null;
+      };
       if (!response.ok) {
         throw new Error(payload.error?.message ?? 'Failed to operate switch.');
       }
+      if (payload.station) onStationSnapshot(payload.station);
     } catch (submitError) {
       onErrorChange(
         submitError instanceof Error ? submitError.message : 'Failed to operate switch.',
       );
     } finally {
       setPendingActionKey(null);
+      setOptimisticSwitch((current) => {
+        const next = { ...current };
+        delete next[pieceId];
+        return next;
+      });
     }
   }
 
@@ -322,6 +384,7 @@ export default function StationRuntimeBoard({
         `/api/stations/${station.sessionId}/${station.stationId}/commands/privolavacia-interact`,
         {
           method: 'POST',
+          keepalive: true,
           headers: {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${await getDisToken().catch(() => '')}`,
@@ -377,6 +440,7 @@ export default function StationRuntimeBoard({
         `/api/stations/${station.sessionId}/${station.stationId}/commands/reset-reservations`,
         {
           method: 'POST',
+          keepalive: true,
           headers: {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${await getDisToken().catch(() => '')}`,
@@ -709,7 +773,36 @@ export default function StationRuntimeBoard({
                 tileKey={piece.type}
                 tile={tile}
                 stateGroups={stateGroups}
-                selections={getHeldInspectionSelections(pieceId) ?? piece.state.groups}
+                selections={
+                  getHeldInspectionSelections(pieceId) ??
+                  (optimisticRoute?.pieceId === pieceId
+                    ? {
+                        ...piece.state.groups,
+                        button: {
+                          state:
+                            piece.type === 'shuntButton' ||
+                            piece.type === 'shuntButtonNoOcp' ||
+                            optimisticRoute.control === 'shunt'
+                              ? 'shunt'
+                              : 'departure',
+                          variant: 'blinking',
+                        },
+                      }
+                    : optimisticSwitch[pieceId]
+                      ? {
+                          ...piece.state.groups,
+                          switch: {
+                            state:
+                              optimisticSwitch[pieceId] === 'middleSet'
+                                ? 'middleSet'
+                                : optimisticSwitch[pieceId] === 'leftSet'
+                                  ? 'leftSetting'
+                                  : 'rightSetting',
+                            variant: 'normal',
+                          },
+                        }
+                      : piece.state.groups)
+                }
                 textValues={piece.state.texts}
                 orientation={{
                   rotation: piece.rotation,
@@ -941,14 +1034,20 @@ export default function StationRuntimeBoard({
                     void submitRouteInteract(
                       pieceId,
                       'left',
-                      station.runtime.routeSelection?.routeType === 'normal' ? 'normal' : 'shunt',
+                      (station.runtime.routeSelection?.routeType ??
+                        routeRequestInFlight.current?.control) === 'normal'
+                        ? 'normal'
+                        : 'shunt',
                     )
                   }
                   onContextMenu={(event) => {
                     event.preventDefault();
                     handleRouteContextMenu(
                       pieceId,
-                      station.runtime.routeSelection?.routeType === 'normal' ? 'normal' : 'shunt',
+                      (station.runtime.routeSelection?.routeType ??
+                        routeRequestInFlight.current?.control) === 'normal'
+                        ? 'normal'
+                        : 'shunt',
                     );
                   }}
                   className="pointer-events-auto absolute inset-0 cursor-pointer rounded-sm border border-transparent bg-transparent disabled:cursor-wait"

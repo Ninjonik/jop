@@ -36,7 +36,7 @@ import { singlePlaceSessionMode } from '@/lib/dis/operating-mode';
 import { isDisAdministrator } from '@/lib/dis/permissions';
 import { useDisResource } from '@/lib/dis/use-dis-resource';
 import { useRouter } from '@/lib/navigation';
-import { Suspense, useCallback, useEffect, useState } from 'react';
+import { Suspense, useCallback, useEffect, useState, type ReactNode } from 'react';
 
 type Tab =
   | 'settings'
@@ -80,6 +80,17 @@ type Place = {
   stations: { stationId: string; name: string }[];
 };
 type Places = { defaultPlaceId: string; placesComplete: boolean; places: Place[] };
+function WorkspaceView({ active, children }: { active: boolean; children: ReactNode }) {
+  return (
+    <div
+      className="flex flex-1 flex-col min-h-0 overflow-hidden"
+      hidden={!active}
+      style={!active ? { display: 'none' } : undefined}
+    >
+      {children}
+    </div>
+  );
+}
 function DisPortalShell() {
   const t = useTranslation();
   const leaseNow = useLeaseClock();
@@ -133,6 +144,13 @@ function DisPortalShell() {
         }
       : { placeId, stations: [], sessions: [] };
   const [tab, setTab] = useState<Tab>('sessions');
+  const [visitedViews, setVisitedViews] = useState<Partial<Record<Tab, boolean>>>({
+    sessions: true,
+  });
+  function selectTab(next: Tab) {
+    setVisitedViews((visited) => (visited[next] ? visited : { ...visited, [next]: true }));
+    setTab(next);
+  }
   const [scope, setScope] = useState<Scope | null>(null);
   const [tool, setTool] = useState<{ url: string; title: string } | null>(null);
   const [appearance, setAppearance] = useUserPreference('appearance', { dark: false });
@@ -219,7 +237,7 @@ function DisPortalShell() {
   }, [loading, user, authError, router]);
   function openTab(next: Tab) {
     setTool(null);
-    setTab(next);
+    selectTab(next);
   }
   function navigateTool(href: string) {
     const destination = new URL(href, window.location.origin);
@@ -245,7 +263,7 @@ function DisPortalShell() {
       '/linker': 'Prepojovač staníc',
     };
     if (titles[destination.pathname]) {
-      setTab('preparation');
+      selectTab('preparation');
       setTool({
         url: destination.pathname + destination.search,
         title: titles[destination.pathname],
@@ -261,7 +279,7 @@ function DisPortalShell() {
       map: { url: '/map', title: 'Správca staníc a topológie' },
     };
     if (tools[target]) {
-      setTab('preparation');
+      selectTab('preparation');
       setTool(tools[target]);
       return;
     }
@@ -442,7 +460,7 @@ function DisPortalShell() {
                 setPlaceChoice(event.target.value);
                 setScope(null);
                 setTool(null);
-                setTab('sessions');
+                selectTab('sessions');
                 setSessionSearch('');
               }}
             >
@@ -605,157 +623,221 @@ function DisPortalShell() {
                 {t('Odhlásiť')}
               </button>
             </div>
-          ) : tool ? (
-            <JopEmbeddedView {...tool} onClose={() => setTool(null)} onNavigate={navigateTool} />
-          ) : activeTab === 'preparation' ? (
-            <NetworkPreparationView onOpenTool={(target) => launch(target, '')} />
-          ) : activeTab === 'settings' ? (
-            <SettingsView />
-          ) : !selectedPlace ? (
-            <p className="p-4">{t('Najprv vyberte sieť.')}</p>
           ) : (
             <>
-              {activeTab === 'sessions' &&
-                (workingMode === 'dispatcher' ? (
-                  <StationSelectionView
-                    placeId={placeId}
-                    sessionId={current.sessionId}
-                    stations={sessionStations}
-                    claims={control.claims}
-                    userId={profile.userId}
-                    canTakeOver={isDisAdministrator(profile.role) && workingMode === 'dispatcher'}
-                    onSelect={launch}
-                    error={claimError || claimsError || ''}
-                  />
-                ) : (
-                  <SessionControlView
-                    key={placeId}
-                    placeId={placeId}
-                    showSessionControls={!singlePlaceSessionMode}
-                    onLaunchRuntime={launch}
-                    canLaunchSimulator={hasSession && canOperateStation}
-                    canInspectInternalStations={isDisAdministrator(profile.role)}
-                  />
-                ))}
-              {activeTab === 'driver' && hasSession && (
-                <DriverDashboardView
-                  key={current.sessionId}
-                  sessionId={current.sessionId}
-                  onTrainChange={onDriverTrainChange}
+              {tool && (
+                <JopEmbeddedView
+                  {...tool}
+                  onClose={() => setTool(null)}
+                  onNavigate={navigateTool}
                 />
               )}
-              {!current.sessionId &&
-                ['runtime', 'edd', 'tpv', 'mock', 'recovery'].includes(activeTab) && (
-                  <p className="p-4">{t('Najprv vyberte reláciu pre vybranú sieť.')}</p>
-                )}
-              {activeTab === 'runtime' &&
-                current.sessionId &&
-                (current.sessionId &&
-                current.stationId &&
-                (isDisAdministrator(profile.role) || (canOperateStation && ownsStation)) ? (
-                  <>
-                    <div
-                      className="ribbon-bar flex-wrap"
-                      role="group"
-                      aria-label={t('Ovládané stanice')}
-                    >
-                      {ownClaims.map((claim) => (
-                        <span key={claim.stationId} className="station-control-tab">
-                          <button
-                            className="aero-btn"
-                            aria-pressed={claim.stationId === current.stationId}
-                            onClick={() =>
-                              setScope({ sessionId: claim.sessionId, stationId: claim.stationId })
+              {!tool && activeTab === 'preparation' && (
+                <NetworkPreparationView onOpenTool={(target) => launch(target, '')} />
+              )}
+              {!tool && activeTab === 'settings' && <SettingsView />}
+              {!tool &&
+                !selectedPlace &&
+                activeTab !== 'settings' &&
+                activeTab !== 'preparation' && <p className="p-4">{t('Najprv vyberte sieť.')}</p>}
+              {selectedPlace && (
+                <WorkspaceView
+                  active={!tool && activeTab !== 'settings' && activeTab !== 'preparation'}
+                >
+                  {visitedViews.sessions && (
+                    <WorkspaceView active={activeTab === 'sessions'}>
+                      {workingMode === 'dispatcher' ? (
+                        <StationSelectionView
+                          placeId={placeId}
+                          sessionId={current.sessionId}
+                          stations={sessionStations}
+                          claims={control.claims}
+                          userId={profile.userId}
+                          canTakeOver={
+                            isDisAdministrator(profile.role) && workingMode === 'dispatcher'
+                          }
+                          onSelect={launch}
+                          error={claimError || claimsError || ''}
+                        />
+                      ) : (
+                        <SessionControlView
+                          key={placeId}
+                          placeId={placeId}
+                          showSessionControls={!singlePlaceSessionMode}
+                          onLaunchRuntime={launch}
+                          canLaunchSimulator={hasSession && canOperateStation}
+                          canInspectInternalStations={isDisAdministrator(profile.role)}
+                        />
+                      )}
+                    </WorkspaceView>
+                  )}
+                  {visitedViews.driver && hasSession && workingMode === 'driver' && (
+                    <WorkspaceView active={activeTab === 'driver'}>
+                      <DriverDashboardView
+                        key={current.sessionId}
+                        sessionId={current.sessionId}
+                        onTrainChange={onDriverTrainChange}
+                      />
+                    </WorkspaceView>
+                  )}
+                  {!current.sessionId &&
+                    ['runtime', 'edd', 'tpv', 'mock', 'recovery'].includes(activeTab) && (
+                      <p className="p-4">{t('Najprv vyberte reláciu pre vybranú sieť.')}</p>
+                    )}
+                  {visitedViews.runtime &&
+                    current.sessionId &&
+                    canOperateStation &&
+                    (workingMode === 'dispatcher' ||
+                      (workingMode === 'admin' && isDisAdministrator(profile.role))) && (
+                      <WorkspaceView active={activeTab === 'runtime'}>
+                        {current.sessionId &&
+                        current.stationId &&
+                        (isDisAdministrator(profile.role) || (canOperateStation && ownsStation)) ? (
+                          <>
+                            <div
+                              className="ribbon-bar flex-wrap"
+                              role="group"
+                              aria-label={t('Ovládané stanice')}
+                            >
+                              {ownClaims.map((claim) => (
+                                <span key={claim.stationId} className="station-control-tab">
+                                  <button
+                                    className="aero-btn"
+                                    aria-pressed={claim.stationId === current.stationId}
+                                    onClick={() =>
+                                      setScope({
+                                        sessionId: claim.sessionId,
+                                        stationId: claim.stationId,
+                                      })
+                                    }
+                                  >
+                                    {sessionStations.find((s) => s.stationId === claim.stationId)
+                                      ?.name || claim.stationId}
+                                  </button>
+                                  <button
+                                    className="aero-btn"
+                                    onClick={() => void releaseStation(claim.stationId)}
+                                    aria-label={t('Uvoľniť stanicu {0}', claim.stationId)}
+                                  >
+                                    <AeroIcon name="close" />
+                                  </button>
+                                </span>
+                              ))}
+                              <button className="aero-btn" onClick={() => openTab('sessions')}>
+                                <AeroIcon name="add" />
+                                {t('Ďalšia stanica')}
+                              </button>
+                            </div>
+                            <RuntimeStationClient
+                              key={scopeKey}
+                              {...current}
+                              embedded
+                              readOnly={workingMode === 'admin' && isDisAdministrator(profile.role)}
+                            />
+                          </>
+                        ) : (
+                          <StationSelectionView
+                            placeId={placeId}
+                            sessionId={current.sessionId}
+                            stations={sessionStations}
+                            claims={control.claims}
+                            userId={profile.userId}
+                            canTakeOver={
+                              isDisAdministrator(profile.role) && workingMode === 'dispatcher'
                             }
-                          >
-                            {sessionStations.find((s) => s.stationId === claim.stationId)?.name ||
-                              claim.stationId}
-                          </button>
-                          <button
-                            className="aero-btn"
-                            onClick={() => void releaseStation(claim.stationId)}
-                            aria-label={t('Uvoľniť stanicu {0}', claim.stationId)}
-                          >
-                            <AeroIcon name="close" />
-                          </button>
-                        </span>
-                      ))}
-                      <button className="aero-btn" onClick={() => openTab('sessions')}>
-                        <AeroIcon name="add" />
-                        {t('Ďalšia stanica')}
-                      </button>
+                            onSelect={launch}
+                            error={claimError || claimsError || ''}
+                          />
+                        )}
+                      </WorkspaceView>
+                    )}
+                  {visitedViews.edd && current.sessionId && workingMode === 'dispatcher' && (
+                    <div
+                      className="flex flex-1 flex-col min-h-0 overflow-hidden"
+                      hidden={activeTab !== 'edd'}
+                      style={activeTab !== 'edd' ? { display: 'none' } : undefined}
+                    >
+                      {ownsStation ? (
+                        <EddTableView
+                          key={scopeKey}
+                          {...current}
+                          placeId={placeId}
+                          reply={eddReply}
+                          onOpenChat={(stationId) =>
+                            setChatToOpen({ stationId, request: Date.now() })
+                          }
+                        />
+                      ) : (
+                        <p className="p-3">
+                          {t('Pre prístup k EDD najprv prevezmite stanicu v riadení dopravy.')}
+                        </p>
+                      )}
                     </div>
-                    <RuntimeStationClient
-                      key={scopeKey}
-                      {...current}
-                      embedded
-                      readOnly={workingMode === 'admin' && isDisAdministrator(profile.role)}
+                  )}
+                  {visitedViews.tpv && current.sessionId && (
+                    <div
+                      className="flex flex-1 flex-col min-h-0 overflow-hidden"
+                      hidden={activeTab !== 'tpv'}
+                      style={activeTab !== 'tpv' ? { display: 'none' } : undefined}
+                    >
+                      <TpvFullView key={scopeKey} {...current} placeId={placeId} />
+                    </div>
+                  )}
+                  {visitedViews.shifts && (
+                    <WorkspaceView active={activeTab === 'shifts'}>
+                      <ShiftManagementView />
+                    </WorkspaceView>
+                  )}
+                  {!tool && activeTab === 'staff' && canManageStaff && workingMode === 'admin' && (
+                    <StaffManagementView />
+                  )}
+                  {!tool && activeTab === 'docs' && <DocumentCenterView />}
+                  {!tool && activeTab === 'gvd' && canCreateGvd && workingMode === 'admin' && (
+                    <GvdEditorView
+                      key={placeId}
+                      place={selectedPlace}
+                      sessionId={current.sessionId}
                     />
-                  </>
-                ) : (
-                  <StationSelectionView
-                    placeId={placeId}
-                    sessionId={current.sessionId}
-                    stations={sessionStations}
-                    claims={control.claims}
-                    userId={profile.userId}
-                    canTakeOver={isDisAdministrator(profile.role) && workingMode === 'dispatcher'}
-                    onSelect={launch}
-                    error={claimError || claimsError || ''}
-                  />
-                ))}
-              {activeTab === 'edd' &&
-                current.sessionId &&
-                (ownsStation ? (
-                  <EddTableView
-                    key={scopeKey}
-                    {...current}
-                    placeId={placeId}
-                    reply={eddReply}
-                    onOpenChat={(stationId) => setChatToOpen({ stationId, request: Date.now() })}
-                  />
-                ) : (
-                  <p className="p-3">
-                    {t('Pre prístup k EDD najprv prevezmite stanicu v riadení dopravy.')}
-                  </p>
-                ))}
-              {activeTab === 'tpv' && current.sessionId && (
-                <TpvFullView key={scopeKey} {...current} placeId={placeId} />
-              )}
-              {activeTab === 'shifts' && <ShiftManagementView />}
-              {activeTab === 'staff' && canManageStaff && <StaffManagementView />}
-              {activeTab === 'docs' && <DocumentCenterView />}
-              {activeTab === 'gvd' && canCreateGvd && (
-                <GvdEditorView key={placeId} place={selectedPlace} sessionId={current.sessionId} />
-              )}
-              {activeTab === 'recovery' &&
-                current.sessionId &&
-                isDisAdministrator(profile.role) && (
-                  <RecoveryView
-                    key={current.sessionId}
-                    sessionId={current.sessionId}
-                    stations={network.stations}
-                  />
-                )}
-              {activeTab === 'mock' && current.sessionId && canOperateStation && (
-                <div className="dis-simulator flex-1 overflow-auto p-3">
-                  <Suspense fallback={<p> {t('Načítavam simulátor...')} </p>}>
-                    <MockControlClient
-                      key={current.sessionId}
-                      onSessionChange={(sessionId) =>
-                        setScope({
-                          sessionId,
-                          stationId:
-                            network.stations.find((station) => station.sessionId === sessionId)
-                              ?.stationId || '',
-                        })
-                      }
-                      embedded
-                      initialSessionId={current.sessionId}
-                      onLaunch={launch}
-                    />
-                  </Suspense>
-                </div>
+                  )}
+                  {visitedViews.recovery &&
+                    workingMode === 'admin' &&
+                    current.sessionId &&
+                    isDisAdministrator(profile.role) && (
+                      <WorkspaceView active={activeTab === 'recovery'}>
+                        <RecoveryView
+                          key={current.sessionId}
+                          sessionId={current.sessionId}
+                          stations={network.stations}
+                        />
+                      </WorkspaceView>
+                    )}
+                  {visitedViews.mock &&
+                    current.sessionId &&
+                    canOperateStation &&
+                    workingMode === 'admin' && (
+                      <WorkspaceView active={activeTab === 'mock'}>
+                        <div className="dis-simulator flex-1 overflow-auto p-3">
+                          <Suspense fallback={<p> {t('Načítavam simulátor...')} </p>}>
+                            <MockControlClient
+                              key={current.sessionId}
+                              onSessionChange={(sessionId) =>
+                                setScope({
+                                  sessionId,
+                                  stationId:
+                                    network.stations.find(
+                                      (station) => station.sessionId === sessionId,
+                                    )?.stationId || '',
+                                })
+                              }
+                              embedded
+                              initialSessionId={current.sessionId}
+                              onLaunch={launch}
+                            />
+                          </Suspense>
+                        </div>
+                      </WorkspaceView>
+                    )}
+                </WorkspaceView>
               )}
             </>
           )}
@@ -775,7 +857,7 @@ function DisPortalShell() {
               contactToOpen={chatToOpen}
               onEddReply={(reply) => {
                 setEddReply(reply);
-                setTab('edd');
+                selectTab('edd');
               }}
               driverTrain={
                 driverSelection?.sessionId === current.sessionId ? driverSelection.train : undefined

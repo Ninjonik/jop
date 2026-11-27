@@ -11,7 +11,10 @@ export async function POST(request: Request) {
     const profile = await authorizeStationCommand(request, command.sessionId, command.stationId);
     if (profile) command.actor = { type: 'user', id: profile.userId };
     const action = await stationService.submitSwitchSetPosition(command);
-    return Response.json({ action }, { status: 202 });
+    const station = await stationService
+      .getStation(command.sessionId, command.stationId)
+      .catch(() => null);
+    return Response.json({ action, station }, { status: 202 });
   } catch (error) {
     return jsonErrorResponse(error);
   }

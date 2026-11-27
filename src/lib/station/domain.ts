@@ -188,6 +188,7 @@ export type RuntimeRouteSelection = {
   sourcePieceType: RuntimeRouteEndpointType;
   sourceControl: 'normal' | 'shunt';
   selectedAt: string;
+  commandId?: string;
 };
 
 export type ActiveTrainRouteOccupation = {
@@ -443,6 +444,7 @@ export type RouteInteractPayload = {
   button: 'left' | 'right';
   control: RuntimeRouteType;
   emergencyCancel?: boolean;
+  expectedSelectionId?: string;
 };
 
 export type RouteInteractCommand = StationCommand<RouteInteractPayload> & {
@@ -587,6 +589,7 @@ export const stationDocumentSchema = z.object({
         ]),
         sourceControl: z.enum(['normal', 'shunt']),
         selectedAt: z.string(),
+        commandId: z.string().trim().min(1).optional(),
       })
       .nullable(),
     activeTrainRoutes: z.record(
@@ -938,6 +941,7 @@ export const routeInteractCommandSchema = z.object({
     button: z.enum(['left', 'right']),
     control: z.enum(['normal', 'shunt']),
     emergencyCancel: z.boolean().optional().default(false),
+    expectedSelectionId: z.string().trim().min(1).optional(),
   }),
 });
 

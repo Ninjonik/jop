@@ -9,13 +9,9 @@ import type {
   StationDocument,
 } from './domain';
 import type { StationLayout } from './layout';
-import {
-  getPieceAnchor,
-  getPieceCells,
-  isPremainSignalPieceType,
-  parseCellRef,
-  transformPoint,
-} from './layout';
+import { isPremainSignalPieceType, parseCellRef, transformPoint } from './layout';
+import { getPieceAnchor, getPieceCells, indexRouteGeometry } from './route-geometry';
+import { RouteSearchQueue } from './route-search-queue';
 import { isSwitchTraversalAllowedByButtonLocks } from './switches';
 import type { PieceOrientation, TileCatalog, TraversableStateMap } from './tile-types';
 
@@ -617,8 +613,8 @@ function shouldIncludeFinalShuntSignal(
 
   return Boolean(
     nextPiece &&
-      isShuntSignalPieceType(nextPiece.type) &&
-      getSignalFacingDirection(nextPiece.type, nextPiece.rotation) === direction,
+    isShuntSignalPieceType(nextPiece.type) &&
+    getSignalFacingDirection(nextPiece.type, nextPiece.rotation) === direction,
   );
 }
 
@@ -932,8 +928,7 @@ function tracePlatformToNextControl(
           piece.type !== 'departureSignal' &&
           piece.type !== 'departureSignalNoOcp'))
     ) {
-      failureReason =
-        'The entrance target must not pass a shunt control, shunt signal, or switch.';
+      failureReason = 'The entrance target must not pass a shunt control, shunt signal, or switch.';
       break;
     }
 
@@ -943,9 +938,7 @@ function tracePlatformToNextControl(
     if (isPlatformEndpoint || (stopAtShuntControls && isRouteControlPieceType(piece.type))) {
       if (requireDepartureSignalAfterTerminal) {
         const nextNeighbor = getTrackSideNeighbor(station, currentPieceId, directionSign);
-        const nextPiece = nextNeighbor
-          ? station.layout.pieces[nextNeighbor.pieceId]
-          : null;
+        const nextPiece = nextNeighbor ? station.layout.pieces[nextNeighbor.pieceId] : null;
         const isDepartureSignal =
           nextPiece?.type === 'departureSignal' || nextPiece?.type === 'departureSignalNoOcp';
         const followsDepartureSignal =
@@ -974,7 +967,10 @@ function tracePlatformToNextControl(
       if (!requireDepartureSignalAfterTerminal) {
         terminalPieceId = currentPieceId;
       }
-      if (!requireDepartureSignalAfterTerminal && isOccupiablePiece(station, currentPieceId, tiles)) {
+      if (
+        !requireDepartureSignalAfterTerminal &&
+        isOccupiablePiece(station, currentPieceId, tiles)
+      ) {
         pushReservation(station, reservedMap, currentPieceId, {
           pieceId: currentPieceId,
           state: 'reserved',
@@ -1044,9 +1040,7 @@ function isTrackPieceType(pieceType: string) {
 
 function isForwardShuntTailPieceType(pieceType: string) {
   return (
-    isTrackPieceType(pieceType) ||
-    pieceType === 'shuntButton' ||
-    pieceType === 'shuntButtonNoOcp'
+    isTrackPieceType(pieceType) || pieceType === 'shuntButton' || pieceType === 'shuntButtonNoOcp'
   );
 }
 
@@ -1337,7 +1331,9 @@ export function buildSignalRoutePlans(
 ) {
   const cancellingRouteIds = new Set(
     Object.values(station.runtime.pendingActions)
-      .filter((action) => action.type === 'route:cancel-normal' || action.type === 'route:cancel-shunt')
+      .filter(
+        (action) => action.type === 'route:cancel-normal' || action.type === 'route:cancel-shunt',
+      )
       .map((action) => action.payload.routeId)
       .filter((routeId): routeId is string => typeof routeId === 'string'),
   );
@@ -1700,7 +1696,7 @@ export function applyTrainOccupationVisualState(
 }
 
 export function buildRouteFromSelection(
-  station: StationDocument,
+  sourceStation: StationDocument,
   sourcePieceId: string,
   targetPieceId: string,
   tiles: TileCatalog,
@@ -1708,6 +1704,7 @@ export function buildRouteFromSelection(
   validateRuntimeAvailability = true,
   targetControl: 'normal' | 'shunt' = 'normal',
 ): StationRouteBuildResult {
+  const station = { ...sourceStation, layout: indexRouteGeometry(sourceStation.layout) };
   const sourcePiece = station.layout.pieces[sourcePieceId];
   const targetPiece = station.layout.pieces[targetPieceId];
 
@@ -1754,29 +1751,28 @@ export function buildRouteFromSelection(
     routeType === 'shunt' && targetPiece.type === 'shuntSignalButtonBuffer'
       ? getTerminalTargetTraversal(station, targetPieceId, directionSign)
       : routeType === 'shunt' && targetPiece.type !== 'departureButton'
-      ? getInlineTargetTraversal(station, targetPieceId, sourcePieceId)
-      : (routeClass === 'premain-to-platform' &&
-          targetPiece.type === 'departureButton' &&
-          !targetUsesShuntControl) ||
-          routeType === 'shunt'
-        ? getArrivalTargetTraversal(station, targetPieceId)
-        : getInlineTargetTraversal(station, targetPieceId, sourcePieceId);
+        ? getInlineTargetTraversal(station, targetPieceId, sourcePieceId)
+        : (routeClass === 'premain-to-platform' &&
+              targetPiece.type === 'departureButton' &&
+              !targetUsesShuntControl) ||
+            routeType === 'shunt'
+          ? getArrivalTargetTraversal(station, targetPieceId)
+          : getInlineTargetTraversal(station, targetPieceId, sourcePieceId);
 
   if (!startTraversal || !targetTraversal) {
     throw new Error('Unable to derive route endpoints for the selected pieces.');
   }
 
-  const queue: RouteSearchState[] = [
-    {
-      pieceId: startTraversal.pieceId,
-      entry: startTraversal.entry,
-      cost: 0,
-      visitedPieceIds: [],
-      reservedOccupations: {},
-      signalPieceIds: shuntSource?.sourceSignalPieceId ? [shuntSource.sourceSignalPieceId] : [],
-      debugSteps: [],
-    },
-  ];
+  const queue = new RouteSearchQueue<RouteSearchState>();
+  queue.push({
+    pieceId: startTraversal.pieceId,
+    entry: startTraversal.entry,
+    cost: 0,
+    visitedPieceIds: [],
+    reservedOccupations: {},
+    signalPieceIds: shuntSource?.sourceSignalPieceId ? [shuntSource.sourceSignalPieceId] : [],
+    debugSteps: [],
+  });
 
   const targetKey = `${targetTraversal.pieceId}:${toOffsetKey(targetTraversal.entry)}`;
   // An approaching train occupies the pre-main track circuit before its
@@ -1786,7 +1782,6 @@ export function buildRouteFromSelection(
     routeClass === 'premain-to-platform' && pieceId === sourcePieceId;
 
   while (queue.length > 0) {
-    queue.sort((left, right) => left.cost - right.cost);
     const current = queue.shift();
     if (!current) {
       break;
@@ -1800,8 +1795,7 @@ export function buildRouteFromSelection(
     const currentKey = `${current.pieceId}:${toOffsetKey(current.entry)}`;
     if (currentKey === targetKey) {
       const piece = station.layout.pieces[current.pieceId];
-      const isTargetShuntEndpoint =
-        routeType === 'shunt' && current.pieceId === targetPieceId;
+      const isTargetShuntEndpoint = routeType === 'shunt' && current.pieceId === targetPieceId;
       const targetContribution = getTargetPieceContribution(
         station,
         current.pieceId,
@@ -1820,12 +1814,7 @@ export function buildRouteFromSelection(
       }
       const includeFinalShuntSignal =
         !isTargetShuntEndpoint ||
-        shouldIncludeFinalShuntSignal(
-          station,
-          current.pieceId,
-          targetContribution.exit,
-          direction,
-        );
+        shouldIncludeFinalShuntSignal(station, current.pieceId, targetContribution.exit, direction);
 
       let signalPieceIds = Array.from(
         new Set(
@@ -1835,7 +1824,8 @@ export function buildRouteFromSelection(
         ),
       );
       const debugSteps =
-        targetContribution.occupation || (targetContribution.includeSignal && includeFinalShuntSignal)
+        targetContribution.occupation ||
+        (targetContribution.includeSignal && includeFinalShuntSignal)
           ? [
               ...current.debugSteps,
               {
@@ -2096,16 +2086,17 @@ export function buildRouteFromSelection(
     });
   }
 
-  console.log(
-    [
-      `[route-debug-fail] ${station.sessionId}/${station.stationId}`,
-      `  routeType=${routeType} routeClass=${routeClass} direction=${direction}`,
-      `  source=${sourcePieceId} (${sourcePiece.type})`,
-      `  target=${targetPieceId} (${targetPiece.type})`,
-      `  startTraversal=${startTraversal.pieceId}:${toOffsetKey(startTraversal.entry)}`,
-      `  targetTraversal=${targetTraversal.pieceId}:${toOffsetKey(targetTraversal.entry)}`,
-    ].join('\n'),
-  );
+  if (typeof process !== 'undefined' && process.env.JOP_RUNTIME_DEBUG === 'true')
+    console.log(
+      [
+        `[route-debug-fail] ${station.sessionId}/${station.stationId}`,
+        `  routeType=${routeType} routeClass=${routeClass} direction=${direction}`,
+        `  source=${sourcePieceId} (${sourcePiece.type})`,
+        `  target=${targetPieceId} (${targetPiece.type})`,
+        `  startTraversal=${startTraversal.pieceId}:${toOffsetKey(startTraversal.entry)}`,
+        `  targetTraversal=${targetTraversal.pieceId}:${toOffsetKey(targetTraversal.entry)}`,
+      ].join('\n'),
+    );
 
   throw new Error('No valid route could be found for the selected endpoints.');
 }

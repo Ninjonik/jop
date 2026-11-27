@@ -1,5 +1,7 @@
+import { requireStationClaim } from '@/lib/server/dis/claims';
 import { authorizeStationCommand } from '@/lib/server/dis/station-command';
 import { jsonErrorResponse, parseJsonRequest } from '@/lib/server/http';
+import { waitForRouteSelection } from '@/lib/server/services/route-selection-wait';
 import { stationService } from '@/lib/server/services/station-service';
 import { routeInteractCommandSchema, sessionIdSchema, stationIdSchema } from '@/lib/station/domain';
 
@@ -33,9 +35,16 @@ export async function POST(request: Request, { params }: StationRouteInteractRou
       );
     }
 
+    if (command.payload.expectedSelectionId) {
+      await waitForRouteSelection(
+        parsedSessionId,
+        parsedStationId,
+        command.payload.expectedSelectionId,
+      );
+      if (profile) await requireStationClaim(parsedSessionId, parsedStationId, profile);
+    }
     const result = await stationService.submitRouteInteract(command);
-    const station = await stationService.getStation(parsedSessionId, parsedStationId);
-    return Response.json({ ...result, station }, { status: 202 });
+    return Response.json(result, { status: 202 });
   } catch (error) {
     return jsonErrorResponse(error);
   }

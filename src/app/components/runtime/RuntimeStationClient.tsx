@@ -79,7 +79,9 @@ export default function RuntimeStationClient({
         }
 
         startTransition(() => {
-          setStation(payload.station);
+          setStation((current) =>
+            !current || payload.station.revision >= current.revision ? payload.station : current,
+          );
           setError(null);
         });
       } catch (loadError) {
@@ -111,7 +113,9 @@ export default function RuntimeStationClient({
       }
 
       startTransition(() => {
-        setStation(nextStation);
+        setStation((current) =>
+          !current || nextStation.revision >= current.revision ? nextStation : current,
+        );
         setError(null);
       });
     };
@@ -140,7 +144,9 @@ export default function RuntimeStationClient({
 
     socket.on('station:snapshot', (nextStation) => {
       startTransition(() => {
-        setStation(nextStation);
+        setStation((current) =>
+          !current || nextStation.revision >= current.revision ? nextStation : current,
+        );
         setError(null);
       });
     });
@@ -208,7 +214,9 @@ export default function RuntimeStationClient({
           onErrorChange={setError}
           onLineblockSnapshots={(localStation, remoteStation) => {
             startTransition(() => {
-              setStation(localStation);
+              setStation((current) =>
+                !current || localStation.revision >= current.revision ? localStation : current,
+              );
               setError(null);
             });
             const channel = new BroadcastChannel('jop-station-snapshots');
@@ -217,7 +225,9 @@ export default function RuntimeStationClient({
           }}
           onStationSnapshot={(nextStation) => {
             startTransition(() => {
-              setStation(nextStation);
+              setStation((current) =>
+                !current || nextStation.revision >= current.revision ? nextStation : current,
+              );
               setError(null);
             });
           }}
