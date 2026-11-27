@@ -3,6 +3,7 @@ import type { EddEntry } from '@/lib/dis/edd';
 import { recordedEddTimeSchema } from '@/lib/dis/edd';
 import { parseCompactClock } from '@/lib/dis/gvd-running-times';
 import { downloadGvd } from '@/lib/dis/gvd-tools';
+import { pointKind } from '@/lib/dis/railway-network';
 import type { EddRecord } from '@/lib/dis/records';
 import {
   alignClockMinute,
@@ -18,9 +19,10 @@ import {
   type Timetable,
   type TimetableInput,
 } from '@/lib/dis/timetable';
-import { forecastTimetable, isFreightTrain } from '@/lib/dis/train-progress';
+import { forecastTimetable, isFreightTrain, recordedTrainSegments } from '@/lib/dis/train-progress';
 import { preferenceHash, useUserPreference } from '@/lib/dis/use-user-preference';
 import { useTranslation } from '@/lib/i18n/client';
+import { getStationDisplayName } from '@/lib/station/display-name';
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { AeroIcon } from '../ui/AeroIcon';
 import { useTrainWorkspace } from './TrainWorkspace';
@@ -37,6 +39,7 @@ export function TimetableGraph({
   stationPositions,
   preferenceScope = 'graph',
   live = false,
+  followStationOrder = false,
   onOpenTrain,
 }: {
   trains: Timetable[];
@@ -50,6 +53,7 @@ export function TimetableGraph({
   stationPositions?: Record<string, number>;
   preferenceScope?: string;
   live?: boolean;
+  followStationOrder?: boolean;
   onOpenTrain?: (number: string) => void;
 }) {
   const t = useTranslation();
@@ -63,6 +67,7 @@ export function TimetableGraph({
     stationScale: number;
     snapMinutes: number;
     order: string[];
+    highlights: string[];
   }>(
     `ncp:${preferenceScope}:${preferenceHash(
       incomingStations
@@ -78,14 +83,17 @@ export function TimetableGraph({
       stationScale: 120,
       snapMinutes: 1,
       order: incomingStations.map((s) => s.stationId),
+      highlights: [],
     },
   );
-  const orderedIds = [
-    ...preferences.order.filter((id) => incomingStations.some((s) => s.stationId === id)),
-    ...incomingStations
-      .filter((s) => !preferences.order.includes(s.stationId))
-      .map((s) => s.stationId),
-  ];
+  const orderedIds = followStationOrder
+    ? incomingStations.map((station) => station.stationId)
+    : [
+        ...preferences.order.filter((id) => incomingStations.some((s) => s.stationId === id)),
+        ...incomingStations
+          .filter((s) => !preferences.order.includes(s.stationId))
+          .map((s) => s.stationId),
+      ];
   const stations = (preferences.reverse ? [...orderedIds].reverse() : orderedIds).map((id) =>
     incomingStations.find((s) => s.stationId === id)!,
   );
@@ -117,7 +125,23 @@ export function TimetableGraph({
   const scroll = useRef<HTMLDivElement>(null);
   const svg = useRef<SVGSVGElement>(null);
   const pan = useRef<{ x: number; y: number; left: number; top: number } | null>(null);
-  const [selectedStation, setSelectedStation] = useState(highlighted);
+  const highlightedStations = preferences.highlights;
+  const toggleStation = (id: string) =>
+    setPreferences({
+      highlights: highlightedStations.includes(id)
+        ? highlightedStations.filter((item) => item !== id)
+        : [...highlightedStations, id],
+    });
+  const [viewportWidth, setViewportWidth] = useState(0);
+  useEffect(() => {
+    const element = scroll.current;
+    if (!element) return;
+    const observer = new ResizeObserver((entries) =>
+      setViewportWidth(Math.round(entries[0].contentRect.width)),
+    );
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
   const [drag, setDrag] = useState<{
     x: number;
     scrollLeft: number;
@@ -175,9 +199,13 @@ export function TimetableGraph({
   const minimum = fullDay
     ? 0
     : Math.floor(Math.min(...validSchedules.map((s) => s.stops[0].arrivalMinute), 1440) / 60) * 60;
-  const maximum = Math.max(
+  const scheduleMaximum = Math.max(
     fullDay ? 1440 : minimum + 60,
     ...validSchedules.map((s) => s.stops.at(-1)!.departureMinute),
+  );
+  const maximum = Math.max(
+    scheduleMaximum,
+    minimum + Math.ceil(Math.max(60, (viewportWidth - 200) / timeScale) / 30) * 30,
   );
   const tickMinutes =
     [5, 10, 15, 30, 60, 120, 180, 240, 360].find((minutes) => minutes * timeScale >= 55) || 360;
@@ -265,7 +293,7 @@ export function TimetableGraph({
       );
     if (nearest)
       setHover(
-        `${train.trainType} ${train.trainNumber} · ${stations.find((s) => stationKey(s.stationId) === stationKey(nearest.station))?.name || nearest.station} · ${nearest.arrival} – ${nearest.departure}`,
+        `${train.trainType} ${train.trainNumber} · ${stations.find((s) => stationKey(s.stationId) === stationKey(nearest.station))?.name || getStationDisplayName(nearest.station)} · ${nearest.arrival} – ${nearest.departure}`,
       );
   }
   function colour(train: Timetable) {
@@ -586,17 +614,30 @@ export function TimetableGraph({
                   ))}
                 </svg>
               </div>
-              <div className="gvd-sticky-stations" aria-hidden="true">
+              <div className="gvd-sticky-stations">
                 <div style={{ height }}>
                   {stations.map((station) => (
-                    <span key={station.stationId} style={{ top: y(station.stationId) - 10 }}>
+                    <button
+                      type="button"
+                      key={station.stationId}
+                      onClick={() => toggleStation(station.stationId)}
+                      aria-pressed={highlightedStations.includes(station.stationId)}
+                      className={
+                        !['Stanica', 'Odbočka', 'Výhybňa'].includes(
+                          pointKind(getStationDisplayName(station.name)),
+                        )
+                          ? 'tpv-point-stop'
+                          : 'tpv-point-major'
+                      }
+                      style={{ top: y(station.stationId) - 10 }}
+                    >
                       <i
                         style={{
                           background: station.stationId === highlighted ? '#31bc36' : '#bbb',
                         }}
                       />
-                      {station.name}
-                    </span>
+                      {getStationDisplayName(station.name)}
+                    </button>
                   ))}
                 </div>
               </div>
@@ -680,11 +721,11 @@ export function TimetableGraph({
                     role="button"
                     tabIndex={0}
                     aria-label={t('Zvýrazniť stanicu {0}', station.name)}
-                    onClick={() => setSelectedStation(station.stationId)}
+                    onClick={() => toggleStation(station.stationId)}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' || e.key === ' ') {
                         e.preventDefault();
-                        setSelectedStation(station.stationId);
+                        toggleStation(station.stationId);
                       }
                     }}
                     style={{ cursor: 'pointer' }}
@@ -694,14 +735,17 @@ export function TimetableGraph({
                       x2={width - 20}
                       y1={y(station.stationId)}
                       y2={y(station.stationId)}
-                      stroke={'#ffbf80'}
+                      stroke={
+                        highlightedStations.includes(station.stationId) ? '#3386c0' : '#ffbf80'
+                      }
+                      strokeWidth={highlightedStations.includes(station.stationId) ? 2 : 1}
                     />
                     <circle
                       cx={8}
                       cy={y(station.stationId) - 9}
                       r={3}
                       fill={
-                        selectedStation === station.stationId
+                        highlightedStations.includes(station.stationId)
                           ? 'var(--sig-green)'
                           : 'var(--aero-text-muted)'
                       }
@@ -713,7 +757,7 @@ export function TimetableGraph({
                       fontWeight={600}
                       fill="var(--aero-text)"
                     >
-                      {station.name}
+                      {getStationDisplayName(station.name)}
                     </text>
                   </g>
                 ))}
@@ -811,6 +855,8 @@ export function TimetableGraph({
                       )}
                       <g
                         role="button"
+                        className="tpv-train-path"
+                        aria-pressed={train.$id === activeId}
                         tabIndex={0}
                         aria-label={`${train.trainType} ${train.trainNumber}`}
                         onClick={() => {
@@ -822,7 +868,10 @@ export function TimetableGraph({
                             chooseTrain(train);
                           }
                         }}
-                        onPointerDown={(e) => beginDrag(e, train)}
+                        onPointerDown={(e) => {
+                          if (!onEdit) e.preventDefault();
+                          beginDrag(e, train);
+                        }}
                         onPointerMove={(event) => showHover(train, stops, event)}
                         style={{
                           cursor: dragEnabled && train.$id === editableId ? 'ew-resize' : 'pointer',
@@ -832,7 +881,7 @@ export function TimetableGraph({
                           points={points.join(' ')}
                           fill="none"
                           stroke={color}
-                          strokeWidth={train.$id === activeId ? 3 : 1.5}
+                          strokeWidth={train.$id === activeId ? 3.6 : 2}
                           markerEnd={leaves ? `url(#${markerId})` : undefined}
                           markerStart={enters ? `url(#${markerId})` : undefined}
                           strokeDasharray={live ? '2 2' : undefined}
@@ -852,44 +901,34 @@ export function TimetableGraph({
                             y={labelY - 6}
                             transform={`rotate(${labelAngle},${labelX},${labelY})`}
                             fill={color}
-                            fontSize={13}
+                            fontSize={15}
                             fontWeight={train.$id === activeId ? 700 : 400}
                           >
                             {train.trainNumber}
                           </text>
                         )}
                       </g>
-                      {live && current !== undefined && (
-                        <>
-                          <defs>
-                            <clipPath id={markerId + '-past-' + train.$id}>
-                              <rect
-                                x="175"
-                                y="36"
-                                width={Math.max(0, x(current) - 175)}
-                                height={height}
+                      {live &&
+                        recordedTrainSegments(
+                          trains.find((item) => item.$id === train.$id) || train,
+                          records as EddEntry[],
+                          currentMinute,
+                        ).map(
+                          (segment, index) =>
+                            segment.every((point) => visible(point.station)) && (
+                              <polyline
+                                key={'recorded-' + index}
+                                className="tpv-recorded-path"
+                                points={segment
+                                  .map((point) => x(point.minute) + ',' + y(point.station))
+                                  .join(' ')}
+                                fill="none"
+                                stroke={color}
+                                strokeWidth={train.$id === activeId ? 3.6 : 2}
+                                pointerEvents="none"
                               />
-                            </clipPath>
-                          </defs>
-                          <polyline
-                            points={points.join(' ')}
-                            fill="none"
-                            stroke={color}
-                            strokeWidth={train.$id === activeId ? 3 : 1.5}
-                            clipPath={'url(#' + markerId + '-past-' + train.$id + ')'}
-                            pointerEvents="none"
-                          />
-                        </>
-                      )}
-                      <polyline
-                        points={events
-                          .filter((e) => visible(e.station))
-                          .map((e) => `${x(e.minute)},${y(e.station)}`)
-                          .join(' ')}
-                        fill="none"
-                        stroke={color}
-                        strokeWidth={2}
-                      />
+                            ),
+                        )}
                       {train.$id === activeId &&
                         timeScale >= 5 &&
                         stops
@@ -991,7 +1030,7 @@ export function TimetableGraph({
                     <td>
                       {stations.find(
                         (station) => stationKey(station.stationId) === stationKey(stop.station),
-                      )?.name || stop.station}
+                      )?.name || getStationDisplayName(stop.station)}
                     </td>
                     {(['arrival', 'departure'] as const).map((field) => (
                       <td key={field}>

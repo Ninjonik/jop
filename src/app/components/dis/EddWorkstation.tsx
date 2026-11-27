@@ -376,7 +376,6 @@ export function EddWorkstation({
                         <button
                           className="edd-train"
                           onClick={() => {
-                            choose(record);
                             traffic.openTrain(record.trainNumber);
                           }}
                         >
@@ -384,27 +383,35 @@ export function EddWorkstation({
                         </button>
                         <button
                           className="aero-btn edd-copy-train"
-                          onClick={() =>
+                          onClick={() => {
+                            choose(record);
                             void navigator.clipboard
                               .writeText(record.trainNumber)
                               .catch(() =>
                                 setError(
                                   'Číslo vlaku sa nepodarilo skopírovať. Označte ho a skopírujte ručne.',
                                 ),
-                              )
-                          }
+                              );
+                          }}
                         >
                           {t('Kopírovať')}
                         </button>
-                        <small>{record.direction}</small>
+                        <small>
+                          {record.direction
+                            .split('→')
+                            .map((part) => getStationDisplayName(part.trim()))
+                            .join(' → ')}
+                        </small>
                         {record.nextTransportPoint && (
                           <small className="edd-onward">
-                            {t('Ďalší dopravný bod')}: <b>{record.nextTransportPoint}</b>
+                            {t('Ďalší dopravný bod')}:{' '}
+                            <b>{getStationDisplayName(record.nextTransportPoint)}</b>
                           </small>
                         )}
                         {record.nextControlledArea && (
                           <small className="edd-onward">
-                            {t('Ďalší riadený dopravný bod')}: <b>{record.nextControlledArea}</b>
+                            {t('Ďalší riadený dopravný bod')}:{' '}
+                            <b>{getStationDisplayName(record.nextControlledArea)}</b>
                           </small>
                         )}
                       </td>

@@ -3,6 +3,7 @@ import type { SessionClockSnapshot } from '@/lib/dis/clock';
 import { operatingClockParts } from '@/lib/dis/clock';
 import type { DriverTrain } from '@/lib/dis/driver-train';
 import type { EddEntry } from '@/lib/dis/edd';
+import { pointKind } from '@/lib/dis/railway-network';
 import type { Timetable } from '@/lib/dis/timetable';
 import { clockMinutes, formatMinute } from '@/lib/dis/timetable';
 import { lastReportedStop, trainProgress } from '@/lib/dis/train-progress';
@@ -105,9 +106,22 @@ function TrainOverview({
   const train = matches.find((train) => train.$id === chosen) || matches[0];
   const progress = train ? trainProgress(train, value.records, minute) : [];
   const last = lastReportedStop(progress);
-  const driver = value.drivers.find((driver) => driver.timetableId === train?.$id);
+  const driver = value.drivers.find(
+    (driver) =>
+      driver.timetableId === train?.$id || (!driver.timetableId && driver.trainNumber === number),
+  );
   return (
-    <GvdDialog title={t('Vlak') + ' ' + (train?.trainType || '') + ' ' + number} onClose={onClose}>
+    <GvdDialog
+      title={
+        t('Vlak') +
+        ' ' +
+        (train?.trainType || '') +
+        ' ' +
+        number +
+        (driver?.userName ? ' · ' + driver.userName : '')
+      }
+      onClose={onClose}
+    >
       <div className="train-overview-body">
         {error && <p role="alert">{t(error)}</p>}
         {matches.length > 1 && (
@@ -120,7 +134,8 @@ function TrainOverview({
             >
               {matches.map((train) => (
                 <option key={train.$id} value={train.$id}>
-                  {train.stops[0]?.station} → {train.stops.at(-1)?.station}
+                  {getStationDisplayName(train.stops[0]?.station || '')} →{' '}
+                  {getStationDisplayName(train.stops.at(-1)?.station || '')}
                 </option>
               ))}
             </select>
@@ -165,7 +180,7 @@ function TrainOverview({
             <table className="aero-grid train-overview-table">
               <thead>
                 <tr>
-                  {['Dopravňa', 'Príchod', 'Odchod', 'Koľaj'].map((label) => (
+                  {['Dopravňa', 'Príchod', 'Odchod', 'Koľaj', 'Meškanie / náskok'].map((label) => (
                     <th key={label}>{t(label)}</th>
                   ))}
                 </tr>
@@ -173,7 +188,15 @@ function TrainOverview({
               <tbody>
                 {progress.map((stop, i) => (
                   <tr key={i} className={last?.index === i ? 'train-last-report' : ''}>
-                    <th>
+                    <th
+                      className={
+                        ['Stanica', 'Odbočka', 'Výhybňa'].includes(
+                          pointKind(getStationDisplayName(stop.station)),
+                        )
+                          ? 'train-point-major'
+                          : 'train-point-minor'
+                      }
+                    >
                       {getStationDisplayName(stop.station)}
                       <small>
                         {t(
@@ -194,7 +217,6 @@ function TrainOverview({
                       const planned =
                         event === 'arrival' ? stop.plannedArrival : stop.plannedDeparture;
                       const actual = stop[event];
-                      const delay = Math.round(actual - planned);
                       return (
                         <td
                           key={event}
@@ -208,7 +230,6 @@ function TrainOverview({
                               <small>
                                 {t(recorded ? 'Zapísané' : 'Odhad')} · {t('Plán')}:{' '}
                                 {formatMinute(planned).slice(0, 5)}
-                                {delay ? ' · ' + (delay > 0 ? '+' : '') + delay + ' min' : ''}
                               </small>
                               {stop.dwell && event === 'departure' && <small>{t('Pobyt')}</small>}
                             </>
@@ -217,6 +238,32 @@ function TrainOverview({
                       );
                     })}
                     <td>{stop.record?.track || train.stops[i].track || '–'}</td>
+                    <td>
+                      {(['arrival', 'departure'] as const).map((event) => {
+                        if (
+                          (event === 'arrival' && i === 0) ||
+                          (event === 'departure' && i === progress.length - 1)
+                        )
+                          return null;
+                        const delta = Math.round(
+                          stop[event] -
+                            (event === 'arrival' ? stop.plannedArrival : stop.plannedDeparture),
+                        );
+                        return (
+                          <small
+                            key={event}
+                            className={
+                              'train-delay ' + (delta > 0 ? 'late' : delta < 0 ? 'early' : 'ontime')
+                            }
+                          >
+                            <span>{t(event === 'arrival' ? 'Príchod' : 'Odchod')}</span>
+                            <strong>
+                              {delta ? (delta > 0 ? '+' : '') + delta + ' min' : t('Načas')}
+                            </strong>
+                          </small>
+                        );
+                      })}
+                    </td>
                   </tr>
                 ))}
               </tbody>

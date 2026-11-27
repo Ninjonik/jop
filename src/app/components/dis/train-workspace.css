@@ -284,3 +284,133 @@
 .session-chat-contact-group {
   flex: none;
 }
+
+.train-overview-table tbody tr:nth-child(odd) {
+  background: color-mix(in srgb, var(--aero-ribbon-bg) 48%, var(--aero-panel-bg));
+}
+.train-overview-table tbody th,
+.train-overview-table tbody td {
+  border-bottom: 1px solid color-mix(in srgb, var(--aero-panel-border) 45%, transparent);
+}
+.train-overview-table .train-point-minor {
+  font-weight: 400;
+}
+.train-overview-table .train-point-major {
+  font-weight: 700;
+}
+.train-overview-table small.train-delay {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 3px 5px;
+  min-width: 115px;
+  border-radius: 2px;
+  font-size: 11px;
+}
+.train-delay.late {
+  background: color-mix(in srgb, #b64335 12%, var(--aero-panel-bg));
+  color: #a12b25;
+}
+.train-delay.early {
+  background: color-mix(in srgb, #2876a7 12%, var(--aero-panel-bg));
+  color: #22658e;
+}
+.train-delay.ontime {
+  color: var(--aero-text-muted);
+}
+.dark .train-delay.late {
+  color: #ffb4ab;
+}
+.dark .train-delay.early {
+  color: #a9d9ff;
+}
+.tpv-layout-dialog {
+  padding: 10px;
+  max-height: 72vh;
+  overflow: auto;
+  color: var(--aero-text);
+}
+.tpv-layout-hint {
+  font-size: 11px;
+  color: var(--aero-text-muted);
+  padding: 8px;
+}
+.tpv-order-list {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 5px;
+  padding: 5px 8px;
+}
+.tpv-order-list li {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid var(--aero-panel-border);
+  background: var(--aero-ribbon-bg);
+  padding: 5px;
+  cursor: grab;
+}
+.tpv-order-list li > span:nth-child(2) {
+  flex: 1;
+}
+.tpv-layout-footer {
+  display: flex;
+  justify-content: flex-end;
+  padding: 8px;
+}
+.tpv-live-workspace {
+  width: 100%;
+  max-width: none;
+}
+.tpv-live-workspace > .ribbon-bar {
+  justify-content: space-between;
+}
+.tpv-train-path:focus {
+  outline: none;
+}
+.tpv-train-path:focus-visible > polyline {
+  filter: drop-shadow(0 0 1px #6788a6);
+}
+.timetable-graph .gvd-sticky-stations button {
+  position: absolute;
+  left: 3px;
+  right: 3px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: #111;
+  font: 600 13px/1.25 Arial;
+  text-align: left;
+  background: #fff;
+  border: 0;
+  pointer-events: auto;
+  cursor: pointer;
+  padding: 3px;
+}
+.timetable-graph .gvd-sticky-stations button.tpv-point-stop {
+  font-weight: 400;
+}
+.timetable-graph .gvd-sticky-stations button[aria-pressed='true'] {
+  background: #dcecff;
+  color: #174c73;
+}
+.timetable-graph .gvd-sticky-stations button:focus-visible {
+  outline: 1px solid #3386c0;
+}
+.tpv-preview-split {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+.tpv-preview-split > .tpv-live-workspace {
+  flex: 1;
+  min-width: 0;
+  width: auto;
+}
+.tpv-preview-split .edd-preview-chat {
+  width: 100%;
+  min-width: 0;
+}

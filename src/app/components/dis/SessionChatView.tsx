@@ -336,7 +336,9 @@ export function SessionChatView({
         <span role="status">{connected ? t('Pripojené naživo') : t('Pripájam…')}</span>
         <span>
           {mode === 'station'
-            ? stationId || t('Vyberte stanicu')
+            ? stationId
+              ? getStationDisplayName(stationId)
+              : t('Vyberte stanicu')
             : t('Rušňovodič: {0}', profile?.name)}
         </span>
         <RadioTerminalControls terminal={terminal} connected={connected} />

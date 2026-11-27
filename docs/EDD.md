@@ -117,3 +117,14 @@ Digital ZCP follows the selected theme. A4/print clones explicitly reset text fi
 The sample EDD preview now also exposes TPV and a +6-minute upstream report; switch to Veselé to inspect propagation. Samples include origin, terminus, passing, stopping, reverse-direction and freight trains. The GVD preview also supports the train dialog and dark digital/white A4 comparisons.
 
 The diary writer initializes a session-ID read index for shared snapshots; repeated EDD projection reads initialize only missing rows and changed untouched timetable hints. Existing operated records and audit histories are preserved.
+
+
+### TPV review refinements
+
+Layout controls live in an Aero dialog. Dragging (or keyboard-accessible up/down buttons) saves an explicit station order in the existing layout preference; older layouts normalize to an empty order. Reordering changes presentation only, never timetable route order. Station labels toggle independent horizontal highlights; stops and other minor points use regular weight. TPV retains the portal's existing resizable communication panel; the standalone preview now includes a resizable sample conversation beside the graph. The time axis extends to fill the available graph width.
+
+The solid-path convention follows Šulko, Pečený and Čamaj (2019), page 109: https://pernerscontacts.upce.cz/index.php/perner/article/download/406/256/701 . Forecasts stay dotted until departure and arrival have been recorded at consecutive operating points. The clock passing a forecast never confirms it. Recorded station arrival/departure forms a horizontal layover; an active persisted Layover extends horizontally from its recorded arrival to the operating clock without writing per-minute data. Missing intermediate reports do not create a solid bridge. This game uses EDD reports in place of a complete infrastructure reporting integration.
+
+The sample clock's offset is calculated once, fixing a preview-only reset to 15:15 on each refresh. Production continues using the session's fixed configured offset. The sample +1 minute button supports clock-progression review.
+
+Train details include restrained row bands/separators, a separate coloured arrival/departure deviation column, available driver name in the title, and major/minor point typography. EDD train clicks only open details. Copy selects the train/preset context and writes the clipboard. Human-facing communication, timetable, shift and activity labels resolve canonical station display names; stored IDs and payloads are unchanged.

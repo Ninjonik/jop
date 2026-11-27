@@ -2,6 +2,7 @@
 import { AeroIcon } from '@/app/components/ui/AeroIcon';
 import { useDisResource } from '@/lib/dis/use-dis-resource';
 import { useLocaleTag, useTranslation } from '@/lib/i18n/client';
+import { getStationDisplayName } from '@/lib/station/display-name';
 import type { SessionActivityPage } from '@/lib/station/session-activity';
 import { useState } from 'react';
 
@@ -91,7 +92,9 @@ export function SessionActivityView({ sessionId }: { sessionId: string }) {
                   </span>{' '}
                   {entry.event}
                 </td>
-                <td className="p-2">{entry.stationId || '—'}</td>
+                <td className="p-2">
+                  {entry.stationId ? getStationDisplayName(entry.stationId) : '—'}
+                </td>
                 <td className="p-2">{entry.revision ?? '—'}</td>
                 <td className="p-2 whitespace-nowrap">
                   {entry.durationMs === undefined ? '—' : `${entry.durationMs} ms`}

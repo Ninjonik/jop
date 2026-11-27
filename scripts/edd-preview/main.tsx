@@ -2,13 +2,20 @@ import { ChatMessageView } from '@/app/components/dis/ChatMessageView';
 import { EddTableView } from '@/app/components/dis/EddTableView';
 import { TpvFullView } from '@/app/components/dis/TpvFullView';
 import { TrainWorkspace } from '@/app/components/dis/TrainWorkspace';
+import { ResizablePanel } from '@/app/components/ui/ResizablePanel';
 import '@/app/globals.css';
 import type { EddReply } from '@/lib/dis/edd';
 import { I18nProvider, setLocale, useTranslation } from '@/lib/i18n/client';
 import { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
-import { disFetch, previewChatHistory, previewPlainMessage, simulateFailure } from './api';
+import {
+  advancePreviewClock,
+  disFetch,
+  previewChatHistory,
+  previewPlainMessage,
+  simulateFailure,
+} from './api';
 import { setStation } from './auth';
 import './preview.css';
 function Preview() {
@@ -76,6 +83,9 @@ function Preview() {
               >
                 Svetlá / tmavá
               </button>
+              <button className="aero-btn" onClick={advancePreviewClock}>
+                Test: +1 min
+              </button>
               <button className="aero-btn" onClick={simulateFailure}>
                 Test: ďalšie uloženie zlyhá
               </button>
@@ -88,6 +98,7 @@ function Preview() {
                 sessionId="edd-preview"
                 stationId={stationId}
                 placeId="113144512557419"
+                active={view === 'edd'}
                 reply={reply}
                 onOpenChat={setTarget}
               />
@@ -98,13 +109,26 @@ function Preview() {
                 onReply={setReply}
               />
             </div>
-            {view === 'tpv' && (
+            <div
+              className="tpv-preview-split"
+              style={{ display: view === 'tpv' ? undefined : 'none' }}
+            >
               <TpvFullView
                 sessionId="edd-preview"
                 stationId={stationId}
                 placeId="113144512557419"
+                active={view === 'tpv'}
               />
-            )}
+              <ResizablePanel
+                id="tpv-preview-communication"
+                title="Komunikácia"
+                edge="right"
+                defaultSize={300}
+                responsive
+              >
+                <PreviewChat stationId={stationId} target={target} onReply={setReply} />
+              </ResizablePanel>
+            </div>
           </div>
         </TrainWorkspace>
       </I18nProvider>

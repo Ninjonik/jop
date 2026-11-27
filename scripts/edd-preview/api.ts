@@ -169,12 +169,12 @@ export let failNext = false;
 export function simulateFailure() {
   failNext = true;
 }
+const sampleStart = operatingClockParts();
+let offsetMinutes =
+  15 * 60 +
+  15 -
+  (Number(sampleStart.minuteTime.slice(0, 2)) * 60 + Number(sampleStart.minuteTime.slice(3, 5)));
 function clock() {
-  const actual = operatingClockParts();
-  const offsetMinutes =
-    15 * 60 +
-    15 -
-    (Number(actual.minuteTime.slice(0, 2)) * 60 + Number(actual.minuteTime.slice(3, 5)));
   return {
     sessionId,
     offsetMinutes,
@@ -193,7 +193,22 @@ export async function disFetch<T>(url: string, init: RequestInit = {}): Promise<
     throw new Error('Skúšobné zlyhanie uloženia. Skúste znova.');
   }
   if (path === '/api/dis/traffic')
-    return structuredClone({ timetables, records: rows, drivers: [], clock: clock() }) as T;
+    return structuredClone({
+      timetables,
+      records: rows,
+      drivers: [
+        {
+          sessionId,
+          userId: 'sample-driver',
+          userName: 'Novák · SAMPLE',
+          trainNumber: '5849',
+          trainType: 'Os',
+          timetableId: 'preview-5849',
+          tonnage: 210,
+        },
+      ],
+      clock: clock(),
+    }) as T;
   if (path === '/api/dis/lines')
     return {
       lines: [
@@ -367,4 +382,8 @@ export async function disFetch<T>(url: string, init: RequestInit = {}): Promise<
     return { message: m } as T;
   }
   return {} as T;
+}
+
+export function advancePreviewClock() {
+  offsetMinutes += 1;
 }

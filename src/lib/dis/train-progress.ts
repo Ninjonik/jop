@@ -102,3 +102,35 @@ export function trainDelay(minute: number, planned: number) {
 export function isFreightTrain(category: string) {
   return ['Nex', 'Rn', 'Zn', 'Pn', 'Vn', 'Mn', 'Pv', 'Vleč', 'P', 'Pos'].includes(category);
 }
+
+export type RecordedGraphPoint = { station: string; minute: number };
+/** Only recorded events establish completed paths; the clock alone confirms nothing. */
+export function recordedTrainSegments(
+  train: Timetable,
+  records: EddEntry[],
+  nowMinute?: number,
+): RecordedGraphPoint[][] {
+  const progress = trainProgress(train, records, nowMinute);
+  const segments: RecordedGraphPoint[][] = [];
+  progress.forEach((stop, index) => {
+    if (stop.arrivalRecorded && stop.departureRecorded)
+      segments.push([
+        { station: stop.station, minute: stop.arrival },
+        { station: stop.station, minute: stop.departure },
+      ]);
+    else if (stop.arrivalRecorded && stop.dwell && nowMinute !== undefined) {
+      const now = nowMinute + Math.round((stop.arrival - nowMinute) / 1440) * 1440;
+      segments.push([
+        { station: stop.station, minute: stop.arrival },
+        { station: stop.station, minute: Math.max(stop.arrival, now) },
+      ]);
+    }
+    const next = progress[index + 1];
+    if (stop.departureRecorded && next?.arrivalRecorded)
+      segments.push([
+        { station: stop.station, minute: stop.departure },
+        { station: next.station, minute: next.arrival },
+      ]);
+  });
+  return segments;
+}

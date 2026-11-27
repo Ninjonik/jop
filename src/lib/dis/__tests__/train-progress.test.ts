@@ -2,8 +2,13 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import type { EddEntry } from '../edd';
 import type { Timetable } from '../timetable';
-import { readTpvLayouts } from '../tpv-layout';
-import { isFreightTrain, lastReportedStop, trainProgress } from '../train-progress';
+import { readTpvLayouts, reorderTpvStations } from '../tpv-layout';
+import {
+  isFreightTrain,
+  lastReportedStop,
+  recordedTrainSegments,
+  trainProgress,
+} from '../train-progress';
 const train: Timetable = {
   $id: 't1',
   trainNumber: '3150',
@@ -108,9 +113,73 @@ test('empty or malformed layout data is safe and multiple named layouts load', (
     { id: 'a', name: 'A', lineId: '', first: 'a', last: 'b', hidden: ['c'] },
     { id: 'b', name: 'B', lineId: 'x', first: '', last: '', hidden: [] },
   ];
-  assert.deepEqual(readTpvLayouts(JSON.stringify(items)), items);
+  assert.deepEqual(
+    readTpvLayouts(JSON.stringify(items)),
+    items.map((item) => ({ ...item, order: [] })),
+  );
 });
 test('freight and passenger categories use distinct graph styles', () => {
   for (const category of ['Mn', 'Nex', 'Pn', 'Vleč']) assert(isFreightTrain(category));
   for (const category of ['Os', 'R', 'EC', 'REX']) assert(!isFreightTrain(category));
+});
+
+test('elapsed clock never turns unreported travel into solid actuals', () => {
+  assert.deepEqual(recordedTrainSegments(train, [], 600), []);
+  assert.deepEqual(
+    recordedTrainSegments(train, [report('a', { actualDeparture: '08:06' })], 600),
+    [],
+  );
+});
+test('solid travel requires departure and the next arrival, with no bridge across missing reports', () => {
+  const records = [
+    report('a', { actualDeparture: '08:06' }),
+    report('b', { actualArrival: '08:16' }),
+    report('d', { actualArrival: '08:40' }),
+  ];
+  assert.deepEqual(recordedTrainSegments(train, records, 600), [
+    [
+      { station: 'a', minute: 486 },
+      { station: 'b', minute: 496 },
+    ],
+  ]);
+});
+test('active layover is horizontal from recorded arrival to now, not future departure', () => {
+  const segments = recordedTrainSegments(
+    train,
+    [report('c', { actualArrival: '08:20', dwell: true })],
+    8 * 60 + 23,
+  );
+  assert.deepEqual(segments, [
+    [
+      { station: 'c', minute: 500 },
+      { station: 'c', minute: 503 },
+    ],
+  ]);
+});
+test('completed layover uses its recorded departure and stops following clock', () => {
+  const segments = recordedTrainSegments(
+    train,
+    [report('c', { actualArrival: '08:20', actualDeparture: '08:26', dwell: true })],
+    600,
+  );
+  assert.deepEqual(segments, [
+    [
+      { station: 'c', minute: 500 },
+      { station: 'c', minute: 506 },
+    ],
+  ]);
+});
+test('layout station order moves both ways and survives saved preferences', () => {
+  assert.deepEqual(reorderTpvStations(['a', 'b', 'c'], 'c', 'a'), ['c', 'a', 'b']);
+  assert.deepEqual(reorderTpvStations(['a', 'b', 'c'], 'a', 'b'), ['b', 'a', 'c']);
+  const layout = {
+    id: 'test',
+    name: 'Section',
+    lineId: '',
+    first: '',
+    last: '',
+    hidden: [],
+    order: ['c', 'a', 'b'],
+  };
+  assert.deepEqual(readTpvLayouts(JSON.stringify([layout]))[0].order, ['c', 'a', 'b']);
 });
