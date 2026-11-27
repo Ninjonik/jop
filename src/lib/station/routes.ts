@@ -1324,6 +1324,46 @@ function getOrderedFacingSignals(station: StationDocument, route: ActiveTrainRou
     });
 }
 
+/** Resolve physical signal wiring without consulting active routes or switch alignment. */
+export function getPremainEntryLinks(station: StationDocument, tiles: TileCatalog) {
+  const links = new Map<string, string>();
+  Object.entries(station.layout.pieces).forEach(([premainId, piece]) => {
+    if (!isPremainSignalPieceType(piece.type)) return;
+    const direction = getSignalFacingDirection(piece.type, piece.rotation);
+    if (!direction) return;
+    const queue = [
+      { pieceId: premainId, entry: { x: direction === 'left-to-right' ? -1 : 1, y: 0 } },
+    ];
+    const visited = new Set<string>();
+    const entries = new Set<string>();
+    while (queue.length) {
+      const current = queue.pop()!;
+      const key = `${current.pieceId}:${toOffsetKey(current.entry)}`;
+      if (visited.has(key)) continue;
+      visited.add(key);
+      const candidate = station.layout.pieces[current.pieceId];
+      if (!candidate) continue;
+      if (
+        current.pieceId !== premainId &&
+        isSignalPieceType(candidate.type) &&
+        getSignalFacingDirection(candidate.type, candidate.rotation) === direction
+      ) {
+        if (candidate.type === 'entrySignal' || candidate.type === 'entrySignalNoOcp')
+          entries.add(current.pieceId);
+        continue;
+      }
+      getTraversalOptions(station, current.pieceId, tiles)
+        .filter((option) => toOffsetKey(option.entry) === toOffsetKey(current.entry))
+        .forEach((option) => {
+          const next = getNeighborTraversal(station, current.pieceId, option.exit);
+          if (next) queue.push(next);
+        });
+    }
+    if (entries.size === 1) links.set(premainId, [...entries][0]);
+  });
+  return links;
+}
+
 export function buildSignalRoutePlans(
   station: StationDocument,
   routes: ActiveTrainRoute[],

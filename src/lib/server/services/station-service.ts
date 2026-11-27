@@ -61,6 +61,7 @@ import {
   buildRouteFromSelection,
   buildSignalRoutePlans,
   crossoverTraversalStatesConflict,
+  getPremainEntryLinks,
 } from '@/lib/station/routes';
 import {
   getConnectedSwitchControl,
@@ -979,6 +980,27 @@ function hasLocalSpeedRestriction(aspect: RobloxResolvedSignalAspect | null | un
   );
 }
 
+const premainEntryCache = new Map<string, { geometry: string; links: Map<string, string> }>();
+
+function cachedPremainEntryLinks(station: StationDocument) {
+  const key = `${station.sessionId}/${station.stationId}`;
+  const geometry = JSON.stringify([
+    station.layout.map,
+    Object.entries(station.layout.pieces).map(([id, piece]) => [
+      id,
+      piece.type,
+      piece.rotation,
+      piece.mirrored,
+    ]),
+  ]);
+  const cached = premainEntryCache.get(key);
+  if (cached?.geometry === geometry) return cached.links;
+  const links = getPremainEntryLinks(station, tiles);
+  if (premainEntryCache.size >= 256) premainEntryCache.clear();
+  premainEntryCache.set(key, { geometry, links });
+  return links;
+}
+
 function buildResolvedRobloxSignalAspects(station: StationDocument) {
   const projectedStation = structuredClone(station);
   applyActiveRouteVisualState(projectedStation, tiles);
@@ -1038,9 +1060,7 @@ function buildResolvedRobloxSignalAspects(station: StationDocument) {
     // A retained route can outlive its cleared signal (train passage or
     // cancellation). Only announce speed when the next main actually permits
     // movement; a stop signal must continue to be announced as caution.
-    const nextAspect = plan.nextSignalPieceId
-      ? resolved.get(plan.nextSignalPieceId)?.aspect
-      : null;
+    const nextAspect = plan.nextSignalPieceId ? resolved.get(plan.nextSignalPieceId)?.aspect : null;
     if (!nextAspect || nextAspect === 'danger' || nextAspect === 'callOn') return;
     const nextSpeed = plan.nextSignalPieceId
       ? locallyRestrictedSignals.get(plan.nextSignalPieceId)
@@ -1088,6 +1108,19 @@ function buildResolvedRobloxSignalAspects(station: StationDocument) {
     }
   });
 
+  const entryLinks = cachedPremainEntryLinks(station);
+  resolved.forEach((signal, pieceId) => {
+    if (signal.family !== 'premain') return;
+    const entryId = entryLinks.get(pieceId);
+    const entry = entryId ? resolved.get(entryId)?.aspect : null;
+    let aspect: RobloxResolvedSignalAspect = 'caution';
+    if (entry === 'proceed' || entry?.startsWith('expect')) aspect = 'proceed';
+    else if (entry?.startsWith('proceed40')) aspect = 'expect40';
+    else if (entry === 'proceed60') aspect = 'expect60';
+    else if (entry === 'proceed80') aspect = 'expect80';
+    else if (entry === 'proceed100') aspect = 'expect100';
+    resolved.set(pieceId, { ...signal, aspect });
+  });
   return resolved;
 }
 
