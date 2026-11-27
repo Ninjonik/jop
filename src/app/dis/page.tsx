@@ -5,6 +5,10 @@ import { DesktopDownloads } from '@/app/components/dis/DesktopDownloads';
 import { DisClock } from '@/app/components/dis/DisClock';
 import { SettingsView } from '@/app/components/dis/SettingsView';
 import { StationSelectionView } from '@/app/components/dis/StationSelectionView';
+import {
+  DispatcherFeedbackProvider,
+  DispatcherFeedbackStatus,
+} from '@/app/components/ui/DispatcherFeedback';
 import { ResizablePanel } from '@/app/components/ui/ResizablePanel';
 import { disFetch } from '@/lib/dis/api-client';
 import type { StationClaim } from '@/lib/dis/claims';
@@ -429,8 +433,8 @@ function DisPortalShell() {
             </button>
           ))}
         <div className="ml-auto flex gap-2">
-          <DesktopDownloads />
           <LanguageSelector />
+          <DesktopDownloads />
           <button
             className="aero-btn"
             onClick={() => {
@@ -728,12 +732,31 @@ function DisPortalShell() {
                                 {t('Ďalšia stanica')}
                               </button>
                             </div>
-                            <RuntimeStationClient
-                              key={scopeKey}
-                              {...current}
-                              embedded
-                              readOnly={workingMode === 'admin' && isDisAdministrator(profile.role)}
-                            />
+                            {Array.from(
+                              new Set([
+                                ...ownClaims.map((claim) => claim.stationId),
+                                current.stationId,
+                              ]),
+                            ).map((stationId) => (
+                              <WorkspaceView
+                                key={`${current.sessionId}/${stationId}`}
+                                active={stationId === current.stationId}
+                              >
+                                <RuntimeStationClient
+                                  sessionId={current.sessionId}
+                                  stationId={stationId}
+                                  active={
+                                    activeTab === 'runtime' &&
+                                    !tool &&
+                                    stationId === current.stationId
+                                  }
+                                  embedded
+                                  readOnly={
+                                    workingMode === 'admin' && isDisAdministrator(profile.role)
+                                  }
+                                />
+                              </WorkspaceView>
+                            ))}
                           </>
                         ) : (
                           <StationSelectionView
@@ -888,6 +911,7 @@ function DisPortalShell() {
         <span className="status-item">
           {networkError ? t('Chyba načítania siete') : t('Stanice: {0}', network.stations.length)}
         </span>
+        <DispatcherFeedbackStatus />
       </div>
     </div>
   );
@@ -895,7 +919,9 @@ function DisPortalShell() {
 export default function DisPortalPage() {
   return (
     <DisAuthProvider>
-      <DisPortalShell />
+      <DispatcherFeedbackProvider>
+        <DisPortalShell />
+      </DispatcherFeedbackProvider>
     </DisAuthProvider>
   );
 }

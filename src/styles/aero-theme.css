@@ -2201,3 +2201,46 @@ button:disabled > .aero-icon {
     display: none !important;
   }
 }
+
+/* Dispatcher feedback never changes the workspace or footer height. */
+.dis-portal .statusbar {
+  flex-shrink: 0;
+  height: 26px;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+}
+.dispatcher-feedback {
+  margin-left: auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: right;
+  color: var(--aero-text);
+}
+.dispatcher-feedback[data-error] {
+  font-weight: 600;
+}
+.runtime-loading {
+  display: grid;
+  flex: 1;
+  min-height: 240px;
+  place-items: center;
+  color: var(--aero-text-muted);
+  background: var(--aero-panel-bg);
+}
+.runtime-feedback {
+  position: fixed;
+  right: 8px;
+  bottom: 0;
+  max-width: calc(100vw - 16px);
+  height: 26px;
+  padding: 3px 8px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  background: var(--status-bg);
+  color: var(--aero-text);
+  z-index: 50;
+}

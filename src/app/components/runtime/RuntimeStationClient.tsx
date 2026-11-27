@@ -13,9 +13,11 @@ import type {
   StationRealtimeServerEvents,
 } from '@/lib/station/realtime';
 
+import { useDispatcherFeedback } from '../ui/DispatcherFeedback';
 import StationRuntimeBoard from './StationRuntimeBoard';
 
 interface RuntimeStationClientProps {
+  active?: boolean;
   embedded?: boolean;
   readOnly?: boolean;
   sessionId: string;
@@ -48,9 +50,12 @@ export default function RuntimeStationClient({
   sessionId,
   stationId,
   embedded = false,
+  active = true,
   readOnly = false,
 }: RuntimeStationClientProps) {
   const t = useTranslation();
+  const feedback = useDispatcherFeedback();
+  const setFeedback = feedback?.setFeedback;
   const realtimeSocket = useRef<Socket<
     StationRealtimeServerEvents,
     StationRealtimeClientEvents
@@ -90,17 +95,17 @@ export default function RuntimeStationClient({
             !current || payload.station.revision >= current.revision ? payload.station : current,
           );
           setError(null);
+          setLoading(false);
         });
       } catch (loadError) {
         if (!active) {
           return;
         }
 
-        setError(loadError instanceof Error ? loadError.message : 'Failed to load station.');
-      } finally {
-        if (active) {
+        startTransition(() => {
+          setError(loadError instanceof Error ? loadError.message : 'Failed to load station.');
           setLoading(false);
-        }
+        });
       }
     }
 
@@ -157,8 +162,10 @@ export default function RuntimeStationClient({
     });
 
     socket.on('station:snapshot', (nextStation) => {
-      setLoading(false);
+      if (!active || nextStation.sessionId !== sessionId || nextStation.stationId !== stationId)
+        return;
       startTransition(() => {
+        setLoading(false);
         setStation((current) =>
           !current || nextStation.revision >= current.revision ? nextStation : current,
         );
@@ -199,74 +206,71 @@ export default function RuntimeStationClient({
     }
   }, [station, loading]);
 
-  if (loading) {
-    return <p className="text-sm text-neutral-500">{t('Loading station snapshot...')}</p>;
-  }
-
-  if (error && !station) {
-    return <p className="text-sm text-red-300">{t(error)}</p>;
-  }
-
-  if (!station) {
-    return <p className="text-sm text-neutral-500">{t('Station not found.')}</p>;
-  }
-
-  const routeStatus = getRouteStatus(station, t);
+  const routeStatus = station ? getRouteStatus(station, t) : null;
+  const message = error ? t(error) : loading ? t('Loading station snapshot...') : routeStatus;
+  useEffect(() => {
+    if (!active || !setFeedback) return;
+    setFeedback(message ? { message, error: Boolean(error) } : null);
+    return () => setFeedback(null);
+  }, [active, setFeedback, message, error]);
 
   return (
     <div
-      className={`flex flex-col ${embedded ? 'flex-1 overflow-hidden min-h-0' : 'min-h-screen overflow-hidden'}`}
+      className={`relative flex flex-col ${embedded ? 'flex-1 overflow-hidden min-h-0' : 'min-h-screen overflow-hidden'}`}
+      aria-busy={loading}
     >
-      {(error || routeStatus) && (
-        <div className="flex flex-wrap items-center gap-2 text-sm text-black">
-          {error ? (
-            <div className="flex-1 border border-red-700 bg-red-100 px-2 py-0.5 text-red-900">
-              {t(error)}
-            </div>
-          ) : routeStatus ? (
-            <div className="flex-1 border border-amber-700 bg-amber-100 px-2 py-0.5 text-amber-950">
-              {t(routeStatus)}
-            </div>
-          ) : null}
+      {!feedback && (
+        <div className="runtime-feedback" role="status" title={message || undefined}>
+          {message}
         </div>
       )}
-
-      {readOnly && (
-        <p className="px-2 py-1 text-xs text-[var(--aero-text-muted)]">
-          {t('Náhľad administrátora – ovládanie je vypnuté.')}
-        </p>
+      {!station && (
+        <div className="runtime-loading" role="status">
+          {loading ? t('Loading station snapshot...') : t('Failed to load station.')}
+        </div>
       )}
-      <div className={readOnly ? 'pointer-events-none select-none' : undefined}>
-        <StationRuntimeBoard
-          station={station}
-          onErrorChange={(message) => {
-            setError(message);
-            if (message)
-              realtimeSocket.current?.emit('station:client-error', {
-                clientAt: new Date().toISOString(),
-              });
-          }}
-          onLineblockSnapshots={(localStation, remoteStation) => {
-            startTransition(() => {
-              setStation((current) =>
-                !current || localStation.revision >= current.revision ? localStation : current,
-              );
-              setError(null);
-            });
-            const channel = new BroadcastChannel('jop-station-snapshots');
-            channel.postMessage(remoteStation);
-            channel.close();
-          }}
-          onStationSnapshot={(nextStation) => {
-            startTransition(() => {
-              setStation((current) =>
-                !current || nextStation.revision >= current.revision ? nextStation : current,
-              );
-              setError(null);
-            });
-          }}
-        />
-      </div>
+      {station && (
+        <>
+          {readOnly && (
+            <p className="px-2 py-1 text-xs text-[var(--aero-text-muted)]">
+              {t('Náhľad administrátora – ovládanie je vypnuté.')}
+            </p>
+          )}
+          <div
+            className={`flex flex-1 flex-col min-h-0 overflow-hidden ${readOnly ? 'pointer-events-none select-none' : ''}`}
+          >
+            <StationRuntimeBoard
+              station={station}
+              onErrorChange={(message) => {
+                setError(message);
+                if (message)
+                  realtimeSocket.current?.emit('station:client-error', {
+                    clientAt: new Date().toISOString(),
+                  });
+              }}
+              onLineblockSnapshots={(localStation, remoteStation) => {
+                startTransition(() => {
+                  setStation((current) =>
+                    !current || localStation.revision >= current.revision ? localStation : current,
+                  );
+                  setError(null);
+                });
+                const channel = new BroadcastChannel('jop-station-snapshots');
+                channel.postMessage(remoteStation);
+                channel.close();
+              }}
+              onStationSnapshot={(nextStation) => {
+                startTransition(() => {
+                  setStation((current) =>
+                    !current || nextStation.revision >= current.revision ? nextStation : current,
+                  );
+                  setError(null);
+                });
+              }}
+            />
+          </div>
+        </>
+      )}
     </div>
   );
 }
