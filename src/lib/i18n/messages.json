@@ -3517,5 +3517,7 @@
   "Načas": ["Načas","On time"],
   "Rozloženie TPV": ["Rozloženie TPV","TPV layout"],
   "Poradie zmeníte potiahnutím alebo šípkami. Časy a trasa vlaku sa nemenia.": ["Poradie zmeníte potiahnutím alebo šípkami. Časy a trasa vlaku sa nemenia.","Drag points or use the arrows to change their order. Train routes and times are unchanged."],
-  "Hotovo": ["Hotovo","Done"]
+  "Hotovo": ["Hotovo","Done"],
+  "Sledovať aktuálny čas": ["Sledovať aktuálny čas","Follow current time"],
+  "Pokračovať v sledovaní": ["Pokračovať v sledovaní","Resume following"]
 }

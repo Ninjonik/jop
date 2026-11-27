@@ -19,6 +19,7 @@ import {
   type Timetable,
   type TimetableInput,
 } from '@/lib/dis/timetable';
+import { followTimeScroll, placeTrainNumber } from '@/lib/dis/tpv-graph-layout';
 import { forecastTimetable, isFreightTrain, recordedTrainSegments } from '@/lib/dis/train-progress';
 import { preferenceHash, useUserPreference } from '@/lib/dis/use-user-preference';
 import { useTranslation } from '@/lib/i18n/client';
@@ -68,6 +69,7 @@ export function TimetableGraph({
     snapMinutes: number;
     order: string[];
     highlights: string[];
+    followTime: boolean;
   }>(
     `ncp:${preferenceScope}:${preferenceHash(
       incomingStations
@@ -84,6 +86,7 @@ export function TimetableGraph({
       snapMinutes: 1,
       order: incomingStations.map((s) => s.stationId),
       highlights: [],
+      followTime: false,
     },
   );
   const orderedIds = followStationOrder
@@ -101,6 +104,7 @@ export function TimetableGraph({
   const setTimeScale = (timeScale: number) => setPreferences({ timeScale });
   const [inspectorOpen, setInspectorOpen] = useState(false);
   const [fullDay, setFullDay] = useState(false);
+  const [followPaused, setFollowPaused] = useState(false);
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('');
   const [direction, setDirection] = useState('');
@@ -203,7 +207,14 @@ export function TimetableGraph({
     fullDay ? 1440 : minimum + 60,
     ...validSchedules.map((s) => s.stops.at(-1)!.departureMinute),
   );
+  const followingClock =
+    currentMinute !== undefined && currentMinute < minimum && scheduleMaximum >= 1440
+      ? currentMinute + 1440
+      : currentMinute;
   const maximum = Math.max(
+    live && preferences.followTime && followingClock !== undefined
+      ? followingClock + Math.max(60, (viewportWidth - 180) / timeScale)
+      : 0,
     scheduleMaximum,
     minimum + Math.ceil(Math.max(60, (viewportWidth - 200) / timeScale) / 30) * 30,
   );
@@ -235,7 +246,56 @@ export function TimetableGraph({
     cursorMinute !== undefined && cursorMinute < minimum && maximum >= 1440
       ? cursorMinute + 1440
       : cursorMinute;
+  useEffect(() => {
+    if (
+      !live ||
+      !preferences.followTime ||
+      followPaused ||
+      current === undefined ||
+      !scroll.current
+    )
+      return;
+    scroll.current.scrollLeft = followTimeScroll(
+      180 + (current - minimum) * timeScale,
+      viewportWidth,
+    );
+  }, [live, preferences.followTime, followPaused, current, minimum, timeScale, viewportWidth]);
+  const stationOrderKey = stations.map((station) => station.stationId).join('|');
+  const numberLayouts = useMemo(() => {
+    const geometry = validSchedules.map(({ train, stops }) => ({
+      id: train.$id,
+      number: train.trainNumber,
+      stops: stops
+        .filter((stop) => visible(stop.station))
+        .map((stop) => ({
+          arrival: { x: x(stop.arrivalMinute), y: y(stop.station) },
+          departure: { x: x(stop.departureMinute), y: y(stop.station) },
+        })),
+    }));
+    const obstacles = geometry.flatMap((train) => {
+      const points = train.stops.flatMap((stop) => [stop.arrival, stop.departure]);
+      return points
+        .slice(1)
+        .map((point, index) => ({ id: train.id, from: points[index], to: point }));
+    });
+    return new Map(
+      geometry.map((train) => [
+        train.id,
+        train.stops.length > 1
+          ? placeTrainNumber(
+              train.stops[0].departure,
+              train.stops[1].arrival,
+              obstacles.filter((segment) => segment.id !== train.id),
+              train.number.length * (live ? 10.5 : 9),
+            )
+          : { x: train.stops[0]?.departure.x || 0, y: train.stops[0]?.departure.y || 0, angle: 0 },
+      ]),
+    );
+    // All inputs to the inline graph coordinate functions are listed; hover/pan must not redo label layout.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [validSchedules, minimum, timeScale, stationScale, stationPositions, stationOrderKey, live]);
   function zoom(next: number, anchor = (scroll.current?.clientWidth || 900) / 2) {
+    if (live && preferences.followTime) setFollowPaused(true);
     const container = scroll.current;
     const minuteOffset = ((container?.scrollLeft || 0) + anchor - 180) / timeScale;
     const scale = Math.max(0.2, Math.min(20, next));
@@ -248,6 +308,7 @@ export function TimetableGraph({
     const container = scroll.current;
     if (!container) return;
     const wheel = (event: WheelEvent) => {
+      if (live && preferences.followTime) setFollowPaused(true);
       if (event.ctrlKey) {
         event.preventDefault();
         zoom(
@@ -510,6 +571,26 @@ export function TimetableGraph({
             {t('Upravovať ťahaním')}
           </label>
         )}
+        {live && (
+          <>
+            <label>
+              <input
+                type="checkbox"
+                checked={preferences.followTime}
+                onChange={(e) => {
+                  setPreferences({ followTime: e.target.checked });
+                  setFollowPaused(false);
+                }}
+              />
+              {t('Sledovať aktuálny čas')}
+            </label>
+            {preferences.followTime && followPaused && (
+              <button className="aero-btn" onClick={() => setFollowPaused(false)}>
+                {t('Pokračovať v sledovaní')}
+              </button>
+            )}
+          </>
+        )}
         <label>
           {t('Prejsť na čas')}
           <input
@@ -525,6 +606,7 @@ export function TimetableGraph({
           onClick={() => {
             const minute = clockMinutes(reference);
             const aligned = minute < minimum && maximum >= 1440 ? minute + 1440 : minute;
+            if (live && preferences.followTime) setFollowPaused(true);
             setReferenceMinute(aligned);
             if (scroll.current)
               scroll.current.scrollLeft = Math.max(0, x(aligned) - scroll.current.clientWidth / 2);
@@ -576,7 +658,14 @@ export function TimetableGraph({
         </details>
       )}
       <div className="gvd-graph-body">
-        <div className="timetable-graph-scroll gvd-graph-canvas" ref={scroll}>
+        <div
+          className="timetable-graph-scroll gvd-graph-canvas"
+          ref={scroll}
+          onPointerDown={(event) => {
+            if (event.target === event.currentTarget && live && preferences.followTime)
+              setFollowPaused(true);
+          }}
+        >
           {!schedules.length ? (
             <p className="p-3">{t('Pre zobrazenie grafu vyplňte stanice a časy vlaku.')}</p>
           ) : (
@@ -614,7 +703,7 @@ export function TimetableGraph({
                   ))}
                 </svg>
               </div>
-              <div className="gvd-sticky-stations">
+              <div className="gvd-sticky-stations" style={{ height }}>
                 <div style={{ height }}>
                   {stations.map((station) => (
                     <button
@@ -654,6 +743,7 @@ export function TimetableGraph({
                     (e.target as Element).closest('[role="button"]')
                   )
                     return;
+                  if (live && preferences.followTime) setFollowPaused(true);
                   pan.current = {
                     x: e.clientX,
                     y: e.clientY,
@@ -813,28 +903,7 @@ export function TimetableGraph({
                       ),
                   );
                   const labelStop = visibleStops[0];
-                  const labelNext = visibleStops[1];
-                  const labelX =
-                    labelStop && labelNext
-                      ? (x(labelStop.departureMinute) + x(labelNext.arrivalMinute)) / 2
-                      : labelStop
-                        ? x(labelStop.departureMinute) + 4
-                        : 0;
-                  const labelY =
-                    labelStop && labelNext
-                      ? (y(labelStop.station) + y(labelNext.station)) / 2
-                      : labelStop
-                        ? y(labelStop.station)
-                        : 0;
-                  const labelAngle =
-                    labelStop && labelNext
-                      ? (Math.atan2(
-                          y(labelNext.station) - y(labelStop.station),
-                          x(labelNext.arrivalMinute) - x(labelStop.departureMinute),
-                        ) *
-                          180) /
-                        Math.PI
-                      : 0;
+                  const label = numberLayouts.get(train.$id) || { x: 0, y: 0, angle: 0 };
                   return (
                     <g key={train.$id}>
                       {drag?.trainId === train.$id && dragDelta !== 0 && (
@@ -881,10 +950,19 @@ export function TimetableGraph({
                           points={points.join(' ')}
                           fill="none"
                           stroke={color}
-                          strokeWidth={train.$id === activeId ? 3.6 : 2}
+                          strokeWidth={
+                            live
+                              ? train.$id === activeId
+                                ? 4.4
+                                : 2.8
+                              : train.$id === activeId
+                                ? 3.6
+                                : 2
+                          }
                           markerEnd={leaves ? `url(#${markerId})` : undefined}
                           markerStart={enters ? `url(#${markerId})` : undefined}
-                          strokeDasharray={live ? '2 2' : undefined}
+                          strokeDasharray={live ? '1.5 3.5' : undefined}
+                          strokeLinecap="round"
                         />
                         <polyline
                           points={points.join(' ')}
@@ -897,11 +975,16 @@ export function TimetableGraph({
                         </title>
                         {labelStop && (
                           <text
-                            x={labelX}
-                            y={labelY - 6}
-                            transform={`rotate(${labelAngle},${labelX},${labelY})`}
+                            x={0}
+                            y={-10}
+                            textAnchor="middle"
+                            transform={`translate(${label.x},${label.y}) rotate(${label.angle})`}
+                            stroke="#fff"
+                            strokeWidth={3}
+                            paintOrder="stroke"
+                            strokeLinejoin="round"
                             fill={color}
-                            fontSize={15}
+                            fontSize={live ? 17 : 15}
                             fontWeight={train.$id === activeId ? 700 : 400}
                           >
                             {train.trainNumber}

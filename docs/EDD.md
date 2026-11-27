@@ -128,3 +128,12 @@ The solid-path convention follows Šulko, Pečený and Čamaj (2019), page 109: 
 The sample clock's offset is calculated once, fixing a preview-only reset to 15:15 on each refresh. Production continues using the session's fixed configured offset. The sample +1 minute button supports clock-progression review.
 
 Train details include restrained row bands/separators, a separate coloured arrival/departure deviation column, available driver name in the title, and major/minor point typography. EDD train clicks only open details. Copy selects the train/preset context and writes the clipboard. Human-facing communication, timetable, shift and activity labels resolve canonical station display names; stored IDs and payloads are unchanged.
+
+
+### TPV follow-time and readability
+
+TPV paths use a 2.8 px normal / 4.4 px selected stroke and 17 px train numbers. Label positions are chosen from bounded candidates along the running segment, avoiding other path segments; results are memoized from timetable/axis geometry so pointer hover and panning do not repeat the layout calculation. A small white text halo preserves readability in dense areas.
+
+The account graph preference exposes Follow current time (off by default). It keeps the operating clock around the first third of the visible plot when possible and extends the future axis as time advances. Manual background dragging, wheel navigation or scrollbar interaction pauses following until Resume following. This is client-side scrolling, without additional network polling or timers. The pinned station column has a full-height painting box so its labels remain visible during horizontal scrolling.
+
+EDD track numbers are 15 px/semibold; arrival and departure legends are semibold. The selected-row editor remains separate from the information popup: track, movement type, note and cancellation reason are editable there under the existing ownership/revision rules.

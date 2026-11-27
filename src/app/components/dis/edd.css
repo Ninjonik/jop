@@ -873,3 +873,11 @@
     background: white;
   }
 }
+
+.edd-table .edd-track-label {
+  font-size: 15px;
+  font-weight: 600;
+}
+.edd-entry-movement legend {
+  font-weight: 600;
+}
