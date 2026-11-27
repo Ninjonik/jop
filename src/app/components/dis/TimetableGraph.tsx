@@ -20,11 +20,17 @@ import {
   type TimetableInput,
 } from '@/lib/dis/timetable';
 import { followTimeScroll, placeTrainNumber } from '@/lib/dis/tpv-graph-layout';
-import { forecastTimetable, isFreightTrain, recordedTrainSegments } from '@/lib/dis/train-progress';
+import {
+  graphTrainStops,
+  isFreightTrain,
+  recordedTrainSegments,
+  trainCancellation,
+} from '@/lib/dis/train-progress';
 import { preferenceHash, useUserPreference } from '@/lib/dis/use-user-preference';
 import { useTranslation } from '@/lib/i18n/client';
 import { getStationDisplayName } from '@/lib/station/display-name';
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { AeroIcon } from '../ui/AeroIcon';
 import { useTrainWorkspace } from './TrainWorkspace';
 
@@ -114,6 +120,7 @@ export function TimetableGraph({
   const [reference, setReference] = useState('');
   const [referenceMinute, setReferenceMinute] = useState<number>();
   const [hover, setHover] = useState('');
+  const [overlap, setOverlap] = useState<{ x: number; y: number; ids: string[] } | null>(null);
   const [dragDelta, setDragDelta] = useState(0);
   const dragEnabled = preferences.dragEnabled;
   const setDragEnabled = (dragEnabled: boolean) => setPreferences({ dragEnabled });
@@ -156,9 +163,6 @@ export function TimetableGraph({
   const validSchedules = useMemo(
     () =>
       trains
-        .map((train) =>
-          live ? forecastTimetable(train, records as EddEntry[], currentMinute) : train,
-        )
         .map((train) => ({ ...train, stops: completeEndpointTimes(train.stops) }))
         .filter(
           (train) =>
@@ -169,7 +173,12 @@ export function TimetableGraph({
                 clockSchema.safeParse(stop.departure).success,
             ),
         )
-        .map((train) => ({ train, stops: unfoldStops(train.stops) })),
+        .map((train) => ({
+          train,
+          stops: live
+            ? graphTrainStops(train, records as EddEntry[], currentMinute)
+            : unfoldStops(train.stops),
+        })),
     [trains, records, currentMinute, live],
   );
   const graphIssues = useMemo(() => {
@@ -358,7 +367,7 @@ export function TimetableGraph({
       );
   }
   function colour(train: Timetable) {
-    return isFreightTrain(train.trainType) ? '#0000ff' : '#111111';
+    return isFreightTrain(train.trainType) ? 'var(--tpv-freight)' : 'var(--tpv-passenger)';
   }
   function beginDrag(
     event: React.PointerEvent<SVGElement>,
@@ -423,6 +432,65 @@ export function TimetableGraph({
   }
   return (
     <div className="timetable-graph">
+      {overlap &&
+        createPortal(
+          <div className="tpv-overlap-backdrop" onClick={() => setOverlap(null)}>
+            <div
+              className="tpv-overlap-menu"
+              role="menu"
+              aria-label={t('Vyberte vlak')}
+              style={{
+                left: Math.min(overlap.x, window.innerWidth - 270),
+                top: Math.min(
+                  overlap.y,
+                  window.innerHeight - Math.min(250, overlap.ids.length * 42 + 30),
+                ),
+              }}
+              onClick={(e) => e.stopPropagation()}
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') {
+                  e.preventDefault();
+                  setOverlap(null);
+                }
+                if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+                  e.preventDefault();
+                  const items = Array.from(
+                    e.currentTarget.querySelectorAll<HTMLButtonElement>('button'),
+                  );
+                  const i = items.indexOf(document.activeElement as HTMLButtonElement);
+                  items[
+                    (i + (e.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length
+                  ]?.focus();
+                }
+              }}
+            >
+              <strong>{t('Vyberte vlak')}</strong>
+              {overlap.ids.map((id, i) => {
+                const train = trains.find((t) => t.$id === id)!;
+                return (
+                  <button
+                    key={id}
+                    role="menuitem"
+                    autoFocus={i === 0}
+                    onClick={() => {
+                      setOverlap(null);
+                      chooseTrain(train);
+                    }}
+                  >
+                    <b>
+                      {train.trainType} {train.trainNumber}
+                    </b>
+                    <small>
+                      {getStationDisplayName(train.stops[0].station)} →{' '}
+                      {getStationDisplayName(train.stops.at(-1)!.station)}
+                    </small>
+                  </button>
+                );
+              })}
+            </div>
+          </div>,
+          document.body,
+        )}
       <div className="ribbon-bar flex-wrap gvd-graph-toolbar">
         <strong>{t(live ? 'TPV' : 'Nákresný cestovný poriadok')}</strong>
         <button
@@ -795,7 +863,7 @@ export function TimetableGraph({
                       x2={x(minute)}
                       y1={38}
                       y2={height - 20}
-                      stroke="#ffc58b"
+                      stroke="var(--tpv-grid-line)"
                       strokeWidth={minute % 60 === 0 ? 2 : minute % 30 === 0 ? 1.3 : 0.6}
                       strokeDasharray={minute % 30 === 0 ? '6 4' : undefined}
                     />
@@ -853,6 +921,27 @@ export function TimetableGraph({
                 ))}
                 {schedules.map(({ train, stops }) => {
                   const color = colour(train);
+                  const cancellation = live
+                    ? trainCancellation(train, records as EddEntry[])
+                    : undefined;
+                  const cancelledIndex = cancellation
+                    ? stops.findIndex(
+                        (stop) => stationKey(stop.station) === stationKey(cancellation.fromStation),
+                      )
+                    : -1;
+                  const cancelledPoints =
+                    cancelledIndex < 0
+                      ? []
+                      : stops
+                          .slice(cancelledIndex)
+                          .flatMap((stop) =>
+                            visible(stop.station)
+                              ? [
+                                  x(stop.arrivalMinute) + ',' + y(stop.station),
+                                  x(stop.departureMinute) + ',' + y(stop.station),
+                                ]
+                              : [],
+                          );
                   const points = stops.flatMap((stop) =>
                     visible(stop.station)
                       ? [
@@ -882,6 +971,21 @@ export function TimetableGraph({
                         ',' +
                         (y(lastVisible.station) + direction * 35),
                     );
+                  const basePoints =
+                    cancelledIndex < 0
+                      ? points
+                      : stops
+                          .slice(0, cancelledIndex + 1)
+                          .flatMap((stop, i) =>
+                            visible(stop.station)
+                              ? [
+                                  x(stop.arrivalMinute) + ',' + y(stop.station),
+                                  ...(i < cancelledIndex
+                                    ? [x(stop.departureMinute) + ',' + y(stop.station)]
+                                    : []),
+                                ]
+                              : [],
+                          );
                   const events = stops.flatMap((stop) =>
                     actual(train)
                       .filter(
@@ -925,11 +1029,25 @@ export function TimetableGraph({
                       <g
                         role="button"
                         className="tpv-train-path"
+                        data-train-id={train.$id}
                         aria-pressed={train.$id === activeId}
                         tabIndex={0}
                         aria-label={`${train.trainType} ${train.trainNumber}`}
-                        onClick={() => {
-                          if (!dragDelta) chooseTrain(train);
+                        onClick={(event) => {
+                          if (dragDelta) return;
+                          const ids = [
+                            ...new Set(
+                              document
+                                .elementsFromPoint(event.clientX, event.clientY)
+                                .map((element) =>
+                                  element.closest('[data-train-id]')?.getAttribute('data-train-id'),
+                                )
+                                .filter((id): id is string => !!id),
+                            ),
+                          ];
+                          if (ids.length > 1)
+                            setOverlap({ x: event.clientX, y: event.clientY, ids });
+                          else chooseTrain(train);
                         }}
                         onKeyDown={(e) => {
                           if (e.key === 'Enter' || e.key === ' ') {
@@ -947,7 +1065,7 @@ export function TimetableGraph({
                         }}
                       >
                         <polyline
-                          points={points.join(' ')}
+                          points={basePoints.join(' ')}
                           fill="none"
                           stroke={color}
                           strokeWidth={
@@ -981,7 +1099,7 @@ export function TimetableGraph({
                             y={-10}
                             textAnchor="middle"
                             transform={`translate(${label.x},${label.y}) rotate(${label.angle})`}
-                            stroke="#fff"
+                            stroke="var(--tpv-bg)"
                             strokeWidth={3}
                             paintOrder="stroke"
                             strokeLinejoin="round"
@@ -998,22 +1116,64 @@ export function TimetableGraph({
                           trains.find((item) => item.$id === train.$id) || train,
                           records as EddEntry[],
                           currentMinute,
-                        ).map(
-                          (segment, index) =>
-                            segment.every((point) => visible(point.station)) && (
-                              <polyline
-                                key={'recorded-' + index}
-                                className="tpv-recorded-path"
-                                points={segment
-                                  .map((point) => x(point.minute) + ',' + y(point.station))
-                                  .join(' ')}
-                                fill="none"
-                                stroke={color}
-                                strokeWidth={train.$id === activeId ? 3.6 : 2}
-                                pointerEvents="none"
-                              />
-                            ),
-                        )}
+                        )
+                          .map((segment) =>
+                            segment
+                              .map((point) => {
+                                if (
+                                  visible(point.station) &&
+                                  (!point.toward || visible(point.toward))
+                                )
+                                  return {
+                                    x: x(point.minute),
+                                    y: point.toward
+                                      ? y(point.station) +
+                                        (y(point.toward) - y(point.station)) * point.fraction!
+                                      : y(point.station),
+                                  };
+                                const before = visibleStops
+                                  .filter((stop) => stop.departureMinute <= point.minute)
+                                  .at(-1);
+                                const after = visibleStops.find(
+                                  (stop) => stop.arrivalMinute >= point.minute,
+                                );
+                                if (!before || !after) return null;
+                                const fraction =
+                                  (point.minute - before.departureMinute) /
+                                  Math.max(0.01, after.arrivalMinute - before.departureMinute);
+                                return {
+                                  x: x(point.minute),
+                                  y:
+                                    y(before.station) +
+                                    (y(after.station) - y(before.station)) * fraction,
+                                };
+                              })
+                              .filter((point): point is { x: number; y: number } => point !== null),
+                          )
+                          .map(
+                            (segment, index) =>
+                              segment.length > 1 && (
+                                <polyline
+                                  key={'recorded-' + index}
+                                  className="tpv-recorded-path"
+                                  points={segment.map((point) => point.x + ',' + point.y).join(' ')}
+                                  fill="none"
+                                  stroke={color}
+                                  strokeWidth={train.$id === activeId ? 4.4 : 2.8}
+                                  pointerEvents="none"
+                                />
+                              ),
+                          )}
+                      {cancelledPoints.length > 1 && (
+                        <polyline
+                          points={cancelledPoints.join(' ')}
+                          fill="none"
+                          stroke="var(--tpv-cancelled)"
+                          strokeWidth={train.$id === activeId ? 4.4 : 2.8}
+                          strokeDasharray="3 4"
+                          pointerEvents="none"
+                        />
+                      )}
                       {train.$id === activeId &&
                         timeScale >= 5 &&
                         stops

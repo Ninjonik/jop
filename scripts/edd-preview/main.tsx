@@ -1,5 +1,6 @@
 import { ChatMessageView } from '@/app/components/dis/ChatMessageView';
 import { EddTableView } from '@/app/components/dis/EddTableView';
+import { ModuleArrowNavigation } from '@/app/components/dis/ModuleArrowNavigation';
 import { TpvFullView } from '@/app/components/dis/TpvFullView';
 import { TrainWorkspace } from '@/app/components/dis/TrainWorkspace';
 import { ResizablePanel } from '@/app/components/ui/ResizablePanel';
@@ -13,6 +14,7 @@ import {
   advancePreviewClock,
   disFetch,
   previewChatHistory,
+  previewOverlap,
   previewPlainMessage,
   simulateFailure,
 } from './api';
@@ -27,7 +29,8 @@ function Preview() {
   return (
     <BrowserRouter>
       <I18nProvider>
-        <TrainWorkspace sessionId="edd-preview" active>
+        <ModuleArrowNavigation tabs={['edd', 'tpv'] as const} active={view} onSelect={setView} />
+        <TrainWorkspace sessionId="edd-preview" stationId={stationId} writable active>
           <div
             className="dis-portal"
             style={{ height: '100vh', display: 'flex', flexDirection: 'column' }}
@@ -37,6 +40,9 @@ function Preview() {
               <span>Bez pripojenia k hre / No game connection</span>
               <button className="aero-btn" onClick={() => setView('edd')}>
                 EDD
+              </button>
+              <button className="aero-btn" onClick={previewOverlap}>
+                Test: prekrytie vlakov
               </button>
               <button className="aero-btn" onClick={() => setView('tpv')}>
                 TPV

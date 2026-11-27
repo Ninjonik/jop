@@ -156,3 +156,33 @@ export async function saveSessionTimetable(body: unknown) {
     report,
   };
 }
+
+export async function deleteSessionTimetable(body: unknown) {
+  const input = z
+    .object({ sessionId: z.string(), id: z.string(), expectedUpdatedAt: z.string() })
+    .parse(body);
+  const current = await loadOperatingTimetables(input.sessionId, true);
+  const train = current.find((t) => t.$id === input.id && t.sessionId === input.sessionId);
+  if (!train) throw new DisError(404, 'Vlak neexistuje.');
+  if (current.some((t) => t.nextTrainId === input.id))
+    throw new DisError(409, 'Najprv odstráňte nadväznosť ostatných vlakov.');
+  await assertTimetableNotDriven(input.id, input.sessionId);
+  const result = await (
+    await collection()
+  ).deleteOne({
+    sessionId: input.sessionId,
+    $expr: {
+      $and: [
+        { $eq: [{ $ifNull: ['$id', { $getField: { $literal: '$id' } }] }, input.id] },
+        {
+          $eq: [
+            { $ifNull: ['$updatedAt', { $getField: { $literal: '$updatedAt' } }] },
+            input.expectedUpdatedAt,
+          ],
+        },
+      ],
+    },
+  });
+  if (!result.deletedCount) throw new DisError(409, 'Vlak medzitým zmenil iný používateľ.');
+  return { deleted: true };
+}

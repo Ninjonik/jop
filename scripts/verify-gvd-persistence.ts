@@ -121,7 +121,7 @@ async function main() {
     await ensureGvdPlanningAttribute();
     await ready();
     await ensureGvdPlanningAttribute();
-    const { loadTimetables, saveTimetable, retireTimetable, previewTimetable } =
+    const { loadTimetables, saveTimetable, retireTimetable, previewTimetable, deleteTimetable } =
       await import('../src/lib/server/dis/timetables');
     assert.equal((await loadTimetables(placeId))[0].planning, undefined);
     const { saveLine, loadLines } = await import('../src/lib/server/dis/lines');
@@ -178,6 +178,10 @@ async function main() {
       /rušňovodič/,
     );
     await mongo.collection('session_driver_trains').deleteMany({ sessionId });
+    await assert.rejects(
+      () => deleteTimetable({ placeId, id: legacy.$id, expectedUpdatedAt: 'stale' }),
+      /iný používateľ/,
+    );
     const retired = await retireTimetable({
       placeId,
       id: legacy.$id,
@@ -226,7 +230,7 @@ async function main() {
         ).status,
         401,
       );
-    const { saveSessionTimetable, loadOperatingTimetables } =
+    const { saveSessionTimetable, loadOperatingTimetables, deleteSessionTimetable } =
       await import('../src/lib/server/dis/session-timetables');
     const first = await saveSessionTimetable({
       sessionId,
@@ -269,6 +273,102 @@ async function main() {
     });
     assert.equal(migratedSession.timetable?.$id, oldId);
     assert.equal((await loadOperatingTimetables(sessionId)).length, 2);
+
+    // New commands run against this isolated universe and disposable station lease only.
+    const { projectDiary, editDiary } = await import('../src/lib/server/dis/edd-diary');
+    const profile = {
+      userId: randomUUID(),
+      name: 'Cancellation QA',
+      role: 'dispatcher' as const,
+      callsign: 'QA',
+      trainingStage: 'certified' as const,
+      strikes: 0,
+    };
+    await mongo
+      .collection('session_station_claims')
+      .insertOne({
+        sessionId,
+        stationId: 'A',
+        userId: profile.userId,
+        expiresAt: Date.now() + 60000,
+      });
+    const [entry] = await projectDiary(
+      [
+        {
+          $id: 'cancel-qa',
+          sessionId,
+          stationId: 'A',
+          trainNumber: second.timetable!.trainNumber,
+          trainType: 'Os',
+          direction: 'A → B',
+          schedArrival: '',
+          schedDeparture: '08:00',
+          actualArrival: '',
+          actualDeparture: '',
+          track: '1',
+          status: 'scheduled',
+          delayMinutes: 0,
+        },
+      ],
+      new Map([['cancel-qa', { movement: 'origin' as const, timetableId: second.timetable!.$id }]]),
+    );
+    const command = {
+      sessionId,
+      stationId: 'A',
+      id: entry.$id,
+      expectedRevision: 0,
+      action: 'cancel-route',
+      cancellationFrom: 'A',
+      reason: 'QA',
+    };
+    await assert.rejects(() => editDiary(command, { ...profile, role: 'driver' }), /ovládanie/);
+    const cancelled = await editDiary(command, profile);
+    assert.equal(cancelled.record.cancellation?.fromStation, 'A');
+    assert.equal(cancelled.record.history.at(-1)?.action, 'cancel-route');
+    await assert.rejects(() => editDiary(command, profile), /iný používateľ/);
+    await assert.rejects(
+      () =>
+        editDiary(
+          { ...command, expectedRevision: 1, action: 'train', departure: '08:02' },
+          profile,
+        ),
+      /zrušený/,
+    );
+    const restored = await editDiary(
+      { ...command, expectedRevision: 1, action: 'restore-route' },
+      profile,
+    );
+    assert.equal(restored.record.cancellation, null);
+    const dwelling = await editDiary(
+      { ...command, expectedRevision: 2, action: 'train', dwell: true },
+      profile,
+    );
+    assert.match(dwelling.record.dwellStartedTime || '', /^\d{2}:\d{2}$/);
+    const released = await editDiary(
+      { ...command, expectedRevision: 3, action: 'train', departure: '08:02' },
+      profile,
+    );
+    assert.equal(released.record.dwell, false);
+    assert.equal(released.record.dwellStartedTime, dwelling.record.dwellStartedTime);
+    await assert.rejects(() => editDiary({ ...command, expectedRevision: 4 }, profile), /prešiel/);
+    await assert.rejects(
+      () =>
+        deleteSessionTimetable({
+          sessionId,
+          id: second.timetable!.$id,
+          expectedUpdatedAt: 'stale',
+        }),
+      /iný používateľ/,
+    );
+    await deleteSessionTimetable({
+      sessionId,
+      id: second.timetable!.$id,
+      expectedUpdatedAt: second.timetable!.$updatedAt,
+    });
+    assert.equal(
+      (await loadOperatingTimetables(sessionId)).some((t) => t.$id === second.timetable!.$id),
+      false,
+    );
     const { GET, POST, DELETE } = await import('../apps/api/src/app/api/dis/gvd-profiles/route');
     for (const handler of [GET, POST, DELETE])
       assert.equal(
@@ -276,6 +376,12 @@ async function main() {
           .status,
         401,
       );
+    await deleteTimetable({
+      placeId,
+      id: legacy.$id,
+      expectedUpdatedAt: retired.timetable.$updatedAt,
+    });
+    assert.equal((await loadTimetables(placeId, true)).length, 0);
     console.log(
       'PASS: additive migration/idempotence, legacy read, Appwrite transaction/update/retirement/stale protection, profile snapshots, Mongo session rename/CAS, unauthenticated API rejection.',
     );
@@ -291,6 +397,8 @@ async function main() {
         await mongo.collection('sessions').deleteOne({ _id: sessionId as never });
         await mongo.collection('session_timetables').deleteMany({ sessionId });
         await mongo.collection('session_driver_trains').deleteMany({ sessionId });
+        await mongo.collection('session_station_claims').deleteMany({ sessionId });
+        await mongo.collection('edd_diary_entries').deleteMany({ sessionId });
         const { getMongoClient } = await import('../src/lib/server/mongo');
         await (await getMongoClient()).close();
       }

@@ -261,3 +261,38 @@ function validateNextTrain(
   if (!current.some((train) => train.$id === timetable.nextTrainId))
     throw new DisError(400, 'Nadväzujúci vlak musí byť uložený v rovnakom GVD.');
 }
+
+export async function deleteTimetable(body: unknown) {
+  const input = z
+    .object({ placeId: z.string(), id: z.string(), expectedUpdatedAt: z.string() })
+    .parse(body);
+  const current = await loadTimetables(input.placeId, true);
+  const train = current.find((t) => t.$id === input.id);
+  if (!train) throw new DisError(404, 'Vlak neexistuje.');
+  await assertTimetableNotDriven(input.id);
+  if (current.some((t) => t.nextTrainId === input.id))
+    throw new DisError(409, 'Najprv odstráňte nadväznosť ostatných vlakov.');
+  const db = disDatabase();
+  const transaction = await db.createTransaction({ ttl: 60 });
+  try {
+    const record = await db.getDocument({
+      databaseId,
+      collectionId: 'timetables_gvd',
+      documentId: input.id,
+      transactionId: transaction.$id,
+    });
+    if (record.$updatedAt !== input.expectedUpdatedAt)
+      throw new DisError(409, 'Vlak medzitým zmenil iný používateľ. Obnovte uloženú verziu.');
+    await db.deleteDocument({
+      databaseId,
+      collectionId: 'timetables_gvd',
+      documentId: input.id,
+      transactionId: transaction.$id,
+    });
+    await db.updateTransaction({ transactionId: transaction.$id, commit: true });
+  } catch (error) {
+    await db.updateTransaction({ transactionId: transaction.$id, rollback: true }).catch(() => {});
+    throw error;
+  }
+  return { deleted: true };
+}

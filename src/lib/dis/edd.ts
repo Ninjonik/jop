@@ -34,6 +34,8 @@ export type EddEntry = EddRecord & {
   nextTransportPoint?: string;
   nextControlledArea?: string;
   dwell?: boolean;
+  dwellStartedTime?: string;
+  cancellation?: { fromStation: string; reason: string } | null;
   lockedEvents?: Partial<Record<'arrival' | 'departure', string>>;
 };
 export function canRecord(entry: EddEntry, event: EddEvent) {

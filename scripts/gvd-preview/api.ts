@@ -122,6 +122,12 @@ export async function disFetch<T>(url: string, init: RequestInit = {}): Promise<
       if (!old) throw new Error('Vlak neexistuje.');
       if (body.expectedUpdatedAt !== old.$updatedAt)
         throw new Error('Vlak medzitým zmenil iný používateľ.');
+      if (body.permanent) {
+        if (trains.some((t) => t.nextTrainId === body.id))
+          throw new Error('Najprv odstráňte nadväznosť ostatných vlakov.');
+        trains = trains.filter((t) => t.$id !== body.id);
+        return { deleted: true } as T;
+      }
       const timetable: Timetable = {
         ...old,
         $updatedAt: new Date().toISOString(),

@@ -16,7 +16,7 @@ import {
   type EddMovement,
   type EddReply,
 } from '@/lib/dis/edd';
-import { trainProgress } from '@/lib/dis/train-progress';
+import { trainCancellation, trainProgress } from '@/lib/dis/train-progress';
 import { useDisResource } from '@/lib/dis/use-dis-resource';
 import { useSessionClock } from '@/lib/dis/use-session-clock';
 import { useUserPreference } from '@/lib/dis/use-user-preference';
@@ -133,6 +133,16 @@ export function EddWorkstation({
     genitive,
     wholeTrainConfirmed,
   ]);
+  function cancelledAt(record: EddEntry) {
+    const train = traffic.value.timetables.find((t) =>
+      record.timetableId ? t.$id === record.timetableId : t.trainNumber === record.trainNumber,
+    );
+    if (!train) return false;
+    const cancellation = trainCancellation(train, traffic.value.records);
+    if (!cancellation) return false;
+    const cutoff = train.stops.findIndex((s) => s.station === cancellation.fromStation);
+    return cutoff >= 0 && train.stops.findIndex((s) => s.station === record.stationId) >= cutoff;
+  }
   async function command(payload: object) {
     if (commandLock.current) return false;
     commandLock.current = true;
@@ -419,8 +429,19 @@ export function EddWorkstation({
                         <span className="edd-track-label">{record.track?.trim() || '–'}</span>
                       </td>
                       <td>
-                        <span className={'edd-status edd-status-' + record.status}>
-                          {t(record.dwell ? 'Pobyt' : statusNames[record.status])}
+                        <span
+                          className={
+                            'edd-status edd-status-' +
+                            (cancelledAt(record) ? 'cancelled' : record.status)
+                          }
+                        >
+                          {t(
+                            cancelledAt(record)
+                              ? 'Zrušený'
+                              : record.dwell
+                                ? 'Pobyt'
+                                : statusNames[record.status],
+                          )}
                         </span>
                         <small>
                           {t('Príchod')}: {eddClock(record.actualArrival)} · {t('Odchod')}:{' '}
@@ -428,7 +449,7 @@ export function EddWorkstation({
                         </small>
                       </td>
                       <td>
-                        {writable && record.status !== 'cancelled' ? (
+                        {writable && record.status !== 'cancelled' && !cancelledAt(record) ? (
                           <EddTrainEntry
                             key={record.$id + record.revision}
                             record={record}
@@ -527,7 +548,15 @@ export function EddWorkstation({
                       {t('Uložiť údaje')}
                     </button>
                   </form>
-                  {!selected.actualArrival && !selected.actualDeparture && (
+                  <div className="edd-toolbar">
+                    <button
+                      className="aero-btn"
+                      onClick={() => traffic.openTrain(selected.trainNumber)}
+                    >
+                      {t('Zrušenie vlaku v relácii')}
+                    </button>
+                  </div>
+                  {selected.status === 'cancelled' && (
                     <div className="edd-toolbar">
                       <input
                         className="aero-input edd-note-input"

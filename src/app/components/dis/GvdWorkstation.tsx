@@ -412,6 +412,48 @@ function GvdWorkspace({ place, sessionId }: { place: Place; sessionId: string })
       setBusy(false);
     }
   }
+  async function removePermanently() {
+    if (!selectedId || !canEditSelected || busy) return;
+    if (
+      !window.confirm(
+        t(
+          'Natrvalo odstrániť vlak {0}? Túto akciu nemožno vrátiť. Historické zápisy EDD zostanú zachované.',
+          draft.trainNumber,
+        ),
+      )
+    )
+      return;
+    setBusy(true);
+    setError('');
+    try {
+      await disFetch(endpoint, {
+        method: 'DELETE',
+        body: JSON.stringify({
+          placeId: place.placeId,
+          sessionId,
+          id: selectedId,
+          expectedUpdatedAt,
+          permanent: true,
+        }),
+      });
+      await refresh();
+      setSelectedId('');
+      setExpectedUpdatedAt(undefined);
+      const empty = emptyTrain();
+      setBaseline(empty);
+      setHistory({ past: [], present: empty, future: [] });
+      latest.current = { draft: empty, dirty: false, selectedId: '', expectedUpdatedAt: undefined };
+      try {
+        localStorage.removeItem(storageKey);
+      } catch {}
+      setRecovery(null);
+      setNotice('Vlak bol natrvalo odstránený.');
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : String(reason));
+    } finally {
+      setBusy(false);
+    }
+  }
   function applyTool() {
     try {
       setError('');
@@ -601,6 +643,14 @@ function GvdWorkspace({ place, sessionId }: { place: Place; sessionId: string })
             >
               <AeroIcon name="delete" />
               {t('Vyradiť vlak')}
+            </button>
+            <button
+              className="aero-btn"
+              disabled={!editable || !selectedId || !canEditSelected || busy}
+              onClick={() => void removePermanently()}
+            >
+              <AeroIcon name="delete" />
+              {t('Natrvalo odstrániť vlak')}
             </button>
           </div>
         </ResizablePanel>

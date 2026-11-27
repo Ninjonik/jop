@@ -15,7 +15,7 @@ export async function GET(request: Request) {
   return disResponse(async () => {
     await requireDisProfile(request);
     const sessionId = sessionIdSchema.parse(new URL(request.url).searchParams.get('sessionId'));
-    await requireLiveSession(sessionId);
+    const session = await requireLiveSession(sessionId);
     const db = await getMongoDb();
     const [timetables, legacy, overlay, drivers, clock] = await Promise.all([
       loadOperatingTimetables(sessionId),
@@ -42,6 +42,12 @@ export async function GET(request: Request) {
     }));
     const indexed = new Map(records.map((record) => [record.$id, record]));
     for (const record of overlay) indexed.set(record.$id, { ...record, history: [] });
-    return { timetables, records: [...indexed.values()], drivers, clock };
+    return {
+      timetables,
+      records: [...indexed.values()],
+      drivers,
+      clock,
+      placeId: session.interpreter.kind === 'roblox' ? session.interpreter.placeId : undefined,
+    };
   });
 }
