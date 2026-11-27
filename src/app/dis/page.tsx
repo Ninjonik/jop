@@ -396,7 +396,7 @@ function DisPortalShell() {
                 key={id}
                 className="aero-btn"
                 aria-pressed={activeTab === id}
-                onClick={() => setTab(id)}
+                onClick={() => openTab(id)}
               >
                 <AeroIcon name={tabIcons[id]} />
                 {t(id === 'runtime' ? 'Staničný pult' : id === 'edd' ? 'Dopravný denník' : 'TPV')}
