@@ -89,6 +89,28 @@ The project explicitly follows KISS, YAGNI, and DRY.
 - Use dialogs for focused contextual tasks such as personnel assessments and strikes. Keep the relevant person or item visible in the dialog title and return users to their original context on close.
 - Provide clear empty, loading, success, disabled, and error states. Errors should explain what failed and what the user can do next without exposing secrets or a stack trace.
 
+### Feedback And Layout Stability
+
+- Transient save, action, and load messages must not insert or remove workspace rows or move tables, forms, toolbars, or canvases. Avoid cumulative layout shift (CLS) when feedback changes.
+- Reuse `ActionFeedback` in `src/app/components/ui/DispatcherFeedback.tsx`. In DIS it publishes to the existing bottom-right, fixed-height dispatcher status bar; standalone screens use its fixed bottom-right fallback. Do not introduce a separate toast system or inline success banners.
+- Keep feedback visible within dialogs. Reuse the fixed-height feedback footer in `GvdDialog`; native personnel/audio dialogs use a reserved, internally scrollable validation slot. Do not send essential dialog errors only to chrome obscured by the dialog.
+- Keep field validation, persistent operational status, and failed-message retry controls contextual. Reserve space for validation where its appearance would otherwise move controls; identify the affected person/item in shared action errors.
+- Preserve accessible live announcements, full message text, keyboard access to recovery actions, both theme variants, and usability at smaller window sizes. Layout stability must not hide errors or remove retry actions.
+
+### Responsive Saves And Optimistic Updates
+
+- Prefer the simplest improvement first: when a write returns the confirmed saved record, apply that response immediately and finish the save interaction. Refresh related lists in the background instead of waiting for a second GET before closing a form or enabling its controls.
+- Reuse `useDisResource.applyConfirmed` for confirmed read-model updates. Invalidate older in-flight reads and ignore responses from a previous session/station/place so stale requests cannot undo a successful save or update another scope.
+- Distinguish write failure from background-refresh failure. A failed refresh must not revert a confirmed save or report that saving failed; retain the saved result and report the refresh problem separately.
+- Use optimistic presentation only for predictable, reversible interactions with a clear recovery path. Existing examples are outgoing chat/preset messages, receipt acknowledgements, shift attendance, and assignment selections. Keep backend validation and authorization authoritative.
+- Reuse `useEddOutbox` for preset submissions and their retries. Preserve the exact submitted content and request ID, reconcile HTTP and socket confirmations without duplicates, and treat socket confirmation as success even if the HTTP response is lost. Do not display a pending badge for these optimistic messages; show failures with a deliberate retry.
+- On rejection, remove the local presentation overlay or restore the affected field and show an actionable error. Never overwrite newer typing with an older failed submission; retain submitted content separately when necessary.
+- Prevent duplicate submissions immediately. Lock only the affected item when operations are independent. Keep a shared lock when writes replace the same aggregate, such as the whole shift plan; do not permit concurrent writes that can overwrite each other.
+- Keep EDD actual movements, dwell, train cancellation, GVD validation/publication, staff sanctions, document publication, destructive operations, ownership/claims, session time, and actual voice/device connection states confirmed by the server or device. An optimistic selection must never grant access or ownership.
+- Display preferences and authoring drafts already update locally. Reuse their existing mechanisms rather than adding another optimistic layer. Do not add generic command frameworks, global state libraries, offline queues, or automatic write retries for hypothetical future needs.
+- Responsiveness work in DIS must not expand into the station controller, station designer, or station linker unless explicitly requested. In particular, retain server-confirmed station controls and never optimistically patch canonical station snapshots, signals, switches, routes, occupancy, or lineblocks.
+- For asynchronous UI changes, test delayed/rejected requests, duplicate clicks, HTTP/socket response ordering, stale polling, scope changes, and preservation of newer drafts. Reuse `src/lib/dis/__tests__/ui-response.test.ts`; simulated DOM tests verify interaction behavior, not rendered layout or themes.
+
 ### Accessibility And Railway Displays
 
 - Preserve semantic buttons, labels, keyboard operation, visible focus, and readable contrast. Do not rely on an icon or color alone to communicate an action or status.
