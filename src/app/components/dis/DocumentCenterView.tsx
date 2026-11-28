@@ -1,5 +1,6 @@
 'use client';
 import { ActionFeedback } from '@/app/components/ui/DispatcherFeedback';
+import { WorkspacePage } from '@/app/components/ui/WorkspacePage';
 import { useLocaleTag, useTranslation } from '@/lib/i18n/client';
 
 import { AeroIcon } from '@/app/components/ui/AeroIcon';
@@ -63,24 +64,29 @@ export function DocumentCenterView() {
     }
   }
   return (
-    <div className="flex flex-1 flex-col overflow-hidden bg-[var(--aero-panel-bg)] text-xs text-[var(--aero-text)]">
-      <div className="flex flex-wrap items-center gap-2 border-b border-[var(--aero-ribbon-border)] bg-[var(--aero-ribbon-bg)] p-2">
-        <strong>{t('Dokumentačné centrum a SPP')}</strong>
-        <button className="aero-btn" onClick={refresh}>
-          <AeroIcon name="refresh" /> {t('Obnoviť')}{' '}
-        </button>
-        {canManageStaff && (
-          <button
-            className="aero-btn"
-            disabled={busy || !!draft}
-            onClick={() =>
-              setDraft({ title: '', category: 'spp', contentMarkdown: '', isPublished: false })
-            }
-          >
-            <AeroIcon name="newDocument" /> {t('Nový dokument')}{' '}
+    <WorkspacePage
+      title={t('Dokumentačné centrum a SPP')}
+      icon="documents"
+      scroll={false}
+      toolbar={
+        <>
+          <button className="aero-btn" onClick={refresh}>
+            <AeroIcon name="refresh" /> {t('Obnoviť')}{' '}
           </button>
-        )}
-      </div>
+          {canManageStaff && (
+            <button
+              className="aero-btn"
+              disabled={busy || !!draft}
+              onClick={() =>
+                setDraft({ title: '', category: 'spp', contentMarkdown: '', isPublished: false })
+              }
+            >
+              <AeroIcon name="newDocument" /> {t('Nový dokument')}{' '}
+            </button>
+          )}
+        </>
+      }
+    >
       <ActionFeedback message={t(error) || t(loadError)} error />
       <div className="flex flex-1 overflow-hidden">
         <ResizablePanel id="documents" title={t('Dokumenty')} edge="left" defaultSize={240}>
@@ -104,7 +110,7 @@ export function DocumentCenterView() {
             )}
           </div>
         </ResizablePanel>
-        <div className="flex min-w-0 flex-1 flex-col overflow-auto p-3">
+        <div className="workspace-page-scroll flex flex-col gap-2">
           {draft ? (
             <form onSubmit={save} className="flex flex-1 flex-col gap-3">
               <label className="grid gap-1">
@@ -189,6 +195,6 @@ export function DocumentCenterView() {
           )}
         </div>
       </div>
-    </div>
+    </WorkspacePage>
   );
 }

@@ -1,5 +1,6 @@
 'use client';
 import { ActionFeedback } from '@/app/components/ui/DispatcherFeedback';
+import { WorkspacePage } from '@/app/components/ui/WorkspacePage';
 import { useTranslation } from '@/lib/i18n/client';
 import { SessionActivityView } from './SessionActivityView';
 
@@ -69,27 +70,34 @@ export function RecoveryView({
     }
   }
   return (
-    <div className="overflow-auto p-4 space-y-4">
-      <h2 className="font-bold text-sm">{t('Obnova prevádzkového stavu')}</h2>
+    <WorkspacePage
+      title={t('Obnova prevádzkového stavu')}
+      icon="tools"
+      toolbar={
+        <>
+          <label>
+            {' '}
+            {t('Rozsah:')}{' '}
+            <select
+              className="aero-select"
+              value={stationId}
+              onChange={(event) => setStationId(event.target.value)}
+            >
+              <option value="">{t('Celá relácia')}</option>
+              {stations
+                .filter((station) => station.sessionId === sessionId)
+                .map((station) => (
+                  <option key={station.stationId} value={station.stationId}>
+                    {station.name}
+                  </option>
+                ))}
+            </select>
+          </label>
+        </>
+      }
+    >
       <p>{t('Ak je prevádzkový stav poškodený, vyberte rozsah a vykonajte príslušnú obnovu.')}</p>
-      <label>
-        {' '}
-        {t('Rozsah:')}{' '}
-        <select
-          className="aero-select"
-          value={stationId}
-          onChange={(event) => setStationId(event.target.value)}
-        >
-          <option value="">{t('Celá relácia')}</option>
-          {stations
-            .filter((station) => station.sessionId === sessionId)
-            .map((station) => (
-              <option key={station.stationId} value={station.stationId}>
-                {station.name}
-              </option>
-            ))}
-        </select>
-      </label>
+
       {!sessionId && <p>{t('Najprv vyberte reláciu.')}</p>}
       <ActionFeedback message={t(message)} />
       <div className="grid gap-3 md:grid-cols-3">
@@ -112,6 +120,6 @@ export function RecoveryView({
         ))}
       </div>
       <SessionActivityView key={sessionId} sessionId={sessionId} />
-    </div>
+    </WorkspacePage>
   );
 }

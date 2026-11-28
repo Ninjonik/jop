@@ -7,6 +7,7 @@ import {
   DispatcherFeedbackProvider,
   DispatcherFeedbackStatus,
 } from '@/app/components/ui/DispatcherFeedback';
+import { WorkspacePage } from '@/app/components/ui/WorkspacePage';
 import {
   Window,
   type HTMLButtonElement as TestButton,
@@ -502,4 +503,55 @@ test('standalone feedback is placed outside the workspace as a fixed feedback ar
   message = '';
   await view.render();
   assert.equal(view.window.document.body.querySelector('.runtime-feedback'), null);
+});
+
+test('shared page chrome remains mounted when workspace content and loading state change', async (context) => {
+  let loaded = false;
+  const view = await mountHook(
+    context,
+    () => null,
+    () =>
+      createElement(
+        WorkspacePage,
+        {
+          title: 'Documents',
+          icon: 'documents',
+          toolbar: createElement('button', { disabled: !loaded }, 'Save'),
+        },
+        loaded
+          ? createElement('form', null, createElement('input', { defaultValue: 'Draft' }))
+          : 'Loading',
+      ),
+  );
+  const caption = view.container.querySelector('.workspace-page-caption');
+  const toolbar = view.container.querySelector('.workspace-page-toolbar');
+  const body = view.container.querySelector('.workspace-page-body')!;
+  assert.ok(caption);
+  assert.ok(toolbar);
+  assert.equal(body.contains(caption), false);
+  assert.equal(body.contains(toolbar), false);
+  loaded = true;
+  await view.render();
+  assert.equal(view.container.querySelector('.workspace-page-caption'), caption);
+  assert.equal(view.container.querySelector('.workspace-page-toolbar'), toolbar);
+  assert.equal(body.querySelector('input')!.value, 'Draft');
+  assert.equal(toolbar.querySelector('button')!.disabled, false);
+});
+
+test('shared page reserves its action row even when it has no actions', async (context) => {
+  const view = await mountHook(
+    context,
+    () => null,
+    () =>
+      createElement(
+        WorkspacePage,
+        {
+          title: 'Settings',
+          icon: 'settings',
+        },
+        'Preferences',
+      ),
+  );
+  assert.ok(view.container.querySelector('.workspace-page-toolbar'));
+  assert.ok(view.container.querySelector('.workspace-page-body.is-scrollable'));
 });

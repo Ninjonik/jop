@@ -1156,3 +1156,15 @@ controls or tables. GVD dialogs provide their own fixed-height feedback footer;
 native personnel/audio dialogs reserve an internally scrollable validation slot.
 Field validation, failed-message retry controls and persistent operational status
 remain contextual. Controller/designer/linker implementations are unchanged.
+
+Ordinary DIS sections use `WorkspacePage` (`src/app/components/ui/WorkspacePage.tsx`):
+a common 36px caption, an action row with a 38px minimum height, and a bounded body.
+Actions wrap at narrow widths; the body owns scrolling with a stable scrollbar gutter.
+Split mode preserves existing master/detail, table and graph scroll containers. EDD
+uses the same frame, while GVD shares `WorkspacePageHeader` and the toolbar classes
+around its existing workbench. Personnel table columns and its header remain stable
+through loading/empty states. Shift and driver controls retain their action slots
+while data loads or forms are edited. This standardizes chrome without changing
+station controller/designer/linker rendering or domain behavior. DOM tests verify
+that captions and toolbars remain mounted through content changes; browser inspection
+is still needed for visual layout and CLS measurement.

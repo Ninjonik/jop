@@ -89,6 +89,12 @@ The project explicitly follows KISS, YAGNI, and DRY.
 - Use dialogs for focused contextual tasks such as personnel assessments and strikes. Keep the relevant person or item visible in the dialog title and return users to their original context on close.
 - Provide clear empty, loading, success, disabled, and error states. Errors should explain what failed and what the user can do next without exposing secrets or a stack trace.
 
+### Consistent DIS Page Layout
+
+- Reuse `WorkspacePage` in `src/app/components/ui/WorkspacePage.tsx` for ordinary DIS sections: the same compact caption, reserved action row, and bounded workspace. Keep primary actions in the toolbar and scrolling inside the content area; use its split mode for tables, graphs and master/detail views with their own scroll containers.
+- Specialized EDD/GVD/TPV content may retain its domain layout, but share the caption/toolbar geometry through `WorkspacePage` or `WorkspacePageHeader` and the shared theme classes. Keep headers and action rows mounted during loading, empty states and saves; disable unavailable actions rather than removing the entire toolbar.
+- Use stable scrollbar gutters for scrolling content and stable table columns where loading would otherwise move headers. Let toolbars wrap at small sizes instead of clipping actions. Do not force every page's content into an identical layout or redesign station controller/designer/linker surfaces as part of DIS chrome work.
+
 ### Feedback And Layout Stability
 
 - Transient save, action, and load messages must not insert or remove workspace rows or move tables, forms, toolbars, or canvases. Avoid cumulative layout shift (CLS) when feedback changes.

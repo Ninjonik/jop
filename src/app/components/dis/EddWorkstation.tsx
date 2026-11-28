@@ -1,6 +1,7 @@
 'use client';
 import { AeroIcon } from '@/app/components/ui/AeroIcon';
 import { ActionFeedback } from '@/app/components/ui/DispatcherFeedback';
+import { WorkspacePage } from '@/app/components/ui/WorkspacePage';
 import { disFetch } from '@/lib/dis/api-client';
 import { useDisAuth } from '@/lib/dis/auth-context';
 import { operatingClockParts } from '@/lib/dis/clock';
@@ -166,50 +167,56 @@ export function EddWorkstation({
   if (!sessionId || !stationId)
     return <p className="p-3">{t('Vyberte reláciu a stanicu v hornej lište.')}</p>;
   return (
-    <section className="edd-workstation">
-      <header className="edd-toolbar edd-caption">
-        <strong>
-          <AeroIcon name="table" /> {t('Elektronický dopravný denník —')} {ownName}
-        </strong>
+    <WorkspacePage
+      className="edd-workstation"
+      title={t('Elektronický dopravný denník —') + ' ' + ownName}
+      icon="table"
+      scroll={false}
+      headerDetails={
         <span className="edd-clock">
           {clock ? current.time : '—'} <small>{clock ? current.date : ''}</small>
         </span>
-        <span>
-          {t('Výpravca:')}{' '}
-          {value.operator === undefined ? profile?.name || '—' : value.operator || t('Neobsadená')}
-        </span>
-        <button className="aero-btn" disabled={busy} onClick={refresh}>
-          <AeroIcon name="refresh" /> {t('Obnoviť')}
-        </button>
-        <button className="aero-btn" onClick={() => window.print()}>
-          <AeroIcon name="print" /> {t('Tlač denníka')}
-        </button>
-      </header>
-      <div className="edd-toolbar">
-        <input
-          className="aero-input"
-          aria-label={t('Vyhľadať vlak')}
-          placeholder={t('Číslo vlaku…')}
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-        <select
-          className="aero-select"
-          aria-label={t('Zobrazenie denníka')}
-          value={preferences.filter}
-          onChange={(e) => setPreferences({ filter: e.target.value })}
-        >
-          <option value="active">{t('Aktuálne')}</option>
-          <option value="all">{t('Všetky')}</option>
-          <option value="completed">{t('Ukončené')}</option>
-        </select>
-        {writable && (
-          <button className="aero-btn" onClick={() => setCreating(!creating)}>
-            <AeroIcon name="add" /> {t('Mimoriadny vlak')}
+      }
+      toolbar={
+        <>
+          <input
+            className="aero-input"
+            aria-label={t('Vyhľadať vlak')}
+            placeholder={t('Číslo vlaku…')}
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+          <select
+            className="aero-select"
+            aria-label={t('Zobrazenie denníka')}
+            value={preferences.filter}
+            onChange={(e) => setPreferences({ filter: e.target.value })}
+          >
+            <option value="active">{t('Aktuálne')}</option>
+            <option value="all">{t('Všetky')}</option>
+            <option value="completed">{t('Ukončené')}</option>
+          </select>
+          {writable && (
+            <button className="aero-btn" onClick={() => setCreating(!creating)}>
+              <AeroIcon name="add" /> {t('Mimoriadny vlak')}
+            </button>
+          )}
+          <span className="edd-muted">{t('Vlaky z GVD sa načítavajú automaticky.')}</span>
+          <button className="aero-btn" disabled={busy} onClick={refresh}>
+            <AeroIcon name="refresh" /> {t('Obnoviť')}
           </button>
-        )}
-        <span className="edd-muted">{t('Vlaky z GVD sa načítavajú automaticky.')}</span>
-      </div>
+          <button className="aero-btn" onClick={() => window.print()}>
+            <AeroIcon name="print" /> {t('Tlač denníka')}
+          </button>
+          <span>
+            {t('Výpravca:')}{' '}
+            {value.operator === undefined
+              ? profile?.name || '—'
+              : value.operator || t('Neobsadená')}
+          </span>
+        </>
+      }
+    >
       <ActionFeedback message={t(error || loadError || clockError)} error />
       <ActionFeedback message={t(notice)} />
       {creating && (
@@ -539,7 +546,7 @@ export function EddWorkstation({
         )}
         {preferenceError && <span> {t(preferenceError)}</span>}
       </footer>
-    </section>
+    </WorkspacePage>
   );
 }
 

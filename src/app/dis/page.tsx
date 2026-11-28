@@ -67,7 +67,7 @@ const tabIcons: Record<Tab, AeroIconName> = {
   preparation: 'network',
   sessions: 'launch',
   driver: 'train',
-  runtime: 'network',
+  runtime: 'workstation',
   edd: 'table',
   tpv: 'chart',
   shifts: 'calendar',
@@ -634,7 +634,7 @@ function DisPortalShell() {
                           mode === 'admin'
                             ? 'settings'
                             : mode === 'dispatcher'
-                              ? 'network'
+                              ? 'dispatcher'
                               : 'train'
                         }
                         size={32}

@@ -1,4 +1,6 @@
 'use client';
+import { ActionFeedback } from '@/app/components/ui/DispatcherFeedback';
+import { WorkspacePage } from '@/app/components/ui/WorkspacePage';
 import type { RailwayLine } from '@/lib/dis/lines';
 import { readTpvLayouts, reorderTpvStations, tpvLayoutSchema } from '@/lib/dis/tpv-layout';
 import { useDisResource } from '@/lib/dis/use-dis-resource';
@@ -89,20 +91,22 @@ export function TpvFullView({
     }
   }
   return (
-    <section className="tpv-live-workspace">
-      <div className="ribbon-bar flex-wrap">
-        <strong>{t('TPV — živá traťová poloha vlakov')}</strong>
-        <span>{t('Odhady sa aktualizujú z EDD; nenahrádzajú koľajové snímače.')}</span>
-        <button className="aero-btn" onClick={() => setSettingsOpen(true)}>
-          <AeroIcon name="settings" />
-          {t('Rozloženie TPV')}
-        </button>
-      </div>
-      {(traffic.error || networkError || prefError || error) && (
-        <p role="alert" className="p-2">
-          {t(traffic.error || networkError || prefError || error)}
-        </p>
-      )}
+    <WorkspacePage
+      className="tpv-live-workspace"
+      title={t('TPV — živá traťová poloha vlakov')}
+      icon="chart"
+      scroll={false}
+      toolbar={
+        <>
+          <span>{t('Odhady sa aktualizujú z EDD; nenahrádzajú koľajové snímače.')}</span>
+          <button className="aero-btn" onClick={() => setSettingsOpen(true)}>
+            <AeroIcon name="settings" />
+            {t('Rozloženie TPV')}
+          </button>
+        </>
+      }
+    >
+      <ActionFeedback message={t(traffic.error || networkError || prefError || error)} error />
       {settingsOpen && (
         <GvdDialog compact title={t('Rozloženie TPV')} onClose={() => setSettingsOpen(false)}>
           <div className="tpv-layout-dialog">
@@ -281,6 +285,6 @@ export function TpvFullView({
           onOpenTrain={traffic.openTrain}
         />
       )}
-    </section>
+    </WorkspacePage>
   );
 }

@@ -1,4 +1,5 @@
 'use client';
+import { WorkspacePage } from '@/app/components/ui/WorkspacePage';
 import { disFetch } from '@/lib/dis/api-client';
 import { getStationDisplayName } from '@/lib/station/display-name';
 
@@ -54,32 +55,25 @@ export function SessionControlView({
   }, [fetchLive]);
 
   return (
-    <div className="flex-1 flex flex-col bg-white overflow-hidden text-[12px] font-sans">
-      {showSessionControls && (
-        <div className="h-8 bg-[var(--aero-ribbon-bg)] border-b border-[var(--aero-ribbon-border)] px-3 flex items-center justify-between text-xs">
-          <div className="flex items-center space-x-2">
-            <span className="font-semibold text-[var(--aero-text)]">
-              {' '}
-              {t('Správa Prevádzkových Session (JOP & Roblox Bridge)')}{' '}
-            </span>
-            <span className="text-[var(--aero-text-muted)]">|</span>
-            <span className="text-[11px] text-[var(--aero-text-muted)]">
-              {' '}
-              {t('Aktívne simulácie a prepojenia staníc riadené priamo z DIS rozhrania.')}{' '}
-            </span>
-          </div>
-
-          <button
-            onClick={fetchLive}
-            className="aero-btn text-[11px] font-semibold text-blue-700 flex items-center space-x-1"
-          >
-            <AeroIcon name="refresh" />
-            <span>{t('Obnoviť session')}</span>
-          </button>
-        </div>
-      )}
-
-      <div className="flex-1 p-4 overflow-y-auto space-y-4">
+    <WorkspacePage
+      title={t('Správa Prevádzkových Session (JOP & Roblox Bridge)')}
+      icon="network"
+      scroll={false}
+      toolbar={
+        <>
+          {showSessionControls && (
+            <button
+              onClick={fetchLive}
+              className="aero-btn text-[11px] font-semibold text-blue-700 flex items-center space-x-1"
+            >
+              <AeroIcon name="refresh" />
+              <span>{t('Obnoviť session')}</span>
+            </button>
+          )}
+        </>
+      }
+    >
+      <div className="workspace-page-scroll space-y-2">
         {/* Live Roblox Sessions Box */}
         <div className="border border-[var(--aero-panel-border)] rounded-[3px] bg-white shadow-xs overflow-hidden">
           <div className="h-7 bg-gradient-to-b from-[#f7f9fc] to-[#e2e8f0] border-b border-[#cbd5e1] px-3 flex items-center justify-between font-semibold text-xs text-[var(--aero-text)]">
@@ -171,6 +165,6 @@ export function SessionControlView({
           </div>
         )}
       </div>
-    </div>
+    </WorkspacePage>
   );
 }

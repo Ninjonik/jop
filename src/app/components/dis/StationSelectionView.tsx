@@ -1,4 +1,6 @@
 'use client';
+import { ActionFeedback } from '@/app/components/ui/DispatcherFeedback';
+import { WorkspacePage } from '@/app/components/ui/WorkspacePage';
 import type { StationClaim } from '@/lib/dis/claims';
 import type { RailwayLine } from '@/lib/dis/lines';
 import type { Timetable } from '@/lib/dis/timetable';
@@ -48,19 +50,17 @@ export function StationSelectionView({
     },
   ];
   return (
-    <div className="station-selection">
-      <div className="authoring-caption">
-        <AeroIcon name="network" />
-        <strong>{t('Výber stanice')}</strong>
-      </div>
-      <p className="p-2">
-        {t('Prevezmite voľnú stanicu. Ďalšie stanice môžete otvoriť do samostatných kariet.')}
-      </p>
-      {(error || lineError) && (
-        <p role="alert" className="p-2">
-          {t(error || lineError)}
-        </p>
-      )}
+    <WorkspacePage
+      className="station-selection"
+      title={t('Výber stanice')}
+      icon="station"
+      toolbar={
+        <span className="workspace-page-help">
+          {t('Prevezmite voľnú stanicu. Ďalšie stanice môžete otvoriť do samostatných kariet.')}
+        </span>
+      }
+    >
+      <ActionFeedback message={t(error || lineError)} error />
       {!sessionId && (
         <p role="status" className="p-2">
           {t('Momentálne nie je aktívny žiadny server Roblox.')}
@@ -90,7 +90,7 @@ export function StationSelectionView({
                       }
                     }}
                   >
-                    <AeroIcon name="network" size={32} />
+                    <AeroIcon name="station" size={32} />
                     <strong>{station.name}</strong>
                     <span>
                       {claim
@@ -112,6 +112,6 @@ export function StationSelectionView({
           </section>
         ))}
       {!!sessionId && !stations.length && <p className="p-2">{t('Žiadne aktívne stanice.')}</p>}
-    </div>
+    </WorkspacePage>
   );
 }

@@ -1,5 +1,6 @@
 'use client';
 import { ActionFeedback } from '@/app/components/ui/DispatcherFeedback';
+import { WorkspacePage } from '@/app/components/ui/WorkspacePage';
 import { useTranslation } from '@/lib/i18n/client';
 
 import { AeroIcon } from '@/app/components/ui/AeroIcon';
@@ -103,47 +104,47 @@ export function StaffManagementView() {
   });
 
   return (
-    <div className="flex-1 flex flex-col bg-white overflow-hidden text-[12px] font-sans">
-      {/* Top Filter and Action Bar */}
-      <div className="h-8 bg-[var(--aero-ribbon-bg)] border-b border-[var(--aero-ribbon-border)] px-3 flex items-center justify-between text-xs">
-        <div className="flex items-center space-x-2">
-          <span className="font-semibold text-[var(--aero-text)]">
-            {t('Personálne oddelenie ZSSK')}
-          </span>
-          <span className="text-[var(--aero-text-muted)]">|</span>
-          <div className="flex space-x-1">
+    <WorkspacePage
+      title={t('Personálne oddelenie ZSSK')}
+      icon="staff"
+      scroll={false}
+      toolbar={
+        <>
+          <div className="workspace-page-actions">
+            <div className="workspace-page-actions">
+              <button
+                onClick={() => setActiveTab('employees')}
+                className={`aero-btn ${activeTab === 'employees' ? 'active' : ''}`}
+              >
+                <AeroIcon name="staff" /> {t('Zamestnanci')}{' '}
+              </button>
+              <button
+                onClick={() => setActiveTab('cadets')}
+                className={`aero-btn ${activeTab === 'cadets' ? 'active' : ''}`}
+              >
+                <AeroIcon name="assessment" /> {t('Kadetný program & Zácvik')}{' '}
+              </button>
+              <button
+                onClick={() => setActiveTab('strikes')}
+                className={`aero-btn ${activeTab === 'strikes' ? 'active' : ''}`}
+              >
+                <AeroIcon name="warning" /> {t('Evidencia sankcií (Strikes)')}{' '}
+              </button>
+            </div>
+          </div>
+
+          <div className="workspace-page-actions">
             <button
-              onClick={() => setActiveTab('employees')}
-              className={`aero-btn ${activeTab === 'employees' ? 'active' : ''}`}
+              onClick={loadProfiles}
+              className="aero-btn text-[11px] flex items-center space-x-1"
             >
-              <AeroIcon name="staff" /> {t('Zamestnanci')}{' '}
-            </button>
-            <button
-              onClick={() => setActiveTab('cadets')}
-              className={`aero-btn ${activeTab === 'cadets' ? 'active' : ''}`}
-            >
-              <AeroIcon name="assessment" /> {t('Kadetný program & Zácvik')}{' '}
-            </button>
-            <button
-              onClick={() => setActiveTab('strikes')}
-              className={`aero-btn ${activeTab === 'strikes' ? 'active' : ''}`}
-            >
-              <AeroIcon name="warning" /> {t('Evidencia sankcií (Strikes)')}{' '}
+              <AeroIcon name="refresh" />
+              <span>{t('Obnoviť')}</span>
             </button>
           </div>
-        </div>
-
-        <div className="flex items-center space-x-2">
-          <button
-            onClick={loadProfiles}
-            className="aero-btn text-[11px] flex items-center space-x-1"
-          >
-            <AeroIcon name="refresh" />
-            <span>{t('Obnoviť')}</span>
-          </button>
-        </div>
-      </div>
-
+        </>
+      }
+    >
       {activeTab === 'strikes' && canManageStaff && (
         <div className="flex flex-wrap items-end gap-2 border-b border-[var(--aero-panel-border)] bg-[var(--grid-row-alt)] p-3">
           <label className="grid gap-1">
@@ -338,35 +339,40 @@ export function StaffManagementView() {
         </dialog>
       )}
       {/* Main Content Grid View */}
-      <div className="flex-1 overflow-auto p-2">
-        {loading ? (
-          <div className="text-xs text-slate-400 p-4 text-center">
-            {' '}
-            {t('Načítavam zoznam personálu...')}{' '}
-          </div>
-        ) : filtered.length === 0 ? (
-          <div className="text-xs text-slate-400 p-4 text-center italic">
-            {activeTab === 'strikes'
-              ? t('Žiadny zamestnanec nemá aktívne sankcie.')
-              : activeTab === 'cadets'
-                ? t('Žiadni aktívni kadeti alebo stážisti.')
-                : t('Žiadny personál zatiaľ. Prihláste sa cez Roblox OAuth.')}
-          </div>
-        ) : (
-          <table className="w-full border-collapse aero-grid text-left text-[11.5px]">
-            <thead>
+      <div className="workspace-page-scroll">
+        <table className="workspace-page-table border-collapse aero-grid text-left text-[11.5px]">
+          <colgroup>
+            {['12%', '22%', '10%', '18%', '18%', '7%', '13%'].map((width, index) => (
+              <col key={index} style={{ width }} />
+            ))}
+          </colgroup>
+          <thead>
+            <tr>
+              <th className="py-1.5 px-2">{t('Roblox ID')}</th>
+              <th className="py-1.5 px-2">{t('Meno & Roblox')}</th>
+              <th className="py-1.5 px-2">{t('Volací znak')}</th>
+              <th className="py-1.5 px-2">{t('Zaradenie / Rola')}</th>
+              <th className="py-1.5 px-2">{t('Fáza výcviku')}</th>
+              <th className="py-1.5 px-2 text-center">{t('Strikes')}</th>
+              <th className="py-1.5 px-2 text-right">{t('Správa oprávnení')}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading || !filtered.length ? (
               <tr>
-                <th className="py-1.5 px-2">{t('Roblox ID')}</th>
-                <th className="py-1.5 px-2">{t('Meno & Roblox')}</th>
-                <th className="py-1.5 px-2">{t('Volací znak')}</th>
-                <th className="py-1.5 px-2">{t('Zaradenie / Rola')}</th>
-                <th className="py-1.5 px-2">{t('Fáza výcviku')}</th>
-                <th className="py-1.5 px-2 text-center">{t('Strikes')}</th>
-                <th className="py-1.5 px-2 text-right">{t('Správa oprávnení')}</th>
+                <td colSpan={7} className="workspace-page-state">
+                  {loading
+                    ? t('Načítavam zoznam personálu...')
+                    : activeTab === 'strikes'
+                      ? t('Žiadny zamestnanec nemá aktívne sankcie.')
+                      : activeTab === 'cadets'
+                        ? t('Žiadni aktívni kadeti alebo stážisti.')
+                        : t('Žiadny personál zatiaľ. Prihláste sa cez Roblox OAuth.')}
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              {filtered.map((emp) => (
+            ) : null}
+            {!loading &&
+              filtered.map((emp) => (
                 <tr key={emp.$id} className="hover:bg-blue-50/50">
                   <td className="py-1 px-2 font-mono text-[11px] text-[var(--aero-text-muted)]">
                     {emp.robloxUserId || emp.userId}
@@ -441,10 +447,9 @@ export function StaffManagementView() {
                   </td>
                 </tr>
               ))}
-            </tbody>
-          </table>
-        )}
+          </tbody>
+        </table>
       </div>
-    </div>
+    </WorkspacePage>
   );
 }

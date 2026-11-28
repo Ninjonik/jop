@@ -1,5 +1,6 @@
 'use client';
 import { ActionFeedback } from '@/app/components/ui/DispatcherFeedback';
+import { WorkspacePageHeader } from '@/app/components/ui/WorkspacePage';
 import { disFetch } from '@/lib/dis/api-client';
 import { useDisAuth } from '@/lib/dis/auth-context';
 import { newPlanning } from '@/lib/dis/gvd-planning';
@@ -29,7 +30,7 @@ import { timetableTransportPoints, transportPointKey } from '@/lib/dis/transport
 import { useDisResource } from '@/lib/dis/use-dis-resource';
 import { useTranslation } from '@/lib/i18n/client';
 import { getStationDisplayName } from '@/lib/station/display-name';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { z } from 'zod';
 import { AeroIcon } from '../ui/AeroIcon';
 import { ResizablePanel } from '../ui/ResizablePanel';
@@ -110,31 +111,46 @@ export function GvdWorkstation({
   );
   const [sessionOnly, setSessionOnly] = useState(false);
   return (
-    <div className="gvd-editor gvd-workstation">
-      {sessionId && (
-        <label className="gvd-scope">
-          <input
-            type="checkbox"
-            checked={sessionOnly}
-            onChange={(e) => {
-              if (
-                window.confirm(t('Zmeniť rozsah GVD? Rozpracovaný návrh zostane v obnove návrhov.'))
-              )
-                setSessionOnly(e.target.checked);
-            }}
-          />
-          {t('Mimoriadny vlak iba pre túto reláciu')}
-        </label>
-      )}
+    <div className="gvd-editor gvd-workstation workspace-page">
+      <WorkspacePageHeader title={t('Tvorba cestovných poriadkov')} icon="table">
+        <span>{place.name}</span>
+      </WorkspacePageHeader>
       <GvdWorkspace
         key={`${place.placeId}:${sessionOnly ? sessionId : 'daily'}`}
         place={place}
         sessionId={sessionOnly ? sessionId : ''}
+        scopeControl={
+          sessionId && (
+            <label className="gvd-scope">
+              <input
+                type="checkbox"
+                checked={sessionOnly}
+                onChange={(e) => {
+                  if (
+                    window.confirm(
+                      t('Zmeniť rozsah GVD? Rozpracovaný návrh zostane v obnove návrhov.'),
+                    )
+                  )
+                    setSessionOnly(e.target.checked);
+                }}
+              />
+              {t('Mimoriadny vlak iba pre túto reláciu')}
+            </label>
+          )
+        }
       />
     </div>
   );
 }
-function GvdWorkspace({ place, sessionId }: { place: Place; sessionId: string }) {
+function GvdWorkspace({
+  place,
+  sessionId,
+  scopeControl,
+}: {
+  place: Place;
+  sessionId: string;
+  scopeControl: ReactNode;
+}) {
   const t = useTranslation();
   const { canCreateGvd, profile } = useDisAuth();
   const sessionOnly = !!sessionId;
@@ -567,12 +583,8 @@ function GvdWorkspace({ place, sessionId }: { place: Place; sessionId: string })
   }
   return (
     <>
-      <div className="gvd-toolbar">
-        <strong>
-          <AeroIcon name="table" />
-          {t('Tvorba cestovných poriadkov')}
-        </strong>
-        <span>{place.name}</span>
+      <div className="gvd-toolbar workspace-page-toolbar">
+        {scopeControl}
         <div className="gvd-toolbar-actions">
           <button className="aero-btn" disabled={!editable} onClick={() => select()}>
             <AeroIcon name="add" />

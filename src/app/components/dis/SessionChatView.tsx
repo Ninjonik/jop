@@ -481,7 +481,7 @@ export function SessionChatView({
                         >
                           <AeroIcon
                             name={
-                              kind === 'station' ? 'network' : kind === 'staff' ? 'staff' : 'train'
+                              kind === 'station' ? 'station' : kind === 'staff' ? 'staff' : 'train'
                             }
                           />
                           <span>

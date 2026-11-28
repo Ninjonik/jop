@@ -1,5 +1,6 @@
 'use client';
 import { ActionFeedback } from '@/app/components/ui/DispatcherFeedback';
+import { WorkspacePage } from '@/app/components/ui/WorkspacePage';
 import {
   audioCaptureSettings,
   setBrowserSettings,
@@ -67,9 +68,15 @@ export function SettingsView() {
     }
   };
   return (
-    <section className="m-3 space-y-4 overflow-auto p-3">
-      <h2 className="text-sm font-bold">{t('Nastavenia')}</h2>
-      <p>{t('Nastavenia sa ukladajú v tomto prehliadači.')}</p>
+    <WorkspacePage
+      title={t('Nastavenia')}
+      icon="settings"
+      toolbar={
+        <span className="workspace-page-help">
+          {t('Nastavenia sa ukladajú v tomto prehliadači.')}
+        </span>
+      }
+    >
       <fieldset className="space-y-2 rounded border border-[var(--aero-panel-border)] p-3">
         <legend>{t('Zobrazenie a rádio')}</legend>
         <label className="flex items-center gap-2">
@@ -97,7 +104,9 @@ export function SettingsView() {
             <input
               type="checkbox"
               checked={settings.incomingMessageSounds}
-              onChange={(event) => setBrowserSettings({ incomingMessageSounds: event.target.checked })}
+              onChange={(event) =>
+                setBrowserSettings({ incomingMessageSounds: event.target.checked })
+              }
             />
             {t('Zvuk prichádzajúcej správy mimo otvoreného rozhovoru')}
           </label>
@@ -105,7 +114,9 @@ export function SettingsView() {
             <input
               type="checkbox"
               checked={settings.outgoingMessageSounds}
-              onChange={(event) => setBrowserSettings({ outgoingMessageSounds: event.target.checked })}
+              onChange={(event) =>
+                setBrowserSettings({ outgoingMessageSounds: event.target.checked })
+              }
             />
             {t('Zvuk pri odoslaní správy')}
           </label>
@@ -118,7 +129,9 @@ export function SettingsView() {
               max="1"
               step="0.01"
               value={settings.messageVolume}
-              onChange={(event) => setBrowserSettings({ messageVolume: Number(event.target.value) })}
+              onChange={(event) =>
+                setBrowserSettings({ messageVolume: Number(event.target.value) })
+              }
             />
             {Math.round(settings.messageVolume * 100)} %
           </label>
@@ -228,6 +241,6 @@ export function SettingsView() {
         <p>{t('Test mikrofónu sa neodosiela ostatným účastníkom. Po teste ho zastavte.')}</p>
         <ActionFeedback message={t(notice)} />
       </fieldset>
-    </section>
+    </WorkspacePage>
   );
 }

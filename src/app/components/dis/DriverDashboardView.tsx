@@ -1,5 +1,6 @@
 'use client';
 import { ActionFeedback } from '@/app/components/ui/DispatcherFeedback';
+import { WorkspacePage } from '@/app/components/ui/WorkspacePage';
 import { useLeaseClock } from '@/lib/dis/use-lease-clock';
 import { useTranslation } from '@/lib/i18n/client';
 import { BookletTimetable } from './BookletTimetable';
@@ -109,26 +110,33 @@ export function DriverDashboardView({
     }
   }
   return (
-    <div className="flex flex-1 flex-col gap-3 overflow-auto bg-[var(--aero-panel-bg)] p-3 text-xs">
-      <div className="authoring-caption">
-        <AeroIcon name="train" />
-        <strong>{t('Rušňovodič – môj vlak')}</strong>
-        {canDriveTrain && !draft && (
-          <button
-            className="aero-btn"
-            disabled={busy || loading}
-            onClick={() => setDraft(train || emptyTrain(sessionId))}
-          >
-            <AeroIcon name="edit" />
-            {train ? t('Zmeniť vlak alebo údaje') : t('Vybrať vlak')}
-          </button>
-        )}
-        {train && !draft && (
-          <button className="aero-btn" disabled={busy} onClick={() => void finish()}>
-            <AeroIcon name="confirm" /> {t('Ukončiť jazdu')}{' '}
-          </button>
-        )}
-      </div>
+    <WorkspacePage
+      title={t('Rušňovodič – môj vlak')}
+      icon="train"
+      toolbar={
+        <>
+          {canDriveTrain && (
+            <button
+              className="aero-btn"
+              disabled={busy || loading || !!draft}
+              onClick={() => setDraft(train || emptyTrain(sessionId))}
+            >
+              <AeroIcon name="edit" />
+              {train ? t('Zmeniť vlak alebo údaje') : t('Vybrať vlak')}
+            </button>
+          )}
+          {canDriveTrain && (
+            <button
+              className="aero-btn"
+              disabled={busy || !train || !!draft}
+              onClick={() => void finish()}
+            >
+              <AeroIcon name="confirm" /> {t('Ukončiť jazdu')}{' '}
+            </button>
+          )}
+        </>
+      }
+    >
       <ActionFeedback message={t(error) || t(loadError)} error />
       <div
         className="flex flex-wrap items-center gap-3 border border-[var(--aero-panel-border)] bg-[var(--grid-row-alt)] p-2 text-[var(--aero-text)]"
@@ -345,6 +353,6 @@ export function DriverDashboardView({
           </table>
         </details>
       )}
-    </div>
+    </WorkspacePage>
   );
 }

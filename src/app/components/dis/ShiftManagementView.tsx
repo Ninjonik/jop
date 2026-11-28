@@ -1,5 +1,6 @@
 'use client';
 import { ActionFeedback } from '@/app/components/ui/DispatcherFeedback';
+import { WorkspacePage } from '@/app/components/ui/WorkspacePage';
 import { useTranslation } from '@/lib/i18n/client';
 
 import { AeroIcon } from '@/app/components/ui/AeroIcon';
@@ -226,39 +227,62 @@ export function ShiftManagementView() {
   }
 
   return (
-    <div className="flex flex-1 flex-col overflow-auto bg-white p-3 text-xs gap-3">
-      <strong>{t('Plánovač a registrácia šicht — 2,5 hodiny')}</strong>
-      {currentShift && canManageStaff && (
-        <div className="flex gap-2">
-          {currentShift.status === 'open' && (
-            <button
-              className="aero-btn"
-              disabled={busy}
-              onClick={() => manage('status', currentShift.$id, 'active')}
-            >
-              <AeroIcon name="play" /> {t('Začať zmenu')}{' '}
-            </button>
+    <WorkspacePage
+      title={t('Plánovač a registrácia šicht — 2,5 hodiny')}
+      icon="calendar"
+      toolbar={
+        <>
+          <select
+            aria-label={t('Vybrať zmenu')}
+            className="aero-select workspace-page-selector"
+            value={selectedShiftId}
+            disabled={loading || !shifts.length}
+            onChange={(event) => setSelectedShiftId(event.target.value)}
+          >
+            {!shifts.length && (
+              <option value="">
+                {t(loading ? 'Na\u010d\u00edtavam...' : '\u017diadne pl\u00e1novan\u00e9 zmeny.')}
+              </option>
+            )}
+            {shifts.map((shift) => (
+              <option key={shift.$id} value={shift.$id}>
+                {shift.date} {shift.startTime}–{shift.endTime} — {shift.title} ({t(shift.status)})
+              </option>
+            ))}
+          </select>
+          {canManageStaff && (
+            <div className="workspace-page-actions">
+              <button
+                className="aero-btn"
+                disabled={
+                  busy || !currentShift || !['open', 'active'].includes(currentShift.status)
+                }
+                onClick={() =>
+                  currentShift &&
+                  manage(
+                    'status',
+                    currentShift.$id,
+                    currentShift.status === 'active' ? 'completed' : 'active',
+                  )
+                }
+              >
+                <AeroIcon name={currentShift?.status === 'active' ? 'confirm' : 'play'} />
+                {t(currentShift?.status === 'active' ? 'Ukončiť zmenu' : 'Začať zmenu')}
+              </button>
+              <button
+                className="aero-btn"
+                disabled={
+                  busy || !currentShift || !['open', 'active'].includes(currentShift.status)
+                }
+                onClick={() => currentShift && manage('status', currentShift.$id, 'cancelled')}
+              >
+                <AeroIcon name="close" /> {t('Zrušiť zmenu')}
+              </button>
+            </div>
           )}
-          {currentShift.status === 'active' && (
-            <button
-              className="aero-btn"
-              disabled={busy}
-              onClick={() => manage('status', currentShift.$id, 'completed')}
-            >
-              <AeroIcon name="confirm" /> {t('Ukončiť zmenu')}{' '}
-            </button>
-          )}
-          {['open', 'active'].includes(currentShift.status) && (
-            <button
-              className="aero-btn"
-              disabled={busy}
-              onClick={() => manage('status', currentShift.$id, 'cancelled')}
-            >
-              <AeroIcon name="close" /> {t('Zrušiť zmenu')}{' '}
-            </button>
-          )}
-        </div>
-      )}
+        </>
+      }
+    >
       <ActionFeedback message={t(error)} error />
       {canManageStaff && (
         <form onSubmit={createShift} className="flex flex-wrap gap-2 items-center">
@@ -298,18 +322,6 @@ export function ShiftManagementView() {
         <p>{t('Žiadne plánované zmeny.')}</p>
       ) : (
         <>
-          <select
-            aria-label={t('Vybrať zmenu')}
-            className="aero-select"
-            value={selectedShiftId}
-            onChange={(event) => setSelectedShiftId(event.target.value)}
-          >
-            {shifts.map((shift) => (
-              <option key={shift.$id} value={shift.$id}>
-                {shift.date} {shift.startTime}–{shift.endTime} — {shift.title} ({t(shift.status)})
-              </option>
-            ))}
-          </select>
           {currentShift && (
             <ShiftPlanView
               key={currentShift.$id}
@@ -420,6 +432,6 @@ export function ShiftManagementView() {
           </table>
         </>
       )}
-    </div>
+    </WorkspacePage>
   );
 }
