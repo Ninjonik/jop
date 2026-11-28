@@ -1,11 +1,16 @@
+import type { DisplayMessage } from '@/app/components/dis/ChatMessageView';
 import { ChatMessageView } from '@/app/components/dis/ChatMessageView';
+import { EddMessageComposer } from '@/app/components/dis/EddMessageComposer';
 import { EddTableView } from '@/app/components/dis/EddTableView';
 import { ModuleArrowNavigation } from '@/app/components/dis/ModuleArrowNavigation';
 import { TpvFullView } from '@/app/components/dis/TpvFullView';
 import { TrainWorkspace } from '@/app/components/dis/TrainWorkspace';
 import { ResizablePanel } from '@/app/components/ui/ResizablePanel';
 import '@/app/globals.css';
-import type { EddReply } from '@/lib/dis/edd';
+import { useDisAuth } from '@/lib/dis/auth-context';
+import { mergeChatMessages, type ChatMessage } from '@/lib/dis/chat';
+import type { EddEntry, EddReply } from '@/lib/dis/edd';
+import { useEddOutbox } from '@/lib/dis/use-edd-outbox';
 import { I18nProvider, setLocale, useTranslation } from '@/lib/i18n/client';
 import { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
@@ -21,6 +26,9 @@ import {
 import { setStation } from './auth';
 import './preview.css';
 function Preview() {
+  const { profile } = useDisAuth();
+  const outbox = useEddOutbox(profile);
+  const [selectedEntry, setSelectedEntry] = useState<EddEntry>();
   const [view, setView] = useState<'edd' | 'tpv'>('edd');
   const [stationId, select] = useState('kolarovo');
   const [multiple, setMultiple] = useState(true);
@@ -105,13 +113,15 @@ function Preview() {
                 stationId={stationId}
                 placeId="113144512557419"
                 active={view === 'edd'}
-                reply={reply}
-                onOpenChat={setTarget}
+                onSelectEntry={setSelectedEntry}
               />
               <PreviewChat
                 key={stationId}
                 stationId={stationId}
                 target={target}
+                outgoing={outbox.messages}
+                onRetry={outbox.retry}
+                onConfirm={outbox.confirm}
                 onReply={setReply}
               />
             </div>
@@ -132,9 +142,32 @@ function Preview() {
                 defaultSize={300}
                 responsive
               >
-                <PreviewChat stationId={stationId} target={target} onReply={setReply} />
+                <PreviewChat
+                  stationId={stationId}
+                  target={target}
+                  onReply={setReply}
+                  outgoing={outbox.messages}
+                  onRetry={outbox.retry}
+                  onConfirm={outbox.confirm}
+                />
               </ResizablePanel>
             </div>
+            <ResizablePanel
+              id="preview-operating-messages"
+              title="Dopravné správy"
+              edge="bottom"
+              defaultSize={250}
+            >
+              <EddMessageComposer
+                key={stationId}
+                sessionId="edd-preview"
+                stationId={stationId}
+                reply={reply}
+                onSend={outbox.send}
+                selected={selectedEntry?.stationId === stationId ? selectedEntry : undefined}
+                onOpenChat={setTarget}
+              />
+            </ResizablePanel>
           </div>
         </TrainWorkspace>
       </I18nProvider>
@@ -145,10 +178,16 @@ function PreviewChat({
   stationId,
   target,
   onReply,
+  outgoing,
+  onRetry,
+  onConfirm,
 }: {
   stationId: string;
   target: string;
   onReply: (reply: EddReply) => void;
+  outgoing: DisplayMessage[];
+  onRetry: (id: string) => Promise<boolean>;
+  onConfirm: (message: ChatMessage) => void;
 }) {
   const t = useTranslation();
   const [, refresh] = useState(0);
@@ -157,7 +196,16 @@ function PreviewChat({
     const timer = setInterval(() => refresh((n) => n + 1), 500);
     return () => clearInterval(timer);
   }, []);
-  const messages = previewChatHistory(stationId, target);
+  const saved = previewChatHistory(stationId, target);
+  useEffect(() => {
+    for (const message of saved) onConfirm(message);
+  }, [saved, onConfirm]);
+  const messages = mergeChatMessages<DisplayMessage>(
+    outgoing.filter(
+      (message) => message.sender.id === stationId && message.recipient.id === target,
+    ),
+    saved,
+  );
   return (
     <aside className="edd-preview-chat">
       <div className="edd-toolbar">
@@ -171,6 +219,7 @@ function PreviewChat({
           <ChatMessageView
             key={message._id}
             message={message}
+            onRetry={() => void onRetry(message.clientMessageId!)}
             actionsVisible={message._id === messages.at(-1)?._id}
             stationId={stationId}
             onEddReply={onReply}

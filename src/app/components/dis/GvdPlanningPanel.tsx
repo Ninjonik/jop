@@ -40,7 +40,7 @@ export function GvdPlanningPanel({
   const t = useTranslation();
   const planning = train.planning || newPlanning();
   const stock = planning.stock;
-  const { value, refresh } = useDisResource<{ profiles: StockProfile[] }>(
+  const { value, refresh, applyConfirmed } = useDisResource<{ profiles: StockProfile[] }>(
     `/api/dis/gvd-profiles?placeId=${encodeURIComponent(placeId)}`,
     { profiles: [] },
   );
@@ -58,11 +58,17 @@ export function GvdPlanningPanel({
     setNotice('');
     try {
       const profile = stockProfileSchema.parse(stock);
-      await disFetch('/api/dis/gvd-profiles', {
+      const result = await disFetch<{ profile?: StockProfile }>('/api/dis/gvd-profiles', {
         method: remove ? 'DELETE' : 'POST',
         body: JSON.stringify(remove ? { placeId, id: profile.id } : { placeId, profile }),
       });
-      await refresh();
+      applyConfirmed((previous) => ({
+        profiles: [
+          ...previous.profiles.filter((item) => item.id !== profile.id),
+          ...(result.profile ? [result.profile] : []),
+        ].sort((a, b) => a.name.localeCompare(b.name)),
+      }));
+      void refresh();
       setNotice(t('Profil bol spracovaný.'));
     } catch (error) {
       setNotice(error instanceof Error ? error.message : String(error));

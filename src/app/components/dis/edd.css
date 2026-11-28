@@ -881,3 +881,12 @@
 .edd-entry-movement legend {
   font-weight: 600;
 }
+
+.edd-global-composer {
+  min-height: 0;
+  height: 100%;
+  overflow: auto;
+  color: var(--aero-text);
+  background: var(--aero-panel-bg);
+  font-size: 12px;
+}

@@ -6,7 +6,7 @@ import { AeroIcon } from '@/app/components/ui/AeroIcon';
 import { disFetch } from '@/lib/dis/api-client';
 import { useDisAuth } from '@/lib/dis/auth-context';
 import type { PlannedShift, ShiftPlan } from '@/lib/dis/shift-plan';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ShiftPlanView } from './ShiftPlanView';
 
 type Shift = PlannedShift;
@@ -28,6 +28,12 @@ export function ShiftManagementView() {
   const [selectedShiftId, setSelectedShiftId] = useState('');
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const mutationLock = useRef(false);
+  const listGeneration = useRef(0);
+  const bookingGeneration = useRef(0);
+  const attendanceLocks = useRef(new Set<string>());
+  const [attendanceEdits, setAttendanceEdits] = useState<Record<string, string>>({});
+  const [attendanceErrors, setAttendanceErrors] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
   const [title, setTitle] = useState('');
   const [date, setDate] = useState('');
@@ -36,7 +42,9 @@ export function ShiftManagementView() {
   const [location, setLocation] = useState('');
 
   const loadShifts = useCallback(async () => {
+    const generation = ++listGeneration.current;
     const result = await disFetch<{ shifts: Shift[] }>('/api/dis/shifts');
+    if (generation !== listGeneration.current) return;
     const loaded = result.shifts;
     setShifts(loaded);
     setSelectedShiftId((previous) =>
@@ -59,11 +67,12 @@ export function ShiftManagementView() {
     if (!selectedShiftId) return;
     let cancelled = false;
     const refresh = async () => {
+      const generation = bookingGeneration.current;
       try {
         const result = await disFetch<{ bookings: Booking[]; plan: ShiftPlan | null }>(
           `/api/dis/shifts?${new URLSearchParams({ shiftId: selectedShiftId })}`,
         );
-        if (!cancelled) {
+        if (!cancelled && generation === bookingGeneration.current) {
           setBookings(result.bookings);
           setShifts((previous) =>
             previous.map((shift) =>
@@ -85,11 +94,20 @@ export function ShiftManagementView() {
   }, [selectedShiftId]);
 
   async function manage(command: 'status' | 'attendance', id: string, value: string) {
-    if (busy) return;
-    setBusy(true);
-    setError(null);
+    if (command === 'attendance') {
+      if (attendanceLocks.current.has(id)) return;
+      attendanceLocks.current.add(id);
+      bookingGeneration.current++;
+      setAttendanceEdits((previous) => ({ ...previous, [id]: value }));
+      setAttendanceErrors((previous) => ({ ...previous, [id]: '' }));
+    } else {
+      if (mutationLock.current) return;
+      mutationLock.current = true;
+      setBusy(true);
+      setError(null);
+    }
     try {
-      const result = await disFetch<{ booking?: Booking }>('/api/dis/shifts', {
+      const result = await disFetch<{ booking?: Booking; shift?: Shift }>('/api/dis/shifts', {
         method: 'POST',
         body: JSON.stringify({
           command,
@@ -97,15 +115,40 @@ export function ShiftManagementView() {
           [command === 'status' ? 'status' : 'attendance']: value,
         }),
       });
-      if (result.booking)
+      if (result.booking) {
+        const saved = result.booking;
         setBookings((previous) =>
-          previous.map((booking) => (booking.$id === id ? result.booking! : booking)),
+          previous.map((booking) => (booking.$id === id ? saved : booking)),
         );
-      await loadShifts();
+      }
+      if (result.shift) {
+        const saved = result.shift;
+        listGeneration.current++;
+        setShifts((previous) =>
+          previous.map((shift) =>
+            shift.$id === id ? { ...shift, ...saved, plan: shift.plan } : shift,
+          ),
+        );
+      }
     } catch (error) {
-      setError(error instanceof Error ? error.message : 'Zmenu sa nepodarilo uložiť.');
+      const message =
+        error instanceof Error ? error.message : '\u005amenu sa nepodarilo ulo\u017ei\u0165.';
+      if (command === 'attendance')
+        setAttendanceErrors((previous) => ({ ...previous, [id]: message }));
+      else setError(message);
     } finally {
-      setBusy(false);
+      if (command === 'attendance') {
+        bookingGeneration.current++;
+        attendanceLocks.current.delete(id);
+        setAttendanceEdits((previous) => {
+          const next = { ...previous };
+          delete next[id];
+          return next;
+        });
+      } else {
+        mutationLock.current = false;
+        setBusy(false);
+      }
     }
   }
 
@@ -115,7 +158,8 @@ export function ShiftManagementView() {
 
   async function createShift(event: React.FormEvent) {
     event.preventDefault();
-    if (!canManageStaff || busy) return;
+    if (!canManageStaff || mutationLock.current) return;
+    mutationLock.current = true;
     setBusy(true);
     setError(null);
     try {
@@ -123,12 +167,19 @@ export function ShiftManagementView() {
         method: 'POST',
         body: JSON.stringify({ command: 'create', title, date, startTime }),
       });
-      await loadShifts();
+      listGeneration.current++;
+      setShifts((previous) =>
+        [
+          { ...result.shift, plan: null },
+          ...previous.filter((shift) => shift.$id !== result.shift.$id),
+        ].sort((a, b) => b.date.localeCompare(a.date)),
+      );
       setSelectedShiftId(result.shift.$id);
-      setTitle('');
+      setTitle((current) => (current === title ? '' : current));
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Zmenu sa nepodarilo vytvoriť.');
     } finally {
+      mutationLock.current = false;
       setBusy(false);
     }
   }
@@ -140,12 +191,14 @@ export function ShiftManagementView() {
       !currentShift ||
       currentShift.status !== 'open' ||
       alreadyRegistered ||
-      busy ||
+      mutationLock.current ||
       !location.trim()
     )
       return;
     if ((role === 'dispatcher' && !canOperateStation) || (role === 'driver' && !canDriveTrain))
       return;
+    mutationLock.current = true;
+    bookingGeneration.current++;
     setBusy(true);
     setError(null);
     try {
@@ -158,6 +211,7 @@ export function ShiftManagementView() {
           assignedLocation: location,
         }),
       });
+      bookingGeneration.current++;
       setBookings((previous) => [
         ...previous.filter((item) => item.$id !== result.booking.$id),
         result.booking,
@@ -165,6 +219,7 @@ export function ShiftManagementView() {
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Registrácia sa nepodarila.');
     } finally {
+      mutationLock.current = false;
       setBusy(false);
     }
   }
@@ -263,13 +318,15 @@ export function ShiftManagementView() {
               key={currentShift.$id}
               shift={currentShift}
               canManage={canManageStaff}
-              onPlan={(plan) =>
+              onPlan={(plan) => {
+                bookingGeneration.current++;
+                listGeneration.current++;
                 setShifts((previous) =>
                   previous.map((shift) =>
                     shift.$id === currentShift.$id ? { ...shift, plan } : shift,
                   ),
-                )
-              }
+                );
+              }}
             />
           )}
           {currentShift?.status === 'open' &&
@@ -325,19 +382,26 @@ export function ShiftManagementView() {
                   <td>{booking.assignedLocation}</td>
                   <td>
                     {canManageStaff ? (
-                      <select
-                        aria-label={t('Dochádzka {0}', booking.userName)}
-                        className="aero-select"
-                        disabled={busy}
-                        value={booking.attendance}
-                        onChange={(event) => manage('attendance', booking.$id, event.target.value)}
-                      >
-                        {['registered', 'present', 'strike', 'excused'].map((attendance) => (
-                          <option key={attendance} value={attendance}>
-                            {t(attendance)}
-                          </option>
-                        ))}
-                      </select>
+                      <>
+                        <select
+                          aria-label={t('Dochádzka {0}', booking.userName)}
+                          className="aero-select"
+                          disabled={attendanceEdits[booking.$id] !== undefined}
+                          value={attendanceEdits[booking.$id] ?? booking.attendance}
+                          onChange={(event) =>
+                            manage('attendance', booking.$id, event.target.value)
+                          }
+                        >
+                          {['registered', 'present', 'strike', 'excused'].map((attendance) => (
+                            <option key={attendance} value={attendance}>
+                              {t(attendance)}
+                            </option>
+                          ))}
+                        </select>
+                        {attendanceErrors[booking.$id] && (
+                          <p role="alert">{t(attendanceErrors[booking.$id])}</p>
+                        )}
+                      </>
                     ) : (
                       t(booking.attendance)
                     )}

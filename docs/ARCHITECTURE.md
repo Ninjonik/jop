@@ -1118,3 +1118,33 @@ half-written endpoint pair; downstream synchronization does not hold that lock.
 `node --env-file=.env.local --import tsx scripts/verify-lineblock-response.ts`
 checks persisted results, notification ordering and response independence using
 isolated Mongo fixtures and a deliberately blocked mock interpreter.
+
+DIS mounts `EddMessageComposer` once beneath the shared workspace for a dispatcher
+with a live station claim. The same preset form is available from EDD, runtime,
+and other portal tabs, with the existing persistent bottom-panel collapse/resize
+preferences. Changing tabs preserves its draft; changing the station resets scope.
+Chat acceptance and receipt acknowledgements use local presentation overlays and
+reconcile with HTTP/socket results, rolling back on failure. They never patch
+station snapshots, train movement, reservations or lineblock state. Replies needing
+a reason open the shared composer without navigating away from the current view.
+
+Preset submissions use `useEddOutbox` in the DIS shell. The local outgoing entry
+appears immediately, retains the exact request ID/content for manual retry, and
+is replaced by the HTTP result or removed when the chat socket confirms it.
+Socket confirmation takes precedence over a failed HTTP response. Failed messages
+retain their content and error beside Retry; newer composer edits are never restored
+over by an older request. Outbox entries are local presentation, not EDD actuals.
+
+`useDisResource.applyConfirmed` applies a successful write response and invalidates
+older in-flight reads. Documents, EDD, GVD, line/template and stock-profile saves
+finish from confirmed results; background refresh errors do not undo those results.
+EDD also applies confirmed records to the shared traffic read model. Staff assessments
+and shift creation/status changes use returned records without waiting for a second GET.
+Attendance and assignment selects use local presentation overlays and revert on
+rejection. Attendance locks one booking; assignments retain one shared plan write at
+a time because the backend persists the whole plan. No optimistic overlay grants
+station/train ownership or changes controller/designer/linker behavior.
+
+`src/lib/dis/__tests__/ui-response.test.ts` runs React in a simulated DOM to verify
+message ordering/retry, stale-read protection, scope changes, attendance/assignment
+rollback, and confirmed document/staff saves without dependent reload waits.

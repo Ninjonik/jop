@@ -134,6 +134,7 @@ export function previewChatHistory(stationId: string, target: string): ChatMessa
     ...plainMessages,
     ...messages.map((edd) => ({
       _id: edd.id,
+      clientMessageId: [...requests.entries()].find(([, message]) => message.id === edd.id)?.[0],
       sessionId,
       sender: { kind: 'station' as const, id: edd.fromStation, name: edd.fromStation },
       recipient: { kind: 'station' as const, id: edd.toStation, name: edd.toStation },

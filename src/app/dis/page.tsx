@@ -3,6 +3,7 @@ import { AccountSettingsSync } from '@/app/components/dis/AccountSettingsSync';
 import { AudioPermissions } from '@/app/components/dis/AudioPermissions';
 import { DesktopDownloads } from '@/app/components/dis/DesktopDownloads';
 import { DisClock } from '@/app/components/dis/DisClock';
+import { EddMessageComposer } from '@/app/components/dis/EddMessageComposer';
 import { SettingsView } from '@/app/components/dis/SettingsView';
 import { StationSelectionView } from '@/app/components/dis/StationSelectionView';
 import {
@@ -13,6 +14,7 @@ import { ResizablePanel } from '@/app/components/ui/ResizablePanel';
 import { disFetch } from '@/lib/dis/api-client';
 import type { StationClaim } from '@/lib/dis/claims';
 import { canUseWorkingMode, type WorkingMode } from '@/lib/dis/permissions';
+import { useEddOutbox } from '@/lib/dis/use-edd-outbox';
 import { useLeaseClock } from '@/lib/dis/use-lease-clock';
 import { useUserPreference } from '@/lib/dis/use-user-preference';
 import { LanguageSelector, useLocaleTag, useTranslation } from '@/lib/i18n/client';
@@ -113,6 +115,7 @@ function DisPortalShell() {
     canOperateStation,
   } = useDisAuth();
   const router = useRouter();
+  const presetOutbox = useEddOutbox(profile);
   const [showMore, setShowMore] = useState(false);
   const [workingMode, setWorkingMode] = useState<WorkingMode | null>(null);
   const [claimError, setClaimError] = useState('');
@@ -159,13 +162,16 @@ function DisPortalShell() {
   }
   const [scope, setScope] = useState<Scope | null>(null);
   const [tool, setTool] = useState<{ url: string; title: string } | null>(null);
-  const [appearance, setAppearance] = useUserPreference('appearance', { dark: false });
+  const [appearance, setAppearance] = useUserPreference<{ dark: boolean }>('appearance', {
+    dark: false,
+  });
   const dark = appearance.dark;
   useEffect(() => {
     document.documentElement.classList.toggle('dark', dark);
   }, [dark]);
   const [chatToOpen, setChatToOpen] = useState<{ stationId: string; request: number }>();
   const [eddReply, setEddReply] = useState<EddReply>();
+  const [composerEntry, setComposerEntry] = useState<import('@/lib/dis/edd').EddEntry>();
   const [driverSelection, setDriverSelection] = useState<{
     sessionId: string;
     train: DriverTrain | null;
@@ -820,10 +826,7 @@ function DisPortalShell() {
                             {...current}
                             placeId={placeId}
                             active={activeTab === 'edd'}
-                            reply={eddReply}
-                            onOpenChat={(stationId) =>
-                              setChatToOpen({ stationId, request: Date.now() })
-                            }
+                            onSelectEntry={setComposerEntry}
                           />
                         ) : (
                           <p className="p-3">
@@ -906,7 +909,7 @@ function DisPortalShell() {
               </>
             )}
           </main>
-          {hasSession && workingMode && activeTab !== 'preparation' && (
+          {hasSession && workingMode && (
             <ResizablePanel
               id="communication"
               title={t('Komunikácia')}
@@ -919,9 +922,12 @@ function DisPortalShell() {
                 sessionId={current.sessionId}
                 stationId={workingMode === 'dispatcher' && ownsStation ? current.stationId : ''}
                 contactToOpen={chatToOpen}
+                presetMessages={presetOutbox.messages}
+                onRetryPreset={presetOutbox.retry}
+                onSendPreset={presetOutbox.send}
+                onConfirmPreset={presetOutbox.confirm}
                 onEddReply={(reply) => {
                   setEddReply(reply);
-                  selectTab('edd');
                 }}
                 driverTrain={
                   driverSelection?.sessionId === current.sessionId
@@ -932,6 +938,28 @@ function DisPortalShell() {
             </ResizablePanel>
           )}
         </div>
+        {hasSession && workingMode === 'dispatcher' && ownsStation && (
+          <ResizablePanel
+            id="operating-messages"
+            title={t('Dopravné správy')}
+            edge="bottom"
+            defaultSize={250}
+          >
+            <EddMessageComposer
+              key={scopeKey}
+              {...current}
+              onSend={presetOutbox.send}
+              reply={eddReply?.stationId === current.stationId ? eddReply : undefined}
+              selected={
+                composerEntry?.sessionId === current.sessionId &&
+                composerEntry.stationId === current.stationId
+                  ? composerEntry
+                  : undefined
+              }
+              onOpenChat={(stationId) => setChatToOpen({ stationId, request: Date.now() })}
+            />
+          </ResizablePanel>
+        )}
         <div className="statusbar">
           <a
             className="status-item"

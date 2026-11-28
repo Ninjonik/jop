@@ -23,7 +23,7 @@ export function GvdRouteTemplates({
   train: TimetableInput;
   disabled: boolean;
   onApply: (train: TimetableInput) => void;
-  onSaved: () => Promise<void>;
+  onSaved: (line: RailwayLine | null, id: string) => void;
 }) {
   const t = useTranslation();
   const [selected, setSelected] = useState(lines[0]?.id || '');
@@ -44,10 +44,13 @@ export function GvdRouteTemplates({
         stations: valid.stops.map((stop) => stop.station),
         measuredStops: valid.stops,
       };
-      await disFetch('/api/dis/lines', { method: 'POST', body: JSON.stringify(route) });
-      await onSaved();
-      setSelected(route.id);
-      setName('');
+      const result = await disFetch<{ line: RailwayLine }>('/api/dis/lines', {
+        method: 'POST',
+        body: JSON.stringify(route),
+      });
+      onSaved(result.line, result.line.id);
+      setSelected(result.line.id);
+      setName((current) => (current === name ? '' : current));
       setMessage(t('Šablóna bola uložená.'));
     } catch (reason) {
       setMessage(reason instanceof Error ? reason.message : String(reason));

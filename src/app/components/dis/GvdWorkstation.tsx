@@ -148,8 +148,13 @@ function GvdWorkspace({ place, sessionId }: { place: Place; sessionId: string })
     loading,
     error: loadError,
     refresh,
+    applyConfirmed,
   } = useDisResource<{ timetables: Timetable[] }>(`${endpoint}?${query}`, { timetables: [] });
-  const { value: network, refresh: refreshLines } = useDisResource<{ lines: RailwayLine[] }>(
+  const {
+    value: network,
+    refresh: refreshLines,
+    applyConfirmed: applyConfirmedLine,
+  } = useDisResource<{ lines: RailwayLine[] }>(
     `/api/dis/lines?placeId=${encodeURIComponent(place.placeId)}`,
     { lines: [] },
   );
@@ -356,7 +361,12 @@ function GvdWorkspace({ place, sessionId }: { place: Place; sessionId: string })
           localStorage.removeItem(storageKey);
         } catch {}
         setRecovery(null);
-        await refresh();
+        applyConfirmed((previous) => ({
+          timetables: previous.timetables.some((item) => item.$id === saved.$id)
+            ? previous.timetables.map((item) => (item.$id === saved.$id ? saved : item))
+            : [...previous.timetables, saved],
+        }));
+        void refresh();
         setNotice('Grafikon bol uložený.');
       }
     } catch (reason) {
@@ -392,7 +402,12 @@ function GvdWorkspace({ place, sessionId }: { place: Place; sessionId: string })
         method: 'DELETE',
         body: JSON.stringify({ placeId: place.placeId, id: selectedId, expectedUpdatedAt }),
       });
-      await refresh();
+      applyConfirmed((previous) => ({
+        timetables: previous.timetables.map((item) =>
+          item.$id === result.timetable.$id ? result.timetable : item,
+        ),
+      }));
+      void refresh();
       setExpectedUpdatedAt(result.timetable.$updatedAt);
       setBaseline(result.timetable);
       setHistory({ past: [], present: result.timetable, future: [] });
@@ -436,7 +451,10 @@ function GvdWorkspace({ place, sessionId }: { place: Place; sessionId: string })
           permanent: true,
         }),
       });
-      await refresh();
+      applyConfirmed((previous) => ({
+        timetables: previous.timetables.filter((item) => item.$id !== selectedId),
+      }));
+      void refresh();
       setSelectedId('');
       setExpectedUpdatedAt(undefined);
       const empty = emptyTrain();
@@ -519,7 +537,7 @@ function GvdWorkspace({ place, sessionId }: { place: Place; sessionId: string })
     let saved = 0;
     try {
       for (const train of pending) {
-        await disFetch(endpoint, {
+        const result = await disFetch<{ timetable: Timetable }>(endpoint, {
           method: 'POST',
           body: JSON.stringify({
             placeId: place.placeId,
@@ -527,6 +545,12 @@ function GvdWorkspace({ place, sessionId }: { place: Place; sessionId: string })
             timetable: normalizeTimetable(train),
           }),
         });
+        applyConfirmed((previous) => ({
+          timetables: [
+            ...previous.timetables.filter((item) => item.$id !== result.timetable.$id),
+            result.timetable,
+          ],
+        }));
         saved++;
       }
       setNotice('Pripravené vlaky boli uložené.');
@@ -536,7 +560,7 @@ function GvdWorkspace({ place, sessionId }: { place: Place; sessionId: string })
       );
     } finally {
       setPending(pending.slice(saved));
-      await refresh();
+      void refresh();
       setBusy(false);
     }
   }
@@ -1097,7 +1121,15 @@ function GvdWorkspace({ place, sessionId }: { place: Place; sessionId: string })
             lines={network.lines}
             train={draft}
             disabled={!editable || !canEditSelected}
-            onSaved={refreshLines}
+            onSaved={(line, id) => {
+              applyConfirmedLine((previous) => ({
+                lines: [
+                  ...previous.lines.filter((item) => item.id !== id),
+                  ...(line ? [line] : []),
+                ].sort((a, b) => a.name.localeCompare(b.name)),
+              }));
+              void refreshLines();
+            }}
             onApply={(next) => {
               if (
                 draft.stops.some((stop) => stop.station) &&

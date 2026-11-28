@@ -235,3 +235,20 @@ export function offsetEddTime(planned: string, date: string, offsetMinutes: numb
   stamp.setUTCMinutes(stamp.getUTCMinutes() + offsetMinutes);
   return { time: stamp.toISOString().slice(11, 16), date: stamp.toISOString().slice(0, 10) };
 }
+
+/** Explicit preset submission; requestId is retained for retries of this exact message. */
+export type EddSendCommand = {
+  sessionId: string;
+  stationId: string;
+  requestId: string;
+  toStation: string;
+  trainNumber: string;
+  kind: EddMessageKind;
+  time?: string;
+  date?: string;
+  text: string;
+  replyToId?: string;
+  wholeTrainConfirmed: boolean;
+  stationLocative: string;
+  stationGenitive: string;
+};

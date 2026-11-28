@@ -10,7 +10,7 @@ import type { UserProfile } from '@/lib/dis/appwrite-client';
 import { canAssignShiftRole, type PlannedShift, type ShiftPlan } from '@/lib/dis/shift-plan';
 import type { Timetable } from '@/lib/dis/timetable';
 import { useDisResource } from '@/lib/dis/use-dis-resource';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 
 type Place = { placeId: string; name: string; hasTemplate: boolean };
 
@@ -30,6 +30,12 @@ export function ShiftPlanView({
     shift.plan?.trains.map((train) => train.$id) || [],
   );
   const [busy, setBusy] = useState(false);
+  const commandLock = useRef(false);
+  const [assignmentEdit, setAssignmentEdit] = useState<{
+    role: 'dispatcher' | 'driver';
+    targetId: string;
+    userId: string;
+  } | null>(null);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const places = useDisResource<{ places: Place[] }>(canManage ? '/api/dis/places' : null, {
@@ -46,7 +52,14 @@ export function ShiftPlanView({
   const plan = shift.plan;
 
   async function save(command: Record<string, unknown>) {
-    if (busy) return;
+    if (commandLock.current) return;
+    commandLock.current = true;
+    if (command.command === 'assign')
+      setAssignmentEdit({
+        role: command.role as 'dispatcher' | 'driver',
+        targetId: String(command.targetId),
+        userId: String(command.userId),
+      });
     setBusy(true);
     setError('');
     setMessage('');
@@ -61,6 +74,8 @@ export function ShiftPlanView({
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Plán sa nepodarilo uložiť.');
     } finally {
+      commandLock.current = false;
+      setAssignmentEdit(null);
       setBusy(false);
     }
   }
@@ -76,7 +91,11 @@ export function ShiftPlanView({
         className="aero-select"
         aria-label={`${role === 'dispatcher' ? t('Výpravca') : t('Rušňovodič')} – ${role === 'dispatcher' ? targetId : plan?.trains.find((train) => train.$id === targetId)?.trainNumber}`}
         disabled={busy || staff.loading || !!staff.error}
-        value={assignment?.userId || ''}
+        value={
+          assignmentEdit?.role === role && assignmentEdit.targetId === targetId
+            ? assignmentEdit.userId
+            : assignment?.userId || ''
+        }
         onChange={(event) =>
           void save({ command: 'assign', role, targetId, userId: event.target.value })
         }
@@ -111,6 +130,7 @@ export function ShiftPlanView({
         {editable && shift.status !== 'active' && !editing && (
           <button
             className="aero-btn"
+            disabled={busy}
             onClick={() => {
               setPlaceId(plan?.placeId || '');
               setSelected(plan?.trains.map((train) => train.$id) || []);

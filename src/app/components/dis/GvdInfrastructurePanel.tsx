@@ -14,7 +14,7 @@ export function GvdInfrastructurePanel({
 }: {
   line: RailwayLine;
   stations: { stationId: string; name: string }[];
-  onSaved: () => Promise<void>;
+  onSaved: (line: RailwayLine) => void;
   disabled: boolean;
   onDirty: (dirty: boolean) => void;
 }) {
@@ -36,11 +36,11 @@ export function GvdInfrastructurePanel({
     setNotice('');
     setBusy(true);
     try {
-      await disFetch('/api/dis/lines', {
+      const result = await disFetch<{ line: RailwayLine }>('/api/dis/lines', {
         method: 'POST',
         body: JSON.stringify(railwayLineSchema.parse(draft)),
       });
-      await onSaved();
+      onSaved(result.line);
       setBaseline(JSON.stringify(draft));
       setNotice(t('Profil trate bol uložený.'));
     } catch (error) {

@@ -11,9 +11,23 @@ export function useDisResource<T>(url: string | null, initial: T, intervalMs = 1
   const failures = useRef(0);
   const retry = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const active = useRef(true);
+  const currentUrl = useRef(url);
+  // Commit only confirmed writes, invalidating any older GET already in flight.
+  const applyConfirmed = useCallback(
+    (update: (previous: T) => T) => {
+      if (!active.current || currentUrl.current !== url) return;
+      generation.current++;
+      clearTimeout(retry.current);
+      failures.current = 0;
+      setValue(update);
+      setError(null);
+      setLoading(false);
+    },
+    [url],
+  );
   const refresh = useCallback(
     async function refreshResource() {
-      if (!url) return;
+      if (!url || !active.current || currentUrl.current !== url) return;
       clearTimeout(retry.current);
       const request = ++generation.current;
       let timeout: ReturnType<typeof setTimeout> | undefined;
@@ -49,6 +63,7 @@ export function useDisResource<T>(url: string | null, initial: T, intervalMs = 1
   );
   useEffect(() => {
     active.current = true;
+    currentUrl.current = url;
     generation.current++;
     const initial = setTimeout(refresh, 0);
     const interval = setInterval(() => {
@@ -64,6 +79,6 @@ export function useDisResource<T>(url: string | null, initial: T, intervalMs = 1
       window.removeEventListener('online', online);
       clearInterval(interval);
     };
-  }, [refresh, intervalMs]);
-  return { value, loading, error, refresh };
+  }, [refresh, intervalMs, url]);
+  return { value, loading, error, refresh, applyConfirmed };
 }

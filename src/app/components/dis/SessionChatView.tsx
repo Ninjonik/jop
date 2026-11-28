@@ -21,7 +21,7 @@ import {
   type ChatServerEvents,
 } from '@/lib/dis/chat';
 import type { DriverTrain } from '@/lib/dis/driver-train';
-import type { EddReply } from '@/lib/dis/edd';
+import { stationForms, type EddMessage, type EddReply, type EddSendCommand } from '@/lib/dis/edd';
 import { getStationDisplayName } from '@/lib/station/display-name';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { io, type Socket } from 'socket.io-client';
@@ -36,12 +36,20 @@ export function SessionChatView({
   driverTrain,
   contactToOpen,
   onEddReply,
+  presetMessages = [],
+  onRetryPreset,
+  onConfirmPreset,
+  onSendPreset,
 }: {
   sessionId: string;
   stationId: string;
   driverTrain?: DriverTrain | null;
   contactToOpen?: { stationId: string; request: number };
   onEddReply?: (reply: EddReply) => void;
+  presetMessages?: DisplayMessage[];
+  onRetryPreset?: (id: string) => Promise<boolean>;
+  onConfirmPreset?: (message: ChatMessage) => void;
+  onSendPreset: (command: EddSendCommand, preview: EddMessage) => Promise<boolean>;
 }) {
   const t = useTranslation();
   const { profile, canOperateStation } = useDisAuth();
@@ -55,7 +63,7 @@ export function SessionChatView({
   );
   const terminal = useRadioTerminal(voiceSocket, connected);
   const [contacts, setContacts] = useState<ChatContact[]>([globalChatContact]);
-  const [messages, setMessages] = useState<DisplayMessage[]>([]);
+  const [receivedMessages, setMessages] = useState<DisplayMessage[]>([]);
   const [target, setTarget] = useState(chatEndpointKey(globalChatContact));
   const [tabs, setTabs] = useState<ChatContact[]>([globalChatContact]);
   const [activeCall, setActiveCall] = useState<ChatContact | null>(null);
@@ -72,6 +80,13 @@ export function SessionChatView({
   const current = useRef({ expanded: expanded && !panelCollapsed, target });
   const endpointId = mode === 'station' ? stationId : profile?.userId || '';
   const endpointKey = `${mode}:${endpointId}`;
+  const messages = mergeChatMessages(
+    presetMessages.filter(
+      (message) =>
+        message.sessionId === sessionId && message.sender.id === endpointId && mode === 'station',
+    ),
+    receivedMessages,
+  );
   useEffect(() => {
     current.current = { expanded: expanded && !panelCollapsed, target };
   }, [expanded, panelCollapsed, target]);
@@ -102,6 +117,7 @@ export function SessionChatView({
       setContacts(snapshot.contacts);
       setSelfName(snapshot.self?.name || '');
       for (const message of snapshot.messages) {
+        onConfirmPreset?.(message);
         seen.current.add(message._id);
         if (message.clientMessageId) confirmed.current.add(message.clientMessageId);
       }
@@ -109,6 +125,7 @@ export function SessionChatView({
     });
     socket.on('chat:message', (message) => {
       if (!active || message.sessionId !== sessionId) return;
+      onConfirmPreset?.(message);
       const alreadySeen = seen.current.has(message._id);
       seen.current.add(message._id);
       if (message.clientMessageId) confirmed.current.add(message.clientMessageId);
@@ -160,7 +177,7 @@ export function SessionChatView({
       socket.disconnect();
       connection.current = null;
     };
-  }, [sessionId, mode, endpointId, endpointKey, profile]);
+  }, [sessionId, mode, endpointId, endpointKey, profile, onConfirmPreset]);
 
   const recipient =
     contacts.find((contact) => chatEndpointKey(contact) === target) ??
@@ -231,7 +248,13 @@ export function SessionChatView({
       }).catch(() => receipts.current.delete(message.id));
     }
   }, [conversation, mode, expanded, sessionId, stationId]);
+  const [acknowledgements, setAcknowledgements] = useState<Record<string, string>>({});
+  const acknowledging = useRef(new Set<string>());
   async function acknowledge(id: string) {
+    if (acknowledging.current.has(id)) return;
+    acknowledging.current.add(id);
+    setError('');
+    setAcknowledgements((previous) => ({ ...previous, [id]: new Date().toISOString() }));
     try {
       const result = await disFetch<{ message: NonNullable<ChatMessage['edd']> }>('/api/dis/edd', {
         method: 'POST',
@@ -243,7 +266,63 @@ export function SessionChatView({
         ),
       );
     } catch (error) {
-      setError(error instanceof Error ? error.message : 'Úkon zlyhal.');
+      setError(error instanceof Error ? error.message : '\u00dakon zlyhal.');
+    } finally {
+      acknowledging.current.delete(id);
+      setAcknowledgements((previous) => {
+        const next = { ...previous };
+        delete next[id];
+        return next;
+      });
+    }
+  }
+  const replying = useRef(new Set<string>());
+  async function replyToMessage(reply: EddReply) {
+    // Replies requiring a reason keep the existing editable composer.
+    if (reply.kind !== 'accept') {
+      onEddReply?.(reply);
+      return;
+    }
+    if (!profile || replying.current.has(reply.message.id)) return;
+    replying.current.add(reply.message.id);
+    setError('');
+    const original = reply.message;
+    playMessageSound('outgoing');
+    try {
+      await onSendPreset(
+        {
+          sessionId,
+          stationId,
+          requestId: crypto.randomUUID(),
+          toStation: original.fromStation,
+          trainNumber: original.trainNumber,
+          kind: 'accept',
+          replyToId: original.id,
+          time: original.time.slice(0, 5),
+          date: original.date,
+          text: '',
+          wholeTrainConfirmed: false,
+          ...stationForms(getStationDisplayName(stationId)),
+        },
+        {
+          ...original,
+          fromStation: stationId,
+          toStation: original.fromStation,
+          kind: 'accept',
+          replyToId: original.id,
+          operator: profile.name,
+          userId: profile.userId,
+          text: '',
+          deliveredAt: undefined,
+          acknowledgedAt: undefined,
+          acknowledgedBy: undefined,
+          deliveredOperatingTime: undefined,
+          acknowledgedOperatingTime: undefined,
+          sentOperatingTime: undefined,
+        },
+      );
+    } finally {
+      replying.current.delete(original.id);
     }
   }
   const onCallChange = useCallback(
@@ -532,14 +611,34 @@ export function SessionChatView({
               conversation.map((message) => (
                 <ChatMessageView
                   key={message._id}
-                  message={message}
-                  actionsVisible={message._id === conversation.at(-1)?._id}
-                  onRetry={() => void deliver(message)}
+                  message={
+                    message.edd && acknowledgements[message.edd.id] && !message.edd.acknowledgedAt
+                      ? {
+                          ...message,
+                          edd: {
+                            ...message.edd,
+                            acknowledgedAt: acknowledgements[message.edd.id],
+                            acknowledgedBy: profile?.name,
+                          },
+                        }
+                      : message
+                  }
+                  actionsVisible={
+                    !message._id.startsWith('pending-') &&
+                    message.delivery !== 'failed' &&
+                    message._id === conversation.at(-1)?._id
+                  }
+                  onRetry={() => {
+                    if (message.edd && message.clientMessageId && onRetryPreset)
+                      void onRetryPreset(message.clientMessageId);
+                    else void deliver(message);
+                  }}
                   stationId={mode === 'station' ? stationId : undefined}
                   onAcknowledge={(id) => void acknowledge(id)}
-                  onEddReply={onEddReply}
+                  onEddReply={(reply) => void replyToMessage(reply)}
                   offerAnswered={messages.some(
                     (reply) =>
+                      reply.delivery !== 'failed' &&
                       reply.edd?.replyToId === message.edd?.id &&
                       ['accept', 'wait', 'cancel'].includes(reply.edd?.kind || ''),
                   )}

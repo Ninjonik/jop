@@ -34,6 +34,7 @@ const Context = createContext<{
   date: string;
   openTrain: (number: string, train?: Timetable) => void;
   refresh: () => Promise<void>;
+  applyRecord: (record: EddEntry) => void;
   error: string | null;
   available: boolean;
   sessionId: string;
@@ -44,6 +45,7 @@ const Context = createContext<{
   date: '',
   openTrain: () => {},
   refresh: async () => {},
+  applyRecord: () => {},
   error: null,
   available: false,
   sessionId: '',
@@ -71,10 +73,20 @@ export function TrainWorkspace({
     [],
   );
   const enabled = !!sessionId && (active || !!number);
-  const { value, error, refresh } = useDisResource<TrafficSnapshot>(
+  const { value, error, refresh, applyConfirmed } = useDisResource<TrafficSnapshot>(
     enabled ? '/api/dis/traffic?' + new URLSearchParams({ sessionId }) : null,
     initial,
     10000,
+  );
+  const applyRecord = useCallback(
+    (record: EddEntry) => {
+      if (record.sessionId !== sessionId) return;
+      applyConfirmed((previous) => ({
+        ...previous,
+        records: [...previous.records.filter((item) => item.$id !== record.$id), record],
+      }));
+    },
+    [sessionId, applyConfirmed],
   );
   const now = useLeaseClock();
   const parts = operatingClockParts(value.clock?.offsetMinutes || 0, now);
@@ -87,13 +99,25 @@ export function TrainWorkspace({
       date: parts.date,
       openTrain,
       refresh,
+      applyRecord,
       error,
       available: !!sessionId,
       sessionId,
       stationId,
       writable,
     }),
-    [current, minute, parts.date, refresh, error, sessionId, stationId, writable, openTrain],
+    [
+      current,
+      minute,
+      parts.date,
+      refresh,
+      applyRecord,
+      error,
+      sessionId,
+      stationId,
+      writable,
+      openTrain,
+    ],
   );
   return (
     <Context.Provider value={context}>
@@ -119,7 +143,8 @@ function TrainOverview({
   fallback?: Timetable;
 }) {
   const t = useTranslation();
-  const { value, minute, error, stationId, sessionId, writable, refresh } = useTrainWorkspace();
+  const { value, minute, error, stationId, sessionId, writable, refresh, applyRecord } =
+    useTrainWorkspace();
   const { value: network } = useDisResource<NetworkSnapshot | null>(
     value.placeId
       ? '/api/dis/railway-network?' + new URLSearchParams({ placeId: value.placeId })
@@ -159,7 +184,7 @@ function TrainOverview({
     setCancelling(true);
     setCancelError('');
     try {
-      await disFetch('/api/dis/edd', {
+      const result = await disFetch<{ record: EddEntry }>('/api/dis/edd', {
         method: 'POST',
         body: JSON.stringify({
           command: 'edit',
@@ -172,7 +197,8 @@ function TrainOverview({
           reason: cancelReason,
         }),
       });
-      await refresh();
+      applyRecord(result.record);
+      void refresh();
       setCancelReason('');
     } catch (error) {
       setCancelError(error instanceof Error ? error.message : String(error));

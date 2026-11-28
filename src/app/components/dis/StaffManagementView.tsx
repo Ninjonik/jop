@@ -6,7 +6,7 @@ import { AeroIcon } from '@/app/components/ui/AeroIcon';
 import { disFetch } from '@/lib/dis/api-client';
 import type { UserProfile } from '@/lib/dis/appwrite-client';
 import { useDisAuth } from '@/lib/dis/auth-context';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 export function StaffManagementView() {
   const t = useTranslation();
@@ -19,13 +19,17 @@ export function StaffManagementView() {
   const [error, setError] = useState<string | null>(null);
   const [strikeTargetId, setStrikeTargetId] = useState('');
   const [notice, setNotice] = useState('');
+  const profileGeneration = useRef(0);
+  const saveLock = useRef(false);
 
   const loadProfiles = useCallback(async () => {
+    const generation = ++profileGeneration.current;
     try {
       setError(null);
       const res = await disFetch<{ profiles: UserProfile[] }>('/api/dis/staff');
-      setEmployees(res.profiles);
+      if (generation === profileGeneration.current) setEmployees(res.profiles);
     } catch (err: unknown) {
+      if (generation !== profileGeneration.current) return;
       setError(
         t(
           'Chyba pri načítaní personálu: {0}',
@@ -43,10 +47,12 @@ export function StaffManagementView() {
   }, [loadProfiles]);
 
   async function saveProfile() {
-    if (!canManageStaff || !editing?.$id || saving) return;
+    if (!canManageStaff || !editing?.$id || saveLock.current) return;
+    saveLock.current = true;
+    setError(null);
     setSaving(true);
     try {
-      await disFetch('/api/dis/staff', {
+      const result = await disFetch<{ profile: UserProfile }>('/api/dis/staff', {
         method: 'POST',
         body: JSON.stringify({
           id: editing.$id,
@@ -55,12 +61,16 @@ export function StaffManagementView() {
           notes: editing.notes || '',
         }),
       });
-      await loadProfiles();
+      profileGeneration.current++;
+      setEmployees((previous) =>
+        previous.map((person) => (person.$id === result.profile.$id ? result.profile : person)),
+      );
       setNotice(`Hodnotenie a sankcie pre ${editing.name} boli uložené.`);
       setEditing(null);
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Profil sa nepodarilo uložiť.');
     } finally {
+      saveLock.current = false;
       setSaving(false);
     }
   }

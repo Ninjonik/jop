@@ -7,7 +7,10 @@ import { useLocale, useLocaleTag, useTranslation } from '@/lib/i18n/client';
 import { getStationDisplayName } from '@/lib/station/display-name';
 import { useTrainWorkspace } from './TrainWorkspace';
 
-export type DisplayMessage = ChatMessage & { delivery?: 'sending' | 'failed' };
+export type DisplayMessage = ChatMessage & {
+  delivery?: 'sending' | 'failed';
+  deliveryError?: string;
+};
 
 export function ChatMessageView({
   message,
@@ -108,7 +111,8 @@ export function ChatMessageView({
       {edd && (
         <div className="chat-operating-actions">
           <small>
-            {t(edd.acknowledgedAt ? 'Potvrdené' : edd.deliveredAt ? 'Doručené' : 'Odoslané')}
+            {message.delivery !== 'failed' &&
+              t(edd.acknowledgedAt ? 'Potvrdené' : edd.deliveredAt ? 'Doručené' : 'Odoslané')}
             {edd.acknowledgedBy ? ' · ' + edd.acknowledgedBy : ''}
           </small>
           {edd.acknowledgedAt && (
@@ -189,13 +193,13 @@ export function ChatMessageView({
           )}
         </div>
       )}
-      {message.delivery === 'sending' && (
-        <span className="ml-2 text-[var(--aero-text-muted)]">{t('Odosielam…')}</span>
-      )}
       {message.delivery === 'failed' && (
-        <button type="button" className="aero-btn ml-2" onClick={onRetry}>
-          <AeroIcon name="refresh" /> {t('Odoslať znova')}{' '}
-        </button>
+        <>
+          {message.deliveryError && <span role="alert">{t(message.deliveryError)}</span>}
+          <button type="button" className="aero-btn ml-2" onClick={onRetry}>
+            <AeroIcon name="refresh" /> {t('Odoslať znova')}{' '}
+          </button>
+        </>
       )}
     </div>
   );

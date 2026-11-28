@@ -12,12 +12,12 @@ export function LineEditor({
   stations,
   onChange,
 }: {
-  onChange?: () => Promise<void>;
+  onChange?: (line: RailwayLine | null, id: string) => void;
   placeId: string;
   stations: { stationId: string; name: string }[];
 }) {
   const t = useTranslation();
-  const { value, error, refresh } = useDisResource<{ lines: RailwayLine[] }>(
+  const { value, error, refresh, applyConfirmed } = useDisResource<{ lines: RailwayLine[] }>(
     `/api/dis/lines?${new URLSearchParams({ placeId })}`,
     { lines: [] },
   );
@@ -29,12 +29,19 @@ export function LineEditor({
     setBusy(true);
     setNotice('');
     try {
-      await disFetch('/api/dis/lines', {
+      const result = await disFetch<{ line?: RailwayLine }>('/api/dis/lines', {
         method: remove ? 'DELETE' : 'POST',
         body: JSON.stringify(draft),
       });
-      await refresh();
-      await onChange?.();
+      const saved = result.line || null;
+      applyConfirmed((previous) => ({
+        lines: [
+          ...previous.lines.filter((line) => line.id !== draft.id),
+          ...(saved ? [saved] : []),
+        ].sort((a, b) => a.name.localeCompare(b.name)),
+      }));
+      onChange?.(saved, draft.id);
+      void refresh();
       setDraft(null);
     } catch (error) {
       setNotice(error instanceof Error ? error.message : 'Trať sa nepodarilo uložiť.');

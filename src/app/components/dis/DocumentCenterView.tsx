@@ -20,6 +20,7 @@ export function DocumentCenterView() {
     error: loadError,
     loading,
     refresh,
+    applyConfirmed,
   } = useDisResource<{ documents: DisDocument[] }>('/api/dis/documents', { documents: [] });
   const [selectedId, setSelectedId] = useState('');
   const [draft, setDraft] = useState<Partial<DisDocument> | null>(null);
@@ -44,7 +45,14 @@ export function DocumentCenterView() {
           isPublished: !!draft.isPublished,
         }),
       });
-      await refresh();
+      applyConfirmed((previous) => ({
+        documents: previous.documents.some((document) => document.$id === result.document.$id)
+          ? previous.documents.map((document) =>
+              document.$id === result.document.$id ? result.document : document,
+            )
+          : [...previous.documents, result.document],
+      }));
+      void refresh();
       setSelectedId(result.document.$id);
       setDraft(null);
     } catch (error) {
