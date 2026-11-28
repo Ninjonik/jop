@@ -3,6 +3,11 @@ import { ShiftManagementView } from '@/app/components/dis/ShiftManagementView';
 import { ShiftPlanView } from '@/app/components/dis/ShiftPlanView';
 import { StaffManagementView } from '@/app/components/dis/StaffManagementView';
 import {
+  ActionFeedback,
+  DispatcherFeedbackProvider,
+  DispatcherFeedbackStatus,
+} from '@/app/components/ui/DispatcherFeedback';
+import {
   Window,
   type HTMLButtonElement as TestButton,
   type HTMLSelectElement as TestSelect,
@@ -297,7 +302,8 @@ test('attendance changes immediately, locks only that row and rolls back with it
   );
   assert.equal(selects[0].value, 'registered');
   assert.equal(selects[0].disabled, false);
-  assert.match(selects[0].closest('td')!.textContent, /Attendance rejected/);
+  assert.match(view.window.document.body.textContent, /one: Attendance rejected/);
+  assert.equal(selects[0].getAttribute('aria-invalid'), 'true');
 });
 
 test('assignment uses a local selection, keeps the confirmed plan untouched and restores on rejection', async (context) => {
@@ -345,7 +351,8 @@ test('assignment uses a local selection, keeps the confirmed plan untouched and 
   assert.equal(select.value, '');
   assert.equal(select.disabled, false);
   assert.equal(commits.length, 0);
-  assert.match(view.container.textContent, /Already assigned elsewhere/);
+  assert.match(view.window.document.body.textContent, /Already assigned elsewhere/);
+  assert.doesNotMatch(view.container.textContent, /Already assigned elsewhere/);
 });
 
 test('document save finishes from its response while list refresh is still pending, and a refresh failure keeps the save', async (context) => {
@@ -396,7 +403,10 @@ test('document save finishes from its response while list refresh is still pendi
     refresh.resolve(Response.json({ error: 'Refresh unavailable' }, { status: 503 })),
   );
   assert.match(view.container.textContent, /Confirmed title/);
-  assert.match(view.container.querySelector('[role="alert"]')!.textContent, /Refresh unavailable/);
+  assert.match(
+    view.window.document.body.querySelector('[role="alert"]')!.textContent,
+    /Refresh unavailable/,
+  );
 });
 
 test('staff assessment uses the confirmed profile and closes the dialog without another staff fetch', async (context) => {
@@ -438,4 +448,58 @@ test('staff assessment uses the confirmed profile and closes the dialog without 
   assert.equal(view.container.querySelector('dialog'), null);
   assert.equal(reads, 1);
   assert.match(view.container.querySelector('tbody')!.textContent, /2/);
+});
+
+test('action feedback updates the shared status area without inserting content into the workspace', async (context) => {
+  let message = '';
+  let error = false;
+  const view = await mountHook(
+    context,
+    () => null,
+    () =>
+      createElement(
+        DispatcherFeedbackProvider,
+        null,
+        createElement(
+          'main',
+          { id: 'workspace' },
+          'Controls',
+          createElement(ActionFeedback, { message, error }),
+        ),
+        createElement('footer', null, createElement(DispatcherFeedbackStatus)),
+      ),
+  );
+  const workspace = view.container.querySelector('main')!;
+  const original = workspace.innerHTML;
+  message = 'Saved';
+  await view.render();
+  assert.equal(workspace.innerHTML, original);
+  assert.equal(view.container.querySelector('footer')!.textContent, 'Saved');
+  message = 'Save rejected';
+  error = true;
+  await view.render();
+  assert.equal(workspace.innerHTML, original);
+  assert.equal(view.container.querySelector('footer')!.textContent, 'Save rejected');
+  assert.equal(
+    view.container.querySelector('.dispatcher-feedback')!.getAttribute('data-error'),
+    'true',
+  );
+  assert.equal(view.window.document.querySelector('.runtime-feedback'), null);
+});
+
+test('standalone feedback is placed outside the workspace as a fixed feedback area', async (context) => {
+  let message = '';
+  const view = await mountHook(
+    context,
+    () => null,
+    () => createElement('main', null, 'Controls', createElement(ActionFeedback, { message })),
+  );
+  const original = view.container.innerHTML;
+  message = 'Saved';
+  await view.render();
+  assert.equal(view.container.innerHTML, original);
+  assert.equal(view.window.document.body.querySelector('.runtime-feedback')!.textContent, 'Saved');
+  message = '';
+  await view.render();
+  assert.equal(view.window.document.body.querySelector('.runtime-feedback'), null);
 });

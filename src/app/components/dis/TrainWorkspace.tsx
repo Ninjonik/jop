@@ -1,4 +1,5 @@
 'use client';
+import { ActionFeedback } from '@/app/components/ui/DispatcherFeedback';
 import { disFetch } from '@/lib/dis/api-client';
 import type { SessionClockSnapshot } from '@/lib/dis/clock';
 import { operatingClockParts } from '@/lib/dis/clock';
@@ -223,7 +224,7 @@ function TrainOverview({
       onClose={onClose}
     >
       <div className="train-overview-body">
-        {error && <p role="alert">{t(error)}</p>}
+        <ActionFeedback message={t(error)} error />
         {matches.length > 1 && (
           <label>
             {t('Cestovný poriadok')}
@@ -455,7 +456,7 @@ function TrainOverview({
                     {t(own.cancellation ? 'Obnoviť vlak' : 'Zrušiť vlak')}
                   </button>
                 </form>
-                {cancelError && <p role="alert">{t(cancelError)}</p>}
+                <ActionFeedback message={t(cancelError)} error />
               </details>
             )}
           </>

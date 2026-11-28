@@ -1,4 +1,5 @@
 'use client';
+import { ActionFeedback } from '@/app/components/ui/DispatcherFeedback';
 import { ResizablePanel, useResizablePanel } from '@/app/components/ui/ResizablePanel';
 import { apiOrigin } from '@/lib/api-client';
 import { canPublishAnnouncements } from '@/lib/dis/permissions';
@@ -581,11 +582,7 @@ export function SessionChatView({
               onCallChange={onCallChange}
             />
           </div>
-          {error && (
-            <p role="alert" className="text-red-700">
-              {t(error)}
-            </p>
-          )}
+          <ActionFeedback message={t(error)} error />
           {!endpointId && <p>{t('Pre staničnú komunikáciu najprv vyberte stanicu.')}</p>}
           <div
             className="session-chat-log"

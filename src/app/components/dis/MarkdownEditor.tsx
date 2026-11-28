@@ -1,4 +1,5 @@
 'use client';
+import { ActionFeedback } from '@/app/components/ui/DispatcherFeedback';
 import { useLocaleTag, useTranslation } from '@/lib/i18n/client';
 
 import { AeroIcon } from '@/app/components/ui/AeroIcon';
@@ -238,16 +239,8 @@ export function MarkdownEditor({
           {value.length.toLocaleString(localeTag)} / 50 000
         </span>
       </div>
-      {error && (
-        <p role="alert" className="border-b border-red-200 bg-red-50 p-2 text-red-700">
-          {t(error)}
-        </p>
-      )}
-      {t(uploading) && (
-        <p role="status" className="p-2">
-          {t(uploading)}
-        </p>
-      )}
+      <ActionFeedback message={t(error)} error />
+      <ActionFeedback message={t(uploading)} />
       {dragging && (
         <div className="border-2 border-dashed border-[var(--btn-hover-border)] bg-[var(--grid-row-selected-top)] p-4 text-center">
           {' '}

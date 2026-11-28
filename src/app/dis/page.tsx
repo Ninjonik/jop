@@ -7,6 +7,7 @@ import { EddMessageComposer } from '@/app/components/dis/EddMessageComposer';
 import { SettingsView } from '@/app/components/dis/SettingsView';
 import { StationSelectionView } from '@/app/components/dis/StationSelectionView';
 import {
+  ActionFeedback,
   DispatcherFeedbackProvider,
   DispatcherFeedbackStatus,
 } from '@/app/components/ui/DispatcherFeedback';
@@ -596,23 +597,22 @@ function DisPortalShell() {
             )}
           </div>
         )}
-        {activeTab !== 'preparation' && t(placesError) && (
-          <p role="alert" className="p-2 text-red-700">
-            {' '}
-            {t('Siete sa nepodarilo načítať:')} {t(placesError)}
-          </p>
-        )}
-        {activeTab !== 'preparation' && !places.placesComplete && (
-          <p role="status" className="p-2">
-            {' '}
-            {t('Roblox nie je dostupný; zobrazené sú uložené siete.')}{' '}
-          </p>
-        )}
-        {activeTab !== 'preparation' && t(networkError) && (
-          <p role="alert" className="p-2 text-red-700">
-            {t(networkError)}
-          </p>
-        )}
+        <ActionFeedback
+          message={
+            activeTab !== 'preparation' && placesError
+              ? `${t('Siete sa nepodarilo na\u010d\u00edta\u0165:')} ${t(placesError)}`
+              : null
+          }
+          error
+        />
+        <ActionFeedback
+          message={
+            activeTab !== 'preparation' && !places.placesComplete
+              ? t('Roblox nie je dostupn\u00fd; zobrazen\u00e9 s\u00fa ulo\u017een\u00e9 siete.')
+              : null
+          }
+        />
+        <ActionFeedback message={activeTab !== 'preparation' ? t(networkError) : null} error />
         <div className="workspace min-h-0">
           <main className="content-panel min-h-0 min-w-0">
             {!workingMode ? (

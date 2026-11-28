@@ -1,4 +1,5 @@
 'use client';
+import { ActionFeedback } from '@/app/components/ui/DispatcherFeedback';
 import { useLocaleTag, useTranslation } from '@/lib/i18n/client';
 
 import { AeroAutocomplete, type AutocompleteOption } from '@/app/components/ui/AeroAutocomplete';
@@ -81,11 +82,7 @@ export function RadioDockView({
         </span>
         <span className="text-[var(--aero-text-muted)]">{t('Hlásenia a rozkazy')}</span>
       </div>
-      {(error || loadError) && (
-        <p role="alert" className="p-2 text-red-700">
-          {t(error) || t(loadError)}
-        </p>
-      )}
+      <ActionFeedback message={t(error) || t(loadError)} error />
       <div className="radio-messages" aria-live="polite">
         {value.messages.length === 0 && <p>{t('Žiadne uložené hlásenia v relácii.')}</p>}
         {value.messages.map((message) => (

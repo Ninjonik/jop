@@ -2244,3 +2244,24 @@ button:disabled > .aero-icon {
   color: var(--aero-text);
   z-index: 50;
 }
+
+/* Feedback occupies stable chrome or a reserved dialog slot, never a new content row. */
+.dialog-feedback {
+  block-size: 3lh;
+  margin: 0;
+  overflow: auto;
+  color: var(--aero-text);
+}
+.dialog-feedback[data-error] {
+  font-weight: 600;
+}
+.dialog-feedback-status {
+  display: flex;
+  flex: none;
+  height: 24px;
+  min-height: 24px;
+  padding: 3px 8px;
+  overflow: hidden;
+  border-top: 1px solid var(--aero-panel-border);
+  background: var(--status-bg);
+}

@@ -1,4 +1,5 @@
 'use client';
+import { ActionFeedback } from '@/app/components/ui/DispatcherFeedback';
 import { disFetch } from '@/lib/dis/api-client';
 import type { RailwayLine } from '@/lib/dis/lines';
 import { useDisResource } from '@/lib/dis/use-dis-resource';
@@ -52,7 +53,7 @@ export function LineEditor({
   return (
     <details className="gvd-section" open>
       <summary>{t('Trate a poradie staníc')}</summary>
-      {(error || notice) && <p role="alert">{t(error || notice)}</p>}
+      <ActionFeedback message={t(error || notice)} error />
       <div className="ribbon-bar flex-wrap">
         {value.lines.map((line) => (
           <button className="aero-btn" key={line.id} disabled={busy} onClick={() => setDraft(line)}>

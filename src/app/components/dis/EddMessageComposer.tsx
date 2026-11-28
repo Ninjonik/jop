@@ -1,5 +1,6 @@
 'use client';
 import { AeroIcon } from '@/app/components/ui/AeroIcon';
+import { ActionFeedback } from '@/app/components/ui/DispatcherFeedback';
 import { useResizablePanel } from '@/app/components/ui/ResizablePanel';
 import { useDisAuth } from '@/lib/dis/auth-context';
 import { operatingClockParts } from '@/lib/dis/clock';
@@ -140,11 +141,7 @@ export function EddMessageComposer({
 
   return (
     <div className="edd-global-composer">
-      {(error || loadError || clockError) && (
-        <p className="edd-error" role="alert">
-          {t(error || loadError || clockError)}
-        </p>
-      )}
+      <ActionFeedback message={t(error || loadError || clockError)} error />
       <section className="edd-presets">
         <div className="edd-toolbar">
           <strong>{t('Dopravné správy')}</strong>

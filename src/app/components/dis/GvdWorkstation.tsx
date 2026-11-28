@@ -1,4 +1,5 @@
 'use client';
+import { ActionFeedback } from '@/app/components/ui/DispatcherFeedback';
 import { disFetch } from '@/lib/dis/api-client';
 import { useDisAuth } from '@/lib/dis/auth-context';
 import { newPlanning } from '@/lib/dis/gvd-planning';
@@ -679,16 +680,8 @@ function GvdWorkspace({ place, sessionId }: { place: Place; sessionId: string })
           </div>
         </ResizablePanel>
         <main className="gvd-main-workspace">
-          {(error || loadError) && (
-            <div className="gvd-message error" role="alert">
-              {t(error || loadError)}
-            </div>
-          )}
-          {notice && (
-            <div className="gvd-message" role="status">
-              {t(notice)}
-            </div>
-          )}
+          <ActionFeedback message={t(error || loadError)} error />
+          <ActionFeedback message={t(notice)} />
           {recovery && (
             <div className="gvd-message gvd-action-row">
               {t('Je dostupný neuložený návrh.')}
@@ -1214,7 +1207,7 @@ function GvdWorkspace({ place, sessionId }: { place: Place; sessionId: string })
           <button className="aero-btn" onClick={applyTool}>
             {t('Pripraviť návrh')}
           </button>
-          {error && <p role="alert">{error}</p>}
+          <ActionFeedback message={error} error />
         </GvdDialog>
       )}
     </>

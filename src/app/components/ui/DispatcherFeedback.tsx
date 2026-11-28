@@ -1,6 +1,7 @@
 'use client';
 
-import { createContext, useContext, useState, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 
 export type DispatcherFeedback = { message: string; error: boolean };
 const FeedbackContext = createContext<{
@@ -34,5 +35,31 @@ export function DispatcherFeedbackStatus() {
     >
       {context?.feedback?.message}
     </span>
+  );
+}
+
+/** Action feedback uses the existing status bar without taking workspace space. */
+export function ActionFeedback({
+  message,
+  error = false,
+}: {
+  message: string | null | undefined;
+  error?: boolean;
+}) {
+  const setFeedback = useDispatcherFeedback()?.setFeedback;
+  useEffect(() => {
+    if (message && setFeedback) setFeedback({ message, error });
+  }, [message, error, setFeedback]);
+  if (setFeedback || !message) return null;
+  return createPortal(
+    <div
+      className="runtime-feedback"
+      role={error ? 'alert' : 'status'}
+      aria-atomic="true"
+      data-error={error || undefined}
+    >
+      {message}
+    </div>,
+    document.body,
   );
 }

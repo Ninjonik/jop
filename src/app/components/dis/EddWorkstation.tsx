@@ -1,5 +1,6 @@
 'use client';
 import { AeroIcon } from '@/app/components/ui/AeroIcon';
+import { ActionFeedback } from '@/app/components/ui/DispatcherFeedback';
 import { disFetch } from '@/lib/dis/api-client';
 import { useDisAuth } from '@/lib/dis/auth-context';
 import { operatingClockParts } from '@/lib/dis/clock';
@@ -209,16 +210,8 @@ export function EddWorkstation({
         )}
         <span className="edd-muted">{t('Vlaky z GVD sa načítavajú automaticky.')}</span>
       </div>
-      {(error || loadError || clockError) && (
-        <p className="edd-error" role="alert">
-          {t(error || loadError || clockError)}
-        </p>
-      )}
-      {notice && (
-        <p className="edd-notice" role="status">
-          {t(notice)}
-        </p>
-      )}
+      <ActionFeedback message={t(error || loadError || clockError)} error />
+      <ActionFeedback message={t(notice)} />
       {creating && (
         <form
           className="edd-toolbar"

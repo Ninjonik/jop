@@ -1,4 +1,5 @@
 'use client';
+import { ActionFeedback } from '@/app/components/ui/DispatcherFeedback';
 import { useLeaseClock } from '@/lib/dis/use-lease-clock';
 import { useTranslation } from '@/lib/i18n/client';
 import { BookletTimetable } from './BookletTimetable';
@@ -128,11 +129,7 @@ export function DriverDashboardView({
           </button>
         )}
       </div>
-      {(error || loadError) && (
-        <p role="alert" className="text-red-700">
-          {t(error) || t(loadError)}
-        </p>
-      )}
+      <ActionFeedback message={t(error) || t(loadError)} error />
       <div
         className="flex flex-wrap items-center gap-3 border border-[var(--aero-panel-border)] bg-[var(--grid-row-alt)] p-2 text-[var(--aero-text)]"
         role="status"

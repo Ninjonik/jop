@@ -195,7 +195,9 @@ export function EddTrainEntry({
           </strong>
         )}
       </div>
-      {error && <p role="alert">{t(error)}</p>}
+      <p className="dialog-feedback" role="alert" data-error={!!error || undefined}>
+        {t(error)}
+      </p>
     </div>
   );
 }

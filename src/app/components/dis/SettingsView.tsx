@@ -1,4 +1,5 @@
 'use client';
+import { ActionFeedback } from '@/app/components/ui/DispatcherFeedback';
 import {
   audioCaptureSettings,
   setBrowserSettings,
@@ -225,7 +226,7 @@ export function SettingsView() {
         </div>
         <VoiceLevelMeter key={track?.id || 'test'} label={t('Mikrofón')} track={track} />
         <p>{t('Test mikrofónu sa neodosiela ostatným účastníkom. Po teste ho zastavte.')}</p>
-        {notice && <p role="status">{t(notice)}</p>}
+        <ActionFeedback message={t(notice)} />
       </fieldset>
     </section>
   );

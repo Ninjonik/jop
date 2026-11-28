@@ -1,4 +1,5 @@
 'use client';
+import { ActionFeedback } from '@/app/components/ui/DispatcherFeedback';
 import { disFetch } from '@/lib/dis/api-client';
 import { parseCompactClock } from '@/lib/dis/gvd-running-times';
 import { applyMeasuredRoute } from '@/lib/dis/gvd-simple';
@@ -134,7 +135,7 @@ export function GvdRouteTemplates({
           {t('Uložiť šablónu')}
         </button>
       </fieldset>
-      {message && <p role="status">{t(message)}</p>}
+      <ActionFeedback message={t(message)} />
       <LineEditor placeId={placeId} stations={stations} onChange={onSaved} />
     </div>
   );

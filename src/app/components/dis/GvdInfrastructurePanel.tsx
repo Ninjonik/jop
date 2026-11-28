@@ -1,4 +1,5 @@
 'use client';
+import { ActionFeedback } from '@/app/components/ui/DispatcherFeedback';
 import { disFetch } from '@/lib/dis/api-client';
 import type { RailwayLine } from '@/lib/dis/lines';
 import { railwayLineSchema } from '@/lib/dis/lines';
@@ -498,7 +499,7 @@ export function GvdInfrastructurePanel({
           {t('Uložiť technické údaje trate')}
         </button>
       </div>
-      {notice && <p role="status">{t(notice)}</p>}
+      <ActionFeedback message={t(notice)} />
     </fieldset>
   );
 }

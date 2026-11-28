@@ -1,4 +1,5 @@
 'use client';
+import { ActionFeedback } from '@/app/components/ui/DispatcherFeedback';
 import { useTranslation } from '@/lib/i18n/client';
 import { getStationDisplayName } from '@/lib/station/display-name';
 
@@ -142,12 +143,8 @@ export function ShiftPlanView({
           </button>
         )}
       </div>
-      {(error || places.error || staff.error || timetables.error) && (
-        <p role="alert" className="text-red-700">
-          {t(error || places.error || staff.error || timetables.error)}
-        </p>
-      )}
-      {message && <p role="status">{t(message)}</p>}
+      <ActionFeedback message={t(error || places.error || staff.error || timetables.error)} error />
+      <ActionFeedback message={t(message)} />
       {editing && (
         <form
           className="flex flex-col gap-2"

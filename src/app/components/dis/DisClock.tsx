@@ -1,4 +1,5 @@
 'use client';
+import { ActionFeedback } from '@/app/components/ui/DispatcherFeedback';
 import { disFetch } from '@/lib/dis/api-client';
 import { operatingClockParts } from '@/lib/dis/clock';
 import { useSessionClock } from '@/lib/dis/use-session-clock';
@@ -67,7 +68,7 @@ export function DisClock({
             {t('Posun času')}
           </button>
         )}
-        {error && <small role="status">{t('Čas sa nepodarilo overiť.')}</small>}
+        <ActionFeedback message={error ? t('Čas sa nepodarilo overiť.') : null} error />
       </div>
       {open && (
         <GvdDialog
@@ -124,7 +125,7 @@ export function DisClock({
               {t('Použiť reálny čas')}
             </button>
           </div>
-          {failure && <p role="alert">{t(failure)}</p>}
+          <ActionFeedback message={t(failure)} error />
         </GvdDialog>
       )}
     </>

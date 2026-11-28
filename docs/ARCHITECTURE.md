@@ -1148,3 +1148,11 @@ station/train ownership or changes controller/designer/linker behavior.
 `src/lib/dis/__tests__/ui-response.test.ts` runs React in a simulated DOM to verify
 message ordering/retry, stale-read protection, scope changes, attendance/assignment
 rollback, and confirmed document/staff saves without dependent reload waits.
+
+Transient DIS action/save/load notices use `ActionFeedback` to publish into the existing
+fixed-height dispatcher status bar. Standalone screens use a fixed bottom-right
+feedback area. These notices render no workspace row and therefore do not displace
+controls or tables. GVD dialogs provide their own fixed-height feedback footer;
+native personnel/audio dialogs reserve an internally scrollable validation slot.
+Field validation, failed-message retry controls and persistent operational status
+remain contextual. Controller/designer/linker implementations are unchanged.

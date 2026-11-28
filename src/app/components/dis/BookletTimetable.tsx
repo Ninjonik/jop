@@ -1,4 +1,5 @@
 'use client';
+import { ActionFeedback } from '@/app/components/ui/DispatcherFeedback';
 import { bookletRows } from '@/lib/dis/booklet';
 import { printBooklet } from '@/lib/dis/print-booklet';
 import { type RailwayNetwork } from '@/lib/dis/railway-network';
@@ -84,7 +85,7 @@ export function BookletTimetable({
           {t('Náhľad A4')}
         </button>
       </div>
-      {error && <p role="alert">{error}</p>}
+      <ActionFeedback message={error} error />
       <div className="zcp-paper">
         <h1>
           {timetable.trainType} {timetable.trainNumber} {meta?.carrier || 'ZSSK'}

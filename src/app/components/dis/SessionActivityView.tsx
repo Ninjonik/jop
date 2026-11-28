@@ -1,5 +1,6 @@
 'use client';
 import { AeroIcon } from '@/app/components/ui/AeroIcon';
+import { ActionFeedback } from '@/app/components/ui/DispatcherFeedback';
 import { useDisResource } from '@/lib/dis/use-dis-resource';
 import { useLocaleTag, useTranslation } from '@/lib/i18n/client';
 import { getStationDisplayName } from '@/lib/station/display-name';
@@ -44,11 +45,7 @@ export function SessionActivityView({ sessionId }: { sessionId: string }) {
           'Čas je zaznamenaný serverom. Potvrdenie klienta označuje spracovanie snímky v prehliadači, nie meranie vykreslenia obrazovky.',
         )}
       </p>
-      {error && (
-        <p role="alert" className="p-2">
-          {t(error)}
-        </p>
-      )}
+      <ActionFeedback message={t(error)} error />
       {loading && <p className="p-2">{t('Načítavam denník...')}</p>}
       {!loading && !value.entries.length && (
         <p className="p-2">{t('Zatiaľ nie sú zaznamenané udalosti.')}</p>

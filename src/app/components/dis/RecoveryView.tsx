@@ -1,4 +1,5 @@
 'use client';
+import { ActionFeedback } from '@/app/components/ui/DispatcherFeedback';
 import { useTranslation } from '@/lib/i18n/client';
 import { SessionActivityView } from './SessionActivityView';
 
@@ -90,7 +91,7 @@ export function RecoveryView({
         </select>
       </label>
       {!sessionId && <p>{t('Najprv vyberte reláciu.')}</p>}
-      {message && <p role="status">{t(message)}</p>}
+      <ActionFeedback message={t(message)} />
       <div className="grid gap-3 md:grid-cols-3">
         {actions.map((action) => (
           <section

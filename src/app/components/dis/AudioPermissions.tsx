@@ -164,7 +164,9 @@ export function AudioPermissions({ sessionId }: { sessionId: string }) {
                 {t('Zastaviť zvuk')}
               </button>
             </div>
-            {notice && <p role="status">{t(notice)}</p>}
+            <p className="dialog-feedback" role="status">
+              {t(notice)}
+            </p>
             <p>
               {t(
                 'Ak je mikrofón zablokovaný: v prehliadači otvorte povolenia tejto stránky a povoľte mikrofón. V nainštalovanej aplikácii skontrolujte aj systémové nastavenia súkromia mikrofónu a prístup pre desktopové aplikácie. Potom sa vráťte a kliknite na Povoliť mikrofón.',

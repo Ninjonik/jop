@@ -1,5 +1,6 @@
 'use client';
 import { AeroIcon } from '@/app/components/ui/AeroIcon';
+import { ActionFeedback } from '@/app/components/ui/DispatcherFeedback';
 import { reportAudioPermissionError } from '@/lib/dis/audio-permissions';
 import { audioCaptureSettings } from '@/lib/dis/browser-settings';
 import type { ChatClientEvents, ChatServerEvents } from '@/lib/dis/chat';
@@ -235,7 +236,7 @@ export function EmergencyAudio({
           {t('Povoliť zvuk')}
         </button>
       )}
-      {notice && <span role="status">{t(notice)}</span>}
+      <ActionFeedback message={t(notice)} />
     </div>
   );
 }

@@ -1,4 +1,5 @@
 'use client';
+import { ActionFeedback } from '@/app/components/ui/DispatcherFeedback';
 import { useTranslation } from '@/lib/i18n/client';
 
 import { AeroIcon } from '@/app/components/ui/AeroIcon';
@@ -187,19 +188,8 @@ export function StaffManagementView() {
           </span>
         </div>
       )}
-      {notice && (
-        <p
-          role="status"
-          className="border-b border-[var(--aero-panel-border)] bg-[var(--status-bg)] px-3 py-2"
-        >
-          {t(notice)}
-        </p>
-      )}
-      {error && !editing && (
-        <div className="bg-red-50 border-b border-red-200 px-3 py-1.5 text-xs text-red-700">
-          {t(error)}
-        </div>
-      )}
+      <ActionFeedback message={t(notice)} />
+      <ActionFeedback message={!editing ? t(error) : null} error />
 
       {editing && canManageStaff && (
         <dialog
@@ -243,11 +233,9 @@ export function StaffManagementView() {
                 {t(roleTitleMap[editing.role]) || editing.role}
                 {editing.robloxRoleName && ` · Roblox: ${editing.robloxRoleName}`}
               </p>
-              {error && (
-                <p role="alert" className="border border-red-200 bg-red-50 p-2 text-red-700">
-                  {t(error)}
-                </p>
-              )}
+              <p role="alert" className="dialog-feedback" data-error={!!error || undefined}>
+                {t(error)}
+              </p>
               <label className="grid gap-1">
                 {' '}
                 {t('Fáza výcviku')}{' '}

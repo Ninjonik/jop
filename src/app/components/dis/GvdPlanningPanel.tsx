@@ -1,4 +1,5 @@
 'use client';
+import { ActionFeedback } from '@/app/components/ui/DispatcherFeedback';
 import { disFetch } from '@/lib/dis/api-client';
 import {
   estimated750,
@@ -439,7 +440,7 @@ export function GvdPlanningPanel({
             </p>
           </>
         )}
-        {notice && <p role="status">{t(notice)}</p>}
+        <ActionFeedback message={t(notice)} />
       </fieldset>
     </div>
   );

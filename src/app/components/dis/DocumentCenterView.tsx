@@ -1,4 +1,5 @@
 'use client';
+import { ActionFeedback } from '@/app/components/ui/DispatcherFeedback';
 import { useLocaleTag, useTranslation } from '@/lib/i18n/client';
 
 import { AeroIcon } from '@/app/components/ui/AeroIcon';
@@ -80,11 +81,7 @@ export function DocumentCenterView() {
           </button>
         )}
       </div>
-      {(error || loadError) && (
-        <p role="alert" className="p-2 text-red-700">
-          {t(error) || t(loadError)}
-        </p>
-      )}
+      <ActionFeedback message={t(error) || t(loadError)} error />
       <div className="flex flex-1 overflow-hidden">
         <ResizablePanel id="documents" title={t('Dokumenty')} edge="left" defaultSize={240}>
           <div className="bg-[var(--grid-row-alt)] p-2">

@@ -1,4 +1,5 @@
 'use client';
+import { ActionFeedback } from '@/app/components/ui/DispatcherFeedback';
 import { audioCaptureSettings } from '@/lib/dis/browser-settings';
 import type { RadioNormalCall as Call, RadioTerminalState } from '@/lib/dis/radio';
 import { voiceReconnectPolicy } from '@/lib/reconnect';
@@ -328,7 +329,7 @@ export function VoiceCall({
           {t('Povoliť zvuk')}
         </button>
       )}
-      {notice && <span role="status">{t(notice)}</span>}
+      <ActionFeedback message={t(notice)} />
     </div>
   );
 }

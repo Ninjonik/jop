@@ -1,4 +1,8 @@
 'use client';
+import {
+  DispatcherFeedbackProvider,
+  DispatcherFeedbackStatus,
+} from '@/app/components/ui/DispatcherFeedback';
 import { useTranslation } from '@/lib/i18n/client';
 import { useEffect, useRef, type ReactNode } from 'react';
 export function GvdDialog({
@@ -65,7 +69,12 @@ export function GvdDialog({
             {t('Zavrieť')}
           </button>
         </header>
-        {children}
+        <DispatcherFeedbackProvider>
+          {children}
+          <div className="dialog-feedback-status">
+            <DispatcherFeedbackStatus />
+          </div>
+        </DispatcherFeedbackProvider>
       </section>
     </div>
   );

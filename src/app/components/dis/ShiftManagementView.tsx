@@ -1,4 +1,5 @@
 'use client';
+import { ActionFeedback } from '@/app/components/ui/DispatcherFeedback';
 import { useTranslation } from '@/lib/i18n/client';
 
 import { AeroIcon } from '@/app/components/ui/AeroIcon';
@@ -258,11 +259,7 @@ export function ShiftManagementView() {
           )}
         </div>
       )}
-      {error && (
-        <p role="alert" className="text-red-700">
-          {t(error)}
-        </p>
-      )}
+      <ActionFeedback message={t(error)} error />
       {canManageStaff && (
         <form onSubmit={createShift} className="flex flex-wrap gap-2 items-center">
           <input
@@ -388,6 +385,12 @@ export function ShiftManagementView() {
                           className="aero-select"
                           disabled={attendanceEdits[booking.$id] !== undefined}
                           value={attendanceEdits[booking.$id] ?? booking.attendance}
+                          aria-invalid={!!attendanceErrors[booking.$id] || undefined}
+                          title={
+                            attendanceErrors[booking.$id]
+                              ? t(attendanceErrors[booking.$id])
+                              : undefined
+                          }
                           onChange={(event) =>
                             manage('attendance', booking.$id, event.target.value)
                           }
@@ -398,9 +401,14 @@ export function ShiftManagementView() {
                             </option>
                           ))}
                         </select>
-                        {attendanceErrors[booking.$id] && (
-                          <p role="alert">{t(attendanceErrors[booking.$id])}</p>
-                        )}
+                        <ActionFeedback
+                          message={
+                            attendanceErrors[booking.$id]
+                              ? `${booking.userName}: ${t(attendanceErrors[booking.$id])}`
+                              : null
+                          }
+                          error
+                        />
                       </>
                     ) : (
                       t(booking.attendance)
